@@ -1,0 +1,26 @@
+# backend/Dockerfile.dev
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Ставим системные пакеты (нужны для сборки некоторых либ и отладки)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libmagic1 \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Зависимости
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Код НЕ копируем, он будет прокинут через volumes в docker-compose
+# Порт
+EXPOSE 8000
+
+# Запуск с Hot Reload
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]

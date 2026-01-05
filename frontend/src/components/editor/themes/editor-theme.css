@@ -1,0 +1,189 @@
+.EditorTheme__code {
+  background-color: transparent;
+  font-family: Menlo, Consolas, Monaco, monospace;
+  display: block;
+  padding: 8px 8px 8px 52px;
+  line-height: 1.53;
+  font-size: 13px;
+  margin: 0;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  border: 1px solid hsl(var(--border));
+  position: relative;
+  border-radius: 8px;
+  tab-size: 2;
+}
+.EditorTheme__code:before {
+  content: attr(data-gutter);
+  position: absolute;
+  background-color: transparent;
+  border-right: 1px solid hsl(var(--border));
+  left: 0;
+  top: 0;
+  padding: 8px;
+  color: hsl(var(--muted-foreground));
+  white-space: pre-wrap;
+  text-align: right;
+  min-width: 25px;
+}
+.EditorTheme__table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  overflow-y: scroll;
+  overflow-x: scroll;
+  table-layout: fixed;
+  width: fit-content;
+  width: 100%;
+  margin: 0px 0px 30px 0px;
+}
+
+/* Syntax highlighting - Light theme */
+.EditorTheme__tokenComment {
+  color: #6a737d;
+}
+.EditorTheme__tokenPunctuation {
+  color: #24292e;
+}
+.EditorTheme__tokenProperty {
+  color: #005cc5;
+}
+.EditorTheme__tokenSelector {
+  color: #22863a;
+}
+.EditorTheme__tokenOperator {
+  color: #d73a49;
+}
+.EditorTheme__tokenAttr {
+  color: #6f42c1;
+}
+.EditorTheme__tokenVariable {
+  color: #e36209;
+}
+.EditorTheme__tokenFunction {
+  color: #6f42c1;
+}
+
+/* Syntax highlighting - Dark theme */
+.dark .EditorTheme__tokenComment {
+  color: #8b949e;
+}
+.dark .EditorTheme__tokenPunctuation {
+  color: #c9d1d9;
+}
+.dark .EditorTheme__tokenProperty {
+  color: #79c0ff;
+}
+.dark .EditorTheme__tokenSelector {
+  color: #7ee787;
+}
+.dark .EditorTheme__tokenOperator {
+  color: #ff7b72;
+}
+.dark .EditorTheme__tokenAttr {
+  color: #d2a8ff;
+}
+.dark .EditorTheme__tokenVariable {
+  color: #ffa657;
+}
+.dark .EditorTheme__tokenFunction {
+  color: #d2a8ff;
+}
+
+.Collapsible__container {
+  background-color: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.Collapsible__title{
+  padding: 0.25rem;
+  padding-left: 1rem;
+  position: relative;
+  font-weight: bold;
+  outline: none;
+  cursor: pointer;
+  list-style-type: disclosure-closed;
+  list-style-position: inside;
+}
+
+.Collapsible__title p{
+  display: inline-flex;
+}
+.Collapsible__title::marker{
+  color: hsl(var(--muted-foreground));
+}
+.Collapsible__container[open] >.Collapsible__title {
+  list-style-type: disclosure-open;
+}
+
+/* Editor content styles */
+.ContentEditable__root {
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  line-height: 1.7;
+}
+
+.ContentEditable__root:focus {
+  outline: none;
+}
+
+/* Inline code - theme aware */
+.ContentEditable__root code {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+/* Blockquote - theme aware */
+.ContentEditable__root blockquote {
+  border-left-color: hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+}
+
+/* Links - theme aware */
+.ContentEditable__root a {
+  color: hsl(var(--primary));
+}
+
+.ContentEditable__root a:hover {
+  text-decoration: underline;
+}
+
+
+/* Красная строка для параграфов */
+.ContentEditable__root p {
+  text-indent: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+/* Отступы для списков */
+.ContentEditable__root ul,
+.ContentEditable__root ol {
+  padding-left: 2em;
+  margin-bottom: 0.75em;
+}
+
+.ContentEditable__root li {
+  margin-bottom: 0.25em;
+}
+
+/* Вложенные списки */
+.ContentEditable__root ul ul,
+.ContentEditable__root ol ol,
+.ContentEditable__root ul ol,
+.ContentEditable__root ol ul {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+/* Цитаты с отступом */
+.ContentEditable__root blockquote {
+  padding-left: 1em;
+  margin-left: 1em;
+  border-left: 3px solid hsl(var(--border));
+  font-style: italic;
+}

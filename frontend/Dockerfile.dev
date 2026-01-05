@@ -1,0 +1,17 @@
+# frontend/Dockerfile.dev
+FROM node:20-slim
+
+WORKDIR /app
+
+# Копируем package файлы
+COPY package.json package-lock.json* ./
+
+# Ставим зависимости
+RUN npm install
+
+# Код НЕ копируем, он будет в volumes
+# Порт
+EXPOSE 3000
+
+# Запуск в режиме разработки
+CMD ["npm", "run", "dev"]

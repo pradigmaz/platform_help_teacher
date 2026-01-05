@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+__pycache__/
+venv/
+.venv/
+
+# Build outputs
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+*.pyc
+*.pyo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+deploy/.env
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+
+.kiro/
+
+# Documentation/Notes (not needed for deployment)
+md/
+идеи ui/
+*.md
+!README.md
+!frontend/README.md
+
+# Temp/scratch files
+*.html
+!frontend/public/**/*.html
+check_users.py
+backend/check_users.py
+backend/test_import.py
+backend/setup_webhook.py
+backend/*.html
+
+# Root level junk
+package.json
+package-lock.json
+scripts/
+
+# Deploy scripts (Windows only)
+*.ps1
+deploy/openapi_temp.json
