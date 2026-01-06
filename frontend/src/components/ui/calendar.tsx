@@ -6,10 +6,49 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "lucide-react"
-import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
+import { DayButton, DayPicker, getDefaultClassNames, type DropdownProps } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+function CalendarDropdown(props: DropdownProps) {
+  const { options, value, onChange, "aria-label": ariaLabel } = props
+
+  const handleValueChange = (newValue: string) => {
+    if (onChange) {
+      const syntheticEvent = {
+        target: { value: newValue },
+      } as React.ChangeEvent<HTMLSelectElement>
+      onChange(syntheticEvent)
+    }
+  }
+
+  return (
+    <Select value={value?.toString()} onValueChange={handleValueChange}>
+      <SelectTrigger className="h-8 w-auto gap-1 border-none bg-transparent px-2 font-medium hover:bg-accent focus:ring-0 focus:ring-offset-0" aria-label={ariaLabel}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options?.map((option) => (
+          <SelectItem
+            key={option.value}
+            value={option.value.toString()}
+            disabled={option.disabled}
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
 
 function Calendar({
   className,
@@ -66,19 +105,19 @@ function Calendar({
           defaultClassNames.month_caption
         ),
         dropdowns: cn(
-          "w-full flex items-center text-sm font-medium justify-center h-[--cell-size] gap-1.5",
+          "w-full flex items-center text-sm font-medium justify-center h-[--cell-size] gap-1",
           defaultClassNames.dropdowns
         ),
         dropdown_root: cn(
-          "relative has-focus:border-ring border border-input shadow-xs has-focus:ring-ring/50 has-focus:ring-[3px] rounded-md",
+          "relative",
           defaultClassNames.dropdown_root
         ),
-        dropdown: cn("absolute inset-0 opacity-0", defaultClassNames.dropdown),
+        dropdown: cn("hidden", defaultClassNames.dropdown),
         caption_label: cn(
           "select-none font-medium",
           captionLayout === "label"
             ? "text-sm"
-            : "rounded-md pl-2 pr-1 flex items-center gap-1 text-sm h-8 [&>svg]:text-muted-foreground [&>svg]:size-3.5",
+            : "hidden",
           defaultClassNames.caption_label
         ),
         table: "w-full border-collapse",
@@ -122,6 +161,7 @@ function Calendar({
         ...classNames,
       }}
       components={{
+        Dropdown: CalendarDropdown,
         Root: ({ className, rootRef, ...props }) => {
           return (
             <div

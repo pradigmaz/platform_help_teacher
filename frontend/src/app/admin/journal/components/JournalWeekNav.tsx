@@ -35,7 +35,7 @@ export function JournalWeekNav({ currentWeek, onWeekChange }: JournalWeekNavProp
             onSelect={(date) => date && onWeekChange(date)}
             locale={ru}
             weekStartsOn={1}
-            captionLayout="dropdown"
+            captionLayout="dropdown-months"
           />
         </PopoverContent>
       </Popover>

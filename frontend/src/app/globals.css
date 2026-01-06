@@ -192,3 +192,19 @@
     animation: none;
     mix-blend-mode: normal;
 }
+
+
+/* Calendar dropdown styles for dark mode */
+.rdp-dropdown select,
+[data-slot="calendar"] select {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+.rdp-dropdown select option,
+[data-slot="calendar"] select option {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+}
