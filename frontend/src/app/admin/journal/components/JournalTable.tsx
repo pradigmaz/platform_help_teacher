@@ -35,8 +35,8 @@ interface JournalTableProps {
   grades: Record<string, Record<string, GradeData>>;
   attestationScores?: Record<string, AttestationResult>;
   attestationPeriod?: 'first' | 'second';
-  onAttendanceChange: (lessonId: string, studentId: string, status: string) => void;
-  onGradeChange: (lessonId: string, studentId: string, grade: number, workNumber: number | null) => void;
+  onAttendanceChange: (lessonId: string, studentId: string, status: string | null) => void;
+  onGradeChange: (lessonId: string, studentId: string, grade: number | null, workNumber: number | null) => void;
   onLessonClick?: (lesson: Lesson) => void;
   onStudentAttestationClick?: (student: Student, attestation: AttestationResult) => void;
   onActivityAdded?: () => void;

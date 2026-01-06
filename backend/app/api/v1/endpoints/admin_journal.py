@@ -256,6 +256,56 @@ async def delete_grade(
     return {"deleted": True}
 
 
+@router.delete("/grades")
+async def delete_grade_by_lesson_student(
+    lesson_id: UUID = Query(...),
+    student_id: UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_teacher)
+):
+    """Удалить оценку по lesson_id и student_id."""
+    result = await db.execute(
+        select(LessonGrade).where(and_(
+            LessonGrade.lesson_id == lesson_id,
+            LessonGrade.student_id == student_id
+        ))
+    )
+    grade = result.scalar_one_or_none()
+    if not grade:
+        return {"deleted": False, "message": "Grade not found"}
+    
+    await db.delete(grade)
+    await db.commit()
+    logger.info(f"Deleted grade for lesson {lesson_id}, student {student_id}")
+    return {"deleted": True}
+
+
+# === Attendance Delete ===
+
+@router.delete("/attendance")
+async def delete_attendance(
+    lesson_id: UUID = Query(...),
+    student_id: UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_teacher)
+):
+    """Удалить запись посещаемости по lesson_id и student_id."""
+    result = await db.execute(
+        select(Attendance).where(and_(
+            Attendance.lesson_id == lesson_id,
+            Attendance.student_id == student_id
+        ))
+    )
+    attendance = result.scalar_one_or_none()
+    if not attendance:
+        return {"deleted": False, "message": "Attendance not found"}
+    
+    await db.delete(attendance)
+    await db.commit()
+    logger.info(f"Deleted attendance for lesson {lesson_id}, student {student_id}")
+    return {"deleted": True}
+
+
 @router.post("/grades/bulk")
 async def bulk_update_grades(
     data: BulkGradeCreate,

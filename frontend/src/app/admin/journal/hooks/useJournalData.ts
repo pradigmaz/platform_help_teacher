@@ -256,16 +256,30 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps): UseJourn
     }
   }, [selectedGroupId, selectedSubjectId, weekStart, weekEnd, lessons.length]);
 
-  const updateAttendance = async (lessonId: string, studentId: string, status: string) => {
+  const updateAttendance = async (lessonId: string, studentId: string, status: string | null) => {
     try {
-      await api.post('/admin/journal/attendance/bulk', {
-        lesson_id: lessonId,
-        records: [{ student_id: studentId, status }]
-      });
-      setAttendance(prev => ({
-        ...prev,
-        [lessonId]: { ...prev[lessonId], [studentId]: status }
-      }));
+      if (status === null) {
+        // Delete attendance
+        await api.delete('/admin/journal/attendance', { 
+          params: { lesson_id: lessonId, student_id: studentId } 
+        });
+        setAttendance(prev => {
+          const updated = { ...prev };
+          if (updated[lessonId]) {
+            delete updated[lessonId][studentId];
+          }
+          return updated;
+        });
+      } else {
+        await api.post('/admin/journal/attendance/bulk', {
+          lesson_id: lessonId,
+          records: [{ student_id: studentId, status }]
+        });
+        setAttendance(prev => ({
+          ...prev,
+          [lessonId]: { ...prev[lessonId], [studentId]: status }
+        }));
+      }
       // Refetch stats after attendance change
       await refetchStats();
     } catch {
@@ -273,24 +287,39 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps): UseJourn
     }
   };
 
-  const updateGrade = async (lessonId: string, studentId: string, grade: number, workNumber: number | null = null) => {
+  const updateGrade = async (lessonId: string, studentId: string, grade: number | null, workNumber: number | null = null) => {
     try {
-      await api.post('/admin/journal/grades', {
-        lesson_id: lessonId,
-        student_id: studentId,
-        grade,
-        work_number: workNumber
-      });
-      setGrades(prev => ({
-        ...prev,
-        [lessonId]: { ...prev[lessonId], [studentId]: { grade, work_number: workNumber } }
-      }));
-      const currentStatus = attendance[lessonId]?.[studentId];
-      if (!currentStatus || currentStatus === 'ABSENT') {
-        await updateAttendance(lessonId, studentId, 'PRESENT');
-      } else {
-        // Refetch stats after grade change (if attendance wasn't updated)
+      if (grade === null) {
+        // Delete grade
+        await api.delete('/admin/journal/grades', { 
+          params: { lesson_id: lessonId, student_id: studentId } 
+        });
+        setGrades(prev => {
+          const updated = { ...prev };
+          if (updated[lessonId]) {
+            delete updated[lessonId][studentId];
+          }
+          return updated;
+        });
         await refetchStats();
+      } else {
+        await api.post('/admin/journal/grades', {
+          lesson_id: lessonId,
+          student_id: studentId,
+          grade,
+          work_number: workNumber
+        });
+        setGrades(prev => ({
+          ...prev,
+          [lessonId]: { ...prev[lessonId], [studentId]: { grade, work_number: workNumber } }
+        }));
+        const currentStatus = attendance[lessonId]?.[studentId];
+        if (!currentStatus || currentStatus === 'ABSENT') {
+          await updateAttendance(lessonId, studentId, 'PRESENT');
+        } else {
+          // Refetch stats after grade change (if attendance wasn't updated)
+          await refetchStats();
+        }
       }
     } catch {
       console.error('Ошибка обновления оценки');

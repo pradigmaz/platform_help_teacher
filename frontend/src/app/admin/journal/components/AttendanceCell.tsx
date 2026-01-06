@@ -11,7 +11,7 @@ import { STATUS_INFO } from '../lib/journal-constants';
 
 interface AttendanceCellProps {
   status: string | undefined;
-  onStatusChange: (status: string) => void;
+  onStatusChange: (status: string | null) => void;
 }
 
 const CYCLE_ORDER = ['PRESENT', 'LATE', 'EXCUSED', 'ABSENT'];
@@ -64,6 +64,15 @@ export function AttendanceCell({ status, onStatusChange }: AttendanceCellProps) 
             {info.label}
           </DropdownMenuItem>
         ))}
+        {status && (
+          <DropdownMenuItem 
+            onClick={() => onStatusChange(null)}
+            className="cursor-pointer text-destructive"
+          >
+            <span className="w-4 h-4 mr-2 flex items-center justify-center">×</span>
+            Сбросить
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
