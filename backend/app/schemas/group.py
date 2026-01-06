@@ -51,6 +51,7 @@ class GroupCreate(BaseModel):
     labs_count: Optional[int] = None
     grading_scale: Optional[GradingScale] = GradingScale.TEN
     default_max_grade: Optional[int] = 10
+    has_subgroups: bool = True
 
 
 # Схема для обновления настроек лабораторных
@@ -58,6 +59,7 @@ class LabSettingsUpdate(BaseModel):
     labs_count: Optional[int] = None
     grading_scale: Optional[GradingScale] = None
     default_max_grade: Optional[int] = None
+    has_subgroups: Optional[bool] = None
 
 
 # То, что отдаем обратно (в списки)
@@ -72,6 +74,7 @@ class GroupResponse(BaseModel):
     labs_count: Optional[int] = None
     grading_scale: Optional[GradingScale] = None
     default_max_grade: Optional[int] = None
+    has_subgroups: bool = True
 
     class Config:
         from_attributes = True
@@ -89,6 +92,7 @@ class GroupDetailResponse(BaseModel):
     labs_count: Optional[int] = None
     grading_scale: Optional[GradingScale] = None
     default_max_grade: Optional[int] = None
+    has_subgroups: bool = True
 
     class Config:
         from_attributes = True

@@ -33,6 +33,9 @@ class Group(Base, TimestampMixin):
     # Инвайт-код группы для бота (рандомный, обновляемый)
     invite_code: Mapped[Optional[str]] = mapped_column(Text, unique=True, nullable=True, index=True)
     
+    # Настройка деления на подгруппы
+    has_subgroups: Mapped[bool] = mapped_column(default=True, server_default="true")
+    
     # Настройки лабораторных
     labs_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
     grading_scale: Mapped[Optional[GradingScale]] = mapped_column(

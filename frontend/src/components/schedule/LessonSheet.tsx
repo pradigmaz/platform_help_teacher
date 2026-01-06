@@ -16,6 +16,7 @@ import { NoteButton } from '@/components/notes';
 interface Student {
   id: string;
   full_name: string;
+  subgroup?: number | null;
 }
 
 export interface LessonData {
@@ -89,7 +90,18 @@ export function LessonSheet({ lesson, isOpen, onClose, onSave }: LessonSheetProp
       if (lesson.group_id) {
         try {
           const { data: groupData } = await api.get(`/groups/${lesson.group_id}`);
-          setStudents(groupData.students || []);
+          let studentsList = groupData.students || [];
+          
+          // Filter students by lesson subgroup
+          // If lesson.subgroup is null - show all students
+          // If lesson.subgroup is 1 or 2 - show only students with matching subgroup
+          if (lesson.subgroup !== null && lesson.subgroup !== undefined) {
+            studentsList = studentsList.filter(
+              (s: Student) => s.subgroup === lesson.subgroup
+            );
+          }
+          
+          setStudents(studentsList);
         } catch {
           // Fallback: try to get students from attendance data
           console.warn('Could not load group, trying attendance endpoint');

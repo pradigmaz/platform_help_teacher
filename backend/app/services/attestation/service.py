@@ -204,6 +204,30 @@ class AttestationService:
         if not student:
             raise ValueError(f"Студент с ID {student_id} не найден")
         
+        # Получаем релевантные занятия для подгруппы студента
+        from sqlalchemy import or_
+        student_subgroup = student.subgroup
+        
+        lessons_query = select(Lesson).where(Lesson.group_id == group_id)
+        if att_settings.period_start_date:
+            lessons_query = lessons_query.where(Lesson.date >= att_settings.period_start_date)
+        if att_settings.period_end_date:
+            lessons_query = lessons_query.where(Lesson.date <= att_settings.period_end_date)
+        
+        # Фильтр по подгруппе
+        if student_subgroup is not None:
+            # Студент в подгруппе → общие занятия + его подгруппа
+            lessons_query = lessons_query.where(
+                or_(Lesson.subgroup.is_(None), Lesson.subgroup == student_subgroup)
+            )
+        else:
+            # Студент без подгруппы → только общие занятия
+            lessons_query = lessons_query.where(Lesson.subgroup.is_(None))
+        
+        lessons_result = await self.db.execute(lessons_query)
+        relevant_lessons = list(lessons_result.scalars().all())
+        relevant_dates = {l.date for l in relevant_lessons}
+        
         # Получаем оценки за лабы из журнала (LessonGrade) с фильтрацией по периоду
         lesson_grades_query = (
             select(LessonGrade)
@@ -218,16 +242,16 @@ class AttestationService:
         lesson_grades_result = await self.db.execute(lesson_grades_query)
         lesson_grades = list(lesson_grades_result.scalars().all())
         
-        # Получаем записи посещаемости (с фильтрацией по периоду аттестации)
+        # Получаем записи посещаемости только по релевантным датам (с учётом подгруппы)
         attendance_query = select(Attendance).where(
             Attendance.student_id == student_id,
             Attendance.group_id == group_id
         )
-        # Фильтрация по периоду аттестации если даты заданы
-        if att_settings.period_start_date:
-            attendance_query = attendance_query.where(Attendance.date >= att_settings.period_start_date)
-        if att_settings.period_end_date:
-            attendance_query = attendance_query.where(Attendance.date <= att_settings.period_end_date)
+        if relevant_dates:
+            attendance_query = attendance_query.where(Attendance.date.in_(relevant_dates))
+        else:
+            # Нет релевантных занятий - пустой результат
+            attendance_query = attendance_query.where(False)
         
         attendance_result = await self.db.execute(attendance_query)
         attendance_records = list(attendance_result.scalars().all())
@@ -378,6 +402,22 @@ class AttestationService:
             
         student_ids = [s.id for s in students]
         
+        # Получаем ВСЕ занятия группы за период (для фильтрации по подгруппам)
+        all_lessons_query = select(Lesson).where(Lesson.group_id == group_id)
+        if att_settings.period_start_date:
+            all_lessons_query = all_lessons_query.where(Lesson.date >= att_settings.period_start_date)
+        if att_settings.period_end_date:
+            all_lessons_query = all_lessons_query.where(Lesson.date <= att_settings.period_end_date)
+        
+        all_lessons_result = await self.db.execute(all_lessons_query)
+        all_lessons = list(all_lessons_result.scalars().all())
+        
+        # Группируем занятия по подгруппам для быстрого доступа
+        # None = общие, 1 = подгруппа 1, 2 = подгруппа 2
+        lessons_by_subgroup = defaultdict(list)
+        for lesson in all_lessons:
+            lessons_by_subgroup[lesson.subgroup].append(lesson)
+        
         # Batch: все оценки за лабы из журнала (LessonGrade) с фильтрацией по периоду
         lesson_grades_query = (
             select(LessonGrade)
@@ -396,16 +436,11 @@ class AttestationService:
         for lg in all_lesson_grades:
             lesson_grades_by_student[lg.student_id].append(lg)
             
-        # Batch: вся посещаемость (с фильтрацией по периоду аттестации)
+        # Batch: вся посещаемость (без фильтра по периоду - фильтруем по датам занятий)
         attendance_query = select(Attendance).where(
             Attendance.group_id == group_id,
             Attendance.student_id.in_(student_ids)
         )
-        # Фильтрация по периоду аттестации если даты заданы
-        if att_settings.period_start_date:
-            attendance_query = attendance_query.where(Attendance.date >= att_settings.period_start_date)
-        if att_settings.period_end_date:
-            attendance_query = attendance_query.where(Attendance.date <= att_settings.period_end_date)
         
         attendance_result = await self.db.execute(attendance_query)
         all_attendance = attendance_result.scalars().all()
@@ -430,9 +465,23 @@ class AttestationService:
         
         for student in students:
             student_lesson_grades = lesson_grades_by_student.get(student.id, [])
-            student_attendance = attendance_by_student.get(student.id, [])
             activity_points = activity_map.get(student.id, 0.0)
             student_name = student.full_name or str(student.id)
+            
+            # Определяем релевантные занятия для подгруппы студента
+            student_subgroup = student.subgroup
+            if student_subgroup is not None:
+                # Студент в подгруппе → общие + его подгруппа
+                relevant_lessons = lessons_by_subgroup[None] + lessons_by_subgroup[student_subgroup]
+            else:
+                # Студент без подгруппы → только общие
+                relevant_lessons = lessons_by_subgroup[None]
+            
+            relevant_dates = {l.date for l in relevant_lessons}
+            
+            # Фильтруем посещаемость по релевантным датам
+            all_student_attendance = attendance_by_student.get(student.id, [])
+            student_attendance = [a for a in all_student_attendance if a.date in relevant_dates]
             
             try:
                 lab_result = self.calculator.calculate_lesson_grades_score(student_lesson_grades, att_settings)
