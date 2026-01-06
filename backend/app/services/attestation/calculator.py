@@ -15,6 +15,7 @@ from app.models.submission import Submission, SubmissionStatus
 from app.models.lab import Lab
 from app.models.work import Work
 from app.models.work_submission import WorkSubmission
+from app.models.lesson_grade import LessonGrade
 
 from .models import LabScoreResult, AttendanceScoreResult, WorkScoreResult
 
@@ -155,6 +156,66 @@ class AttestationCalculator:
         
         # Жёсткий дедлайн (Requirements 2.3)
         return settings.hard_deadline_penalty
+
+    def calculate_lesson_grades_score(
+        self,
+        lesson_grades: List[LessonGrade],
+        settings: AttestationSettings
+    ) -> LabScoreResult:
+        """
+        Расчёт баллов за лабораторные на основе LessonGrade (оценки 2-5 из журнала).
+        
+        Логика:
+        - Оценка 2 = 0%, 3 = 33%, 4 = 67%, 5 = 100%
+        - Среднее нормализуется и умножается на labs_weight
+        """
+        if not lesson_grades:
+            return LabScoreResult(
+                raw_score=0.0,
+                weighted_score=0.0,
+                labs_count=0,
+                required_count=settings.required_labs_count,
+                bonus_points=0.0,
+                submissions_details=[]
+            )
+        
+        # Нормализуем оценки: (grade - 2) / 3 дает 0-1
+        normalized_scores = [(g.grade - 2) / 3 for g in lesson_grades]
+        avg_normalized = sum(normalized_scores) / len(normalized_scores)
+        
+        # Сырой балл = среднее * 100 (процент)
+        raw_score = avg_normalized * 100
+        
+        labs_count = len(lesson_grades)
+        required_count = settings.required_labs_count
+        
+        # Бонус за дополнительные лабы
+        bonus_points = 0.0
+        if labs_count > required_count:
+            extra_labs = labs_count - required_count
+            bonus_points = extra_labs * settings.bonus_per_extra_lab
+        
+        # Взвешенный балл
+        weighted_score = (raw_score + bonus_points) * settings.labs_weight / 100
+        
+        details = [
+            {
+                'lesson_id': str(g.lesson_id),
+                'work_number': g.work_number,
+                'grade': g.grade,
+                'normalized': (g.grade - 2) / 3
+            }
+            for g in lesson_grades
+        ]
+        
+        return LabScoreResult(
+            raw_score=raw_score + bonus_points,
+            weighted_score=weighted_score,
+            labs_count=labs_count,
+            required_count=required_count,
+            bonus_points=bonus_points,
+            submissions_details=details
+        )
     
     def calculate_attendance_score(
         self,

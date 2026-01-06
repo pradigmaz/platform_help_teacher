@@ -94,13 +94,29 @@ export function ParserModal({ open, onOpenChange, onSuccess }: ParserModalProps)
           </div>
           
           {result && (
-            <div className="p-3 rounded-lg bg-muted text-sm space-y-1">
-              <div>Спарсено: <strong>{result.total_parsed}</strong></div>
-              <div>Создано занятий: <strong>{result.lessons_created}</strong></div>
-              <div>Пропущено: <strong>{result.lessons_skipped}</strong></div>
-              <div>Группы: <strong>{result.groups.join(', ')}</strong></div>
-              {result.subjects && result.subjects.length > 0 && (
-                <div>Предметы: <strong>{result.subjects.join(', ')}</strong></div>
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-muted text-sm space-y-1">
+                <div>Спарсено: <strong>{result.total_parsed}</strong></div>
+                <div>Создано занятий: <strong>{result.lessons_created}</strong></div>
+                <div>Пропущено: <strong>{result.lessons_skipped}</strong></div>
+                <div>Группы: <strong>{result.groups.join(', ')}</strong></div>
+                {result.subjects && result.subjects.length > 0 && (
+                  <div>Предметы: <strong>{result.subjects.join(', ')}</strong></div>
+                )}
+              </div>
+              
+              {result.semester_end_detected && (
+                <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm">
+                  <div className="font-medium text-yellow-600 dark:text-yellow-400 mb-1">
+                    ⚠️ Похоже, семестр закончился
+                  </div>
+                  <div className="text-muted-foreground">
+                    Последние пары были <strong>{result.last_lesson_date}</strong>.
+                    {result.empty_weeks_count && (
+                      <> После них <strong>{result.empty_weeks_count}</strong> пустых недель.</>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           )}

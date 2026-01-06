@@ -192,8 +192,19 @@ class ScheduleImportService:
             "subjects_created": 0,
             "assignments_created": 0,
             "groups": set(),
-            "subjects": set()
+            "subjects": set(),
+            "semester_end_detected": False,
+            "last_lesson_date": None,
+            "empty_weeks_count": 0,
         }
+        
+        # Автоопределение конца семестра
+        semester_end_info = self._detect_semester_end(parsed_lessons, start_date, end_date)
+        if semester_end_info["detected"]:
+            stats["semester_end_detected"] = True
+            stats["last_lesson_date"] = semester_end_info["last_lesson_date"]
+            stats["empty_weeks_count"] = semester_end_info["empty_weeks"]
+            logger.info(f"Semester end detected: last lesson {semester_end_info['last_lesson_date']}, {semester_end_info['empty_weeks']} empty weeks after")
         
         # Собираем ключи спарсенных занятий для каждой группы
         group_parsed_keys: dict[str, set] = {}
@@ -297,6 +308,47 @@ class ScheduleImportService:
             return f"{year-1}-1"
         else:
             return f"{year}-2"
+    
+    def _detect_semester_end(self, parsed_lessons: list, start_date: date, end_date: date) -> dict:
+        """
+        Автоопределение конца семестра.
+        
+        Если после активного периода идут 2+ пустые недели подряд — 
+        считаем что семестр закончился.
+        
+        Returns:
+            {
+                "detected": bool,
+                "last_lesson_date": date | None,
+                "empty_weeks": int
+            }
+        """
+        from datetime import timedelta
+        
+        if not parsed_lessons:
+            return {"detected": False, "last_lesson_date": None, "empty_weeks": 0}
+        
+        # Собираем все даты занятий
+        lesson_dates = sorted(set(p.date for p in parsed_lessons))
+        
+        if not lesson_dates:
+            return {"detected": False, "last_lesson_date": None, "empty_weeks": 0}
+        
+        last_lesson_date = lesson_dates[-1]
+        
+        # Считаем пустые недели после последнего занятия
+        days_after_last = (end_date - last_lesson_date).days
+        empty_weeks = days_after_last // 7
+        
+        # Если 2+ пустых недели после последнего занятия — конец семестра
+        if empty_weeks >= 2:
+            return {
+                "detected": True,
+                "last_lesson_date": last_lesson_date.isoformat(),
+                "empty_weeks": empty_weeks
+            }
+        
+        return {"detected": False, "last_lesson_date": last_lesson_date.isoformat(), "empty_weeks": empty_weeks}
     
     async def _find_teacher(self, teacher_name: str) -> Optional[User]:
         """Найти преподавателя по имени"""

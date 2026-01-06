@@ -1,10 +1,10 @@
 """
 Pydantic схемы для API аттестации.
-Включает схемы для настроек, результатов расчёта и экспорта в Гиперион.
+Включает схемы для настроек и результатов расчёта.
 """
 from typing import Optional, List, Dict, Any, Literal
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, date
 from pydantic import BaseModel, Field, field_validator, model_validator
 from enum import Enum
 from app.models.attestation_settings import AttestationType
@@ -115,6 +115,10 @@ class AttestationSettingsBase(BaseModel):
     
     activity_enabled: bool = Field(default=True, description="Включить учёт активности")
     participation_points: float = Field(default=0.5, ge=0, description="Баллы за участие")
+    
+    # Период аттестации (для фильтрации посещаемости)
+    period_start_date: Optional[date] = Field(default=None, description="Начало периода аттестации")
+    period_end_date: Optional[date] = Field(default=None, description="Конец периода аттестации")
     
     # Новая гибкая конфигурация
     components_config: Optional[ComponentsConfig] = Field(default=None, description="Гибкая конфигурация компонентов")
@@ -231,38 +235,3 @@ class GroupAttestationResponse(BaseModel):
     
     students: List[AttestationResult]
     errors: List[CalculationErrorInfo] = Field(default_factory=list, description="Ошибки расчёта для отдельных студентов")
-
-
-# ============== Hyperion Export Schemas ==============
-
-class HyperionStudentRecord(BaseModel):
-    """Запись студента для экспорта в Гиперион"""
-    student_id: str = Field(description="ID студента в системе")
-    full_name: str = Field(description="ФИО студента")
-    score: float = Field(description="Итоговый балл")
-    grade: str = Field(description="Оценка")
-    is_passing: bool = Field(description="Зачёт")
-
-
-class HyperionExport(BaseModel):
-    """Формат экспорта для системы Гиперион"""
-    group_code: str
-    attestation_type: AttestationType
-    attestation_number: int = Field(description="Номер аттестации (1 или 2)")
-    export_date: datetime
-    max_points: int
-    min_passing_points: int
-    
-    total_students: int
-    passing_count: int
-    failing_count: int
-    
-    students: List[HyperionStudentRecord]
-
-
-class HyperionExportResponse(HyperionExport):
-    """Ответ API с данными экспорта"""
-    export_format: str = Field(default="hyperion_v1", description="Версия формата экспорта")
-
-    class Config:
-        from_attributes = True

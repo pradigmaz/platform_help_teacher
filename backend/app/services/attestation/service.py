@@ -15,10 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.attestation_settings import AttestationSettings, AttestationType
 from app.models.attendance import Attendance
-from app.models.submission import Submission
-from app.models.lab import Lab
 from app.models.user import User
 from app.models.activity import Activity
+from app.models.lesson_grade import LessonGrade
+from app.models.lesson import Lesson
 from app.schemas.attestation import (
     AttestationSettingsUpdate,
     AttestationSettingsResponse,
@@ -204,21 +204,31 @@ class AttestationService:
         if not student:
             raise ValueError(f"Студент с ID {student_id} не найден")
         
-        # Получаем лабораторные работы
-        labs_query = select(Lab)
-        labs_result = await self.db.execute(labs_query)
-        labs = list(labs_result.scalars().all())
+        # Получаем оценки за лабы из журнала (LessonGrade) с фильтрацией по периоду
+        lesson_grades_query = (
+            select(LessonGrade)
+            .join(Lesson, LessonGrade.lesson_id == Lesson.id)
+            .where(LessonGrade.student_id == student_id)
+        )
+        if att_settings.period_start_date:
+            lesson_grades_query = lesson_grades_query.where(Lesson.date >= att_settings.period_start_date)
+        if att_settings.period_end_date:
+            lesson_grades_query = lesson_grades_query.where(Lesson.date <= att_settings.period_end_date)
         
-        # Получаем сданные работы студента
-        submissions_query = select(Submission).where(Submission.user_id == student_id)
-        submissions_result = await self.db.execute(submissions_query)
-        submissions = list(submissions_result.scalars().all())
+        lesson_grades_result = await self.db.execute(lesson_grades_query)
+        lesson_grades = list(lesson_grades_result.scalars().all())
         
-        # Получаем записи посещаемости
+        # Получаем записи посещаемости (с фильтрацией по периоду аттестации)
         attendance_query = select(Attendance).where(
             Attendance.student_id == student_id,
             Attendance.group_id == group_id
         )
+        # Фильтрация по периоду аттестации если даты заданы
+        if att_settings.period_start_date:
+            attendance_query = attendance_query.where(Attendance.date >= att_settings.period_start_date)
+        if att_settings.period_end_date:
+            attendance_query = attendance_query.where(Attendance.date <= att_settings.period_end_date)
+        
         attendance_result = await self.db.execute(attendance_query)
         attendance_records = list(attendance_result.scalars().all())
         
@@ -234,7 +244,7 @@ class AttestationService:
         total_activity_points = db_activity_points + activity_points
         
         # Расчёт компонентов
-        lab_result = self.calculator.calculate_lab_score(submissions, labs, att_settings)
+        lab_result = self.calculator.calculate_lesson_grades_score(lesson_grades, att_settings)
         attendance_result_calc = self.calculator.calculate_attendance_score(attendance_records, att_settings)
         activity_score = self.calculator.calculate_activity_score(total_activity_points, att_settings)
         
@@ -352,11 +362,6 @@ class AttestationService:
         """
         att_settings = await self.get_or_create_settings(attestation_type)
         
-        # Получаем лабораторные работы
-        labs_query = select(Lab)
-        labs_result = await self.db.execute(labs_query)
-        labs = list(labs_result.scalars().all())
-        
         # Получаем студентов если не переданы
         if not students:
             from app.models import UserRole
@@ -373,20 +378,35 @@ class AttestationService:
             
         student_ids = [s.id for s in students]
         
-        # Batch: все сданные работы
-        submissions_query = select(Submission).where(Submission.user_id.in_(student_ids))
-        submissions_result = await self.db.execute(submissions_query)
-        all_submissions = submissions_result.scalars().all()
+        # Batch: все оценки за лабы из журнала (LessonGrade) с фильтрацией по периоду
+        lesson_grades_query = (
+            select(LessonGrade)
+            .join(Lesson, LessonGrade.lesson_id == Lesson.id)
+            .where(LessonGrade.student_id.in_(student_ids))
+        )
+        if att_settings.period_start_date:
+            lesson_grades_query = lesson_grades_query.where(Lesson.date >= att_settings.period_start_date)
+        if att_settings.period_end_date:
+            lesson_grades_query = lesson_grades_query.where(Lesson.date <= att_settings.period_end_date)
         
-        submissions_by_student = defaultdict(list)
-        for s in all_submissions:
-            submissions_by_student[s.user_id].append(s)
+        lesson_grades_result = await self.db.execute(lesson_grades_query)
+        all_lesson_grades = lesson_grades_result.scalars().all()
+        
+        lesson_grades_by_student = defaultdict(list)
+        for lg in all_lesson_grades:
+            lesson_grades_by_student[lg.student_id].append(lg)
             
-        # Batch: вся посещаемость
+        # Batch: вся посещаемость (с фильтрацией по периоду аттестации)
         attendance_query = select(Attendance).where(
             Attendance.group_id == group_id,
             Attendance.student_id.in_(student_ids)
         )
+        # Фильтрация по периоду аттестации если даты заданы
+        if att_settings.period_start_date:
+            attendance_query = attendance_query.where(Attendance.date >= att_settings.period_start_date)
+        if att_settings.period_end_date:
+            attendance_query = attendance_query.where(Attendance.date <= att_settings.period_end_date)
+        
         attendance_result = await self.db.execute(attendance_query)
         all_attendance = attendance_result.scalars().all()
         
@@ -409,13 +429,13 @@ class AttestationService:
         errors = []
         
         for student in students:
-            student_submissions = submissions_by_student.get(student.id, [])
+            student_lesson_grades = lesson_grades_by_student.get(student.id, [])
             student_attendance = attendance_by_student.get(student.id, [])
             activity_points = activity_map.get(student.id, 0.0)
             student_name = student.full_name or str(student.id)
             
             try:
-                lab_result = self.calculator.calculate_lab_score(student_submissions, labs, att_settings)
+                lab_result = self.calculator.calculate_lesson_grades_score(student_lesson_grades, att_settings)
                 attendance_result_calc = self.calculator.calculate_attendance_score(student_attendance, att_settings)
                 activity_score = self.calculator.calculate_activity_score(activity_points, att_settings)
                 

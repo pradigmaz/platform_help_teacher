@@ -6,8 +6,15 @@ import { Users, BookOpen } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useJournalData, AttestationPeriod } from './hooks/useJournalData';
+import { useJournalData, AttestationPeriod, SemesterInfo } from './hooks/useJournalData';
 import { LessonSheet } from '@/components/schedule';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   JournalFilters,
   JournalWeekNav,
@@ -35,6 +42,8 @@ export default function JournalPage() {
     setCurrentWeek,
     attestationPeriod,
     setAttestationPeriod,
+    selectedSemester,
+    setSelectedSemester,
     lessons,
     students,
     attendance,
@@ -45,6 +54,21 @@ export default function JournalPage() {
     updateAttendance,
     updateGrade,
   } = useJournalData({ lessonIdParam });
+
+  // Generate semester options (current year and previous)
+  const now = new Date();
+  const currentAcademicYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+  const semesterOptions: SemesterInfo[] = [
+    { academicYear: currentAcademicYear, semester: 1 },
+    { academicYear: currentAcademicYear, semester: 2 },
+    { academicYear: currentAcademicYear - 1, semester: 1 },
+    { academicYear: currentAcademicYear - 1, semester: 2 },
+  ];
+
+  const formatSemester = (sem: SemesterInfo) => 
+    `${sem.semester} сем. ${sem.academicYear}-${sem.academicYear + 1}`;
+
+  const semesterKey = (sem: SemesterInfo) => `${sem.academicYear}-${sem.semester}`;
 
   return (
     <div className="space-y-6">
@@ -68,6 +92,26 @@ export default function JournalPage() {
           onSubjectChange={setSelectedSubjectId}
           onLessonTypeChange={setSelectedLessonType}
         />
+        
+        {/* Semester Selector */}
+        <Select 
+          value={semesterKey(selectedSemester)} 
+          onValueChange={(v) => {
+            const [year, sem] = v.split('-').map(Number);
+            setSelectedSemester({ academicYear: year, semester: sem as 1 | 2 });
+          }}
+        >
+          <SelectTrigger className="w-[180px] h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {semesterOptions.map((sem) => (
+              <SelectItem key={semesterKey(sem)} value={semesterKey(sem)}>
+                {formatSemester(sem)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         
         {/* Attestation Period Selector */}
         <Tabs value={attestationPeriod} onValueChange={(v) => setAttestationPeriod(v as AttestationPeriod)}>

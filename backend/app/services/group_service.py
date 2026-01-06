@@ -116,6 +116,37 @@ class GroupService:
             logger.error(f"Error regenerating user code: {e}")
             raise HTTPException(status_code=500, detail="Database error")
 
+    async def regenerate_group_invite_code(self, group_id: UUID) -> str:
+        """Сгенерировать/обновить инвайт-код группы."""
+        result = await self.db.execute(select(models.Group).where(models.Group.id == group_id))
+        group = result.scalar_one_or_none()
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        
+        try:
+            # Генерируем уникальный код
+            for _ in range(10):
+                new_code = self.generate_invite_code()
+                # Проверяем уникальность среди групп и пользователей
+                existing_group = await self.db.execute(
+                    select(models.Group).where(models.Group.invite_code == new_code)
+                )
+                existing_user = await self.db.execute(
+                    select(models.User).where(models.User.invite_code == new_code)
+                )
+                if not existing_group.scalar_one_or_none() and not existing_user.scalar_one_or_none():
+                    group.invite_code = new_code
+                    await self.db.commit()
+                    return new_code
+            
+            raise HTTPException(status_code=500, detail="Could not generate unique code")
+        except HTTPException:
+            raise
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            logger.error(f"Error regenerating group invite code: {e}")
+            raise HTTPException(status_code=500, detail="Database error")
+
     async def regenerate_group_codes(self, group_id: UUID) -> dict:
         """Сгенерировать коды для всех студентов группы, у кого их нет."""
         result = await self.db.execute(select(models.User).where(models.User.group_id == group_id))

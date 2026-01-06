@@ -248,3 +248,49 @@ async def get_teacher_contacts(
         "contacts": filtered,
         "teacher_name": teacher.full_name,
     }
+
+
+# ============== Semester Settings ==============
+
+@router.get("/semesters")
+async def get_available_semesters(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Получить доступные семестры для студента."""
+    from datetime import date
+    from app.utils.semester import get_current_semester, get_semester_dates, format_semester
+    
+    if not current_user.group_id:
+        return {"semesters": [], "current": None}
+    
+    # Получить настройки преподавателя
+    group = await db.get(Group, current_user.group_id)
+    hide_previous = True  # default
+    
+    if group and group.teacher_id:
+        teacher = await db.get(User, group.teacher_id)
+        if teacher:
+            settings = teacher.teacher_settings or {}
+            hide_previous = settings.get("hide_previous_semester", True)
+    
+    # Текущий семестр
+    current_year, current_sem = get_current_semester()
+    current = {"academic_year": current_year, "semester": current_sem}
+    
+    semesters = [current]
+    
+    # Добавить прошлый семестр если разрешено
+    if not hide_previous:
+        if current_sem == 2:
+            # Прошлый = 1 семестр того же года
+            semesters.append({"academic_year": current_year, "semester": 1})
+        else:
+            # Прошлый = 2 семестр прошлого года
+            semesters.append({"academic_year": current_year - 1, "semester": 2})
+    
+    return {
+        "semesters": semesters,
+        "current": current,
+        "hide_previous_semester": hide_previous,
+    }

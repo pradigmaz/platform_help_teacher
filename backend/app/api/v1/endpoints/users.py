@@ -1,5 +1,6 @@
-from typing import Any
+from typing import Any, Optional
 import logging
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -156,4 +157,51 @@ async def update_my_contacts(
     return TeacherContactsResponse(
         contacts=TeacherContacts(**current_user.contacts),
         visibility=ContactVisibilitySettings(**current_user.contact_visibility),
+    )
+
+
+
+# ============ Teacher Settings Endpoints ============
+
+class TeacherSettingsResponse(BaseModel):
+    hide_previous_semester: bool = True
+
+
+class TeacherSettingsUpdate(BaseModel):
+    hide_previous_semester: Optional[bool] = None
+
+
+@router.get("/profile/settings", response_model=TeacherSettingsResponse)
+async def get_my_settings(
+    current_user: models.User = Depends(deps.get_current_teacher),
+) -> TeacherSettingsResponse:
+    """
+    Получить настройки преподавателя.
+    """
+    settings = current_user.teacher_settings or {}
+    return TeacherSettingsResponse(
+        hide_previous_semester=settings.get("hide_previous_semester", True),
+    )
+
+
+@router.put("/profile/settings", response_model=TeacherSettingsResponse)
+async def update_my_settings(
+    data: TeacherSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_teacher),
+) -> TeacherSettingsResponse:
+    """
+    Обновить настройки преподавателя.
+    """
+    settings = current_user.teacher_settings or {}
+    
+    if data.hide_previous_semester is not None:
+        settings["hide_previous_semester"] = data.hide_previous_semester
+    
+    current_user.teacher_settings = settings
+    await db.commit()
+    await db.refresh(current_user)
+    
+    return TeacherSettingsResponse(
+        hide_previous_semester=settings.get("hide_previous_semester", True),
     )

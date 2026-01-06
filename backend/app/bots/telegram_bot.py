@@ -53,5 +53,28 @@ async def command_status_handler(message: types.Message) -> None:
     """
     await message.answer("✅ Бот работает в штатном режиме.")
 
+@router.message(lambda message: message.text and not message.text.startswith('/'))
+async def text_message_handler(message: types.Message) -> None:
+    """
+    Обработка текстовых сообщений (FSM диалоги).
+    """
+    social_id = message.from_user.id
+    username = message.from_user.username
+    text = message.text
+
+    try:
+        async with AsyncSessionLocal() as db:
+            response_text = await telegram_service.process_text_message(
+                db=db,
+                social_id=social_id,
+                text=text,
+                username=username
+            )
+            if response_text:
+                await message.answer(response_text)
+    except Exception as e:
+        logger.error(f"Error in text_message_handler: {e}", exc_info=True)
+        await message.answer("Произошла внутренняя ошибка сервера.")
+
 # Регистрируем роутер в диспетчере
 dp.include_router(router)

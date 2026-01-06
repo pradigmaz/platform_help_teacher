@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Copy, RefreshCw, Key, Check, Users, Trash2, BarChart3, User, Plus, Sparkles, Upload, ClipboardPaste, FileText } from 'lucide-react';
+import { ArrowLeft, Copy, RefreshCw, Key, Check, Users, Trash2, BarChart3, User, Plus, Sparkles, Upload, ClipboardPaste, FileText, Users2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +24,7 @@ import { AlertDialog,
 } from "@/components/ui/alert-dialog";
 import { AddActivityDialog } from '@/components/admin/AddActivityDialog';
 
-type Tab = 'students' | 'codes' | 'stats';
+type Tab = 'students' | 'subgroups' | 'codes' | 'stats';
 
 export default function GroupDetailPage() {
   const params = useParams();
@@ -37,6 +37,8 @@ export default function GroupDetailPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedGroupCode, setCopiedGroupCode] = useState(false);
+  const [isRegeneratingGroupCode, setIsRegeneratingGroupCode] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<{ id: string, name: string } | null>(null);
   
   // Activity Dialog State
@@ -62,6 +64,12 @@ export default function GroupDetailPage() {
   const [pasteText, setPasteText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Subgroup State
+  const [subgroupModal, setSubgroupModal] = useState<{ open: boolean; subgroup: number | null }>({ open: false, subgroup: null });
+  const [subgroupText, setSubgroupText] = useState('');
+  const [isAssigningSubgroup, setIsAssigningSubgroup] = useState(false);
+  const [assignResult, setAssignResult] = useState<{ matched: number; not_found: string[] } | null>(null);
 
   useEffect(() => {
     loadGroup();
@@ -206,6 +214,75 @@ export default function GroupDetailPage() {
     });
   };
 
+  const handleAssignSubgroup = async () => {
+    const lines = subgroupText.split('\n').map(line => line.trim()).filter(Boolean);
+    const names: string[] = [];
+    
+    for (const line of lines) {
+      const cleaned = line.replace(/^\d+[\.\)\s]+/, '').trim();
+      const name = cleaned.replace(/[^\p{L}\s-]/gu, ' ').replace(/\s+/g, ' ').trim();
+      if (name && name.split(' ').length >= 2) {
+        names.push(name);
+      }
+    }
+    
+    if (names.length === 0) {
+      toast.error('Не удалось распознать имена');
+      return;
+    }
+
+    setIsAssigningSubgroup(true);
+    try {
+      const result = await GroupsAPI.assignSubgroup(groupId, subgroupModal.subgroup, names);
+      setAssignResult({ matched: result.matched, not_found: result.not_found });
+      
+      if (result.not_found.length === 0) {
+        toast.success(`Назначено: ${result.matched} студентов`);
+        setSubgroupModal({ open: false, subgroup: null });
+        setSubgroupText('');
+        setAssignResult(null);
+      } else {
+        toast.warning(`Назначено: ${result.matched}, не найдено: ${result.not_found.length}`);
+      }
+      await loadGroup();
+    } catch (e) {
+      toast.error('Ошибка при назначении подгруппы');
+    } finally {
+      setIsAssigningSubgroup(false);
+    }
+  };
+
+  const handleClearSubgroups = async () => {
+    try {
+      const result = await GroupsAPI.clearSubgroups(groupId);
+      toast.success(`Подгруппы убраны у ${result.cleared} студентов`);
+      await loadGroup();
+    } catch (e) {
+      toast.error('Ошибка при очистке подгрупп');
+    }
+  };
+
+  const copyGroupCode = () => {
+    if (!group?.invite_code) return;
+    navigator.clipboard.writeText(group.invite_code);
+    setCopiedGroupCode(true);
+    toast.success('Код группы скопирован');
+    setTimeout(() => setCopiedGroupCode(false), 2000);
+  };
+
+  const handleRegenerateGroupCode = async () => {
+    setIsRegeneratingGroupCode(true);
+    try {
+      await GroupsAPI.regenerateGroupInviteCode(groupId);
+      toast.success('Код группы обновлён');
+      await loadGroup();
+    } catch (e) {
+      toast.error('Ошибка при обновлении кода');
+    } finally {
+      setIsRegeneratingGroupCode(false);
+    }
+  };
+
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -260,9 +337,9 @@ export default function GroupDetailPage() {
     );
   }
 
-  const filteredStudents = group.students.filter(student =>
-    student.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredStudents = group.students
+    .filter(student => student.full_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => a.full_name.localeCompare(b.full_name, 'ru'));
 
   const studentsWithoutCode = group.students.filter(s => !s.invite_code).length;
 
@@ -281,9 +358,7 @@ export default function GroupDetailPage() {
           <div>
             <h1 className="text-2xl font-bold">{group.name}</h1>
             <p className="text-muted-foreground">
-              Код: <code className="bg-muted px-2 py-0.5 rounded font-mono">{group.code}</code>
-              <span className="mx-2">•</span>
-              {group.students.length} студентов
+              {group.code} • {group.students.length} студентов
             </p>
           </div>
         </div>
@@ -319,10 +394,14 @@ export default function GroupDetailPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value as Tab)} className="mb-6">
-        <TabsList className="grid w-fit grid-cols-3">
+        <TabsList className="grid w-fit grid-cols-4">
           <TabsTrigger value="students" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
             Студенты
+          </TabsTrigger>
+          <TabsTrigger value="subgroups" className="flex items-center gap-2">
+            <Users2 className="w-4 h-4" />
+            Подгруппы
           </TabsTrigger>
           <TabsTrigger value="codes" className="flex items-center gap-2">
             <Key className="w-4 h-4" />
@@ -410,19 +489,157 @@ export default function GroupDetailPage() {
             </div>
           )}
 
-          {activeTab === 'codes' && (
-            <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-card border rounded-lg">
-            <div>
-              <p className="font-medium">Генерация инвайт-кодов</p>
-              <p className="text-sm text-muted-foreground">
-                Студентов без кода: <span className="font-medium text-orange-500">{studentsWithoutCode}</span>
-              </p>
+          {activeTab === 'subgroups' && (
+            <div className="space-y-6">
+              {/* Действия */}
+              <div className="flex gap-2">
+                <Button onClick={() => setSubgroupModal({ open: true, subgroup: 1 })}>
+                  <Users2 className="w-4 h-4 mr-2" />
+                  Назначить подгруппу 1
+                </Button>
+                <Button onClick={() => setSubgroupModal({ open: true, subgroup: 2 })} variant="outline">
+                  <Users2 className="w-4 h-4 mr-2" />
+                  Назначить подгруппу 2
+                </Button>
+                <Button onClick={handleClearSubgroups} variant="ghost" className="text-muted-foreground">
+                  Убрать все подгруппы
+                </Button>
+              </div>
+
+              {/* Две колонки */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Подгруппа 1 */}
+                <div className="border rounded-xl p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <span className="bg-blue-500/20 text-blue-500 px-2 py-0.5 rounded text-sm">1</span>
+                    Подгруппа 1
+                    <span className="text-muted-foreground text-sm font-normal">
+                      ({group.students.filter(s => s.subgroup === 1).length})
+                    </span>
+                  </h3>
+                  <div className="space-y-1">
+                    {group.students.filter(s => s.subgroup === 1).map((student, idx) => (
+                      <div key={student.id} className="flex items-center gap-2 py-1 text-sm">
+                        <span className="text-muted-foreground w-5">{idx + 1}.</span>
+                        <span>{student.full_name}</span>
+                      </div>
+                    ))}
+                    {group.students.filter(s => s.subgroup === 1).length === 0 && (
+                      <p className="text-muted-foreground text-sm italic">Нет студентов</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Подгруппа 2 */}
+                <div className="border rounded-xl p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <span className="bg-green-500/20 text-green-500 px-2 py-0.5 rounded text-sm">2</span>
+                    Подгруппа 2
+                    <span className="text-muted-foreground text-sm font-normal">
+                      ({group.students.filter(s => s.subgroup === 2).length})
+                    </span>
+                  </h3>
+                  <div className="space-y-1">
+                    {group.students.filter(s => s.subgroup === 2).map((student, idx) => (
+                      <div key={student.id} className="flex items-center gap-2 py-1 text-sm">
+                        <span className="text-muted-foreground w-5">{idx + 1}.</span>
+                        <span>{student.full_name}</span>
+                      </div>
+                    ))}
+                    {group.students.filter(s => s.subgroup === 2).length === 0 && (
+                      <p className="text-muted-foreground text-sm italic">Нет студентов</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Без подгруппы */}
+              {group.students.filter(s => !s.subgroup).length > 0 && (
+                <div className="border rounded-xl p-4 bg-muted/30">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded text-sm">—</span>
+                    Без подгруппы
+                    <span className="text-muted-foreground text-sm font-normal">
+                      ({group.students.filter(s => !s.subgroup).length})
+                    </span>
+                  </h3>
+                  <div className="grid grid-cols-2 gap-x-4">
+                    {group.students.filter(s => !s.subgroup).map((student, idx) => (
+                      <div key={student.id} className="flex items-center gap-2 py-1 text-sm">
+                        <span className="text-muted-foreground w-5">{idx + 1}.</span>
+                        <span>{student.full_name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="flex gap-2">
+          )}
+
+          {activeTab === 'codes' && (
+            <div className="space-y-6">
+          {/* Групповой код */}
+          <div className="p-4 bg-card border rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Групповой код для бота</p>
+                <p className="text-sm text-muted-foreground">
+                  Студенты вводят этот код в боте, затем своё ФИО
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {group.invite_code ? (
+                  <code className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-mono text-lg font-bold">
+                    {group.invite_code}
+                  </code>
+                ) : (
+                  <span className="text-muted-foreground italic">Не сгенерирован</span>
+                )}
+                <Button 
+                  variant="outline" 
+                  onClick={copyGroupCode}
+                  className="gap-2"
+                  disabled={!group.invite_code}
+                >
+                  {copiedGroupCode ? (
+                    <>
+                      <Check className="w-4 h-4 text-green-500" />
+                      Скопировано
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Копировать
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={handleRegenerateGroupCode}
+                  disabled={isRegeneratingGroupCode}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isRegeneratingGroupCode ? 'animate-spin' : ''}`} />
+                  {group.invite_code ? 'Обновить' : 'Сгенерировать'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Индивидуальные коды */}
+          <div className="p-4 bg-card border rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Индивидуальные инвайт-коды</p>
+                <p className="text-sm text-muted-foreground">
+                  Персональные коды для прямой привязки без ввода ФИО
+                  <span className="mx-2">•</span>
+                  Без кода: <span className="font-medium text-orange-500">{studentsWithoutCode}</span>
+                </p>
+              </div>
               <Button onClick={handleGenerateCodes} disabled={isGenerating || studentsWithoutCode === 0}>
                 <Key className="w-4 h-4 mr-2" />
-                {isGenerating ? 'Генерация...' : 'Сгенерировать всем'}
+                {isGenerating ? 'Генерация...' : 'Сгенерировать'}
               </Button>
             </div>
           </div>
@@ -581,6 +798,57 @@ export default function GroupDetailPage() {
               </Button>
               <Button className="flex-1" onClick={handlePasteSubmit} disabled={!pasteText.trim() || isImporting}>
                 {isImporting ? 'Добавление...' : 'Добавить'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subgroup Modal */}
+      {subgroupModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border rounded-xl p-6 w-full max-w-lg mx-4">
+            <h3 className="text-lg font-semibold mb-2">
+              Назначить подгруппу {subgroupModal.subgroup}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Вставьте список ФИО студентов. Система найдёт их в группе и назначит подгруппу.
+            </p>
+            <textarea
+              className="w-full h-64 p-3 border rounded-lg bg-background text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="1. Иванов Иван Иванович&#10;2. Петров Пётр Петрович&#10;3. Сидорова Анна Сергеевна"
+              value={subgroupText}
+              onChange={(e) => setSubgroupText(e.target.value)}
+              autoFocus
+            />
+            {assignResult && assignResult.not_found.length > 0 && (
+              <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm font-medium text-destructive mb-1">Не найдены:</p>
+                <ul className="text-sm text-destructive/80">
+                  {assignResult.not_found.map((name, i) => (
+                    <li key={i}>• {name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="flex gap-2 mt-4">
+              <Button 
+                variant="outline" 
+                className="flex-1" 
+                onClick={() => { 
+                  setSubgroupModal({ open: false, subgroup: null }); 
+                  setSubgroupText(''); 
+                  setAssignResult(null);
+                }}
+              >
+                Отмена
+              </Button>
+              <Button 
+                className="flex-1" 
+                onClick={handleAssignSubgroup} 
+                disabled={!subgroupText.trim() || isAssigningSubgroup}
+              >
+                {isAssigningSubgroup ? 'Назначение...' : 'Назначить'}
               </Button>
             </div>
           </div>

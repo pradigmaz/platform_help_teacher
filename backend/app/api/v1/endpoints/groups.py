@@ -84,6 +84,7 @@ async def read_group(
         "id": group.id,
         "name": group.name,
         "code": group.code,
+        "invite_code": group.invite_code,
         "created_at": group.created_at,
         "students": students,
         "labs_count": group.labs_count,
@@ -234,20 +235,35 @@ async def update_student(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(deps.get_current_active_superuser),
 ) -> Any:
-    """Обновить имя студента."""
+    """Обновить студента (ФИО, подгруппа)."""
     result = await db.execute(select(models.User).where(models.User.id == student_id, models.User.group_id == group_id))
     student = result.scalar_one_or_none()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
     try:
-        student.full_name = student_in.full_name
+        if student_in.full_name is not None:
+            student.full_name = student_in.full_name
+        if student_in.subgroup is not None or 'subgroup' in student_in.model_fields_set:
+            student.subgroup = student_in.subgroup
         await db.commit()
-        return {"status": "success", "student": student}
+        await db.refresh(student)
+        return {"status": "success", "student": schemas.StudentInGroupResponse.model_validate(student)}
     except SQLAlchemyError as e:
         await db.rollback()
         logger.error(f"Error updating student: {e}")
         raise HTTPException(status_code=500, detail="Database error")
+
+@router.post("/{group_id}/regenerate-invite-code")
+async def regenerate_group_invite_code(
+    group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """Сгенерировать/обновить инвайт-код группы."""
+    service = GroupService(db)
+    invite_code = await service.regenerate_group_invite_code(group_id)
+    return {"invite_code": invite_code}
 
 @router.post("/{group_id}/generate-codes")
 async def regenerate_group_codes(
@@ -269,3 +285,109 @@ async def regenerate_user_code(
     service = GroupService(db)
     invite_code = await service.regenerate_user_code(user_id)
     return {"invite_code": invite_code}
+
+
+def normalize_name(name: str) -> str:
+    """Нормализация ФИО для сравнения."""
+    return ' '.join(name.lower().split())
+
+
+def names_match(name1: str, name2: str) -> bool:
+    """Проверка совпадения ФИО (fuzzy)."""
+    n1 = normalize_name(name1)
+    n2 = normalize_name(name2)
+    
+    # Точное совпадение
+    if n1 == n2:
+        return True
+    
+    # Совпадение по словам (фамилия + имя без отчества)
+    parts1 = n1.split()
+    parts2 = n2.split()
+    
+    if len(parts1) >= 2 and len(parts2) >= 2:
+        # Фамилия + имя совпадают
+        if parts1[0] == parts2[0] and parts1[1] == parts2[1]:
+            return True
+    
+    return False
+
+
+@router.post("/{group_id}/assign-subgroup", response_model=schemas.AssignSubgroupResponse)
+async def assign_subgroup(
+    group_id: UUID,
+    request: schemas.AssignSubgroupRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """Массовое назначение подгруппы по списку ФИО."""
+    # Получаем всех студентов группы
+    result = await db.execute(
+        select(models.User).where(
+            models.User.group_id == group_id,
+            models.User.role == models.UserRole.STUDENT
+        )
+    )
+    students = list(result.scalars().all())
+    
+    if not students:
+        raise HTTPException(status_code=404, detail="No students in group")
+    
+    # Нормализуем входные имена
+    input_names = [name.strip() for name in request.names if name.strip()]
+    
+    matched_students = []
+    not_found = []
+    
+    for input_name in input_names:
+        found = False
+        for student in students:
+            if names_match(input_name, student.full_name):
+                student.subgroup = request.subgroup
+                matched_students.append(student.full_name)
+                found = True
+                break
+        if not found:
+            not_found.append(input_name)
+    
+    try:
+        await db.commit()
+        return schemas.AssignSubgroupResponse(
+            matched=len(matched_students),
+            updated_students=matched_students,
+            not_found=not_found
+        )
+    except SQLAlchemyError as e:
+        await db.rollback()
+        logger.error(f"Error assigning subgroups: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
+
+
+@router.post("/{group_id}/clear-subgroups")
+async def clear_subgroups(
+    group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """Убрать подгруппы у всех студентов группы."""
+    result = await db.execute(
+        select(models.User).where(
+            models.User.group_id == group_id,
+            models.User.role == models.UserRole.STUDENT
+        )
+    )
+    students = list(result.scalars().all())
+    
+    count = 0
+    for student in students:
+        if student.subgroup is not None:
+            student.subgroup = None
+            count += 1
+    
+    try:
+        await db.commit()
+        return {"status": "success", "cleared": count}
+    except SQLAlchemyError as e:
+        await db.rollback()
+        logger.error(f"Error clearing subgroups: {e}")
+        raise HTTPException(status_code=500, detail="Database error")

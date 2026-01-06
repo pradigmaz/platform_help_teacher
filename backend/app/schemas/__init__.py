@@ -1,6 +1,5 @@
-from pydantic import BaseModel, Field
 from .user import UserCreate, UserResponse, StudentInGroup, UserUpdate
-from .group import GroupCreate, GroupResponse, StudentImport, GroupDetailResponse, StudentInGroupResponse
+from .group import GroupCreate, GroupResponse, StudentImport, GroupDetailResponse, StudentInGroupResponse, StudentUpdate, AssignSubgroupRequest, AssignSubgroupResponse
 from .lab_settings import LabSettingsResponse, LabSettingsUpdate, GradingScale
 from .attestation import (
     AttestationType,
@@ -12,9 +11,6 @@ from .attestation import (
     AttestationResult,
     AttestationResultResponse,
     GroupAttestationResponse,
-    HyperionStudentRecord,
-    HyperionExport,
-    HyperionExportResponse,
 )
 from .attendance import (
     AttendanceStatusSchema,
@@ -48,14 +44,11 @@ from .report import (
     ExportResponse, ReportViewStats, ReportViewRecord, ReportViewsResponse,
 )
 
-# Схема для обновления студента (Secure PATCH)
-class StudentUpdate(BaseModel):
-    full_name: str = Field(..., min_length=2, max_length=200)
-
 __all__ = [
     "UserCreate", "UserResponse", "StudentInGroup", "UserUpdate",
     "GroupCreate", "GroupResponse", "StudentImport", "GroupDetailResponse", "StudentInGroupResponse",
-    "StudentUpdate", "LabSettingsResponse", "LabSettingsUpdate", "GradingScale",
+    "StudentUpdate", "AssignSubgroupRequest", "AssignSubgroupResponse",
+    "LabSettingsResponse", "LabSettingsUpdate", "GradingScale",
     # Attestation schemas
     "AttestationType",
     "AttestationSettingsBase",
@@ -66,9 +59,6 @@ __all__ = [
     "AttestationResult",
     "AttestationResultResponse",
     "GroupAttestationResponse",
-    "HyperionStudentRecord",
-    "HyperionExport",
-    "HyperionExportResponse",
     # Attendance schemas
     "AttendanceStatusSchema",
     "AttendanceCreate",

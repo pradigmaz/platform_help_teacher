@@ -3,12 +3,13 @@
 Хранит конфигурацию расчёта баллов для первой и второй аттестации.
 Настройки применяются ко всем группам и предметам.
 """
-from sqlalchemy import String, Integer, Float, Boolean, Enum as SQLEnum, UniqueConstraint
+from datetime import date
+from sqlalchemy import String, Integer, Float, Boolean, Date, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from uuid import UUID, uuid4
 from enum import Enum
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from .base import Base, TimestampMixin
 
 
@@ -72,6 +73,10 @@ class AttestationSettings(Base, TimestampMixin):
     # Настройки активности (Requirements 1.10)
     activity_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     participation_points: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    
+    # Период аттестации (для фильтрации посещаемости)
+    period_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
+    period_end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
     
     # Новая гибкая конфигурация компонентов (JSON)
     components_config: Mapped[Dict[str, Any]] = mapped_column(

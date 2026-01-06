@@ -17,8 +17,6 @@ from app.schemas.attestation import (
     AttestationResult,
     AttestationResultResponse,
     GroupAttestationResponse,
-    HyperionExportResponse,
-    HyperionStudentRecord,
     AttestationType as AttestationTypeSchema,
 )
 
@@ -339,99 +337,5 @@ async def calculate_all_students_attestation(
         average_score=round(average_score, 2),
         students=results,
         errors=errors
-    )
-
-
-# ============== Hyperion Export Endpoint ==============
-# Requirements: 6.4, 6.5, 6.6
-
-@router.get("/attestation/export/hyperion/{group_id}/{attestation_type}", response_model=HyperionExportResponse)
-async def export_to_hyperion(
-    group_id: UUID,
-    attestation_type: AttestationTypeSchema,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_superuser),
-):
-    """
-    Экспорт результатов аттестации в формат системы Гиперион.
-    
-    Requirements: 6.4 - export format compatible with Hyperion
-    Requirements: 6.5 - batch export of group results
-    Requirements: 6.6 - validate calculations within attestation timeframes
-    
-    Args:
-        group_id: ID группы
-        attestation_type: Тип аттестации (first/second)
-    
-    Returns:
-        HyperionExportResponse с данными для импорта в Гиперион
-    
-    Raises:
-        404: Если группа не найдена
-    """
-    # Проверяем существование группы
-    group_result = await db.execute(select(Group).where(Group.id == group_id))
-    group = group_result.scalar_one_or_none()
-    if not group:
-        raise HTTPException(status_code=404, detail="Группа не найдена")
-    
-    # Получаем всех студентов группы
-    from app.models import UserRole
-    students_result = await db.execute(
-        select(User).where(
-            User.group_id == group_id,
-            User.role == UserRole.STUDENT,
-            User.is_active == True
-        )
-    )
-    students = students_result.scalars().all()
-    
-    if not students:
-        raise HTTPException(status_code=404, detail="В группе нет активных студентов")
-    
-    service = AttestationService(db)
-    model_type = attestation_type
-    
-    # Рассчитываем баллы пакетно
-    results, errors = await service.calculate_group_scores_batch(
-        group_id=group_id,
-        attestation_type=model_type,
-        students=students
-    )
-    
-    # Формируем записи для Гиперион
-    hyperion_records: List[HyperionStudentRecord] = []
-    passing_count = 0
-    failing_count = 0
-    
-    for result in results:
-        hyperion_records.append(HyperionStudentRecord(
-            student_id=str(result.student_id),
-            full_name=result.student_name,
-            score=result.total_score,
-            grade=result.grade,
-            is_passing=result.is_passing
-        ))
-        
-        if result.is_passing:
-            passing_count += 1
-        else:
-            failing_count += 1
-    
-    # Определяем номер аттестации
-    attestation_number = attestation_type.number
-    
-    return HyperionExportResponse(
-        group_code=group.code,
-        attestation_type=attestation_type,
-        attestation_number=attestation_number,
-        export_date=datetime.utcnow(),
-        max_points=AttestationSettings.get_max_points(model_type),
-        min_passing_points=AttestationSettings.get_min_passing_points(model_type),
-        total_students=len(hyperion_records),
-        passing_count=passing_count,
-        failing_count=failing_count,
-        students=hyperion_records,
-        export_format="hyperion_v1"
     )
 

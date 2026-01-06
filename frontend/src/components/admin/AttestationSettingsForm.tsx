@@ -146,6 +146,40 @@ export function AttestationSettingsForm() {
           <GradeScaleCard attestationType={attestationType} />
         </BlurFade>
 
+        {/* Period Dates */}
+        <BlurFade delay={0.22}>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Info className="w-4 h-4 text-blue-500" />
+                <span className="font-medium">Период аттестации</span>
+                <span className="text-sm text-muted-foreground">(для фильтрации посещаемости)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-muted-foreground">Начало периода</label>
+                  <input 
+                    type="date" 
+                    className="w-full mt-1 px-3 py-2 border rounded-md bg-background"
+                    placeholder="Начало"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Конец периода</label>
+                  <input 
+                    type="date" 
+                    className="w-full mt-1 px-3 py-2 border rounded-md bg-background"
+                    placeholder="Конец"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Если не указано, учитывается вся посещаемость за семестр
+              </p>
+            </CardContent>
+          </Card>
+        </BlurFade>
+
         {/* Weight Summary */}
         <BlurFade delay={0.25}>
           <Card className="relative overflow-hidden bg-gradient-to-r from-background via-background to-primary/5">

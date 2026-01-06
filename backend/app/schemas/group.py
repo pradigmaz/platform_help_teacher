@@ -18,10 +18,29 @@ class StudentInGroupResponse(BaseModel):
     full_name: str
     username: Optional[str] = None
     invite_code: Optional[str] = None
+    subgroup: Optional[int] = None
     is_active: bool = True
 
     class Config:
         from_attributes = True
+
+
+# Обновление студента
+class StudentUpdate(BaseModel):
+    full_name: Optional[str] = None
+    subgroup: Optional[int] = None  # 1, 2, или None (убрать подгруппу)
+
+
+# Массовое назначение подгруппы
+class AssignSubgroupRequest(BaseModel):
+    subgroup: Optional[int] = None  # 1, 2, или None
+    names: List[str]  # Список ФИО для поиска
+
+
+class AssignSubgroupResponse(BaseModel):
+    matched: int
+    updated_students: List[str]
+    not_found: List[str]
 
 # То, что присылает фронтенд при создании
 class GroupCreate(BaseModel):
@@ -46,6 +65,7 @@ class GroupResponse(BaseModel):
     id: UUID
     name: str
     code: str
+    invite_code: Optional[str] = None
     created_at: datetime
     students_count: Optional[int] = 0
     # Настройки лабораторных
@@ -62,6 +82,7 @@ class GroupDetailResponse(BaseModel):
     id: UUID
     name: str
     code: str
+    invite_code: Optional[str] = None
     created_at: datetime
     students: List[StudentInGroupResponse] = []
     # Настройки лабораторных

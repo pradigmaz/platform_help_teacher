@@ -8,6 +8,12 @@ import type { Group, Subject, Lesson, Student, GradeData, JournalStats } from '.
 // Attestation period type
 export type AttestationPeriod = 'all' | 'first' | 'second';
 
+// Semester type
+export type SemesterInfo = {
+  academicYear: number;
+  semester: 1 | 2;
+};
+
 interface UseJournalDataProps {
   lessonIdParam: string | null;
 }
@@ -25,6 +31,8 @@ interface UseJournalDataReturn {
   setCurrentWeek: (date: Date) => void;
   attestationPeriod: AttestationPeriod;
   setAttestationPeriod: (period: AttestationPeriod) => void;
+  selectedSemester: SemesterInfo;
+  setSelectedSemester: (semester: SemesterInfo) => void;
   lessons: Lesson[];
   students: Student[];
   attendance: Record<string, Record<string, string>>;
@@ -32,8 +40,8 @@ interface UseJournalDataReturn {
   attestationScores: Record<string, AttestationResult>;
   stats: JournalStats | null;
   isLoading: boolean;
-  updateAttendance: (lessonId: string, studentId: string, status: string) => Promise<void>;
-  updateGrade: (lessonId: string, studentId: string, grade: number, workNumber?: number | null) => Promise<void>;
+  updateAttendance: (lessonId: string, studentId: string, status: string | null) => Promise<void>;
+  updateGrade: (lessonId: string, studentId: string, grade: number | null, workNumber?: number | null) => Promise<void>;
 }
 
 // Helper to get attestation period date range
@@ -71,16 +79,51 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps): UseJourn
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [attestationPeriod, setAttestationPeriod] = useState<AttestationPeriod>('all');
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-
-  // Semester start - September 1st of current academic year
-  const getSemesterStart = () => {
+  
+  // Semester state - auto-detect current semester
+  const [selectedSemester, setSelectedSemester] = useState<SemesterInfo>(() => {
     const now = new Date();
-    const year = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-    return new Date(year, 8, 1); // September 1st
+    if (now.getMonth() >= 8) { // сентябрь-декабрь
+      return { academicYear: now.getFullYear(), semester: 1 };
+    } else if (now.getMonth() <= 4) { // январь-май
+      return { academicYear: now.getFullYear() - 1, semester: 2 };
+    } else { // июнь-август
+      return { academicYear: now.getFullYear() - 1, semester: 2 };
+    }
+  });
+
+  // Get semester date range
+  const getSemesterDates = (sem: SemesterInfo) => {
+    if (sem.semester === 1) {
+      return {
+        start: new Date(sem.academicYear, 8, 1),  // 1 сентября
+        end: new Date(sem.academicYear, 11, 31),  // 31 декабря
+      };
+    } else {
+      return {
+        start: new Date(sem.academicYear + 1, 0, 1),  // 1 января
+        end: new Date(sem.academicYear + 1, 4, 31),   // 31 мая
+      };
+    }
+  };
+
+  // Semester start for attestation periods
+  const getSemesterStart = () => {
+    const dates = getSemesterDates(selectedSemester);
+    return dates.start;
   };
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+
+  // Reset week to semester start when semester changes
+  useEffect(() => {
+    const semDates = getSemesterDates(selectedSemester);
+    // If current week is outside semester, jump to semester start
+    if (currentWeek < semDates.start || currentWeek > semDates.end) {
+      setCurrentWeek(semDates.start);
+    }
+  }, [selectedSemester]);
 
   // Load lesson by ID from URL
   useEffect(() => {
@@ -115,7 +158,7 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps): UseJourn
     if (selectedGroupId && (initialLoadDone || !lessonIdParam)) {
       loadJournalData();
     }
-  }, [selectedGroupId, selectedSubjectId, selectedLessonType, currentWeek, attestationPeriod, initialLoadDone]);
+  }, [selectedGroupId, selectedSubjectId, selectedLessonType, currentWeek, attestationPeriod, selectedSemester, initialLoadDone]);
 
   const loadGroups = async () => {
     try {
@@ -131,13 +174,47 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps): UseJourn
     }
   };
 
-  const loadSubjects = async () => {
+  // Load subjects for current semester based on lessons
+  const loadSemesterSubjects = useCallback(async () => {
+    if (!selectedGroupId) return;
+    
+    const semDates = getSemesterDates(selectedSemester);
     try {
-      const { data } = await api.get('/admin/subjects/');
-      setSubjects(data);
+      const { data: semesterLessons } = await api.get('/admin/journal/lessons', {
+        params: {
+          group_id: selectedGroupId,
+          start_date: format(semDates.start, 'yyyy-MM-dd'),
+          end_date: format(semDates.end, 'yyyy-MM-dd'),
+        }
+      });
+      
+      // Get unique subject IDs from semester lessons
+      const subjectIds = new Set(
+        semesterLessons.map((l: Lesson) => l.subject_id).filter(Boolean)
+      );
+      
+      // Filter subjects
+      const { data: allSubjects } = await api.get('/admin/subjects/');
+      const filtered = allSubjects.filter((s: Subject) => subjectIds.has(s.id));
+      setSubjects(filtered);
+      
+      // Reset subject selection if current subject not in semester
+      if (selectedSubjectId !== 'all' && !subjectIds.has(selectedSubjectId)) {
+        setSelectedSubjectId('all');
+      }
     } catch {
-      console.error('Ошибка загрузки предметов');
+      console.error('Ошибка загрузки предметов семестра');
     }
+  }, [selectedGroupId, selectedSemester]);
+
+  useEffect(() => {
+    if (selectedGroupId) {
+      loadSemesterSubjects();
+    }
+  }, [selectedGroupId, selectedSemester, loadSemesterSubjects]);
+
+  const loadSubjects = async () => {
+    // Now handled by loadSemesterSubjects
   };
 
   const loadJournalData = useCallback(async () => {
@@ -145,6 +222,9 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps): UseJourn
     setIsLoading(true);
     
     try {
+      // Get semester date boundaries
+      const semesterDates = getSemesterDates(selectedSemester);
+      
       // Determine date range based on attestation period or week
       let startDate: string;
       let endDate: string;
@@ -155,12 +235,15 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps): UseJourn
           startDate = format(periodDates.start, 'yyyy-MM-dd');
           endDate = format(periodDates.end, 'yyyy-MM-dd');
         } else {
-          startDate = format(weekStart, 'yyyy-MM-dd');
-          endDate = format(weekEnd, 'yyyy-MM-dd');
+          startDate = format(semesterDates.start, 'yyyy-MM-dd');
+          endDate = format(semesterDates.end, 'yyyy-MM-dd');
         }
       } else {
-        startDate = format(weekStart, 'yyyy-MM-dd');
-        endDate = format(weekEnd, 'yyyy-MM-dd');
+        // Clamp week to semester boundaries
+        const clampedWeekStart = weekStart < semesterDates.start ? semesterDates.start : weekStart;
+        const clampedWeekEnd = weekEnd > semesterDates.end ? semesterDates.end : weekEnd;
+        startDate = format(clampedWeekStart, 'yyyy-MM-dd');
+        endDate = format(clampedWeekEnd, 'yyyy-MM-dd');
       }
       
       const params: Record<string, string> = {
@@ -339,6 +422,8 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps): UseJourn
     setCurrentWeek,
     attestationPeriod,
     setAttestationPeriod,
+    selectedSemester,
+    setSelectedSemester,
     lessons,
     students,
     attendance,

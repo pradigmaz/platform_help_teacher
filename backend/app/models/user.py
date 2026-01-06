@@ -61,6 +61,15 @@ class User(Base, TimestampMixin):
         default=dict,
         server_default='{}'
     )
+    
+    # Настройки преподавателя (только для TEACHER/ADMIN)
+    # hide_previous_semester: bool - скрывать прошлый семестр от студентов
+    teacher_settings: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=lambda: {"hide_previous_semester": True},
+        server_default='{"hide_previous_semester": true}'
+    )
 
     # Relationships
     group: Mapped[Optional["Group"]] = relationship(back_populates="users")

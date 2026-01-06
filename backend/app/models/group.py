@@ -23,11 +23,15 @@ class Group(Base, TimestampMixin):
     __table_args__ = (
         CheckConstraint("length(code) <= 20", name="ck_groups_code_len"),
         CheckConstraint("length(name) <= 100", name="ck_groups_name_len"),
+        CheckConstraint("length(invite_code) <= 8", name="ck_groups_invite_code_len"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     code: Mapped[str] = mapped_column(Text, unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    
+    # Инвайт-код группы для бота (рандомный, обновляемый)
+    invite_code: Mapped[Optional[str]] = mapped_column(Text, unique=True, nullable=True, index=True)
     
     # Настройки лабораторных
     labs_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
