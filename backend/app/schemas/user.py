@@ -7,7 +7,8 @@ from app.models import UserRole # Импортируем Enum из моделе�
 ContactVisibility = Literal["student", "report", "both", "none"]
 
 class UserCreate(BaseModel):
-    social_id: int
+    telegram_id: Optional[int] = None
+    vk_id: Optional[int] = None
     full_name: str
     username: Optional[str] = None
     role: UserRole = UserRole.STUDENT
@@ -15,7 +16,8 @@ class UserCreate(BaseModel):
 
 class UserResponse(BaseModel):
     id: UUID
-    social_id: Optional[int] # Может быть null
+    telegram_id: Optional[int] = None
+    vk_id: Optional[int] = None
     full_name: str
     username: Optional[str]
     role: UserRole

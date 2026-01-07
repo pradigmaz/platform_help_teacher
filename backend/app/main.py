@@ -14,7 +14,11 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.csrf import get_csrf_config  # noqa: F401 - loads config
+from app.core.redis import close_redis
+from app.services.external_api import kis_client
+from app.services.pdf_service import pdf_service
 from app.bots.telegram_bot import bot
+from app.bots import vk_bot
 from app.core.prestart_check import check_deployment_settings 
 
 logging.basicConfig(
@@ -44,20 +48,23 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"CRITICAL: Failed to register Telegram webhook: {e}", exc_info=True)
     
+    # --- VK BOT LONG POLL ---
+    await vk_bot.start_longpoll()
+    
     # --- AUTO-ADMIN SEEDING ---
     if settings.FIRST_SUPERUSER_ID:
         async with AsyncSessionLocal() as db:
             try:
-                result = await db.execute(select(User).where(User.social_id == settings.FIRST_SUPERUSER_ID))
+                result = await db.execute(select(User).where(User.telegram_id == settings.FIRST_SUPERUSER_ID))
                 user = result.scalar_one_or_none()
                 
                 if not user:
                     logger.info("First Superuser not found. Creating...")
                     new_superuser = User(
-                        social_id=settings.FIRST_SUPERUSER_ID,
+                        telegram_id=settings.FIRST_SUPERUSER_ID,
                         username=settings.FIRST_SUPERUSER_USERNAME,
                         full_name="Super Admin",
-                        role=UserRole.ADMIN, # FIX: Use Enum
+                        role=UserRole.ADMIN,
                         is_active=True,
                         group_id=None
                     )
@@ -65,7 +72,7 @@ async def lifespan(app: FastAPI):
                     await db.commit()
                     logger.info("Superuser created successfully!")
                 else:
-                    if user.role != UserRole.ADMIN: # FIX: Use Enum
+                    if user.role != UserRole.ADMIN:
                         logger.warning("User exists but is not admin. Promoting...")
                         user.role = UserRole.ADMIN
                         db.add(user)
@@ -76,6 +83,10 @@ async def lifespan(app: FastAPI):
     yield
     
     logger.info("🛑 Application shutting down...")
+    await vk_bot.stop_longpoll()
+    await close_redis()
+    await kis_client.close()
+    await pdf_service.close()
     try:
         await bot.delete_webhook()
     except Exception:

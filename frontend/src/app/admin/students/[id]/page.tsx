@@ -28,6 +28,7 @@ import { AnimatedCircularProgress } from '@/components/ui/animated-circular-prog
 import dynamic from 'next/dynamic';
 import api from '@/lib/api';
 import { StudentActivitiesList } from '@/components/admin/StudentActivitiesList';
+import { TransferStudentDialog } from '@/components/admin/TransferStudentDialog';
 
 interface LabSubmission {
   lab_id: string;
@@ -220,10 +221,21 @@ export default function StudentProfilePage() {
                   )}
                 </div>
                 
-                {/* Кнопка сброса Telegram */}
-                {student.telegram_id && (
-                  <div className="mt-4 pt-4 border-t">
-                    <AlertDialog>
+                {/* Действия со студентом */}
+                <div className="mt-4 pt-4 border-t">
+                  <div className="flex gap-2">
+                    <TransferStudentDialog
+                      studentId={studentId}
+                      studentName={student.full_name}
+                      currentGroupId={student.group_id || undefined}
+                      currentGroupName={student.group_name || undefined}
+                      onSuccess={async () => {
+                        const { data } = await api.get<StudentProfile>(`/admin/students/${studentId}`);
+                        setStudent(data);
+                      }}
+                    />
+                    {student.telegram_id && (
+                      <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-900/20">
                           <Unlink className="w-4 h-4 mr-2" />
@@ -250,8 +262,9 @@ export default function StudentProfilePage() {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </CardContent>

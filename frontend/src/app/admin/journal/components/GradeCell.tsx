@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { GradeData, Lesson } from '../lib/journal-constants';
+
+const DEBOUNCE_MS = 500;
 
 interface GradeCellProps {
   gradeData: GradeData | undefined;
@@ -22,11 +24,26 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
   const [value, setValue] = useState(gradeValue?.toString() || '');
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync with external changes
   useEffect(() => {
     setValue(gradeValue?.toString() || '');
   }, [gradeValue]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const debouncedSave = useCallback((newGrade: number | null, workNumber: number | null) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onGradeChange(newGrade, workNumber);
+    }, DEBOUNCE_MS);
+  }, [onGradeChange]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value;
@@ -38,13 +55,13 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
 
   const handleBlur = () => {
     setIsEditing(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    
     const newGrade = value ? parseInt(value) : null;
     
     if (newGrade === null && gradeValue) {
-      // Had value, now empty — delete
       onGradeChange(null, null);
     } else if (newGrade && newGrade !== gradeValue) {
-      // New value — save with lesson's work_number
       onGradeChange(newGrade, workNum || lessonWorkNum);
     }
   };

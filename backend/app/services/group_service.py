@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException
 
 from app import models, schemas
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,11 @@ class GroupService:
 
             if group_in.students:
                 # Валидация количества студентов при создании
-                if len(group_in.students) > 150:
-                     raise HTTPException(status_code=400, detail="Too many students in one request (max 150)")
+                if len(group_in.students) > settings.MAX_STUDENTS_COUNT:
+                     raise HTTPException(
+                         status_code=400, 
+                         detail=f"Too many students in one request (max {settings.MAX_STUDENTS_COUNT})"
+                     )
 
                 # Batch generate codes
                 invite_codes = await self._generate_unique_invite_codes_batch(len(group_in.students))
@@ -50,7 +54,8 @@ class GroupService:
                     new_student = models.User(
                         full_name=student_data.full_name,
                         username=student_data.username,
-                        social_id=None,
+                        telegram_id=None,
+                        vk_id=None,
                         group_id=group.id,
                         role=models.UserRole.STUDENT,
                         is_active=True,
@@ -124,20 +129,25 @@ class GroupService:
             raise HTTPException(status_code=404, detail="Group not found")
         
         try:
-            # Генерируем уникальный код
+            # Генерируем batch кодов и проверяем уникальность одним запросом
             for _ in range(10):
-                new_code = self.generate_invite_code()
-                # Проверяем уникальность среди групп и пользователей
-                existing_group = await self.db.execute(
-                    select(models.Group).where(models.Group.invite_code == new_code)
+                candidates = [self.generate_invite_code() for _ in range(5)]
+                
+                # Проверяем уникальность среди групп и пользователей одним запросом
+                existing_group_codes = await self.db.execute(
+                    select(models.Group.invite_code).where(models.Group.invite_code.in_(candidates))
                 )
-                existing_user = await self.db.execute(
-                    select(models.User).where(models.User.invite_code == new_code)
+                existing_user_codes = await self.db.execute(
+                    select(models.User.invite_code).where(models.User.invite_code.in_(candidates))
                 )
-                if not existing_group.scalar_one_or_none() and not existing_user.scalar_one_or_none():
-                    group.invite_code = new_code
+                
+                used_codes = set(existing_group_codes.scalars().all()) | set(existing_user_codes.scalars().all())
+                available = [c for c in candidates if c not in used_codes]
+                
+                if available:
+                    group.invite_code = available[0]
                     await self.db.commit()
-                    return new_code
+                    return available[0]
             
             raise HTTPException(status_code=500, detail="Could not generate unique code")
         except HTTPException:

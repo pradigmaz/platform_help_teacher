@@ -72,3 +72,14 @@ class StorageService:
                 logger.error(f"Failed to generate download URL: {e}")
                 return None
         return url
+
+    async def delete_object(self, object_name: str) -> bool:
+        """Удаляет объект из хранилища."""
+        async with self.get_client() as client:
+            try:
+                await client.delete_object(Bucket=self.bucket, Key=object_name)
+                logger.info(f"Deleted object: {object_name}")
+                return True
+            except Exception as e:
+                logger.error(f"Failed to delete object {object_name}: {e}")
+                raise

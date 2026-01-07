@@ -1,12 +1,14 @@
 import { api } from './client';
-import type {
-  AttestationType,
-  AttestationSettings,
-  AttestationSettingsUpdate,
-  AttestationResult,
-  GroupAttestationResult,
-  GradeScale,
-  ComponentsConfigAPI,
+import {
+  type AttestationType,
+  type AttestationSettings,
+  type AttestationSettingsUpdate,
+  type AttestationResult,
+  type GroupAttestationResult,
+  type GradeScale,
+  type BackendGradeScale,
+  type ComponentsConfigAPI,
+  convertGradeScale,
 } from './types';
 
 export const AttestationAPI = {
@@ -32,11 +34,11 @@ export const AttestationAPI = {
     return data;
   },
 
-  getGradeScale: async (type: AttestationType) => {
-    const { data } = await api.get<GradeScale>(
+  getGradeScale: async (type: AttestationType): Promise<GradeScale> => {
+    const { data } = await api.get<BackendGradeScale>(
       `/admin/attestation/grade-scale/${type}`
     );
-    return data;
+    return convertGradeScale(data, type);
   },
 
   updateComponentsConfig: async (type: AttestationType, config: ComponentsConfigAPI) => {

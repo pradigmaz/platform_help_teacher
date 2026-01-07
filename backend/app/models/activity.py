@@ -13,6 +13,7 @@ class Activity(Base, TimestampMixin):
     __table_args__ = (
         CheckConstraint("length(description) <= 500", name="ck_activities_description_len"),
         Index("ix_activities_created_at", "created_at"),
+        Index("ix_activities_attestation_type", "attestation_type"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

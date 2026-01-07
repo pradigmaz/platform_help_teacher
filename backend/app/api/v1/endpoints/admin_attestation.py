@@ -1,6 +1,6 @@
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.core.limiter import limiter
 from app.models import User, Group, AttestationSettings, AttestationType
 from app.services.attestation_service import AttestationService
+from app.services.attestation.audit import AttestationAuditService
 from app.schemas.attestation import (
     AttestationSettingsResponse,
     AttestationSettingsUpdate,
@@ -119,9 +120,26 @@ async def update_attestation_settings(
         400: Если веса компонентов не суммируются в 100%
     """
     service = AttestationService(db)
+    audit_service = AttestationAuditService(db)
+    
+    # Получаем старые настройки для audit log
+    old_settings = await service.get_settings(settings_in.attestation_type)
     
     try:
         settings = await service.update_settings(settings_in)
+        
+        # Логируем изменение
+        ip_address = request.client.host if request.client else None
+        await audit_service.log_settings_change(
+            attestation_type=settings_in.attestation_type,
+            action="update" if old_settings else "create",
+            old_settings=old_settings,
+            new_settings=settings,
+            changed_by_id=current_user.id,
+            ip_address=ip_address
+        )
+        await db.commit()
+        
         return service.to_response(settings)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -131,7 +149,9 @@ async def update_attestation_settings(
 # Requirements: 6.1, 6.2, 6.3
 
 @router.get("/attestation/calculate/{student_id}/{attestation_type}", response_model=AttestationResultResponse)
+@limiter.limit("30/minute")
 async def calculate_student_attestation(
+    request: Request,
     student_id: UUID,
     attestation_type: AttestationTypeSchema,
     activity_points: float = Query(default=0.0, ge=0, description="Баллы за активность"),
@@ -190,14 +210,16 @@ async def calculate_student_attestation(
             max_points=result.max_points,
             min_passing_points=result.min_passing_points,
             components_breakdown=result.components_breakdown,
-            calculated_at=datetime.utcnow()
+            calculated_at=datetime.now(timezone.utc)
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/attestation/calculate/group/{group_id}/{attestation_type}", response_model=GroupAttestationResponse)
+@limiter.limit("10/minute")
 async def calculate_group_attestation(
+    request: Request,
     group_id: UUID,
     attestation_type: AttestationTypeSchema,
     db: AsyncSession = Depends(get_db),
@@ -266,7 +288,7 @@ async def calculate_group_attestation(
         group_id=group_id,
         group_code=group.code,
         attestation_type=attestation_type,
-        calculated_at=datetime.utcnow(),
+        calculated_at=datetime.now(timezone.utc),
         total_students=len(results),
         passing_students=passing_students,
         failing_students=failing_students,
@@ -281,8 +303,12 @@ async def calculate_group_attestation(
 # Requirements: 1.1, 1.2 - страница баллов аттестации для всех студентов
 
 @router.get("/attestation/scores/all/{attestation_type}", response_model=GroupAttestationResponse)
+@limiter.limit("5/minute")
 async def calculate_all_students_attestation(
+    request: Request,
     attestation_type: AttestationTypeSchema,
+    skip: int = Query(default=0, ge=0, description="Пропустить записей"),
+    limit: int = Query(default=100, ge=1, le=500, description="Лимит записей (макс 500)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
@@ -294,48 +320,100 @@ async def calculate_all_students_attestation(
     
     Студенты сортируются по ФИО (А-Я).
     Каждый студент содержит group_code для отображения группы.
+    Поддерживает пагинацию для больших наборов данных.
     
     Args:
         attestation_type: Тип аттестации (first/second)
+        skip: Пропустить записей (для пагинации)
+        limit: Лимит записей (макс 500)
     
     Returns:
-        GroupAttestationResponse со всеми студентами и статистикой
+        GroupAttestationResponse со студентами и статистикой
     """
     service = AttestationService(db)
     model_type = attestation_type
     
     # Рассчитываем баллы для всех студентов
-    results, errors = await service.calculate_all_students_scores(
+    all_results, errors = await service.calculate_all_students_scores(
         attestation_type=model_type
     )
     
-    if not results:
+    if not all_results:
         raise HTTPException(status_code=404, detail="Нет активных студентов")
     
-    # Статистика
-    passing_students = sum(1 for r in results if r.is_passing)
-    failing_students = len(results) - passing_students
+    # Статистика по ВСЕМ студентам (до пагинации)
+    total_count = len(all_results)
+    passing_students = sum(1 for r in all_results if r.is_passing)
+    failing_students = total_count - passing_students
     
-    # Распределение по оценкам
+    # Распределение по оценкам (по всем)
     grade_distribution: Dict[str, int] = {"неуд": 0, "уд": 0, "хор": 0, "отл": 0}
-    for r in results:
+    for r in all_results:
         if r.grade in grade_distribution:
             grade_distribution[r.grade] += 1
     
-    # Средний балл
-    average_score = sum(r.total_score for r in results) / len(results) if results else 0.0
+    # Средний балл (по всем)
+    average_score = sum(r.total_score for r in all_results) / total_count if total_count else 0.0
+    
+    # Применяем пагинацию
+    paginated_results = all_results[skip:skip + limit]
     
     return GroupAttestationResponse(
-        group_id=UUID("00000000-0000-0000-0000-000000000000"),  # Placeholder для "все группы"
+        group_id=None,  # None для режима "все группы"
         group_code="ALL",  # Специальный код для режима "Все студенты"
         attestation_type=attestation_type,
-        calculated_at=datetime.utcnow(),
-        total_students=len(results),
+        calculated_at=datetime.now(timezone.utc),
+        total_students=total_count,  # Общее количество (не пагинированное)
         passing_students=passing_students,
         failing_students=failing_students,
         grade_distribution=grade_distribution,
         average_score=round(average_score, 2),
-        students=results,
+        students=paginated_results,
         errors=errors
     )
 
+
+# ============== Audit History Endpoint ==============
+
+@router.get("/attestation/settings/audit")
+async def get_settings_audit_history(
+    attestation_type: Optional[AttestationTypeSchema] = Query(
+        default=None, description="Фильтр по типу аттестации"
+    ),
+    limit: int = Query(default=50, ge=1, le=200, description="Лимит записей"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """
+    Получить историю изменений настроек аттестации (audit trail).
+    
+    Args:
+        attestation_type: Фильтр по типу аттестации (опционально)
+        limit: Максимальное количество записей
+    
+    Returns:
+        Список записей аудита с информацией об изменениях
+    """
+    audit_service = AttestationAuditService(db)
+    
+    logs = await audit_service.get_audit_history(
+        attestation_type=attestation_type,
+        limit=limit
+    )
+    
+    return [
+        {
+            "id": str(log.id),
+            "settings_type": log.settings_type,
+            "settings_key": log.settings_key,
+            "action": log.action,
+            "old_values": log.old_values,
+            "new_values": log.new_values,
+            "changed_fields": log.changed_fields,
+            "changed_by_id": str(log.changed_by_id) if log.changed_by_id else None,
+            "changed_by_name": log.changed_by.full_name if log.changed_by else None,
+            "ip_address": log.ip_address,
+            "created_at": log.created_at.isoformat(),
+        }
+        for log in logs
+    ]

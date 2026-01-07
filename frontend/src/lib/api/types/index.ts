@@ -7,6 +7,9 @@ export * from './groups';
 // Labs
 export * from './labs';
 
+// Lab Queue
+export * from './lab-queue';
+
 // Attestation
 export * from './attestation';
 
@@ -27,3 +30,6 @@ export * from './reports';
 
 // Admin
 export * from './admin';
+
+// Transfer
+export * from './transfer';

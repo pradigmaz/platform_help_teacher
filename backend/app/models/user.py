@@ -25,10 +25,12 @@ class User(Base, TimestampMixin):
         CheckConstraint("length(username) <= 100", name="ck_users_username_len"),
         CheckConstraint("length(invite_code) <= 8", name="ck_users_invite_code_len"),
         Index("ix_users_created_at", "created_at"),
+        Index("ix_users_group_role", "group_id", "role"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    social_id: Mapped[Optional[int]] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
+    telegram_id: Mapped[Optional[int]] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
+    vk_id: Mapped[Optional[int]] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
     group_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("groups.id"), nullable=True, index=True)
     
     full_name: Mapped[str] = mapped_column(Text, nullable=False)

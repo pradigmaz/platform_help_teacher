@@ -23,6 +23,11 @@ export interface RelinkTelegramResponse {
   expires_in: number;
 }
 
+export interface LinkVkResponse {
+  code: string;
+  expires_in: number;
+}
+
 export interface StudentTeacherContacts {
   contacts: TeacherContacts | null;
   teacher_name?: string;

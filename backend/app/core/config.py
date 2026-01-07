@@ -83,8 +83,14 @@ class Settings(BaseSettings):
     TELEGRAM_WEBHOOK_SECRET: str = Field(..., repr=False)
     TELEGRAM_WEBHOOK_URL: Optional[str] = None
 
+    # VK (Long Poll - не требует внешнего URL)
+    VK_BOT_TOKEN: Optional[str] = Field(default=None, repr=False)
+    VK_GROUP_ID: Optional[int] = None
+
     # REDIS
-    REDIS_URL: str = "redis://redis:6379/0" 
+    REDIS_URL: str = "redis://redis:6379/0"
+    REDIS_PASSWORD: Optional[str] = Field(default=None, repr=False)
+    REDIS_SSL: bool = False 
     
     # MinIO (S3)
     MINIO_ENDPOINT: str = "minio:9000" 
@@ -95,6 +101,9 @@ class Settings(BaseSettings):
 
     # Import Settings
     MAX_STUDENTS_COUNT: int = 150
+    MAX_IMPORT_FILE_SIZE: int = 5 * 1024 * 1024  # 5MB
+    MAX_IMAGE_SIZE: int = 10 * 1024 * 1024  # 10MB
+    MAX_PIN_ATTEMPTS: int = 5
     NAME_SANITIZATION_REGEX: str = r'[\d\.\,\;\t]'
 
     # Attestation Defaults

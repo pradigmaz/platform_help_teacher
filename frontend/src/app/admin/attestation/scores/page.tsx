@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useReducer, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import { 
   AttestationAPI, 
@@ -19,39 +19,112 @@ import { AttestationSummaryCards } from './components/SummaryCards';
 import { AttestationTable } from './components/AttestationTable';
 import { StudentDetailSheet } from './components/StudentDetailSheet';
 
+// Types
 type ViewMode = 'by-group' | 'all-students';
 type SortKey = 'name' | 'group' | 'total' | 'labs' | 'attendance' | 'activity';
 type SortOrder = 'asc' | 'desc';
 
+interface State {
+  // Filters
+  viewMode: ViewMode;
+  attestationType: AttestationType;
+  selectedGroupId: string;
+  searchQuery: string;
+  // Sort
+  sortKey: SortKey;
+  sortOrder: SortOrder;
+  // Data
+  groups: GroupResponse[];
+  data: GroupAttestationResult | null;
+  // Loading
+  loading: boolean;
+  groupsLoading: boolean;
+  // Detail sheet
+  selectedStudent: AttestationResult | null;
+  detailSheetOpen: boolean;
+}
+
+type Action =
+  | { type: 'SET_VIEW_MODE'; payload: ViewMode }
+  | { type: 'SET_ATTESTATION_TYPE'; payload: AttestationType }
+  | { type: 'SET_GROUP_ID'; payload: string }
+  | { type: 'SET_SEARCH'; payload: string }
+  | { type: 'TOGGLE_SORT'; payload: SortKey }
+  | { type: 'SET_GROUPS'; payload: GroupResponse[] }
+  | { type: 'SET_DATA'; payload: GroupAttestationResult | null }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_GROUPS_LOADING'; payload: boolean }
+  | { type: 'OPEN_DETAIL'; payload: AttestationResult }
+  | { type: 'CLOSE_DETAIL' };
+
+const initialState: State = {
+  viewMode: 'by-group',
+  attestationType: 'first',
+  selectedGroupId: '',
+  searchQuery: '',
+  sortKey: 'name',
+  sortOrder: 'asc',
+  groups: [],
+  data: null,
+  loading: false,
+  groupsLoading: true,
+  selectedStudent: null,
+  detailSheetOpen: false,
+};
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'SET_VIEW_MODE':
+      return { ...state, viewMode: action.payload, searchQuery: '', data: null };
+    case 'SET_ATTESTATION_TYPE':
+      return { ...state, attestationType: action.payload };
+    case 'SET_GROUP_ID':
+      return { ...state, selectedGroupId: action.payload };
+    case 'SET_SEARCH':
+      return { ...state, searchQuery: action.payload };
+    case 'TOGGLE_SORT':
+      return state.sortKey === action.payload
+        ? { ...state, sortOrder: state.sortOrder === 'asc' ? 'desc' : 'asc' }
+        : { ...state, sortKey: action.payload, sortOrder: 'asc' };
+    case 'SET_GROUPS':
+      return { 
+        ...state, 
+        groups: action.payload,
+        selectedGroupId: action.payload[0]?.id || '',
+        groupsLoading: false 
+      };
+    case 'SET_DATA':
+      return { ...state, data: action.payload, loading: false };
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+    case 'SET_GROUPS_LOADING':
+      return { ...state, groupsLoading: action.payload };
+    case 'OPEN_DETAIL':
+      return { ...state, selectedStudent: action.payload, detailSheetOpen: true };
+    case 'CLOSE_DETAIL':
+      return { ...state, detailSheetOpen: false };
+    default:
+      return state;
+  }
+}
+
 export default function AttestationScoresPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>('by-group');
-  const [attestationType, setAttestationType] = useState<AttestationType>('first');
-  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
-  
-  const [groups, setGroups] = useState<GroupResponse[]>([]);
-  const [data, setData] = useState<GroupAttestationResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [groupsLoading, setGroupsLoading] = useState(true);
-  
-  const [selectedStudent, setSelectedStudent] = useState<AttestationResult | null>(null);
-  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const {
+    viewMode, attestationType, selectedGroupId, searchQuery,
+    sortKey, sortOrder, groups, data, loading, groupsLoading,
+    selectedStudent, detailSheetOpen
+  } = state;
 
   // Load groups on mount
   useEffect(() => {
     const loadGroups = async () => {
       try {
         const groupsData = await GroupsAPI.list();
-        setGroups(groupsData);
-        if (groupsData.length > 0) {
-          setSelectedGroupId(groupsData[0].id);
-        }
+        dispatch({ type: 'SET_GROUPS', payload: groupsData });
       } catch {
         toast.error('Ошибка загрузки групп');
-      } finally {
-        setGroupsLoading(false);
+        dispatch({ type: 'SET_GROUPS_LOADING', payload: false });
       }
     };
     loadGroups();
@@ -62,20 +135,15 @@ export default function AttestationScoresPage() {
     const loadData = async () => {
       if (viewMode === 'by-group' && !selectedGroupId) return;
       
-      setLoading(true);
+      dispatch({ type: 'SET_LOADING', payload: true });
       try {
-        let result: GroupAttestationResult;
-        if (viewMode === 'all-students') {
-          result = await AttestationAPI.calculateAllStudents(attestationType);
-        } else {
-          result = await AttestationAPI.calculateGroup(selectedGroupId, attestationType);
-        }
-        setData(result);
+        const result = viewMode === 'all-students'
+          ? await AttestationAPI.calculateAllStudents(attestationType)
+          : await AttestationAPI.calculateGroup(selectedGroupId, attestationType);
+        dispatch({ type: 'SET_DATA', payload: result });
       } catch {
         toast.error('Ошибка загрузки данных аттестации');
-        setData(null);
-      } finally {
-        setLoading(false);
+        dispatch({ type: 'SET_DATA', payload: null });
       }
     };
     loadData();
@@ -108,19 +176,18 @@ export default function AttestationScoresPage() {
       });
   }, [data?.students, searchQuery, sortKey, sortOrder]);
 
-  const handleSortChange = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortKey(key);
-      setSortOrder('asc');
-    }
-  };
+  // Handlers
+  const handleSortChange = useCallback((key: SortKey) => {
+    dispatch({ type: 'TOGGLE_SORT', payload: key });
+  }, []);
 
-  const handleStudentClick = (student: AttestationResult) => {
-    setSelectedStudent(student);
-    setDetailSheetOpen(true);
-  };
+  const handleStudentClick = useCallback((student: AttestationResult) => {
+    dispatch({ type: 'OPEN_DETAIL', payload: student });
+  }, []);
+
+  const handleDetailSheetChange = useCallback((open: boolean) => {
+    if (!open) dispatch({ type: 'CLOSE_DETAIL' });
+  }, []);
 
   // Calculate summary from data
   const summary = useMemo(() => {
@@ -155,7 +222,7 @@ export default function AttestationScoresPage() {
         </div>
         
         {/* View Mode Tabs */}
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+        <Tabs value={viewMode} onValueChange={(v) => dispatch({ type: 'SET_VIEW_MODE', payload: v as ViewMode })}>
           <TabsList>
             <TabsTrigger value="by-group" className="gap-2">
               <Users className="h-4 w-4" />
@@ -173,7 +240,7 @@ export default function AttestationScoresPage() {
       <div className="flex flex-wrap items-center gap-4">
         {/* Group Selector (only in by-group mode) */}
         {viewMode === 'by-group' && (
-          <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+          <Select value={selectedGroupId} onValueChange={(v) => dispatch({ type: 'SET_GROUP_ID', payload: v })}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Выберите группу" />
             </SelectTrigger>
@@ -188,7 +255,7 @@ export default function AttestationScoresPage() {
         )}
 
         {/* Attestation Period Selector */}
-        <Tabs value={attestationType} onValueChange={(v) => setAttestationType(v as AttestationType)}>
+        <Tabs value={attestationType} onValueChange={(v) => dispatch({ type: 'SET_ATTESTATION_TYPE', payload: v as AttestationType })}>
           <TabsList>
             <TabsTrigger value="first">1-я аттестация</TabsTrigger>
             <TabsTrigger value="second">2-я аттестация</TabsTrigger>
@@ -201,7 +268,7 @@ export default function AttestationScoresPage() {
           <Input
             placeholder="Поиск по ФИО..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => dispatch({ type: 'SET_SEARCH', payload: e.target.value })}
             className="pl-9"
           />
         </div>
@@ -234,7 +301,7 @@ export default function AttestationScoresPage() {
       <StudentDetailSheet
         student={selectedStudent}
         open={detailSheetOpen}
-        onOpenChange={setDetailSheetOpen}
+        onOpenChange={handleDetailSheetChange}
         attestationType={attestationType}
       />
     </div>

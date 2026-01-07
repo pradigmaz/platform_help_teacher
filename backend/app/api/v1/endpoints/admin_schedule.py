@@ -3,7 +3,7 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -17,6 +17,7 @@ from app.schemas.schedule import (
     LessonCreate, LessonUpdate, LessonResponse,
     GenerateLessonsRequest, GenerateLessonsResponse
 )
+from app.core.limiter import limiter
 
 router = APIRouter()
 
@@ -228,8 +229,10 @@ class ParseScheduleResponse(BaseModel):
 
 
 @router.post("/schedule/parse", response_model=ParseScheduleResponse)
+@limiter.limit("5/hour")
 async def parse_schedule(
-    request: ParseScheduleRequest,
+    request: Request,
+    data: ParseScheduleRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
@@ -237,17 +240,17 @@ async def parse_schedule(
     Парсинг расписания с kis.vgltu.ru.
     Автоматически создаёт группы и занятия.
     """
-    end_date = request.end_date or date.today()
+    end_date = data.end_date or date.today()
     
-    if request.start_date > end_date:
+    if data.start_date > end_date:
         raise HTTPException(status_code=400, detail="start_date должна быть раньше end_date")
     
     import_service = ScheduleImportService(db)
     
     try:
         stats = await import_service.import_from_parser(
-            teacher_name=request.teacher_name,
-            start_date=request.start_date,
+            teacher_name=data.teacher_name,
+            start_date=data.start_date,
             end_date=end_date
         )
         

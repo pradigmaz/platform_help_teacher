@@ -20,19 +20,9 @@ export const WEEKDAYS = [
   { key: 'sat', label: 'Сб', full: 'Суббота' },
 ];
 
-// Яркие цвета для обеих тем
-export const LESSON_TYPE_CONFIG = {
+// Базовая конфигурация (lowercase only)
+const BASE_LESSON_TYPE_CONFIG = {
   lecture: {
-    label: 'Лекция',
-    shortLabel: 'Лек',
-    icon: GraduationCap,
-    bg: 'bg-blue-100 dark:bg-blue-900/50',
-    border: 'border-l-blue-500',
-    text: 'text-blue-800 dark:text-blue-200',
-    badge: 'bg-blue-500 text-white',
-    dot: 'bg-blue-500',
-  },
-  LECTURE: {
     label: 'Лекция',
     shortLabel: 'Лек',
     icon: GraduationCap,
@@ -52,16 +42,6 @@ export const LESSON_TYPE_CONFIG = {
     badge: 'bg-purple-500 text-white',
     dot: 'bg-purple-500',
   },
-  LAB: {
-    label: 'Лаб. работа',
-    shortLabel: 'Лаб',
-    icon: FlaskConical,
-    bg: 'bg-purple-100 dark:bg-purple-900/50',
-    border: 'border-l-purple-500',
-    text: 'text-purple-800 dark:text-purple-200',
-    badge: 'bg-purple-500 text-white',
-    dot: 'bg-purple-500',
-  },
   practice: {
     label: 'Практика',
     shortLabel: 'Пр',
@@ -72,16 +52,24 @@ export const LESSON_TYPE_CONFIG = {
     badge: 'bg-emerald-500 text-white',
     dot: 'bg-emerald-500',
   },
-  PRACTICE: {
-    label: 'Практика',
-    shortLabel: 'Пр',
-    icon: BookOpen,
-    bg: 'bg-emerald-100 dark:bg-emerald-900/50',
-    border: 'border-l-emerald-500',
-    text: 'text-emerald-800 dark:text-emerald-200',
-    badge: 'bg-emerald-500 text-white',
-    dot: 'bg-emerald-500',
-  },
+} as const;
+
+export type LessonTypeKey = keyof typeof BASE_LESSON_TYPE_CONFIG;
+
+/**
+ * Получить конфигурацию типа занятия (нормализует UPPERCASE -> lowercase)
+ */
+export function getLessonTypeConfig(type: string) {
+  const normalized = type.toLowerCase() as LessonTypeKey;
+  return BASE_LESSON_TYPE_CONFIG[normalized] ?? BASE_LESSON_TYPE_CONFIG.lecture;
+}
+
+// Для обратной совместимости — экспортируем объект с обоими вариантами
+export const LESSON_TYPE_CONFIG = {
+  ...BASE_LESSON_TYPE_CONFIG,
+  LECTURE: BASE_LESSON_TYPE_CONFIG.lecture,
+  LAB: BASE_LESSON_TYPE_CONFIG.lab,
+  PRACTICE: BASE_LESSON_TYPE_CONFIG.practice,
 } as const;
 
 export type LessonType = keyof typeof LESSON_TYPE_CONFIG;

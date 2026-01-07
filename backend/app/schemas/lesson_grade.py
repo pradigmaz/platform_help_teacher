@@ -41,7 +41,27 @@ class LessonGradeWithStudent(LessonGradeResponse):
     student_name: Optional[str] = None
 
 
+class GradeItem(BaseModel):
+    """Элемент для массового создания оценок."""
+    student_id: UUID
+    grade: int = Field(..., ge=2, le=5)
+    work_number: Optional[int] = Field(None, ge=1, le=20)
+    comment: Optional[str] = Field(None, max_length=500)
+
+
 class BulkGradeCreate(BaseModel):
     """Массовое создание/обновление оценок."""
     lesson_id: UUID
-    grades: list[dict]  # [{student_id, grade, work_number?, comment?}]
+    grades: list[GradeItem]
+
+
+class AttendanceRecord(BaseModel):
+    """Запись посещаемости для bulk операций."""
+    student_id: UUID
+    status: str  # AttendanceStatus value
+
+
+class BulkAttendanceUpdate(BaseModel):
+    """Массовое обновление посещаемости."""
+    lesson_id: UUID
+    records: list[AttendanceRecord]

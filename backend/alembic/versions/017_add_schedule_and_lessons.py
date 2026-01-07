@@ -76,7 +76,7 @@ def upgrade() -> None:
         # Удаляем старый unique constraint и создаём новый
         try:
             op.drop_constraint('uq_attendance_student_date', 'attendance', type_='unique')
-        except:
+        except Exception:
             pass  # constraint может не существовать
         op.create_unique_constraint('uq_attendance_student_date_lesson', 'attendance', ['student_id', 'date', 'lesson_number'])
 
@@ -91,26 +91,26 @@ def downgrade() -> None:
     if 'attendance' in tables:
         try:
             op.drop_constraint('uq_attendance_student_date_lesson', 'attendance', type_='unique')
-        except:
+        except Exception:
             pass
         try:
             op.create_unique_constraint('uq_attendance_student_date', 'attendance', ['student_id', 'date'])
-        except:
+        except Exception:
             pass
         
         try:
             op.drop_index('idx_attendance_lesson', table_name='attendance')
-        except:
+        except Exception:
             pass
         try:
             op.drop_constraint('fk_attendance_lesson', 'attendance', type_='foreignkey')
-        except:
+        except Exception:
             pass
         
         for col in ['subgroup', 'lesson_number', 'lesson_type', 'lesson_id']:
             try:
                 op.drop_column('attendance', col)
-            except:
+            except Exception:
                 pass
     
     # Удаление таблиц

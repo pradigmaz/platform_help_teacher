@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional, Literal
 from datetime import datetime
 from uuid import UUID
 from enum import Enum
@@ -18,7 +18,7 @@ class StudentInGroupResponse(BaseModel):
     full_name: str
     username: Optional[str] = None
     invite_code: Optional[str] = None
-    subgroup: Optional[int] = None
+    subgroup: Optional[Literal[1, 2]] = None
     is_active: bool = True
 
     class Config:
@@ -28,13 +28,13 @@ class StudentInGroupResponse(BaseModel):
 # Обновление студента
 class StudentUpdate(BaseModel):
     full_name: Optional[str] = None
-    subgroup: Optional[int] = None  # 1, 2, или None (убрать подгруппу)
+    subgroup: Optional[Literal[1, 2]] = None
 
 
 # Массовое назначение подгруппы
 class AssignSubgroupRequest(BaseModel):
-    subgroup: Optional[int] = None  # 1, 2, или None
-    names: List[str]  # Список ФИО для поиска
+    subgroup: Optional[Literal[1, 2]] = None
+    names: List[str]
 
 
 class AssignSubgroupResponse(BaseModel):
@@ -42,23 +42,26 @@ class AssignSubgroupResponse(BaseModel):
     updated_students: List[str]
     not_found: List[str]
 
+
+class ClearSubgroupsResponse(BaseModel):
+    cleared: int
+
 # То, что присылает фронтенд при создании
 class GroupCreate(BaseModel):
     name: str
     code: str
     students: List[StudentImport] = []
-    # Настройки лабораторных (опционально)
-    labs_count: Optional[int] = None
+    labs_count: Optional[int] = Field(default=None, ge=0, le=50)
     grading_scale: Optional[GradingScale] = GradingScale.TEN
-    default_max_grade: Optional[int] = 10
+    default_max_grade: Optional[int] = Field(default=10, ge=1, le=100)
     has_subgroups: bool = True
 
 
 # Схема для обновления настроек лабораторных
 class LabSettingsUpdate(BaseModel):
-    labs_count: Optional[int] = None
+    labs_count: Optional[int] = Field(default=None, ge=0, le=50)
     grading_scale: Optional[GradingScale] = None
-    default_max_grade: Optional[int] = None
+    default_max_grade: Optional[int] = Field(default=None, ge=1, le=100)
     has_subgroups: Optional[bool] = None
 
 
@@ -70,6 +73,7 @@ class GroupResponse(BaseModel):
     invite_code: Optional[str] = None
     created_at: datetime
     students_count: Optional[int] = 0
+    is_archived: bool = False
     # Настройки лабораторных
     labs_count: Optional[int] = None
     grading_scale: Optional[GradingScale] = None

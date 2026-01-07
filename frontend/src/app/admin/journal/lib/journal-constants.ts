@@ -1,4 +1,5 @@
 import { BookOpen, FlaskConical, GraduationCap, Check, X, Clock, FileQuestion } from 'lucide-react';
+import { LESSON_TYPE_CONFIG } from '@/lib/schedule-constants';
 
 // Types
 export interface Group {
@@ -52,21 +53,25 @@ export interface JournalStats {
 }
 
 // Constants
-export const LESSON_TYPE_INFO: Record<string, { label: string; icon: typeof BookOpen; color: string; short: string }> = {
-  LECTURE: { label: 'Лекция', icon: GraduationCap, color: 'bg-blue-500', short: 'Лек' },
-  lecture: { label: 'Лекция', icon: GraduationCap, color: 'bg-blue-500', short: 'Лек' },
-  LAB: { label: 'Лаб. работа', icon: FlaskConical, color: 'bg-purple-500', short: 'Лаб' },
-  lab: { label: 'Лаб. работа', icon: FlaskConical, color: 'bg-purple-500', short: 'Лаб' },
-  PRACTICE: { label: 'Практика', icon: BookOpen, color: 'bg-green-500', short: 'Пр' },
-  practice: { label: 'Практика', icon: BookOpen, color: 'bg-green-500', short: 'Пр' },
-};
-
 export const STATUS_INFO: Record<string, { label: string; icon: typeof Check; color: string }> = {
   PRESENT: { label: 'Присутствует', icon: Check, color: 'text-green-600' },
   LATE: { label: 'Опоздал', icon: Clock, color: 'text-yellow-600' },
   EXCUSED: { label: 'Уваж. причина', icon: FileQuestion, color: 'text-blue-600' },
   ABSENT: { label: 'Отсутствует', icon: X, color: 'text-red-600' },
 };
+
+// Re-export from schedule-constants (single source of truth)
+export { LESSON_TYPE_CONFIG } from '@/lib/schedule-constants';
+
+// Helper to get lesson type config with case normalization
+export const getLessonTypeConfig = (type: string) => {
+  return LESSON_TYPE_CONFIG[type as keyof typeof LESSON_TYPE_CONFIG] 
+    || LESSON_TYPE_CONFIG[type.toLowerCase() as keyof typeof LESSON_TYPE_CONFIG] 
+    || LESSON_TYPE_CONFIG.lecture;
+};
+
+// Legacy alias for backward compatibility
+export const LESSON_TYPE_INFO = LESSON_TYPE_CONFIG;
 
 // Helpers
 export const canHaveGrade = (lesson: Lesson): boolean => {

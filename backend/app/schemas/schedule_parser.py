@@ -3,14 +3,14 @@
 """
 from uuid import UUID
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
 class ParserConfigBase(BaseModel):
     teacher_name: str = Field(..., max_length=100)
     enabled: bool = False
-    day_of_week: int = Field(default=6, ge=0, le=6)  # 0=пн, 6=вс
+    days_of_week: List[int] = Field(default=[6], min_length=1, max_length=7)
     run_time: str = Field(default="20:00", pattern=r"^\d{2}:\d{2}$")
     parse_days_ahead: int = Field(default=14, ge=7, le=60)
 
@@ -22,7 +22,7 @@ class ParserConfigCreate(ParserConfigBase):
 class ParserConfigUpdate(BaseModel):
     teacher_name: Optional[str] = None
     enabled: Optional[bool] = None
-    day_of_week: Optional[int] = Field(default=None, ge=0, le=6)
+    days_of_week: Optional[List[int]] = Field(default=None, min_length=1, max_length=7)
     run_time: Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     parse_days_ahead: Optional[int] = Field(default=None, ge=7, le=60)
 
@@ -30,6 +30,7 @@ class ParserConfigUpdate(BaseModel):
 class ParserConfigResponse(ParserConfigBase):
     id: UUID
     teacher_id: UUID
+    last_run_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     
@@ -69,3 +70,19 @@ class ScheduleConflictResponse(BaseModel):
 
 class ConflictResolveRequest(BaseModel):
     action: str = Field(..., pattern=r"^(accept|reject)$")
+
+
+class ParseHistoryResponse(BaseModel):
+    id: UUID
+    teacher_id: UUID
+    config_id: Optional[UUID]
+    started_at: datetime
+    finished_at: Optional[datetime]
+    status: str
+    lessons_created: int
+    lessons_skipped: int
+    conflicts_created: int
+    error_message: Optional[str]
+    
+    class Config:
+        from_attributes = True

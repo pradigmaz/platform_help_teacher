@@ -36,28 +36,42 @@ async def login_with_otp(
 ) -> Any:
     """
     Обмен OTP кода на HttpOnly Cookie.
+    Поддерживает Telegram и VK.
     """
     await csrf_protect.validate_csrf(request)
     
-    telegram_id = await redis.get(f"auth:{otp}")
+    auth_data = await redis.get(f"auth:{otp}")
     
-    if not telegram_id:
+    if not auth_data:
         raise HTTPException(status_code=400, detail="Invalid or expired code")
     
-    # Check if telegram_id is a valid integer
-    if not telegram_id.isdigit():
-        await redis.delete(f"auth:{otp}") # Cleanup bad data
-        raise HTTPException(status_code=400, detail="Invalid data format")
+    # Парсим данные (новый формат: JSON с social_id и platform)
+    import json
+    try:
+        data = json.loads(auth_data)
+        social_id = data.get("social_id")
+        platform = data.get("platform", "telegram")
+    except (json.JSONDecodeError, TypeError):
+        # Старый формат: просто telegram_id
+        if not auth_data.isdigit():
+            await redis.delete(f"auth:{otp}")
+            raise HTTPException(status_code=400, detail="Invalid data format")
+        social_id = int(auth_data)
+        platform = "telegram"
 
     await redis.delete(f"auth:{otp}")
     
-    result = await db.execute(select(User).where(User.social_id == int(telegram_id)))
+    # Поиск пользователя по platform
+    if platform == "telegram":
+        result = await db.execute(select(User).where(User.telegram_id == social_id))
+    else:
+        result = await db.execute(select(User).where(User.vk_id == social_id))
+    
     user = result.scalar_one_or_none()
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    # FIX: Check if user is active
     if not user.is_active:
          raise HTTPException(status_code=403, detail="User is inactive")
         

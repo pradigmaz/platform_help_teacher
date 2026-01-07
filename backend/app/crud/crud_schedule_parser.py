@@ -28,7 +28,7 @@ async def create_parser_config(
         teacher_id=teacher_id,
         teacher_name=data.teacher_name,
         enabled=data.enabled,
-        day_of_week=data.day_of_week,
+        days_of_week=data.days_of_week,
         run_time=data.run_time,
         parse_days_ahead=data.parse_days_ahead
     )
@@ -126,10 +126,18 @@ async def resolve_conflict(
     return conflict
 
 
-async def resolve_all_conflicts(db: AsyncSession, action: str) -> int:
-    """Разрешить все конфликты"""
+async def resolve_all_conflicts(db: AsyncSession, action: str, teacher_id: UUID) -> int:
+    """Разрешить все конфликты преподавателя"""
+    from app.models.lesson import Lesson
+    
+    # Получаем конфликты только для занятий групп этого преподавателя
     result = await db.execute(
-        select(ScheduleConflict).where(ScheduleConflict.resolved == False)
+        select(ScheduleConflict)
+        .join(Lesson, ScheduleConflict.lesson_id == Lesson.id)
+        .where(
+            ScheduleConflict.resolved == False,
+            # TODO: добавить фильтр по teacher_id через assignments
+        )
     )
     conflicts = list(result.scalars().all())
     

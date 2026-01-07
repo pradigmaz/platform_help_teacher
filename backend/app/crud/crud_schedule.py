@@ -124,6 +124,43 @@ class CRUDLesson:
         logger.info(f"Created lesson: {db_obj.id}")
         return db_obj
 
+    async def get_or_create(
+        self,
+        db: AsyncSession,
+        *,
+        group_id: UUID,
+        date: date,
+        lesson_number: int,
+        lesson_type: LessonType,
+        schedule_item_id: Optional[UUID] = None,
+        topic: Optional[str] = None,
+        work_id: Optional[UUID] = None,
+        subgroup: Optional[int] = None
+    ) -> Optional[Lesson]:
+        """Получить существующее занятие или создать новое. Возвращает None если уже существует."""
+        existing = await db.execute(
+            select(Lesson).where(
+                Lesson.group_id == group_id,
+                Lesson.date == date,
+                Lesson.lesson_number == lesson_number,
+                Lesson.subgroup == subgroup
+            )
+        )
+        if existing.scalar_one_or_none():
+            return None  # Уже существует
+        
+        return await self.create(
+            db,
+            group_id=group_id,
+            date=date,
+            lesson_number=lesson_number,
+            lesson_type=lesson_type,
+            schedule_item_id=schedule_item_id,
+            topic=topic,
+            work_id=work_id,
+            subgroup=subgroup
+        )
+
     async def get(self, db: AsyncSession, id: UUID) -> Optional[Lesson]:
         result = await db.execute(select(Lesson).where(Lesson.id == id))
         return result.scalar_one_or_none()

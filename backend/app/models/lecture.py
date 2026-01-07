@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
-from sqlalchemy import Text, Boolean, CheckConstraint, String, Index, ForeignKey
+from datetime import datetime
+from sqlalchemy import Text, Boolean, CheckConstraint, String, Index, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from uuid import UUID, uuid4
@@ -23,6 +24,7 @@ class Lecture(Base, TimestampMixin):
             postgresql_where="public_code IS NOT NULL"
         ),
         Index('idx_lectures_subject_id', 'subject_id'),
+        Index('idx_lectures_deleted_at', 'deleted_at'),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -30,6 +32,7 @@ class Lecture(Base, TimestampMixin):
     content: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     public_code: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, unique=True)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     subject_id: Mapped[Optional[UUID]] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("subjects.id", ondelete="SET NULL"),

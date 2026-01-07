@@ -14,7 +14,7 @@ from app.api.deps import get_db, get_current_user
 from app.models.user import User, UserRole
 from app.models.group import Group
 from app.models.lab import Lab
-from app.models.submission import Submission
+from app.models.submission import Submission, SubmissionStatus
 from app.models.attendance import Attendance, AttendanceStatus
 from app.models.activity import Activity
 from app.services.attestation_service import AttestationService
@@ -45,6 +45,8 @@ async def get_my_profile(
         "id": str(current_user.id),
         "full_name": current_user.full_name,
         "username": current_user.username,
+        "telegram_id": current_user.telegram_id,
+        "vk_id": current_user.vk_id,
         "role": current_user.role.value,
         "group": group_info,
     }
@@ -101,11 +103,14 @@ async def get_my_labs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
-    """Лабораторные работы студента со статусами сдачи."""
+    """
+    Лабораторные работы студента со статусами сдачи.
+    Учитывает последовательный доступ (is_sequential).
+    """
     
-    # Все лабы
+    # Все лабы, отсортированные по номеру
     labs_result = await db.execute(
-        select(Lab).order_by(Lab.created_at.desc())
+        select(Lab).order_by(Lab.number.asc(), Lab.created_at.desc())
     )
     labs = labs_result.scalars().all()
     
@@ -115,24 +120,273 @@ async def get_my_labs(
     )
     submissions = {s.lab_id: s for s in subs_result.scalars().all()}
     
+    # Определяем номер студента в группе для варианта
+    student_position = await _get_student_position(db, current_user)
+    
     result = []
+    prev_accepted = True  # Первая лаба всегда доступна
+    
     for lab in labs:
         sub = submissions.get(lab.id)
+        
+        # Проверяем доступность
+        is_available = prev_accepted or not lab.is_sequential
+        
+        # Определяем вариант
+        variant_number = None
+        if lab.variants and student_position:
+            variants_count = len(lab.variants)
+            variant_number = ((student_position - 1) % variants_count) + 1
+        
         result.append({
             "id": str(lab.id),
+            "number": lab.number,
             "title": lab.title,
+            "topic": lab.topic,
             "description": lab.description,
             "deadline": lab.deadline.isoformat() if lab.deadline else None,
             "max_grade": lab.max_grade,
+            "is_available": is_available,
+            "variant_number": variant_number,
             "submission": {
+                "id": str(sub.id),
                 "status": sub.status.value,
                 "grade": sub.grade,
                 "feedback": sub.feedback,
-                "submitted_at": sub.created_at.isoformat(),
+                "ready_at": sub.ready_at.isoformat() if sub.ready_at else None,
+                "accepted_at": sub.accepted_at.isoformat() if sub.accepted_at else None,
             } if sub else None,
         })
+        
+        # Обновляем флаг для следующей лабы
+        if sub and sub.status.value == "ACCEPTED":
+            prev_accepted = True
+        elif lab.is_sequential:
+            prev_accepted = False
     
     return result
+
+
+@router.get("/labs/{lab_id}")
+async def get_lab_detail(
+    lab_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """
+    Детали лабораторной работы с вариантом студента.
+    """
+    lab = await db.get(Lab, lab_id)
+    if not lab:
+        raise HTTPException(status_code=404, detail="Lab not found")
+    
+    # Проверяем доступность (последовательность)
+    is_available = await _check_lab_availability(db, current_user.id, lab)
+    
+    # Определяем вариант студента
+    student_position = await _get_student_position(db, current_user)
+    variant_number = None
+    variant_data = None
+    
+    if lab.variants and student_position:
+        variants_count = len(lab.variants)
+        variant_number = ((student_position - 1) % variants_count) + 1
+        
+        # Находим данные варианта
+        for v in lab.variants:
+            if v.get("number") == variant_number:
+                variant_data = v
+                break
+    
+    # Получаем сдачу студента
+    sub_result = await db.execute(
+        select(Submission).where(
+            Submission.user_id == current_user.id,
+            Submission.lab_id == lab_id,
+        )
+    )
+    sub = sub_result.scalar_one_or_none()
+    
+    return {
+        "id": str(lab.id),
+        "number": lab.number,
+        "title": lab.title,
+        "topic": lab.topic,
+        "goal": lab.goal,
+        "formatting_guide": lab.formatting_guide,
+        "theory_content": lab.theory_content,
+        "practice_content": lab.practice_content,
+        "questions": lab.questions,
+        "deadline": lab.deadline.isoformat() if lab.deadline else None,
+        "max_grade": lab.max_grade,
+        "is_available": is_available,
+        "variant_number": variant_number,
+        "variant_data": variant_data,
+        "submission": {
+            "id": str(sub.id),
+            "status": sub.status.value,
+            "grade": sub.grade,
+            "feedback": sub.feedback,
+            "ready_at": sub.ready_at.isoformat() if sub.ready_at else None,
+            "accepted_at": sub.accepted_at.isoformat() if sub.accepted_at else None,
+        } if sub else None,
+    }
+
+
+@router.post("/labs/{lab_id}/ready")
+async def mark_lab_ready(
+    lab_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """
+    Отметить лабу как готовую к сдаче.
+    Студент попадает в очередь к преподавателю.
+    """
+    from datetime import datetime
+    
+    lab = await db.get(Lab, lab_id)
+    if not lab:
+        raise HTTPException(status_code=404, detail="Lab not found")
+    
+    # Проверяем доступность
+    is_available = await _check_lab_availability(db, current_user.id, lab)
+    if not is_available:
+        raise HTTPException(status_code=403, detail="Lab is not available yet. Complete previous labs first.")
+    
+    # Получаем или создаём сдачу
+    sub_result = await db.execute(
+        select(Submission).where(
+            Submission.user_id == current_user.id,
+            Submission.lab_id == lab_id,
+        )
+    )
+    sub = sub_result.scalar_one_or_none()
+    
+    if sub:
+        if sub.status.value == "READY":
+            raise HTTPException(status_code=400, detail="Already in queue")
+        if sub.status.value == "ACCEPTED":
+            raise HTTPException(status_code=400, detail="Lab already accepted")
+    
+    # Определяем вариант
+    student_position = await _get_student_position(db, current_user)
+    variant_number = None
+    if lab.variants and student_position:
+        variants_count = len(lab.variants)
+        variant_number = ((student_position - 1) % variants_count) + 1
+    
+    if sub:
+        # Обновляем существующую
+        sub.status = SubmissionStatus.READY
+        sub.ready_at = datetime.utcnow()
+        sub.variant_number = variant_number
+    else:
+        # Создаём новую
+        sub = Submission(
+            user_id=current_user.id,
+            lab_id=lab_id,
+            status=SubmissionStatus.READY,
+            is_manual=True,
+            variant_number=variant_number,
+            ready_at=datetime.utcnow(),
+        )
+        db.add(sub)
+    
+    await db.commit()
+    await db.refresh(sub)
+    
+    return {
+        "status": "ready",
+        "submission_id": str(sub.id),
+        "variant_number": variant_number,
+        "message": "You are now in the queue. Go to the teacher with your notebook.",
+    }
+
+
+@router.post("/labs/{lab_id}/cancel-ready")
+async def cancel_lab_ready(
+    lab_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Отменить готовность к сдаче (выйти из очереди)."""
+    sub_result = await db.execute(
+        select(Submission).where(
+            Submission.user_id == current_user.id,
+            Submission.lab_id == lab_id,
+        )
+    )
+    sub = sub_result.scalar_one_or_none()
+    
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    
+    if sub.status.value != "READY":
+        raise HTTPException(status_code=400, detail="Not in queue")
+    
+    sub.status = SubmissionStatus.NEW
+    sub.ready_at = None
+    
+    await db.commit()
+    
+    return {"status": "cancelled", "message": "Removed from queue"}
+
+
+# === Helper functions ===
+
+async def _get_student_position(db: AsyncSession, user: User) -> Optional[int]:
+    """Получить позицию студента в списке группы (для определения варианта)."""
+    if not user.group_id:
+        return None
+    
+    # Получаем всех студентов группы, отсортированных по ФИО
+    from app.models import UserRole
+    result = await db.execute(
+        select(User)
+        .where(User.group_id == user.group_id, User.role == UserRole.STUDENT)
+        .order_by(User.full_name.asc())
+    )
+    students = result.scalars().all()
+    
+    for i, student in enumerate(students):
+        if student.id == user.id:
+            return i + 1  # 1-based
+    
+    return None
+
+
+async def _check_lab_availability(db: AsyncSession, user_id: UUID, lab: Lab) -> bool:
+    """Проверить доступность лабы (последовательность)."""
+    if lab.number == 1:
+        return True
+    
+    if not lab.is_sequential:
+        return True
+    
+    # Ищем предыдущую лабу того же предмета
+    prev_lab_result = await db.execute(
+        select(Lab).where(
+            Lab.subject_id == lab.subject_id,
+            Lab.number == lab.number - 1,
+        )
+    )
+    prev_lab = prev_lab_result.scalar_one_or_none()
+    
+    if not prev_lab:
+        return True  # Нет предыдущей лабы
+    
+    # Проверяем, сдана ли предыдущая
+    prev_sub_result = await db.execute(
+        select(Submission).where(
+            Submission.user_id == user_id,
+            Submission.lab_id == prev_lab.id,
+            Submission.status == SubmissionStatus.ACCEPTED,
+        )
+    )
+    prev_sub = prev_sub_result.scalar_one_or_none()
+    
+    return prev_sub is not None
 
 
 # ============== Attestation ==============

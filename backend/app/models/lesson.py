@@ -5,7 +5,7 @@ from datetime import date
 from typing import Optional, List, TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import ForeignKey, Date, String, Boolean, Integer, Index
+from sqlalchemy import ForeignKey, Date, String, Boolean, Integer, Index, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -93,4 +93,7 @@ class Lesson(Base, TimestampMixin):
 
     __table_args__ = (
         Index('idx_lessons_group_date', 'group_id', 'date'),
+        Index('idx_lessons_date', 'date'),
+        CheckConstraint('lesson_number >= 1 AND lesson_number <= 8', name='ck_lesson_lesson_number'),
+        CheckConstraint('subgroup IS NULL OR subgroup IN (1, 2)', name='ck_lesson_subgroup'),
     )

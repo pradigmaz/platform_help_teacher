@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { StudentAPI, StudentProfile, RelinkTelegramResponse } from '@/lib/api';
+import type { LinkVkResponse } from '@/lib/api/types/admin';
 import { CardSpotlight } from '@/components/ui/card-spotlight';
 import { TextGenerateEffect } from '@/components/ui/text-generate-effect';
 import { Label } from '@/components/ui/label';
@@ -56,9 +57,13 @@ export default function SettingsPage() {
   const [relinkData, setRelinkData] = useState<RelinkTelegramResponse | null>(null);
   const [relinkLoading, setRelinkLoading] = useState(false);
 
-  // Заглушка: ВК не привязан
-  const isVkLinked = false;
-  const isTelegramLinked = !!profile?.username;
+  // Link VK state
+  const [vkDialogOpen, setVkDialogOpen] = useState(false);
+  const [vkData, setVkData] = useState<LinkVkResponse | null>(null);
+  const [vkLoading, setVkLoading] = useState(false);
+
+  const isVkLinked = !!profile?.vk_id;
+  const isTelegramLinked = !!profile?.telegram_id;
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -90,6 +95,26 @@ export default function SettingsPage() {
   const copyCode = () => {
     if (relinkData?.code) {
       navigator.clipboard.writeText(relinkData.code);
+      toast.success('Код скопирован');
+    }
+  };
+
+  const handleLinkVk = async () => {
+    setVkLoading(true);
+    try {
+      const data = await StudentAPI.linkVk();
+      setVkData(data);
+      setVkDialogOpen(true);
+    } catch {
+      toast.error('Ошибка получения кода привязки ВК');
+    } finally {
+      setVkLoading(false);
+    }
+  };
+
+  const copyVkCode = () => {
+    if (vkData?.code) {
+      navigator.clipboard.writeText(vkData.code);
       toast.success('Код скопирован');
     }
   };
@@ -248,7 +273,10 @@ export default function SettingsPage() {
                       </div>
                       {isTelegramLinked ? (
                         <p className="text-sm text-muted-foreground">
-                          Username: <span className="font-medium text-primary">@{profile?.username}</span>
+                          {profile?.username 
+                            ? <>Username: <span className="font-medium text-primary">@{profile.username}</span></>
+                            : <>ID: <span className="font-medium text-primary">{profile?.telegram_id}</span></>
+                          }
                         </p>
                       ) : (
                         <p className="text-sm text-muted-foreground">Привяжите Telegram для авторизации и уведомлений</p>
@@ -291,12 +319,35 @@ export default function SettingsPage() {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {isVkLinked ? "Аккаунт ВК привязан" : "Привяжите ВК для получения уведомлений"}
+                        {isVkLinked 
+                          ? <>ID: <span className="font-medium text-primary">{profile?.vk_id}</span></>
+                          : "Привяжите ВК для получения уведомлений"
+                        }
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" className="gap-2" disabled>
-                      <IconLink className="h-4 w-4" /> Скоро
-                    </Button>
+                    {isVkLinked ? (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2"
+                        onClick={handleLinkVk}
+                        disabled={vkLoading}
+                      >
+                        <IconRefresh className={cn("h-4 w-4", vkLoading && "animate-spin")} /> 
+                        Перепривязать
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2"
+                        onClick={handleLinkVk}
+                        disabled={vkLoading}
+                      >
+                        <IconLink className={cn("h-4 w-4", vkLoading && "animate-spin")} /> 
+                        Привязать
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -358,6 +409,57 @@ export default function SettingsPage() {
                           <a href={`${process.env.NEXT_PUBLIC_BOT_URL}?start=${relinkData.code}`} target="_blank" rel="noopener noreferrer">
                             <IconExternalLink className="h-4 w-4" />
                             Открыть бота
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+
+              {/* Link VK Dialog */}
+              <Dialog open={vkDialogOpen} onOpenChange={setVkDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <IconBrandVk className="h-5 w-5 text-blue-600" />
+                      {isVkLinked ? 'Перепривязка ВКонтакте' : 'Привязка ВКонтакте'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      Отправьте команду боту в ВК
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  {vkData && (
+                    <div className="space-y-4">
+                      <div className="p-4 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                        <Label className="text-xs text-muted-foreground mb-2 block">Ваш код</Label>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 text-2xl font-mono font-bold tracking-wider text-primary">
+                            {vkData.code}
+                          </code>
+                          <Button variant="ghost" size="icon" onClick={copyVkCode}>
+                            <IconCopy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="text-sm text-muted-foreground space-y-2">
+                        <p>1. Откройте бота в ВКонтакте</p>
+                        <p>2. Отправьте сообщение: <code className="px-1 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800">/start {vkData.code}</code></p>
+                        <p>3. {isVkLinked ? 'Старая привязка будет заменена' : 'Аккаунт будет привязан'}</p>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+                        <IconClock className="h-4 w-4" />
+                        <span>Код действует {Math.floor(vkData.expires_in / 60)} минут</span>
+                      </div>
+
+                      {process.env.NEXT_PUBLIC_VK_BOT_URL && (
+                        <Button asChild className="w-full gap-2">
+                          <a href={process.env.NEXT_PUBLIC_VK_BOT_URL} target="_blank" rel="noopener noreferrer">
+                            <IconExternalLink className="h-4 w-4" />
+                            Открыть бота ВК
                           </a>
                         </Button>
                       )}

@@ -2,6 +2,8 @@ export interface StudentProfile {
   id: string;
   full_name: string;
   username?: string;
+  telegram_id?: number;
+  vk_id?: number;
   role: string;
   group?: {
     id: string;
@@ -29,18 +31,48 @@ export interface StudentAttendance {
   records: AttendanceRecord[];
 }
 
+export interface StudentLabSubmission {
+  id: string;
+  status: 'NEW' | 'READY' | 'IN_REVIEW' | 'ACCEPTED' | 'REJECTED';
+  grade?: number;
+  feedback?: string;
+  ready_at?: string;
+  accepted_at?: string;
+}
+
 export interface StudentLab {
   id: string;
+  number: number;
   title: string;
+  topic?: string;
   description?: string;
   deadline?: string;
   max_grade: number;
-  submission?: {
-    status: string;
-    grade?: number;
-    feedback?: string;
-    submitted_at: string;
+  is_available: boolean;
+  variant_number?: number;
+  submission?: StudentLabSubmission;
+}
+
+export interface StudentLabDetail {
+  id: string;
+  number: number;
+  title: string;
+  topic?: string;
+  goal?: string;
+  formatting_guide?: string;
+  theory_content?: Record<string, unknown>;
+  practice_content?: Record<string, unknown>;
+  questions?: string[];
+  deadline?: string;
+  max_grade: number;
+  is_available: boolean;
+  variant_number?: number;
+  variant_data?: {
+    number: number;
+    description?: string;
+    test_data?: string;
   };
+  submission?: StudentLabSubmission;
 }
 
 export interface StudentAttestation {

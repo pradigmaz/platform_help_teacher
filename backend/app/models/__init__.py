@@ -21,9 +21,12 @@ from .subject import Subject
 from .teacher_subject import TeacherSubjectAssignment
 from .schedule_parser_config import ScheduleParserConfig
 from .schedule_conflict import ScheduleConflict, ConflictType
+from .parse_history import ParseHistory
 from .note import Note, EntityType as NoteEntityType, NoteColor
 from .group_report import GroupReport, ReportType
 from .report_view import ReportView
+from .student_transfer import StudentTransfer
+from .settings_audit import SettingsAuditLog
 
 __all__ = [
     "Base", "TimestampMixin",
@@ -49,10 +52,13 @@ __all__ = [
     "ScheduleParserConfig",
     "ScheduleConflict",
     "ConflictType",
+    "ParseHistory",
     "Note",
     "NoteEntityType",
     "NoteColor",
     "GroupReport",
     "ReportType",
     "ReportView",
+    "StudentTransfer",
+    "SettingsAuditLog",
 ]

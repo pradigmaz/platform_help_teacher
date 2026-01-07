@@ -4,7 +4,7 @@ Pydantic схемы для API аттестации.
 """
 from typing import Optional, List, Dict, Any, Literal
 from uuid import UUID
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from pydantic import BaseModel, Field, field_validator, model_validator
 from enum import Enum
 from app.models.attestation_settings import AttestationType
@@ -72,7 +72,13 @@ class FinalProjectComponentConfig(ComponentConfigBase):
 
 
 class ComponentsConfig(BaseModel):
-    """Полная конфигурация всех компонентов"""
+    """
+    Полная конфигурация всех компонентов.
+    
+    DEPRECATED: Эта конфигурация сохраняется в БД, но НЕ используется в расчётах.
+    Калькулятор использует legacy поля (labs_weight, attendance_weight, activity_weight).
+    Планируется миграция или удаление в будущих версиях.
+    """
     labs: LabsComponentConfig = Field(default_factory=LabsComponentConfig)
     tests: TestsComponentConfig = Field(default_factory=TestsComponentConfig)
     independent_works: IndependentWorksComponentConfig = Field(default_factory=IndependentWorksComponentConfig)
@@ -121,7 +127,19 @@ class AttestationSettingsBase(BaseModel):
     period_end_date: Optional[date] = Field(default=None, description="Конец периода аттестации")
     
     # Новая гибкая конфигурация
-    components_config: Optional[ComponentsConfig] = Field(default=None, description="Гибкая конфигурация компонентов")
+    # DEPRECATED: Не используется в расчётах, только для хранения
+    components_config: Optional[ComponentsConfig] = Field(
+        default=None, 
+        description="DEPRECATED: Гибкая конфигурация компонентов (не используется в расчётах)"
+    )
+
+    @model_validator(mode='after')
+    def validate_period_dates(self) -> 'AttestationSettingsBase':
+        """Проверка, что period_start_date < period_end_date"""
+        if self.period_start_date and self.period_end_date:
+            if self.period_start_date > self.period_end_date:
+                raise ValueError('period_start_date должен быть раньше period_end_date')
+        return self
 
     @model_validator(mode='after')
     def validate_weights_sum(self) -> 'AttestationSettingsBase':
@@ -213,7 +231,7 @@ class CalculationErrorInfo(BaseModel):
 
 class AttestationResultResponse(AttestationResult):
     """Ответ API с результатом расчёта"""
-    calculated_at: datetime = Field(default_factory=datetime.utcnow)
+    calculated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         from_attributes = True
@@ -221,7 +239,7 @@ class AttestationResultResponse(AttestationResult):
 
 class GroupAttestationResponse(BaseModel):
     """Результаты аттестации для группы"""
-    group_id: UUID
+    group_id: Optional[UUID] = Field(default=None, description="ID группы (None для режима 'Все студенты')")
     group_code: str
     attestation_type: AttestationType
     calculated_at: datetime

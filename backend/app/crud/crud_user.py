@@ -4,6 +4,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import User, UserRole
 
+
+async def get_user_by_id(db: AsyncSession, user_id: UUID) -> Optional[User]:
+    """Получение пользователя по ID"""
+    result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
+
+
 async def get_by_social_id(db: AsyncSession, social_id: int) -> Optional[User]:
     """
     Получение пользователя по telegram_id (social_id)

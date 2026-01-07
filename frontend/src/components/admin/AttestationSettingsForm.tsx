@@ -18,6 +18,7 @@ import {
   Info
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AttestationAPI } from '@/lib/api';
 import { AttestationType } from '@/lib/api';
 import { BorderBeam } from '@/components/ui/border-beam';
 import { NumberTicker } from '@/components/ui/number-ticker';
@@ -76,8 +77,7 @@ export function AttestationSettingsForm() {
 
     setSaving(true);
     try {
-      // TODO: API call to save config
-      // await AttestationAPI.updateComponentsConfig(attestationType, config);
+      await AttestationAPI.updateComponentsConfig(attestationType, config);
       setHasChanges(false);
       toast.success('Настройки сохранены');
     } catch (error: unknown) {

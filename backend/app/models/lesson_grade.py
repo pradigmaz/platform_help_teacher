@@ -4,9 +4,13 @@
 from typing import Optional, TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import ForeignKey, String, Integer, UniqueConstraint, Index
+from sqlalchemy import ForeignKey, String, Integer, UniqueConstraint, Index, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
+
+# Константы для валидации оценок
+MIN_GRADE = 2
+MAX_GRADE = 5
 
 from .base import Base, TimestampMixin
 
@@ -63,4 +67,7 @@ class LessonGrade(Base, TimestampMixin):
         UniqueConstraint('lesson_id', 'student_id', 'work_number', 
                         name='uq_lesson_grade_student_lesson_work'),
         Index('idx_lesson_grades_lesson_student', 'lesson_id', 'student_id'),
+        Index('idx_lesson_grades_work_number', 'work_number'),
+        CheckConstraint(f'grade >= {MIN_GRADE} AND grade <= {MAX_GRADE}', 
+                       name='ck_lesson_grade_range'),
     )

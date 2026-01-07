@@ -6,14 +6,8 @@ import {
   Users, 
   BookOpen,
   FlaskConical,
-  ClipboardCheck,
   GraduationCap,
-  UsersRound,
-  FileText,
   Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
   RefreshCw
 } from 'lucide-react';
 import { BentoCard, BentoGrid } from '@/components/ui/bento-grid';
@@ -33,19 +27,10 @@ interface User {
 }
 
 interface DashboardStats {
-  totalUsers: number;
-  totalStudents: number;
-  totalLectures: number;
-  totalLabs: number;
-  pendingReviews: number;
-  totalGroups: number;
-  submissionsByStatus: {
-    NEW: number;
-    IN_REVIEW: number;
-    ACCEPTED: number;
-    REQ_CHANGES: number;
-    REJECTED: number;
-  };
+  total_users: number;
+  total_students: number;
+  total_groups: number;
+  active_labs: number;
 }
 
 export default function AdminPanel() {
@@ -103,19 +88,10 @@ export default function AdminPanel() {
       toast.error('Ошибка при загрузке статистики');
       console.error('Failed to fetch stats:', error);
       setStats({
-        totalUsers: 0,
-        totalStudents: 0,
-        totalLectures: 0,
-        totalLabs: 0,
-        pendingReviews: 0,
-        totalGroups: 0,
-        submissionsByStatus: {
-          NEW: 0,
-          IN_REVIEW: 0,
-          ACCEPTED: 0,
-          REQ_CHANGES: 0,
-          REJECTED: 0
-        }
+        total_users: 0,
+        total_students: 0,
+        total_groups: 0,
+        active_labs: 0
       });
     } finally {
       setIsRefreshing(false);
@@ -140,31 +116,24 @@ export default function AdminPanel() {
   const statCards = [
     {
       name: "Групп",
-      value: stats?.totalGroups ?? 0,
+      value: stats?.total_groups ?? 0,
       icon: GraduationCap,
       color: "text-cyan-500",
       description: "Учебных групп"
     },
     {
       name: "Студентов",
-      value: stats?.totalStudents ?? 0,
+      value: stats?.total_students ?? 0,
       icon: Users,
       color: "text-blue-500",
       description: "Всего в системе"
     },
     {
       name: "Лабораторных",
-      value: stats?.totalLabs ?? 0,
+      value: stats?.active_labs ?? 0,
       icon: FlaskConical,
       color: "text-purple-500",
       description: "Заданий создано"
-    },
-    {
-      name: "На проверке",
-      value: stats?.pendingReviews ?? 0,
-      icon: ClipboardCheck,
-      color: "text-orange-500",
-      description: "Ожидают проверки"
     }
   ];
 
@@ -196,18 +165,7 @@ export default function AdminPanel() {
       background: null,
       className: "col-span-1",
     },
-    {
-      Icon: ClipboardCheck,
-      name: "Проверка работ",
-      description: "Очередь сданных работ на проверку.",
-      href: "/admin/submissions",
-      cta: "Проверить",
-      background: null,
-      className: "col-span-1",
-    },
   ];
-
-  const submissionStats = stats?.submissionsByStatus;
 
   return (
     <div className="space-y-10">
@@ -232,7 +190,7 @@ export default function AdminPanel() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {statCards.map((stat, idx) => (
           <MagicCard
             key={idx}
@@ -279,50 +237,6 @@ export default function AdminPanel() {
           ))}
         </BentoGrid>
       </div>
-
-      {/* Submissions Status */}
-      {submissionStats && (
-        <div className="p-6 rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-lg">
-          <h3 className="text-lg font-semibold mb-4 text-foreground">Статистика сдач</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-            <div className="flex items-center gap-3">
-              <FileText className="text-muted-foreground" size={18} />
-              <div>
-                <p className="text-2xl font-bold text-foreground">{submissionStats.NEW}</p>
-                <p className="text-xs text-muted-foreground">Новые</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <AlertCircle className="text-orange-500" size={18} />
-              <div>
-                <p className="text-2xl font-bold text-foreground">{submissionStats.IN_REVIEW}</p>
-                <p className="text-xs text-muted-foreground">На проверке</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="text-green-500" size={18} />
-              <div>
-                <p className="text-2xl font-bold text-foreground">{submissionStats.ACCEPTED}</p>
-                <p className="text-xs text-muted-foreground">Принято</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Clock className="text-yellow-500" size={18} />
-              <div>
-                <p className="text-2xl font-bold text-foreground">{submissionStats.REQ_CHANGES}</p>
-                <p className="text-xs text-muted-foreground">На доработку</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <XCircle className="text-red-500" size={18} />
-              <div>
-                <p className="text-2xl font-bold text-foreground">{submissionStats.REJECTED}</p>
-                <p className="text-xs text-muted-foreground">Отклонено</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

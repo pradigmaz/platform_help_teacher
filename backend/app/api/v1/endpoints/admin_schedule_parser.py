@@ -14,9 +14,11 @@ from app.schemas.schedule_parser import (
     ParserConfigUpdate,
     ParserConfigResponse,
     ScheduleConflictResponse,
-    ConflictResolveRequest
+    ConflictResolveRequest,
+    ParseHistoryResponse
 )
 from app.crud import crud_schedule_parser as crud
+from app.crud import crud_parse_history
 from app.services.schedule_import_service import ScheduleImportService
 
 logger = logging.getLogger(__name__)
@@ -80,8 +82,8 @@ async def resolve_all_conflicts(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_teacher)
 ):
-    """Разрешить все конфликты"""
-    count = await crud.resolve_all_conflicts(db, data.action)
+    """Разрешить все конфликты текущего преподавателя"""
+    count = await crud.resolve_all_conflicts(db, data.action, current_user.id)
     return {"resolved": count}
 
 
@@ -109,3 +111,14 @@ async def parse_now(
     except Exception as e:
         logger.exception("Parse error")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/parse-history", response_model=list[ParseHistoryResponse])
+async def get_parse_history(
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_teacher)
+):
+    """Получить историю парсинга"""
+    history = await crud_parse_history.get_history(db, current_user.id, limit)
+    return history

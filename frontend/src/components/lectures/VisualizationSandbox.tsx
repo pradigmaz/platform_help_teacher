@@ -17,6 +17,9 @@ interface VisualizationSandboxProps {
 
 type SandboxStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+// Константы безопасности
+const MAX_CODE_SIZE_BYTES = 10 * 1024; // 10KB
+
 // CDN URLs for libraries
 const LIBRARY_URLS = {
   Chart: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
@@ -24,27 +27,35 @@ const LIBRARY_URLS = {
   Plotly: 'https://cdn.plot.ly/plotly-2.27.0.min.js',
 };
 
-// Cache for fetched library source code
+// Cache for fetched library source code - загружается лениво
 let librarySourceCache: Record<string, string> | null = null;
+let libraryLoadPromise: Promise<Record<string, string>> | null = null;
 
 async function fetchLibrarySources(): Promise<Record<string, string>> {
   if (librarySourceCache) return librarySourceCache;
   
-  const entries = await Promise.all(
-    Object.entries(LIBRARY_URLS).map(async ([name, url]) => {
-      try {
-        const res = await fetch(url);
-        const code = await res.text();
-        return [name, code] as const;
-      } catch {
-        console.warn(`Failed to fetch ${name}`);
-        return [name, ''] as const;
-      }
-    })
-  );
+  // Предотвращаем параллельные загрузки
+  if (libraryLoadPromise) return libraryLoadPromise;
   
-  librarySourceCache = Object.fromEntries(entries);
-  return librarySourceCache;
+  libraryLoadPromise = (async () => {
+    const entries = await Promise.all(
+      Object.entries(LIBRARY_URLS).map(async ([name, url]) => {
+        try {
+          const res = await fetch(url);
+          const code = await res.text();
+          return [name, code] as const;
+        } catch {
+          console.warn(`Failed to fetch ${name}`);
+          return [name, ''] as const;
+        }
+      })
+    );
+    
+    librarySourceCache = Object.fromEntries(entries);
+    return librarySourceCache;
+  })();
+  
+  return libraryLoadPromise;
 }
 
 // Sandbox HTML template - libraries injected inline
@@ -54,6 +65,7 @@ const createSandboxHTML = (isDark: boolean, libSources: Record<string, string>) 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data:; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline';">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { 
@@ -141,8 +153,14 @@ export function VisualizationSandbox({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  // Fetch libraries and create sandbox
+  // Fetch libraries and create sandbox - только если есть код
   useEffect(() => {
+    // Не загружаем библиотеки если нет кода
+    if (!code.trim()) {
+      setSandboxUrl(null);
+      return;
+    }
+    
     let cancelled = false;
     let url: string | null = null;
     
@@ -161,7 +179,7 @@ export function VisualizationSandbox({
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [isDark]);
+  }, [isDark, code]);
 
   // Handle messages from sandbox
   useEffect(() => {
@@ -196,6 +214,15 @@ export function VisualizationSandbox({
   // Execute code when sandbox is loaded
   useEffect(() => {
     if (!sandboxLoaded || !code.trim()) return;
+
+    // Проверка размера кода
+    const codeSize = new Blob([code]).size;
+    if (codeSize > MAX_CODE_SIZE_BYTES) {
+      setStatus('error');
+      setErrorMessage(`Код превышает лимит ${MAX_CODE_SIZE_BYTES / 1024}KB`);
+      onError?.(`Code size exceeds ${MAX_CODE_SIZE_BYTES / 1024}KB limit`);
+      return;
+    }
 
     setStatus('loading');
     setErrorMessage(null);

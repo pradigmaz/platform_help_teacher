@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.schedule import ScheduleItem, DayOfWeek, WeekParity
 from app.models.lesson import Lesson
+from app.services.schedule_constants import PARSE_STEP_DAYS, WEEKDAY_SUNDAY
 from app.crud.crud_schedule import schedule as schedule_crud, lesson as lesson_crud
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class LessonGenerator:
         
         while current <= end_date:
             weekday = current.weekday()
-            if weekday > 5:  # Воскресенье пропускаем
+            if weekday > WEEKDAY_SUNDAY - 1:  # Воскресенье пропускаем
                 current += timedelta(days=1)
                 continue
             
@@ -80,8 +81,8 @@ class LessonGenerator:
                 if item.end_date and item.end_date < current:
                     continue
                 
-                # Создаём занятие
-                lesson = await lesson_crud.create(
+                # Создаём занятие (если не существует)
+                lesson = await lesson_crud.get_or_create(
                     db,
                     group_id=group_id,
                     schedule_item_id=item.id,
@@ -90,7 +91,8 @@ class LessonGenerator:
                     lesson_type=item.lesson_type,
                     subgroup=item.subgroup
                 )
-                lessons.append(lesson)
+                if lesson:
+                    lessons.append(lesson)
             
             current += timedelta(days=1)
         

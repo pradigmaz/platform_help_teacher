@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import users, auth, webhooks, groups, labs, admin_labs, admin_attestation, admin_attendance, admin_stats, admin_activities, admin_works, admin_work_submissions, admin_schedule, admin_journal, student, admin_subjects, admin_schedule_parser, admin_notes, admin_lectures, lectures, admin_reports, public_reports
+from app.api.v1.endpoints import users, auth, webhooks, groups, labs, admin_labs, admin_attestation, admin_attendance, admin_stats, admin_activities, admin_works, admin_work_submissions, admin_schedule, admin_journal, student, admin_subjects, admin_schedule_parser, admin_notes, admin_lectures, lectures, admin_reports, public_reports, admin_lab_queue
 
 api_router = APIRouter()
 
@@ -12,6 +12,7 @@ api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"]
 api_router.include_router(student.router, prefix="/student", tags=["student"])
 
 # Подключил админку (разделенную)
+api_router.include_router(admin_lab_queue.router, prefix="/admin/labs", tags=["admin_lab_queue"])
 api_router.include_router(admin_labs.router, prefix="/admin", tags=["admin_labs"])
 api_router.include_router(admin_attestation.router, prefix="/admin", tags=["admin_attestation"])
 api_router.include_router(admin_attendance.router, prefix="/admin", tags=["admin_attendance"])

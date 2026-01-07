@@ -41,7 +41,8 @@ import {
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { AdminAPI, ContactVisibility, RelinkTelegramResponse } from '@/lib/api';
+import { AdminAPI, ContactVisibility, RelinkTelegramResponse, LinkVkResponse } from '@/lib/api';
+import type { AdminProfile } from '@/lib/api/admin';
 import { cn } from '@/lib/utils';
 
 const visibilityOptions: { value: ContactVisibility; label: string; icon: React.ReactNode; description: string }[] = [
@@ -86,6 +87,7 @@ type ContactFieldKey = typeof contactFields[number]['key'];
 export default function AdminSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [profile, setProfile] = useState<AdminProfile | null>(null);
   const [contacts, setContacts] = useState<Record<ContactFieldKey, string>>({
     telegram: '',
     vk: '',
@@ -102,28 +104,37 @@ export default function AdminSettingsPage() {
   const [relinkData, setRelinkData] = useState<RelinkTelegramResponse | null>(null);
   const [relinkLoading, setRelinkLoading] = useState(false);
 
+  // Link VK state
+  const [vkDialogOpen, setVkDialogOpen] = useState(false);
+  const [vkData, setVkData] = useState<LinkVkResponse | null>(null);
+  const [vkLoading, setVkLoading] = useState(false);
+
   useEffect(() => {
-    const loadContacts = async () => {
+    const loadData = async () => {
       try {
-        const data = await AdminAPI.getContacts();
+        const [profileData, contactsData] = await Promise.all([
+          AdminAPI.getProfile(),
+          AdminAPI.getContacts(),
+        ]);
+        setProfile(profileData);
         setContacts({
-          telegram: data.contacts.telegram || '',
-          vk: data.contacts.vk || '',
-          max: data.contacts.max || '',
+          telegram: contactsData.contacts.telegram || '',
+          vk: contactsData.contacts.vk || '',
+          max: contactsData.contacts.max || '',
         });
         setVisibility({
-          telegram: data.visibility.telegram || 'none',
-          vk: data.visibility.vk || 'none',
-          max: data.visibility.max || 'none',
+          telegram: contactsData.visibility.telegram || 'none',
+          vk: contactsData.visibility.vk || 'none',
+          max: contactsData.visibility.max || 'none',
         });
       } catch (error) {
-        console.error('Failed to load contacts:', error);
-        toast.error('Ошибка загрузки контактов');
+        console.error('Failed to load data:', error);
+        toast.error('Ошибка загрузки данных');
       } finally {
         setIsLoading(false);
       }
     };
-    loadContacts();
+    loadData();
   }, []);
 
   const handleRelinkTelegram = async () => {
@@ -146,6 +157,26 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const handleLinkVk = async () => {
+    setVkLoading(true);
+    try {
+      const data = await AdminAPI.linkVk();
+      setVkData(data);
+      setVkDialogOpen(true);
+    } catch {
+      toast.error('Ошибка получения кода привязки ВК');
+    } finally {
+      setVkLoading(false);
+    }
+  };
+
+  const copyVkCode = () => {
+    if (vkData?.code) {
+      navigator.clipboard.writeText(vkData.code);
+      toast.success('Код скопирован');
+    }
+  };
+
   const handleContactChange = (key: ContactFieldKey, value: string) => {
     setContacts(prev => ({ ...prev, [key]: value }));
   };
@@ -162,9 +193,10 @@ export default function AdminSettingsPage() {
         visibility,
       });
       toast.success('Контакты сохранены');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to save contacts:', error);
-      toast.error(error.message || 'Ошибка сохранения контактов');
+      const message = error instanceof Error ? error.message : 'Ошибка сохранения контактов';
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -355,12 +387,16 @@ export default function AdminSettingsPage() {
         <CardContent>
           <div className="flex items-center justify-between p-4 rounded-lg bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-500/10">
-                <IconBrandTelegram className="h-5 w-5 text-blue-400" />
+              <div className={cn("p-2 rounded-lg", profile?.telegram_id ? "bg-green-500/10" : "bg-neutral-500/10")}>
+                <IconBrandTelegram className={cn("h-5 w-5", profile?.telegram_id ? "text-blue-400" : "text-neutral-400")} />
               </div>
               <div>
-                <p className="font-medium">Telegram привязан</p>
-                <p className="text-sm text-muted-foreground">Используется для входа в систему</p>
+                <p className="font-medium">{profile?.telegram_id ? 'Telegram привязан' : 'Telegram не привязан'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {profile?.telegram_id 
+                    ? (profile?.username ? `@${profile.username}` : `ID: ${profile.telegram_id}`)
+                    : 'Привяжите для входа в систему'}
+                </p>
               </div>
             </div>
             <Button 
@@ -371,6 +407,47 @@ export default function AdminSettingsPage() {
             >
               <RefreshCw className={cn("h-4 w-4", relinkLoading && "animate-spin")} />
               Перепривязать
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* VK Account Card */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-600/10">
+              <IconBrandVk className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">ВКонтакте аккаунт</CardTitle>
+              <CardDescription>
+                Привязка ВК для уведомлений
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-4 rounded-lg bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center gap-3">
+              <div className={cn("p-2 rounded-lg", profile?.vk_id ? "bg-green-500/10" : "bg-neutral-500/10")}>
+                <IconBrandVk className={cn("h-5 w-5", profile?.vk_id ? "text-blue-600" : "text-neutral-400")} />
+              </div>
+              <div>
+                <p className="font-medium">{profile?.vk_id ? 'ВКонтакте привязан' : 'ВКонтакте не привязан'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {profile?.vk_id ? `ID: ${profile.vk_id}` : 'Для получения уведомлений в ВК'}
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleLinkVk}
+              disabled={vkLoading}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("h-4 w-4", vkLoading && "animate-spin")} />
+              {profile?.vk_id ? 'Перепривязать' : 'Привязать'}
             </Button>
           </div>
         </CardContent>
@@ -419,6 +496,57 @@ export default function AdminSettingsPage() {
                   <a href={`${process.env.NEXT_PUBLIC_BOT_URL}?start=${relinkData.code}`} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4" />
                     Открыть бота
+                  </a>
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Link VK Dialog */}
+      <Dialog open={vkDialogOpen} onOpenChange={setVkDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <IconBrandVk className="h-5 w-5 text-blue-600" />
+              Привязка ВКонтакте
+            </DialogTitle>
+            <DialogDescription>
+              Отправьте команду боту в ВК
+            </DialogDescription>
+          </DialogHeader>
+          
+          {vkData && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                <Label className="text-xs text-muted-foreground mb-2 block">Ваш код</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-2xl font-mono font-bold tracking-wider text-primary">
+                    {vkData.code}
+                  </code>
+                  <Button variant="ghost" size="icon" onClick={copyVkCode}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p>1. Откройте бота в ВКонтакте</p>
+                <p>2. Отправьте сообщение: <code className="px-1 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800">/start {vkData.code}</code></p>
+                <p>3. Аккаунт будет привязан</p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+                <Clock className="h-4 w-4" />
+                <span>Код действует {Math.floor(vkData.expires_in / 60)} минут</span>
+              </div>
+
+              {process.env.NEXT_PUBLIC_VK_BOT_URL && (
+                <Button asChild className="w-full gap-2">
+                  <a href={process.env.NEXT_PUBLIC_VK_BOT_URL} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                    Открыть бота ВК
                   </a>
                 </Button>
               )}

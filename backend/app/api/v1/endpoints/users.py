@@ -112,11 +112,29 @@ async def relink_telegram(
     Получить код для перепривязки Telegram.
     Работает для всех ролей: студент, преподаватель, админ.
     """
-    code = await telegram_service.generate_relink_code(current_user.id)
+    from app.services import bot_service
+    code = await bot_service.generate_relink_code(current_user.id, "telegram")
     
     return RelinkTelegramResponse(
         code=code,
-        expires_in=telegram_service.RELINK_TTL,
+        expires_in=bot_service.RELINK_TTL,
+    )
+
+
+@router.post("/me/link-vk", response_model=RelinkTelegramResponse)
+async def link_vk(
+    current_user: models.User = Depends(deps.get_current_user),
+) -> RelinkTelegramResponse:
+    """
+    Получить код для привязки VK.
+    Работает для всех ролей: студент, преподаватель, админ.
+    """
+    from app.services import bot_service
+    code = await bot_service.generate_relink_code(current_user.id, "vk")
+    
+    return RelinkTelegramResponse(
+        code=code,
+        expires_in=bot_service.RELINK_TTL,
     )
 
 

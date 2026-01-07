@@ -36,6 +36,9 @@ class Group(Base, TimestampMixin):
     # Настройка деления на подгруппы
     has_subgroups: Mapped[bool] = mapped_column(default=True, server_default="true")
     
+    # Soft-delete
+    is_archived: Mapped[bool] = mapped_column(default=False, server_default="false")
+    
     # Настройки лабораторных
     labs_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
     grading_scale: Mapped[Optional[GradingScale]] = mapped_column(

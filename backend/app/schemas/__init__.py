@@ -1,5 +1,5 @@
 from .user import UserCreate, UserResponse, StudentInGroup, UserUpdate
-from .group import GroupCreate, GroupResponse, StudentImport, GroupDetailResponse, StudentInGroupResponse, StudentUpdate, AssignSubgroupRequest, AssignSubgroupResponse
+from .group import GroupCreate, GroupResponse, StudentImport, GroupDetailResponse, StudentInGroupResponse, StudentUpdate, AssignSubgroupRequest, AssignSubgroupResponse, ClearSubgroupsResponse
 from .lab_settings import LabSettingsResponse, LabSettingsUpdate, GradingScale
 from .attestation import (
     AttestationType,
@@ -47,7 +47,7 @@ from .report import (
 __all__ = [
     "UserCreate", "UserResponse", "StudentInGroup", "UserUpdate",
     "GroupCreate", "GroupResponse", "StudentImport", "GroupDetailResponse", "StudentInGroupResponse",
-    "StudentUpdate", "AssignSubgroupRequest", "AssignSubgroupResponse",
+    "StudentUpdate", "AssignSubgroupRequest", "AssignSubgroupResponse", "ClearSubgroupsResponse",
     "LabSettingsResponse", "LabSettingsUpdate", "GradingScale",
     # Attestation schemas
     "AttestationType",

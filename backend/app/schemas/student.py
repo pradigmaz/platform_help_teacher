@@ -35,7 +35,8 @@ class StudentProfileOut(BaseModel):
     id: UUID
     full_name: str
     username: Optional[str] = None
-    telegram_id: Optional[str] = None
+    telegram_id: Optional[int] = None
+    vk_id: Optional[int] = None
     group_name: Optional[str] = None
     group_id: Optional[UUID] = None
     is_active: bool

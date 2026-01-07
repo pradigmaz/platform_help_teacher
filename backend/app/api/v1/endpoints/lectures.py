@@ -1,16 +1,19 @@
 """Публичные API endpoints для лекций (без авторизации)."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.crud.crud_lecture import crud_lecture
 from app.schemas.lecture import LectureResponse
+from app.core.limiter import limiter
 
 router = APIRouter()
 
 
 @router.get("/view/{code}", response_model=LectureResponse)
+@limiter.limit("30/minute")
 async def get_public_lecture(
+    request: Request,
     code: str,
     db: AsyncSession = Depends(get_db),
 ):

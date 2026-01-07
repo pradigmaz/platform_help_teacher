@@ -6,7 +6,7 @@ from datetime import date
 from typing import Optional, TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import ForeignKey, Date, Enum as SAEnum, String, Integer, Boolean, Index
+from sqlalchemy import ForeignKey, Date, Enum as SAEnum, String, Integer, Boolean, Index, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -103,4 +103,6 @@ class ScheduleItem(Base, TimestampMixin):
 
     __table_args__ = (
         Index('idx_schedule_group_day', 'group_id', 'day_of_week'),
+        CheckConstraint('lesson_number >= 1 AND lesson_number <= 8', name='ck_schedule_lesson_number'),
+        CheckConstraint('subgroup IS NULL OR subgroup IN (1, 2)', name='ck_schedule_subgroup'),
     )

@@ -103,6 +103,44 @@ export interface GradeScale {
   };
 }
 
+// Тип ответа от backend (русские ключи)
+export type BackendGradeScale = Record<string, [number, number]>;
+
+// Маппинг русских ключей в английские
+const GRADE_KEY_MAP: Record<string, keyof GradeScale['grades']> = {
+  'отл': 'excellent',
+  'хор': 'good',
+  'уд': 'satisfactory',
+  'неуд': 'unsatisfactory',
+};
+
+/**
+ * Конвертация GradeScale из backend формата в frontend формат.
+ */
+export function convertGradeScale(
+  backendScale: BackendGradeScale,
+  attestationType: AttestationType
+): GradeScale {
+  const maxPoints = attestationType === 'first' ? 35 : 70;
+  const minPoints = attestationType === 'first' ? 20 : 40;
+  
+  const grades: GradeScale['grades'] = {
+    excellent: [0, 0],
+    good: [0, 0],
+    satisfactory: [0, 0],
+    unsatisfactory: [0, 0],
+  };
+  
+  for (const [ruKey, range] of Object.entries(backendScale)) {
+    const enKey = GRADE_KEY_MAP[ruKey];
+    if (enKey) {
+      grades[enKey] = range;
+    }
+  }
+  
+  return { max: maxPoints, min: minPoints, grades };
+}
+
 export interface ComponentsConfigAPI {
   labs: {
     enabled: boolean;

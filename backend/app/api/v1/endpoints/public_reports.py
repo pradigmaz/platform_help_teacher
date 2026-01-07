@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.core.limiter import limiter
-from app.core.redis import get_redis
 from app.models.group_report import GroupReport
 from app.schemas.report import (
     PublicReportData,
@@ -22,86 +21,11 @@ from app.schemas.report import (
     PinVerifyResponse,
 )
 from app.services.reports import ReportService
+from app.services.pin_service import report_pin_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# Константы для PIN-защиты
-MAX_PIN_ATTEMPTS = 5
-PIN_LOCKOUT_SECONDS = 900  # 15 минут
-
-
-async def _get_pin_attempts_key(code: str, ip: str) -> str:
-    """Ключ для хранения попыток ввода PIN."""
-    return f"report_pin_attempts:{code}:{ip}"
-
-
-async def _get_pin_lockout_key(code: str, ip: str) -> str:
-    """Ключ для хранения блокировки."""
-    return f"report_pin_lockout:{code}:{ip}"
-
-
-async def _check_pin_lockout(code: str, ip: str) -> Optional[int]:
-    """
-    Проверка блокировки по PIN.
-    Возвращает оставшееся время блокировки в секундах или None.
-    """
-    try:
-        redis = await get_redis()
-        if not redis:
-            return None
-        
-        lockout_key = await _get_pin_lockout_key(code, ip)
-        ttl = await redis.ttl(lockout_key)
-        
-        if ttl > 0:
-            return ttl
-        return None
-    except Exception as e:
-        logger.warning(f"Redis error in _check_pin_lockout: {e}")
-        return None
-
-
-async def _increment_pin_attempts(code: str, ip: str) -> int:
-    """
-    Увеличить счётчик попыток ввода PIN.
-    Возвращает количество оставшихся попыток.
-    """
-    try:
-        redis = await get_redis()
-        if not redis:
-            return MAX_PIN_ATTEMPTS - 1
-        
-        attempts_key = await _get_pin_attempts_key(code, ip)
-        attempts = await redis.incr(attempts_key)
-        
-        # Устанавливаем TTL на 1 час для счётчика
-        await redis.expire(attempts_key, 3600)
-        
-        if attempts >= MAX_PIN_ATTEMPTS:
-            # Блокируем на 15 минут
-            lockout_key = await _get_pin_lockout_key(code, ip)
-            await redis.setex(lockout_key, PIN_LOCKOUT_SECONDS, "1")
-            # Сбрасываем счётчик
-            await redis.delete(attempts_key)
-            return 0
-        
-        return MAX_PIN_ATTEMPTS - attempts
-    except Exception as e:
-        logger.warning(f"Redis error in _increment_pin_attempts: {e}")
-        return MAX_PIN_ATTEMPTS - 1
-
-
-async def _reset_pin_attempts(code: str, ip: str):
-    """Сбросить счётчик попыток после успешного ввода."""
-    try:
-        redis = await get_redis()
-        if redis:
-            attempts_key = await _get_pin_attempts_key(code, ip)
-            await redis.delete(attempts_key)
-    except Exception as e:
-        logger.warning(f"Redis error in _reset_pin_attempts: {e}")
 
 
 async def _get_valid_report(
@@ -235,7 +159,7 @@ async def verify_report_pin(
     client_ip = _get_client_ip(request)
     
     # Проверка блокировки
-    lockout_remaining = await _check_pin_lockout(code, client_ip)
+    lockout_remaining = await report_pin_service.check_lockout(code, client_ip)
     if lockout_remaining:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -251,7 +175,7 @@ async def verify_report_pin(
     service = ReportService(db)
     if service.verify_pin(pin_data.pin, report.pin_hash):
         # Успешная проверка - создаём сессию
-        await _reset_pin_attempts(code, client_ip)
+        await report_pin_service.reset_attempts(code, client_ip)
         
         try:
             redis = await get_redis()
@@ -267,7 +191,7 @@ async def verify_report_pin(
         return PinVerifyResponse(success=True, message="PIN verified")
     
     # Неверный PIN
-    attempts_left = await _increment_pin_attempts(code, client_ip)
+    attempts_left = await report_pin_service.increment_attempts(code, client_ip)
     
     logger.warning(f"Invalid PIN attempt for report {code} from {client_ip}, {attempts_left} attempts left")
     

@@ -3,13 +3,14 @@ import logging
 from typing import List
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.db.session import get_db
 from app.crud.crud_lecture import crud_lecture
+from app.services.lecture_service import lecture_service
 from app.models.user import User
 from app.models.lecture_image import LectureImage
 from app.schemas.lecture import (
@@ -22,6 +23,9 @@ from app.schemas.lecture import (
 )
 from app.services.pdf_service import pdf_service
 from app.services.storage import StorageService
+from app.core.config import settings
+from app.core.limiter import limiter
+from app.core.constants import LECTURE_PDF_TIMEOUT_MS
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +41,6 @@ ALLOWED_IMAGE_TYPES = {
     "image/gif",
     "image/webp",
 }
-MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
 @router.get("/", response_model=List[LectureListResponse])
@@ -97,14 +100,37 @@ async def update_lecture(
 @router.delete("/{lecture_id}")
 async def delete_lecture(
     lecture_id: UUID,
+    hard: bool = Query(False, description="Жёсткое удаление"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
-    """Удалить лекцию."""
-    deleted = await crud_lecture.delete(db, lecture_id)
-    if not deleted:
+    """Удалить лекцию (soft-delete по умолчанию)."""
+    lecture = await crud_lecture.get(db, lecture_id)
+    if not lecture:
         raise HTTPException(status_code=404, detail="Лекция не найдена")
+    
+    if hard:
+        await crud_lecture.delete(db, lecture_id)
+    else:
+        await lecture_service.soft_delete(db, lecture)
     return {"status": "deleted"}
+
+
+@router.post("/{lecture_id}/restore")
+async def restore_lecture(
+    lecture_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """Восстановить удалённую лекцию."""
+    lecture = await crud_lecture.get(db, lecture_id, include_deleted=True)
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Лекция не найдена")
+    if lecture.deleted_at is None:
+        raise HTTPException(status_code=400, detail="Лекция не удалена")
+    
+    await lecture_service.restore(db, lecture)
+    return {"status": "restored"}
 
 
 @router.post("/{lecture_id}/publish", response_model=PublicLinkResponse)
@@ -118,7 +144,7 @@ async def publish_lecture(
     if not lecture:
         raise HTTPException(status_code=404, detail="Лекция не найдена")
     
-    public_code = await crud_lecture.publish(db, lecture)
+    public_code = await lecture_service.publish(db, lecture)
     return PublicLinkResponse(
         public_code=public_code,
         url=f"/lectures/view/{public_code}"
@@ -136,12 +162,14 @@ async def unpublish_lecture(
     if not lecture:
         raise HTTPException(status_code=404, detail="Лекция не найдена")
     
-    await crud_lecture.unpublish(db, lecture)
+    await lecture_service.unpublish(db, lecture)
     return {"status": "unpublished"}
 
 
 @router.get("/{lecture_id}/pdf")
+@limiter.limit("5/minute")
 async def export_lecture_pdf(
+    request: Request,
     lecture_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
@@ -155,7 +183,11 @@ async def export_lecture_pdf(
         raise HTTPException(status_code=404, detail="Лекция не найдена")
     
     try:
-        pdf_bytes = await pdf_service.generate_pdf(lecture_id)
+        # Хэш updated_at для кэширования
+        import hashlib
+        updated_at_hash = hashlib.md5(str(lecture.updated_at).encode()).hexdigest()[:8]
+        
+        pdf_bytes = await pdf_service.generate_pdf(lecture_id, updated_at_hash)
         
         # Формируем имя файла из заголовка лекции
         safe_title = "".join(c for c in lecture.title if c.isalnum() or c in (' ', '-', '_')).strip()
@@ -203,7 +235,7 @@ async def upload_lecture_image(
     content = await file.read()
     
     # Проверяем размер
-    if len(content) > MAX_IMAGE_SIZE:
+    if len(content) > settings.MAX_IMAGE_SIZE:
         raise HTTPException(
             status_code=400,
             detail="Размер файла превышает 10MB"
@@ -280,7 +312,13 @@ async def delete_lecture_image(
     if not image:
         raise HTTPException(status_code=404, detail="Изображение не найдено")
     
-    # Удаляем из БД (файл в MinIO можно оставить или удалить отдельно)
+    # Удаляем файл из MinIO
+    try:
+        await storage_service.delete_object(image.storage_path)
+    except Exception as e:
+        logger.warning(f"Failed to delete image from storage: {e}")
+    
+    # Удаляем из БД
     await db.delete(image)
     await db.commit()
     

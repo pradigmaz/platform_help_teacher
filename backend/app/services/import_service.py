@@ -1,14 +1,22 @@
 import io
 import re
 import logging
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 from typing import List, Optional
 from fastapi import UploadFile, HTTPException
 from docx import Document
 
+from app.utils.text import sanitize_name
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Thread pool для блокирующих операций
+_executor = ThreadPoolExecutor(max_workers=2)
+
 
 class SmartImportService:
     """
@@ -18,17 +26,7 @@ class SmartImportService:
     @staticmethod
     def normalize_name(raw_name: str) -> Optional[str]:
         """Очищает имя от мусора."""
-        if not isinstance(raw_name, str):
-            return None
-        
-        clean = re.sub(settings.NAME_SANITIZATION_REGEX, ' ', raw_name)
-        clean = " ".join(clean.split())
-        
-        parts = [p.strip().capitalize() for p in clean.split() if len(p.strip()) > 1]
-        
-        if len(parts) >= 2:
-            return " ".join(parts[:3])
-        return None
+        return sanitize_name(raw_name, settings.NAME_SANITIZATION_REGEX)
 
     @staticmethod
     def _check_limit(count: int):
@@ -40,19 +38,18 @@ class SmartImportService:
 
     @classmethod
     async def parse_file(cls, file: UploadFile) -> List[dict]:
-        # Читаем содержимое (размер уже проверен в endpoint)
         content = await file.read()
         filename = file.filename.lower()
         
-        students = []
-
+        loop = asyncio.get_event_loop()
+        
         try:
             if filename.endswith(('.xlsx', '.xls', '.csv')):
-                students = cls._parse_excel(content, filename)
+                students = await loop.run_in_executor(_executor, cls._parse_excel, content, filename)
             elif filename.endswith('.docx'):
-                students = cls._parse_docx(content)
+                students = await loop.run_in_executor(_executor, cls._parse_docx, content)
             elif filename.endswith('.txt'):
-                students = cls._parse_txt(content)
+                students = await loop.run_in_executor(_executor, cls._parse_txt, content)
             else:
                 raise HTTPException(status_code=400, detail="Неподдерживаемый формат файла")
         except HTTPException:

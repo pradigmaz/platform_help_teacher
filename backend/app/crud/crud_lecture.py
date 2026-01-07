@@ -1,6 +1,4 @@
 """CRUD операции для лекций."""
-import secrets
-import string
 from typing import List, Optional
 from uuid import UUID
 
@@ -40,14 +38,18 @@ class CRUDLecture:
     async def get(
         self,
         db: AsyncSession,
-        lecture_id: UUID
+        lecture_id: UUID,
+        include_deleted: bool = False
     ) -> Optional[Lecture]:
         """Получить лекцию по ID."""
-        result = await db.execute(
+        query = (
             select(Lecture)
             .options(selectinload(Lecture.images), selectinload(Lecture.subject))
             .where(Lecture.id == lecture_id)
         )
+        if not include_deleted:
+            query = query.where(Lecture.deleted_at.is_(None))
+        result = await db.execute(query)
         return result.scalar_one_or_none()
 
     async def get_by_public_code(
@@ -60,6 +62,7 @@ class CRUDLecture:
             select(Lecture)
             .options(selectinload(Lecture.images), selectinload(Lecture.subject))
             .where(Lecture.public_code == public_code)
+            .where(Lecture.deleted_at.is_(None))
         )
         return result.scalar_one_or_none()
 
@@ -69,10 +72,14 @@ class CRUDLecture:
         db: AsyncSession,
         skip: int = 0,
         limit: int = 100,
-        subject_id: Optional[UUID] = None
+        subject_id: Optional[UUID] = None,
+        include_deleted: bool = False
     ) -> List[Lecture]:
         """Получить список всех лекций."""
         query = select(Lecture).options(selectinload(Lecture.subject))
+        
+        if not include_deleted:
+            query = query.where(Lecture.deleted_at.is_(None))
         
         if subject_id:
             query = query.where(Lecture.subject_id == subject_id)
@@ -110,51 +117,13 @@ class CRUDLecture:
         db: AsyncSession,
         lecture_id: UUID
     ) -> bool:
-        """Удалить лекцию."""
-        lecture = await self.get(db, lecture_id)
+        """Жёсткое удаление лекции (для совместимости)."""
+        lecture = await self.get(db, lecture_id, include_deleted=True)
         if lecture:
             await db.delete(lecture)
             await db.commit()
             return True
         return False
-
-    def generate_public_code(self) -> str:
-        """Генерировать уникальный 8-символьный код для публичной ссылки."""
-        alphabet = string.ascii_lowercase + string.digits
-        return ''.join(secrets.choice(alphabet) for _ in range(8))
-
-    async def publish(
-        self,
-        db: AsyncSession,
-        lecture: Lecture
-    ) -> str:
-        """Опубликовать лекцию и вернуть публичный код."""
-        if lecture.public_code:
-            return lecture.public_code
-
-        # Генерируем уникальный код
-        for _ in range(10):  # Максимум 10 попыток
-            code = self.generate_public_code()
-            existing = await self.get_by_public_code(db, code)
-            if not existing:
-                lecture.public_code = code
-                lecture.is_published = True
-                await db.commit()
-                await db.refresh(lecture)
-                return code
-
-        raise ValueError("Failed to generate unique public code")
-
-    async def unpublish(
-        self,
-        db: AsyncSession,
-        lecture: Lecture
-    ) -> None:
-        """Снять лекцию с публикации."""
-        lecture.public_code = None
-        lecture.is_published = False
-        await db.commit()
-        await db.refresh(lecture)
 
 
 crud_lecture = CRUDLecture()
