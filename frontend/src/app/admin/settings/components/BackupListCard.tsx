@@ -31,8 +31,6 @@ interface BackupListCardProps {
   onDelete: (key: string) => void;
   onUpload: (file: File) => Promise<boolean>;
 }
-  onDelete: (key: string) => void;
-}
 
 export function BackupListCard({
   backups,

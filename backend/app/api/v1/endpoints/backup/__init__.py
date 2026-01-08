@@ -9,7 +9,7 @@ from .settings import router as settings_router
 
 router = APIRouter()
 
-# Include all sub-routers
-router.include_router(crud_router)
-router.include_router(restore_router)
-router.include_router(settings_router)
+# Include all sub-routers (no prefix needed - main router has /admin/backups)
+router.include_router(crud_router, tags=["backup_crud"])
+router.include_router(restore_router, tags=["backup_restore"])
+router.include_router(settings_router, tags=["backup_settings"])

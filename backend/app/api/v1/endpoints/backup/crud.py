@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("", response_model=BackupCreateResponse)
+@router.post("/", response_model=BackupCreateResponse)
 @limiter.limit(RATE_LIMIT_BACKUP_CREATE)
 @audit_action(ActionType.BACKUP_CREATE, EntityType.BACKUP)
 async def create_backup(
@@ -54,7 +54,7 @@ async def create_backup(
     )
 
 
-@router.get("", response_model=BackupListResponse)
+@router.get("/", response_model=BackupListResponse)
 @audit_action(ActionType.VIEW, EntityType.BACKUP)
 async def list_backups(
     request: Request,
