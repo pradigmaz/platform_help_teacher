@@ -14,6 +14,7 @@ class AuditContext(BaseModel):
     # User
     user_id: Optional[UUID] = None
     session_id: Optional[str] = None
+    actor_role: str = "anonymous"  # student/teacher/admin/anonymous
     
     # Action
     action_type: str = "view"
@@ -45,6 +46,7 @@ class AuditLogCreate(BaseModel):
     """Схема для создания записи аудита."""
     user_id: Optional[UUID] = None
     session_id: Optional[str] = None
+    actor_role: str = "anonymous"
     action_type: str
     entity_type: Optional[str] = None
     entity_id: Optional[UUID] = None
@@ -75,6 +77,7 @@ class AuditLogResponse(BaseModel):
     id: UUID
     user_id: Optional[UUID] = None
     user_name: Optional[str] = None
+    actor_role: str = "anonymous"
     action_type: str
     entity_type: Optional[str] = None
     entity_id: Optional[UUID] = None

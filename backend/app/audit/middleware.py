@@ -21,27 +21,33 @@ from .constants import ActionType
 logger = logging.getLogger(__name__)
 
 
-def extract_user_id_from_token(request: Request) -> Optional[UUID]:
-    """Извлечь user_id из JWT токена в cookie."""
+def extract_user_info_from_token(request: Request) -> tuple[Optional[UUID], Optional[str]]:
+    """
+    Извлечь user_id и role из JWT токена в cookie.
+    Returns: (user_id, role) tuple
+    """
     token = request.cookies.get("access_token")
     if not token:
-        return None
+        return None, None
     
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id_str = payload.get("sub")
-        if user_id_str:
-            return UUID(user_id_str)
+        role = payload.get("role")  # Expecting role in JWT payload
+        user_id = UUID(user_id_str) if user_id_str else None
+        return user_id, role
     except (InvalidTokenError, ValueError):
         pass
     
-    return None
+    return None, None
 
 
 class AuditMiddleware(BaseHTTPMiddleware):
     """
     Middleware для сбора базовой информации о запросах.
-    Работает тихо — студенты не знают о логировании.
+    
+    Логирует только действия студентов в основной лог.
+    Действия преподавателей/админов логируются отдельно (admin paths).
     """
     
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
@@ -58,13 +64,25 @@ class AuditMiddleware(BaseHTTPMiddleware):
         # Извлекаем fingerprint
         fingerprint = extract_fingerprint(request)
         
-        # Извлекаем user_id из токена
-        user_id = extract_user_id_from_token(request)
+        # Извлекаем user_id и role из токена
+        user_id, role = extract_user_info_from_token(request)
+        
+        # Определяем, нужно ли логировать этого пользователя
+        # Логируем только студентов (или неавторизованных)
+        # Преподы/админы логируются только для security-critical paths
+        is_admin_path = request.url.path.startswith("/api/v1/admin/")
+        is_student = role is None or role == "student"
+        
+        # Пропускаем логирование для преподов на обычных путях
+        if not is_student and not is_admin_path:
+            # Всё равно выполняем запрос, просто не логируем
+            return await call_next(request)
         
         # Создаём контекст аудита
         audit_context = AuditContext(
             request_id=request_id,
             user_id=user_id,
+            actor_role=role or "anonymous",
             method=request.method,
             path=request.url.path,
             query_params=dict(request.query_params) if request.query_params else None,

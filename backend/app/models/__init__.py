@@ -27,6 +27,7 @@ from .group_report import GroupReport, ReportType
 from .report_view import ReportView
 from .student_transfer import StudentTransfer
 from .settings_audit import SettingsAuditLog
+from .backup_settings import BackupSettings
 from app.audit.models import StudentAuditLog
 
 __all__ = [
@@ -62,5 +63,6 @@ __all__ = [
     "ReportView",
     "StudentTransfer",
     "SettingsAuditLog",
+    "BackupSettings",
     "StudentAuditLog",
 ]

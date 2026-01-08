@@ -122,4 +122,17 @@ class Settings(BaseSettings):
     ATTESTATION_DEFAULT_ACTIVITY_ENABLED: bool = True
     ATTESTATION_DEFAULT_PARTICIPATION_POINTS: float = 0.5
 
+    # Backup Settings
+    BACKUP_ENCRYPTION_KEY: str = Field(default="", repr=False)
+    BACKUP_STORAGE_BUCKET: str = "edu-backups"
+    BACKUP_RETENTION_DAYS: int = 30
+
+    @field_validator("BACKUP_ENCRYPTION_KEY")
+    @classmethod
+    def validate_backup_key(cls, v: str) -> str:
+        # Allow empty in dev, require in production
+        if v and len(v) < 32:
+            raise ValueError("BACKUP_ENCRYPTION_KEY must be at least 32 characters")
+        return v
+
 settings = Settings()

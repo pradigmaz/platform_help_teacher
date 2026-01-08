@@ -28,6 +28,7 @@ class AuditService:
                     id=uuid4(),
                     user_id=context.user_id,
                     session_id=context.session_id,
+                    actor_role=context.actor_role,
                     action_type=context.action_type,
                     entity_type=context.entity_type,
                     entity_id=context.entity_id,

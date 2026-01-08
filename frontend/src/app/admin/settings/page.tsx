@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Settings2 } from 'lucide-react';
+import { Loader2, Settings2, User, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { AdminAPI, ContactVisibility, RelinkTelegramResponse, LinkVkResponse } from '@/lib/api';
 import type { AdminProfile } from '@/lib/api/admin';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ContactsCard,
   TelegramCard,
   VkCard,
   VisibilityInfoCard,
+  BackupTab,
   type ContactFieldKey,
 } from './components';
 
@@ -130,39 +132,58 @@ export default function AdminSettingsPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Настройки</h1>
-            <p className="text-muted-foreground">Управление контактной информацией</p>
+            <p className="text-muted-foreground">Управление профилем и системой</p>
           </div>
         </div>
       </div>
 
-      <ContactsCard
-        contacts={contacts}
-        visibility={visibility}
-        isSaving={isSaving}
-        onContactChange={handleContactChange}
-        onVisibilityChange={handleVisibilityChange}
-        onSave={handleSave}
-      />
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 bg-neutral-100 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800 p-1">
+          <TabsTrigger value="profile" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800">
+            <User className="h-4 w-4" />
+            <span>Профиль</span>
+          </TabsTrigger>
+          <TabsTrigger value="backup" className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800">
+            <Database className="h-4 w-4" />
+            <span>Бэкапы</span>
+          </TabsTrigger>
+        </TabsList>
 
-      <VisibilityInfoCard />
+        <TabsContent value="profile" className="space-y-6">
+          <ContactsCard
+            contacts={contacts}
+            visibility={visibility}
+            isSaving={isSaving}
+            onContactChange={handleContactChange}
+            onVisibilityChange={handleVisibilityChange}
+            onSave={handleSave}
+          />
 
-      <TelegramCard
-        profile={profile}
-        relinkData={relinkData}
-        relinkDialogOpen={relinkDialogOpen}
-        relinkLoading={relinkLoading}
-        onRelink={handleRelinkTelegram}
-        onDialogChange={setRelinkDialogOpen}
-      />
+          <VisibilityInfoCard />
 
-      <VkCard
-        profile={profile}
-        vkData={vkData}
-        vkDialogOpen={vkDialogOpen}
-        vkLoading={vkLoading}
-        onLink={handleLinkVk}
-        onDialogChange={setVkDialogOpen}
-      />
+          <TelegramCard
+            profile={profile}
+            relinkData={relinkData}
+            relinkDialogOpen={relinkDialogOpen}
+            relinkLoading={relinkLoading}
+            onRelink={handleRelinkTelegram}
+            onDialogChange={setRelinkDialogOpen}
+          />
+
+          <VkCard
+            profile={profile}
+            vkData={vkData}
+            vkDialogOpen={vkDialogOpen}
+            vkLoading={vkLoading}
+            onLink={handleLinkVk}
+            onDialogChange={setVkDialogOpen}
+          />
+        </TabsContent>
+
+        <TabsContent value="backup">
+          <BackupTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

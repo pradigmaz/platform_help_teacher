@@ -10,7 +10,7 @@ celery_app = Celery(
     "edu_platform",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=["app.tasks.schedule_tasks"]
+    include=["app.tasks.schedule_tasks", "app.tasks.backup_tasks"]
 )
 
 celery_app.conf.update(
@@ -29,5 +29,9 @@ celery_app.conf.beat_schedule = {
     "check-schedule-updates": {
         "task": "app.tasks.schedule_tasks.check_all_schedules",
         "schedule": 3600.0,  # Every hour
+    },
+    "create-daily-backup": {
+        "task": "app.tasks.backup_tasks.create_scheduled_backup",
+        "schedule": 86400.0,  # Every 24 hours
     },
 }

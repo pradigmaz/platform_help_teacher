@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import users, auth, webhooks, groups, labs, admin_labs, admin_attestation, admin_attendance, admin_stats, admin_activities, admin_works, admin_work_submissions, admin_schedule, admin_journal, student, admin_subjects, admin_schedule_parser, admin_notes, admin_lectures, lectures, admin_reports, public_reports, admin_lab_queue, admin_audit, admin_audit_export
+from app.api.v1.endpoints import users, auth, webhooks, groups, labs, admin_labs, admin_attestation, admin_attendance, admin_stats, admin_activities, admin_works, admin_work_submissions, admin_schedule, admin_journal, student, admin_subjects, admin_schedule_parser, admin_notes, admin_lectures, lectures, admin_reports, public_reports, admin_lab_queue, admin_audit, admin_audit_export, admin_backup
 
 api_router = APIRouter()
 
@@ -29,6 +29,7 @@ api_router.include_router(admin_lectures.router, prefix="/admin/lectures", tags=
 api_router.include_router(admin_reports.router, prefix="/admin", tags=["admin_reports"])
 api_router.include_router(admin_audit.router, prefix="/admin/audit", tags=["admin_audit"])
 api_router.include_router(admin_audit_export.router, prefix="/admin/audit", tags=["admin_audit_export"])
+api_router.include_router(admin_backup.router, prefix="/admin/backups", tags=["admin_backup"])
 
 api_router.include_router(labs.router, prefix="/labs", tags=["labs"])
 api_router.include_router(lectures.router, prefix="/lectures", tags=["lectures"])

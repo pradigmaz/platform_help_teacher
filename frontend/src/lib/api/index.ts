@@ -20,3 +20,13 @@ export { AdminAPI } from './admin';
 export { TransfersAPI } from './transfers';
 export { AuditAPI } from './audit';
 export type { AuditLog, AuditLogListResponse, AuditStats, AuditFilters } from './audit';
+export { BackupAPI } from './backup';
+export type { 
+  BackupInfo, 
+  BackupListResponse, 
+  BackupCreateResponse, 
+  BackupSettings, 
+  BackupSettingsUpdate,
+  RestoreResponse,
+  VerifyResponse,
+} from './backup';

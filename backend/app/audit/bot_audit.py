@@ -60,6 +60,7 @@ async def log_bot_action(
         user_id=user_id,
         method="BOT",
         path=f"/bot/{platform}",
+        ip_address="bot",  # Bot requests don't have IP
         action_type=action_type.value,
         entity_type=EntityType.BOT.value,
         extra_data={

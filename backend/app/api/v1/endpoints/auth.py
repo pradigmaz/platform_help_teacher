@@ -77,7 +77,7 @@ async def login_with_otp(
     if not user.is_active:
          raise HTTPException(status_code=403, detail="User is inactive")
         
-    access_token = security.create_access_token(user.id)
+    access_token = security.create_access_token(user.id, role=user.role.value)
     
     is_production = settings.ENVIRONMENT == "production"
     

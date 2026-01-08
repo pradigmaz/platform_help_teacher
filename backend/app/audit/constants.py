@@ -24,6 +24,11 @@ class ActionType(str, enum.Enum):
     BOT_RELINK = "bot_relink"            # Account relinking
     BOT_MESSAGE = "bot_message"          # Text message processing
     BOT_INVITE = "bot_invite"            # Invite code usage
+    # Backup actions (admin-only, security-critical)
+    BACKUP_CREATE = "backup_create"
+    BACKUP_RESTORE = "backup_restore"
+    BACKUP_DELETE = "backup_delete"
+    BACKUP_VERIFY = "backup_verify"
 
 
 class EntityType(str, enum.Enum):
@@ -39,6 +44,7 @@ class EntityType(str, enum.Enum):
     SEMESTER = "semester"
     AUTH = "auth"
     BOT = "bot"                # Bot interactions
+    BACKUP = "backup"          # Database backups (security-critical)
 
 
 # Поля, которые нужно маскировать в логах
@@ -69,6 +75,7 @@ AUDIT_PATH_PREFIXES = (
     "/api/v1/auth",
     "/api/v1/lectures",
     "/api/v1/labs",
+    "/api/v1/admin/backups",  # Security-critical operations
 )
 
 # Максимальный размер body для логирования (bytes)

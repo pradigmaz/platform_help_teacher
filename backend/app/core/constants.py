@@ -53,3 +53,9 @@ RATE_LIMIT_LAB_CREATE = "15/minute"
 RATE_LIMIT_LAB_DELETE = "10/minute"
 RATE_LIMIT_LAB_PUBLISH = "10/minute"
 
+# Backup Rate Limiting (strict - these are heavy operations)
+RATE_LIMIT_BACKUP_CREATE = "3/hour"
+RATE_LIMIT_BACKUP_RESTORE = "2/hour"
+RATE_LIMIT_BACKUP_DELETE = "10/hour"
+RATE_LIMIT_BACKUP_VERIFY = "10/hour"
+
