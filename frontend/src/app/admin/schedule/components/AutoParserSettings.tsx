@@ -30,6 +30,7 @@ interface AutoParserSettingsProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onParseNow?: () => void;
+  onParsingChange?: (isParsing: boolean) => void;
 }
 
 const DAYS = [
@@ -42,7 +43,7 @@ const DAYS = [
   { value: 6, label: 'Вс' },
 ];
 
-export function AutoParserSettings({ open, onOpenChange, onParseNow }: AutoParserSettingsProps) {
+export function AutoParserSettings({ open, onOpenChange, onParseNow, onParsingChange }: AutoParserSettingsProps) {
   const [config, setConfig] = useState<AutoParserConfig>({
     enabled: false,
     teacher_name: 'Миронов Г.Д.',
@@ -53,10 +54,17 @@ export function AutoParserSettings({ open, onOpenChange, onParseNow }: AutoParse
   const [isSaving, setIsSaving] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [parseResult, setParseResult] = useState<{
+    lessons_created: number;
+    lessons_updated: number;
+    lessons_skipped: number;
+    conflicts_created: number;
+  } | null>(null);
 
   useEffect(() => {
     if (open) {
       loadConfig();
+      setParseResult(null);
     }
   }, [open]);
 
@@ -96,14 +104,19 @@ export function AutoParserSettings({ open, onOpenChange, onParseNow }: AutoParse
 
   const handleParseNow = async () => {
     setIsParsing(true);
+    setParseResult(null);
+    onParsingChange?.(true);
     try {
-      await api.post('/admin/schedule/parse-now');
-      toast.success('Парсинг запущен');
+      const { data } = await api.post('/admin/schedule/parse-now');
+      setParseResult(data);
+      toast.success(`Создано ${data.lessons_created} занятий`);
       onParseNow?.();
-    } catch {
-      toast.error('Ошибка запуска парсинга');
+    } catch (e: unknown) {
+      const error = e as { response?: { data?: { detail?: string } } };
+      toast.error(error?.response?.data?.detail || 'Ошибка парсинга');
     } finally {
       setIsParsing(false);
+      onParsingChange?.(false);
     }
   };
 
@@ -223,6 +236,34 @@ export function AutoParserSettings({ open, onOpenChange, onParseNow }: AutoParse
               </div>
               <div className="text-muted-foreground text-xs pl-6">
                 Последний запуск: {formatLastRun(config.last_run_at)}
+              </div>
+            </div>
+          )}
+          
+          {parseResult && (
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-sm space-y-1">
+              <div className="font-medium text-green-600 dark:text-green-400">
+                ✓ Парсинг завершён
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-xs">
+                <span>Создано: <strong>{parseResult.lessons_created}</strong></span>
+                <span>Обновлено: <strong>{parseResult.lessons_updated}</strong></span>
+                <span>Пропущено: <strong>{parseResult.lessons_skipped}</strong></span>
+                {parseResult.conflicts_created > 0 && (
+                  <span className="text-yellow-600">Конфликтов: <strong>{parseResult.conflicts_created}</strong></span>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {isParsing && (
+            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm">
+              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Парсинг расписания...</span>
+              </div>
+              <div className="text-muted-foreground text-xs mt-1">
+                Загрузка данных с kis.vgltu.ru
               </div>
             </div>
           )}

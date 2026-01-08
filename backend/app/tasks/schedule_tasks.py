@@ -14,6 +14,7 @@ from app.services.notification_service import (
 )
 from app.crud.crud_schedule_parser import get_all_enabled_configs
 from app.crud.crud_user import get_user_by_id
+from app.crud import crud_parse_history
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,8 @@ def parse_schedule_task(
     teacher_name: str, 
     days_ahead: int = DEFAULT_PARSE_DAYS_AHEAD,
     teacher_id: str = None,
-    notify: bool = True
+    notify: bool = True,
+    config_id: str = None
 ):
     """Task для парсинга расписания конкретного преподавателя.
     
@@ -37,28 +39,51 @@ def parse_schedule_task(
     
     async def _parse():
         async with AsyncSessionLocal() as db:
-            service = ScheduleImportService(db)
-            start_date = date.today()
-            end_date = start_date + timedelta(days=days_ahead)
+            # Создаём запись истории
+            history = None
+            if teacher_id:
+                history = await crud_parse_history.create_history(
+                    db, 
+                    UUID(teacher_id),
+                    UUID(config_id) if config_id else None
+                )
+                await db.commit()
             
-            logger.info(f"Starting schedule parse for {teacher_name}: {start_date} - {end_date}")
-            
-            stats = await service.import_from_parser(
-                teacher_name=teacher_name,
-                start_date=start_date,
-                end_date=end_date,
-                smart_update=True
-            )
-            logger.info(f"Parse complete for {teacher_name}: {stats}")
-            
-            # Отправляем уведомление
-            if notify and teacher_id:
-                user = await get_user_by_id(db, UUID(teacher_id))
-                if user:
-                    message = format_parse_result(stats, stats.get("conflicts_created", 0))
-                    await send_to_teacher(user, message)
-            
-            return stats
+            try:
+                service = ScheduleImportService(db)
+                start_date = date.today()
+                end_date = start_date + timedelta(days=days_ahead)
+                
+                logger.info(f"Starting schedule parse for {teacher_name}: {start_date} - {end_date}")
+                
+                stats = await service.import_from_parser(
+                    teacher_name=teacher_name,
+                    start_date=start_date,
+                    end_date=end_date,
+                    smart_update=True
+                )
+                logger.info(f"Parse complete for {teacher_name}: {stats}")
+                
+                # Обновляем историю
+                if history:
+                    await crud_parse_history.complete_history(db, history.id, stats)
+                    await db.commit()
+                
+                # Отправляем уведомление
+                if notify and teacher_id:
+                    user = await get_user_by_id(db, UUID(teacher_id))
+                    if user:
+                        message = format_parse_result(stats, stats.get("conflicts_created", 0))
+                        await send_to_teacher(user, message)
+                
+                return stats
+                
+            except Exception as e:
+                # Записываем ошибку в историю
+                if history:
+                    await crud_parse_history.complete_history(db, history.id, {}, str(e))
+                    await db.commit()
+                raise
     
     try:
         return asyncio.run(_parse())
@@ -107,7 +132,8 @@ def check_all_schedules():
                         config.teacher_name, 
                         config.parse_days_ahead,
                         str(config.teacher_id),
-                        True  # notify
+                        True,  # notify
+                        str(config.id)  # config_id
                     )
                     # Обновляем last_run_at
                     config.last_run_at = now

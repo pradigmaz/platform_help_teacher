@@ -122,3 +122,25 @@ async def get_parse_history(
     """Получить историю парсинга"""
     history = await crud_parse_history.get_history(db, current_user.id, limit)
     return history
+
+
+@router.get("/parse-status")
+async def get_parse_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_teacher)
+):
+    """Проверить статус текущего парсинга"""
+    last = await crud_parse_history.get_last_history(db, current_user.id)
+    if not last:
+        return {"is_running": False, "last_run": None}
+    
+    return {
+        "is_running": last.status == "running",
+        "status": last.status,
+        "started_at": last.started_at.isoformat() if last.started_at else None,
+        "finished_at": last.finished_at.isoformat() if last.finished_at else None,
+        "lessons_created": last.lessons_created,
+        "lessons_skipped": last.lessons_skipped,
+        "conflicts_created": last.conflicts_created,
+        "error_message": last.error_message,
+    }

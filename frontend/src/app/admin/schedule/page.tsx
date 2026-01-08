@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
-import { Download, Settings, AlertTriangle } from 'lucide-react';
+import { Download, Settings, AlertTriangle, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,6 +23,7 @@ export default function SchedulePage() {
   const [lessons, setLessons] = useState<LessonData[]>([]);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isParsing, setIsParsing] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<LessonSheetData | null>(null);
@@ -31,9 +32,46 @@ export default function SchedulePage() {
   const [isParserOpen, setIsParserOpen] = useState(false);
   const [isAutoParserOpen, setIsAutoParserOpen] = useState(false);
   const [isConflictsOpen, setIsConflictsOpen] = useState(false);
+  
+  // Polling для статуса автопарсера
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+
+  // Проверка статуса парсинга
+  const checkParseStatus = useCallback(async () => {
+    try {
+      const { data } = await api.get('/admin/schedule/parse-status');
+      const wasRunning = isParsing;
+      setIsParsing(data.is_running);
+      
+      // Если парсинг только что завершился
+      if (wasRunning && !data.is_running) {
+        if (data.status === 'success') {
+          toast.success(`Автопарсинг завершён: создано ${data.lessons_created} занятий`);
+          loadLessons();
+          loadConflicts();
+        } else if (data.status === 'failed') {
+          toast.error(`Ошибка автопарсинга: ${data.error_message || 'Неизвестная ошибка'}`);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, [isParsing]);
+
+  // Запуск polling при монтировании
+  useEffect(() => {
+    checkParseStatus();
+    pollingRef.current = setInterval(checkParseStatus, 5000);
+    
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, [checkParseStatus]);
 
   useEffect(() => {
     loadConflicts();
@@ -109,7 +147,13 @@ export default function SchedulePage() {
             Все занятия за неделю
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {isParsing && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Парсинг...</span>
+            </div>
+          )}
           {conflicts.length > 0 && (
             <Button variant="outline" onClick={() => setIsConflictsOpen(true)}>
               <AlertTriangle className="w-4 h-4 mr-2 text-yellow-500" />
@@ -164,6 +208,8 @@ export default function SchedulePage() {
       <AutoParserSettings
         open={isAutoParserOpen}
         onOpenChange={setIsAutoParserOpen}
+        onParseNow={loadLessons}
+        onParsingChange={setIsParsing}
       />
       
       <ConflictResolver
