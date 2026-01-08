@@ -3,14 +3,19 @@
 Хранит конфигурацию расчёта баллов для первой и второй аттестации.
 Настройки применяются ко всем группам и предметам.
 """
-from datetime import date
+from datetime import date, timedelta
 from sqlalchemy import String, Integer, Float, Boolean, Date, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from uuid import UUID, uuid4
 from enum import Enum
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from .base import Base, TimestampMixin
+
+
+# Константы недель аттестации по регламенту
+FIRST_ATTESTATION_WEEK = 8   # 1-я аттестация на 8-й неделе
+SECOND_ATTESTATION_WEEK = 14  # 2-я аттестация на 14-й неделе
 
 
 class AttestationType(str, Enum):
@@ -78,6 +83,9 @@ class AttestationSettings(Base, TimestampMixin):
     period_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
     period_end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
     
+    # Дата начала семестра (для автовычисления периодов)
+    semester_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
+    
     # Новая гибкая конфигурация компонентов (JSON)
     components_config: Mapped[Dict[str, Any]] = mapped_column(
         JSONB, 
@@ -122,3 +130,28 @@ class AttestationSettings(Base, TimestampMixin):
         """Проверка, что веса компонентов суммируются в 100%"""
         total = self.labs_weight + self.attendance_weight + self.activity_weight
         return abs(total - 100.0) < 0.01
+
+    @staticmethod
+    def calculate_attestation_period(
+        semester_start: date, 
+        attestation_type: 'AttestationType'
+    ) -> Tuple[date, date]:
+        """
+        Вычисляет период аттестации на основе даты начала семестра.
+        
+        По регламенту:
+        - 1-я аттестация: недели 1-8 (баллы накапливаются, макс 35)
+        - 2-я аттестация: недели 9-14 (баллы накапливаются, макс 70)
+        
+        Returns:
+            Tuple[date, date]: (начало периода, конец периода)
+        """
+        if attestation_type == AttestationType.FIRST:
+            # Период 1-й аттестации: начало семестра → конец 8-й недели
+            start = semester_start
+            end = semester_start + timedelta(weeks=FIRST_ATTESTATION_WEEK)
+        else:
+            # Период 2-й аттестации: конец 8-й недели → конец 14-й недели
+            start = semester_start + timedelta(weeks=FIRST_ATTESTATION_WEEK)
+            end = semester_start + timedelta(weeks=SECOND_ATTESTATION_WEEK)
+        return (start, end)

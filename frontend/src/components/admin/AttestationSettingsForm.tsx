@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { Sparkles } from '@/components/ui/sparkles';
@@ -46,6 +46,11 @@ export function AttestationSettingsForm() {
   const [config, setConfig] = useState<ComponentsConfig>(DEFAULT_COMPONENTS_CONFIG);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [semesterStartDate, setSemesterStartDate] = useState<string>('');
+  const [calculatedPeriods, setCalculatedPeriods] = useState<{
+    first: { start: string | null; end: string | null };
+    second: { start: string | null; end: string | null };
+  }>({ first: { start: null, end: null }, second: { start: null, end: null } });
 
   const totalWeight = useMemo(() => {
     return Object.values(config)
@@ -58,6 +63,32 @@ export function AttestationSettingsForm() {
   const maxPoints = attestationType === 'first' ? 35 : 70;
   const minPassing = attestationType === 'first' ? 20 : 40;
 
+  // Вычисление периодов на основе даты начала семестра
+  const calculatePeriods = (startDate: string) => {
+    if (!startDate) {
+      setCalculatedPeriods({ first: { start: null, end: null }, second: { start: null, end: null } });
+      return;
+    }
+    const start = new Date(startDate);
+    // 1-я аттестация: недели 1-8
+    const firstEnd = new Date(start);
+    firstEnd.setDate(firstEnd.getDate() + 8 * 7);
+    // 2-я аттестация: недели 9-14
+    const secondEnd = new Date(start);
+    secondEnd.setDate(secondEnd.getDate() + 14 * 7);
+    
+    setCalculatedPeriods({
+      first: { start: startDate, end: firstEnd.toISOString().split('T')[0] },
+      second: { start: firstEnd.toISOString().split('T')[0], end: secondEnd.toISOString().split('T')[0] }
+    });
+  };
+
+  const handleSemesterStartChange = (value: string) => {
+    setSemesterStartDate(value);
+    calculatePeriods(value);
+    setHasChanges(true);
+  };
+
   const updateComponent = <K extends keyof ComponentsConfig>(
     key: K, 
     value: Partial<ComponentsConfig[K]>
@@ -69,6 +100,22 @@ export function AttestationSettingsForm() {
     setHasChanges(true);
   };
 
+  // Загрузка настроек при монтировании
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await AttestationAPI.getSettings('first');
+        if (settings.semester_start_date) {
+          setSemesterStartDate(settings.semester_start_date);
+          calculatePeriods(settings.semester_start_date);
+        }
+      } catch {
+        // Настройки ещё не созданы - это нормально
+      }
+    };
+    loadSettings();
+  }, []);
+
   const handleSave = async () => {
     if (!isWeightValid) {
       toast.error(`Сумма весов должна быть 100%. Текущая: ${totalWeight.toFixed(1)}%`);
@@ -77,7 +124,28 @@ export function AttestationSettingsForm() {
 
     setSaving(true);
     try {
-      await AttestationAPI.updateComponentsConfig(attestationType, config);
+      // Сохраняем semester_start_date для обеих аттестаций
+      const savePromises = (['first', 'second'] as AttestationType[]).map(type =>
+        AttestationAPI.updateSettings({
+          attestation_type: type,
+          semester_start_date: semesterStartDate || null,
+          labs_weight: config.labs.weight,
+          attendance_weight: config.attendance.weight,
+          activity_weight: config.activity.weight,
+          required_labs_count: config.labs.required_count,
+          bonus_per_extra_lab: config.labs.bonus_per_extra,
+          soft_deadline_penalty: config.labs.soft_deadline_penalty,
+          hard_deadline_penalty: config.labs.hard_deadline_penalty,
+          soft_deadline_days: config.labs.soft_deadline_days,
+          present_points: config.attendance.points_per_class,
+          late_points: 0.5,
+          excused_points: 0,
+          absent_points: -0.1,
+          activity_enabled: config.activity.enabled,
+          participation_points: config.activity.points_per_activity,
+        })
+      );
+      await Promise.all(savePromises);
       setHasChanges(false);
       toast.success('Настройки сохранены');
     } catch (error: unknown) {
@@ -90,6 +158,8 @@ export function AttestationSettingsForm() {
 
   const handleReset = () => {
     setConfig(DEFAULT_COMPONENTS_CONFIG);
+    setSemesterStartDate('');
+    setCalculatedPeriods({ first: { start: null, end: null }, second: { start: null, end: null } });
     setHasChanges(false);
   };
 
@@ -152,30 +222,46 @@ export function AttestationSettingsForm() {
             <CardContent className="pt-4">
               <div className="flex items-center gap-2 mb-4">
                 <Info className="w-4 h-4 text-blue-500" />
-                <span className="font-medium">Период аттестации</span>
-                <span className="text-sm text-muted-foreground">(для фильтрации посещаемости)</span>
+                <span className="font-medium">Дата начала семестра</span>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
-                  <label className="text-sm text-muted-foreground">Начало периода</label>
+                  <label className="text-sm text-muted-foreground">
+                    Начало семестра (для автовычисления периодов аттестации)
+                  </label>
                   <input 
                     type="date" 
+                    value={semesterStartDate}
+                    onChange={(e) => handleSemesterStartChange(e.target.value)}
                     className="w-full mt-1 px-3 py-2 border rounded-md bg-background"
-                    placeholder="Начало"
+                    placeholder="Начало семестра"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Например: 01.09 для осеннего семестра, 12.01 для весеннего
+                  </p>
                 </div>
-                <div>
-                  <label className="text-sm text-muted-foreground">Конец периода</label>
-                  <input 
-                    type="date" 
-                    className="w-full mt-1 px-3 py-2 border rounded-md bg-background"
-                    placeholder="Конец"
-                  />
+                <div className="p-3 bg-muted/50 rounded-md">
+                  <p className="text-sm font-medium mb-2">Вычисленные периоды:</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">1-я аттестация (недели 1-8):</span>
+                      <p className="font-mono">
+                        {calculatedPeriods.first.start && calculatedPeriods.first.end 
+                          ? `${calculatedPeriods.first.start} — ${calculatedPeriods.first.end}`
+                          : '— / —'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">2-я аттестация (недели 9-14):</span>
+                      <p className="font-mono">
+                        {calculatedPeriods.second.start && calculatedPeriods.second.end 
+                          ? `${calculatedPeriods.second.start} — ${calculatedPeriods.second.end}`
+                          : '— / —'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Если не указано, учитывается вся посещаемость за семестр
-              </p>
             </CardContent>
           </Card>
         </BlurFade>

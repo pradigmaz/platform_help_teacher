@@ -19,10 +19,13 @@ export interface AttestationSettings {
   participation_points: number;
   period_start_date: string | null;
   period_end_date: string | null;
+  semester_start_date: string | null;
   created_at: string;
   updated_at: string;
   max_points: number;
   min_passing_points: number;
+  calculated_period_start: string | null;
+  calculated_period_end: string | null;
 }
 
 export interface AttestationSettingsUpdate {
@@ -43,6 +46,7 @@ export interface AttestationSettingsUpdate {
   participation_points: number;
   period_start_date?: string | null;
   period_end_date?: string | null;
+  semester_start_date?: string | null;
 }
 
 export interface ComponentBreakdown {

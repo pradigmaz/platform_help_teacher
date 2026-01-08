@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 from typing import Optional, Dict, Any
 
-from sqlalchemy import String, ForeignKey, Text
+from sqlalchemy import String, ForeignKey, Text, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -55,6 +55,7 @@ class SettingsAuditLog(Base):
     
     # Время изменения
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
         index=True

@@ -219,6 +219,16 @@ class AttestationSettingsManager:
     @staticmethod
     def to_response(att_settings: AttestationSettings) -> AttestationSettingsResponse:
         """Преобразование модели в схему ответа с вычисляемыми полями."""
+        # Вычисляем периоды на основе semester_start_date
+        calculated_period_start = None
+        calculated_period_end = None
+        if att_settings.semester_start_date:
+            period = AttestationSettings.calculate_attestation_period(
+                att_settings.semester_start_date,
+                att_settings.attestation_type
+            )
+            calculated_period_start, calculated_period_end = period
+        
         return AttestationSettingsResponse(
             id=att_settings.id,
             attestation_type=att_settings.attestation_type,
@@ -236,10 +246,15 @@ class AttestationSettingsManager:
             absent_points=att_settings.absent_points,
             activity_enabled=att_settings.activity_enabled,
             participation_points=att_settings.participation_points,
+            period_start_date=att_settings.period_start_date,
+            period_end_date=att_settings.period_end_date,
+            semester_start_date=att_settings.semester_start_date,
             components_config=att_settings.components_config,
             created_at=att_settings.created_at,
             updated_at=att_settings.updated_at,
             max_points=AttestationSettings.get_max_points(att_settings.attestation_type),
             min_passing_points=AttestationSettings.get_min_passing_points(att_settings.attestation_type),
             grade_scale=AttestationSettings.get_grade_scale(att_settings.attestation_type),
+            calculated_period_start=calculated_period_start,
+            calculated_period_end=calculated_period_end,
         )

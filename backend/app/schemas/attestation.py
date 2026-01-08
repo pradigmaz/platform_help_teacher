@@ -126,6 +126,9 @@ class AttestationSettingsBase(BaseModel):
     period_start_date: Optional[date] = Field(default=None, description="Начало периода аттестации")
     period_end_date: Optional[date] = Field(default=None, description="Конец периода аттестации")
     
+    # Дата начала семестра (для автовычисления периодов)
+    semester_start_date: Optional[date] = Field(default=None, description="Дата начала семестра")
+    
     # Новая гибкая конфигурация
     # DEPRECATED: Не используется в расчётах, только для хранения
     components_config: Optional[ComponentsConfig] = Field(
@@ -174,6 +177,10 @@ class AttestationSettingsResponse(AttestationSettingsBase):
     
     # Шкала оценок
     grade_scale: Dict[str, tuple] = Field(default=None, description="Шкала оценок (неуд/уд/хор/отл)")
+    
+    # Вычисленные периоды на основе semester_start_date
+    calculated_period_start: Optional[date] = Field(default=None, description="Вычисленное начало периода")
+    calculated_period_end: Optional[date] = Field(default=None, description="Вычисленный конец периода")
 
     class Config:
         from_attributes = True
