@@ -11,6 +11,7 @@ from app.core.limiter import limiter
 from app.db.session import get_db
 from app.core.redis import get_redis
 from app.models import User
+from app.audit import audit_action, ActionType, EntityType
 
 router = APIRouter()
 
@@ -26,6 +27,7 @@ async def get_csrf_token(csrf_protect: CsrfProtect = Depends()):
 
 @router.post("/otp")
 @limiter.limit("5/minute")
+@audit_action(ActionType.AUTH_LOGIN, EntityType.AUTH)
 async def login_with_otp(
     request: Request,
     response: Response,
@@ -91,6 +93,7 @@ async def login_with_otp(
     return {"message": "Logged in successfully", "user": {"full_name": user.full_name, "role": user.role}}
 
 @router.post("/logout")
-async def logout(response: Response):
+@audit_action(ActionType.AUTH_LOGOUT, EntityType.AUTH)
+async def logout(request: Request, response: Response):
     response.delete_cookie(key="access_token", httponly=True, samesite="lax")
     return {"message": "Logged out"}

@@ -27,6 +27,7 @@ from .group_report import GroupReport, ReportType
 from .report_view import ReportView
 from .student_transfer import StudentTransfer
 from .settings_audit import SettingsAuditLog
+from app.audit.models import StudentAuditLog
 
 __all__ = [
     "Base", "TimestampMixin",
@@ -61,4 +62,5 @@ __all__ = [
     "ReportView",
     "StudentTransfer",
     "SettingsAuditLog",
+    "StudentAuditLog",
 ]

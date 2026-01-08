@@ -17,7 +17,8 @@ import {
   Award,
   Settings,
   BarChart3,
-  ChevronDown
+  ChevronDown,
+  Shield
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -96,6 +97,11 @@ const sidebarItems: SidebarItem[] = [
     title: "Журнал",
     href: "/admin/journal",
     icon: ClipboardList,
+  },
+  {
+    title: "Аудит",
+    href: "/admin/audit",
+    icon: Shield,
   },
   {
     title: "Настройки",

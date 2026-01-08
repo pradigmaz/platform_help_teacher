@@ -18,3 +18,5 @@ export { ScheduleAPI } from './schedule';
 export { ReportsAPI, PublicReportAPI } from './reports';
 export { AdminAPI } from './admin';
 export { TransfersAPI } from './transfers';
+export { AuditAPI } from './audit';
+export type { AuditLog, AuditLogListResponse, AuditStats, AuditFilters } from './audit';

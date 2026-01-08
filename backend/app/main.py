@@ -19,7 +19,8 @@ from app.services.external_api import kis_client
 from app.services.pdf_service import pdf_service
 from app.bots.telegram_bot import bot
 from app.bots import vk_bot
-from app.core.prestart_check import check_deployment_settings 
+from app.core.prestart_check import check_deployment_settings
+from app.audit.middleware import AuditMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -114,6 +115,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Audit Middleware (тихий сбор данных о действиях)
+app.add_middleware(AuditMiddleware)
 
 app.include_router(api_router, prefix="/api/v1")
 

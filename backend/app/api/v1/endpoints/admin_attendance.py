@@ -20,7 +20,7 @@ from app.schemas.attendance import (
     AttendanceStatsResponse,
     AttendanceStatusSchema,
 )
-from app.crud.crud_attendance import (
+from app.crud.attendance import (
     create_attendance,
     update_attendance,
     get_attendance_by_student,

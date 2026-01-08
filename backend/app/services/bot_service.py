@@ -14,6 +14,7 @@ from sqlalchemy import select, or_
 from app.models import User, Group, UserRole
 from app.core.config import settings
 from app.core.redis import get_redis
+from app.audit import log_bot_start, log_bot_auth, log_bot_bind, log_bot_message
 
 from app.utils.text import normalize_fio, fio_similarity
 
@@ -127,6 +128,9 @@ async def process_start_command(
     """Обработка команды /start (общая для TG и VK)."""
     redis = await get_redis()
     
+    # Логируем /start
+    await log_bot_start(db, social_id, platform, username, args)
+    
     # СЦЕНАРИЙ: ПРИВЯЗКА/ПЕРЕПРИВЯЗКА (relink код)
     if args:
         code = args.strip().upper()
@@ -157,6 +161,9 @@ async def process_start_command(
                 return error
             await db.commit()
             
+            # Логируем relink
+            await log_bot_bind(db, social_id, target_platform, user.id, username, "relink")
+            
             platform_name = "Telegram" if target_platform == "telegram" else "VK"
             return f"✅ {platform_name} привязан!\nПользователь: {user.full_name}"
     
@@ -179,6 +186,9 @@ async def process_start_command(
                 return error
             existing_student.is_active = True
             await db.commit()
+            
+            # Логируем привязку по invite_code
+            await log_bot_bind(db, social_id, platform, existing_student.id, username, "invite")
             
             group_result = await db.execute(select(Group).where(Group.id == existing_student.group_id))
             group = group_result.scalar_one_or_none()
@@ -216,6 +226,10 @@ async def process_start_command(
         return "👋 Привет! Я тебя не знаю. Пришли инвайт-код группы (например: /start CODE123)."
     
     otp = await generate_otp(social_id, platform)
+    
+    # Логируем генерацию OTP
+    await log_bot_auth(db, social_id, platform, user.id, username)
+    
     login_url = f"{settings.FRONTEND_URL}/auth/login?code={otp}"
     
     if platform == "telegram":
@@ -244,6 +258,9 @@ async def process_text_message(
     
     if not fsm_raw:
         return None
+    
+    # Логируем текстовое сообщение
+    await log_bot_message(db, social_id, platform, text, username, "fsm")
     
     try:
         fsm_data = json.loads(fsm_raw)
@@ -274,6 +291,10 @@ async def process_text_message(
                 return error
             await db.commit()
             await redis.delete(f"fsm:{platform}:{social_id}")
+            
+            # Логируем привязку через FSM (waiting_fio)
+            await log_bot_bind(db, social_id, fsm_platform, exact_match.id, username, "fio_match")
+            
             return f"🎉 Привязка успешна!\n\nВы: {exact_match.full_name}\nГруппа: {group_name}\n\nОтправьте /start для получения кода входа."
         
         if similar:
@@ -299,6 +320,10 @@ async def process_text_message(
                 return error
             await db.commit()
             await redis.delete(f"fsm:{platform}:{social_id}")
+            
+            # Логируем привязку через FSM (confirm_fio)
+            await log_bot_bind(db, social_id, fsm_platform, exact_match.id, username, "fio_confirm")
+            
             return f"🎉 Привязка успешна!\n\nВы: {exact_match.full_name}\nГруппа: {group_name}\n\nОтправьте /start для получения кода входа."
         
         return f"❌ Студент не найден. Введите ФИО точно как в списке группы.\nИли напишите /cancel для отмены."

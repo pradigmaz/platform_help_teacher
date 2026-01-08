@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import axiosRetry from 'axios-retry';
+import { getFingerprint } from '../fingerprint';
 
 // --- Custom Error Class ---
 export class ApiError extends Error {
@@ -39,6 +40,10 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   if (!isValidRelativeUrl(config.url)) {
     return Promise.reject(new ApiError(400, 'Invalid URL: absolute URLs are not allowed'));
+  }
+  // Добавляем fingerprint в каждый запрос
+  if (typeof window !== 'undefined') {
+    config.headers['X-Device-Fingerprint'] = getFingerprint();
   }
   return config;
 });
@@ -101,6 +106,10 @@ export const publicApi = axios.create({
 publicApi.interceptors.request.use((config) => {
   if (!isValidRelativeUrl(config.url)) {
     return Promise.reject(new ApiError(400, 'Invalid URL: absolute URLs are not allowed'));
+  }
+  // Добавляем fingerprint в каждый запрос
+  if (typeof window !== 'undefined') {
+    config.headers['X-Device-Fingerprint'] = getFingerprint();
   }
   return config;
 });

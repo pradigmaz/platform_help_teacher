@@ -29,6 +29,7 @@ import dynamic from 'next/dynamic';
 import api from '@/lib/api';
 import { StudentActivitiesList } from '@/components/admin/StudentActivitiesList';
 import { TransferStudentDialog } from '@/components/admin/TransferStudentDialog';
+import { StudentAuditHistory } from '@/components/admin/StudentAuditHistory';
 
 interface LabSubmission {
   lab_id: string;
@@ -415,6 +416,11 @@ export default function StudentProfilePage() {
           </Card>
         </BlurFade>
       </div>
+
+      {/* Audit History */}
+      <BlurFade delay={0.55}>
+        <StudentAuditHistory userId={studentId} />
+      </BlurFade>
 
       {/* Labs List */}
       <BlurFade delay={0.6}>

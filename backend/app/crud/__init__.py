@@ -2,7 +2,7 @@
 CRUD операции для моделей приложения.
 """
 from app.crud.crud_user import get_by_social_id, upsert_user
-from app.crud.crud_attendance import (
+from app.crud.attendance import (
     create_attendance,
     update_attendance,
     upsert_attendance,
@@ -17,6 +17,7 @@ from app.crud.crud_attendance import (
     DuplicateAttendanceError,
     StudentNotInGroupError,
     StudentNotFoundError,
+    FutureDateError,
 )
 from app.crud.crud_subject import (
     get_subject,
@@ -51,6 +52,7 @@ __all__ = [
     "DuplicateAttendanceError",
     "StudentNotInGroupError",
     "StudentNotFoundError",
+    "FutureDateError",
     # Subject CRUD
     "get_subject",
     "get_subject_by_name",
