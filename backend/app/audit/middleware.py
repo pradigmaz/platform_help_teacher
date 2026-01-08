@@ -20,6 +20,12 @@ from .constants import ActionType
 
 logger = logging.getLogger(__name__)
 
+# Cookie name for session tracking
+SESSION_COOKIE_NAME = "audit_session_id"
+
+# Header for correlation ID (frontend can pass it)
+CORRELATION_HEADER = "X-Correlation-ID"
+
 
 def extract_user_info_from_token(request: Request) -> tuple[Optional[UUID], Optional[str]]:
     """
@@ -40,6 +46,16 @@ def extract_user_info_from_token(request: Request) -> tuple[Optional[UUID], Opti
         pass
     
     return None, None
+
+
+def extract_session_id(request: Request) -> Optional[str]:
+    """Извлечь session_id из cookie."""
+    return request.cookies.get(SESSION_COOKIE_NAME)
+
+
+def extract_correlation_id(request: Request) -> Optional[str]:
+    """Извлечь correlation_id из header или сгенерировать."""
+    return request.headers.get(CORRELATION_HEADER)
 
 
 class AuditMiddleware(BaseHTTPMiddleware):
@@ -67,6 +83,12 @@ class AuditMiddleware(BaseHTTPMiddleware):
         # Извлекаем user_id и role из токена
         user_id, role = extract_user_info_from_token(request)
         
+        # Извлекаем session_id из cookie
+        session_id = extract_session_id(request)
+        
+        # Извлекаем correlation_id из header
+        correlation_id = extract_correlation_id(request)
+        
         # Определяем, нужно ли логировать этого пользователя
         # Логируем только студентов (или неавторизованных)
         # Преподы/админы логируются только для security-critical paths
@@ -81,7 +103,9 @@ class AuditMiddleware(BaseHTTPMiddleware):
         # Создаём контекст аудита
         audit_context = AuditContext(
             request_id=request_id,
+            correlation_id=correlation_id,
             user_id=user_id,
+            session_id=session_id,
             actor_role=role or "anonymous",
             method=request.method,
             path=request.url.path,
@@ -112,9 +136,14 @@ class AuditMiddleware(BaseHTTPMiddleware):
         if response.status_code >= 400:
             audit_context.action_type = ActionType.ERROR.value
         
-        # Асинхронная запись (fire-and-forget)
+        # Выбираем метод записи в зависимости от критичности
         audit_service = get_audit_service()
-        asyncio.create_task(audit_service.write_log(audit_context))
+        if audit_service.is_security_critical(audit_context.action_type):
+            # Синхронная запись с retry для security-critical
+            await audit_service.write_log_sync(audit_context)
+        else:
+            # Асинхронная запись (fire-and-forget) для остальных
+            asyncio.create_task(audit_service.write_log(audit_context))
         
         return response
     

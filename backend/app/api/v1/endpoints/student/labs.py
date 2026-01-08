@@ -17,7 +17,9 @@ router = APIRouter()
 
 
 @router.get("/labs")
+@audit_action(ActionType.VIEW, EntityType.LAB)
 async def get_my_labs(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
@@ -69,8 +71,10 @@ async def get_my_labs(
 
 
 @router.get("/labs/{lab_id}")
+@audit_action(ActionType.VIEW, EntityType.LAB_DETAIL, "lab_id")
 async def get_lab_detail(
     lab_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:

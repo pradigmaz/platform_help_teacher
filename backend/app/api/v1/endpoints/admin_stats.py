@@ -1,12 +1,13 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.db.session import get_db
+from app.core.limiter import limiter
 from app.models import User, Group, Lab
 from app.schemas import StudentProfileOut, StatsResponse
 from app.services.student_service import StudentService
@@ -14,7 +15,9 @@ from app.services.student_service import StudentService
 router = APIRouter()
 
 @router.get("/stats", response_model=StatsResponse)
+@limiter.limit("30/minute")
 async def get_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ) -> StatsResponse:
@@ -62,7 +65,9 @@ async def get_student_profile(
 
 
 @router.post("/students/{student_id}/reset-social")
+@limiter.limit("10/minute")
 async def reset_student_social(
+    request: Request,
     student_id: UUID,
     platform: str = "all",  # "telegram", "vk", or "all"
     db: AsyncSession = Depends(get_db),
@@ -88,13 +93,15 @@ async def reset_student_social(
 
 # Обратная совместимость
 @router.post("/students/{student_id}/reset-telegram")
+@limiter.limit("10/minute")
 async def reset_student_telegram(
+    request: Request,
     student_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Сбросить привязку Telegram у студента (deprecated, use reset-social)."""
-    return await reset_student_social(student_id, "telegram", db, current_user)
+    return await reset_student_social(request, student_id, "telegram", db, current_user)
 
 
 # --- Transfer endpoints ---
@@ -103,9 +110,11 @@ from app.schemas.transfer import TransferRequest, TransferResponse, StudentTrans
 
 
 @router.post("/students/{student_id}/transfer", response_model=TransferResponse)
+@limiter.limit("20/minute")
 async def transfer_student(
+    request: Request,
     student_id: UUID,
-    request: TransferRequest,
+    transfer_request: TransferRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
@@ -114,7 +123,7 @@ async def transfer_student(
     try:
         result = await service.create_transfer(
             student_id=student_id,
-            request=request,
+            request=transfer_request,
             created_by_id=current_user.id
         )
         return result

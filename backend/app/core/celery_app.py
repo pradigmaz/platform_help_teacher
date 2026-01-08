@@ -10,7 +10,7 @@ celery_app = Celery(
     "edu_platform",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=["app.tasks.schedule_tasks", "app.tasks.backup_tasks"]
+    include=["app.tasks.schedule_tasks", "app.tasks.backup_tasks", "app.tasks.audit_tasks"]
 )
 
 celery_app.conf.update(
@@ -32,6 +32,14 @@ celery_app.conf.beat_schedule = {
     },
     "create-daily-backup": {
         "task": "app.tasks.backup_tasks.create_scheduled_backup",
+        "schedule": 86400.0,  # Every 24 hours
+    },
+    "cleanup-old-audit-logs": {
+        "task": "app.tasks.audit_tasks.cleanup_old_audit_logs",
+        "schedule": 86400.0,  # Every 24 hours
+    },
+    "create-audit-partition": {
+        "task": "app.tasks.audit_tasks.create_audit_partition",
         "schedule": 86400.0,  # Every 24 hours
     },
 }

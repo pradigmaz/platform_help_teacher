@@ -97,15 +97,31 @@ class BackupStorage:
             if verify:
                 resp = await client.head_object(Bucket=self.bucket, Key=remote_key)
                 # S3 ETag for non-multipart uploads is MD5 in quotes
+                # For multipart uploads, ETag is "hash-partcount" - skip MD5 check
                 remote_etag = resp.get('ETag', '').strip('"')
                 
-                if remote_etag != local_md5:
+                # Multipart ETag contains "-" (e.g., "abc123-2")
+                is_multipart = '-' in remote_etag
+                
+                if is_multipart:
+                    # For multipart, verify by re-downloading and comparing
+                    # This is expensive, so just log warning and verify size
+                    remote_size = resp.get('ContentLength', 0)
+                    local_size = local_path.stat().st_size
+                    if remote_size != local_size:
+                        await client.delete_object(Bucket=self.bucket, Key=remote_key)
+                        raise RuntimeError(
+                            f"Upload size mismatch: local={local_size}, remote={remote_size}"
+                        )
+                    logger.info(f"Upload verified (multipart, size check): {remote_key}")
+                elif remote_etag != local_md5:
                     # Cleanup corrupted upload
                     await client.delete_object(Bucket=self.bucket, Key=remote_key)
                     raise RuntimeError(
                         f"Upload verification failed: local={local_md5}, remote={remote_etag}"
                     )
-                logger.info(f"Upload verified: {remote_key} (MD5: {local_md5})")
+                else:
+                    logger.info(f"Upload verified: {remote_key} (MD5: {local_md5})")
             
             return remote_key
     

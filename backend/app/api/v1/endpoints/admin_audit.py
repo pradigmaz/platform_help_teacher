@@ -5,12 +5,13 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db, get_current_active_superuser
+from app.core.limiter import limiter
 from app.models.user import User
 from app.audit.models import StudentAuditLog
 from app.audit.schemas import AuditLogResponse, AuditLogListResponse, AuditStatsResponse
@@ -20,7 +21,9 @@ router = APIRouter()
 
 
 @router.get("", response_model=AuditLogListResponse)
+@limiter.limit("30/minute")
 async def get_audit_logs(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_active_superuser),
     user_id: Optional[UUID] = Query(None, description="Фильтр по студенту"),
@@ -108,7 +111,9 @@ async def get_audit_logs(
 
 
 @router.get("/{log_id}", response_model=AuditLogResponse)
+@limiter.limit("60/minute")
 async def get_audit_log_detail(
+    request: Request,
     log_id: UUID,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_active_superuser),
@@ -151,7 +156,9 @@ async def get_audit_log_detail(
 
 
 @router.get("/user/{user_id}", response_model=AuditLogListResponse)
+@limiter.limit("30/minute")
 async def get_user_audit_logs(
+    request: Request,
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_active_superuser),
@@ -167,7 +174,9 @@ async def get_user_audit_logs(
 
 
 @router.get("/stats/summary", response_model=AuditStatsResponse)
+@limiter.limit("10/minute")
 async def get_audit_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_active_superuser),
     days: int = Query(7, ge=1, le=30),

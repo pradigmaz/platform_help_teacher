@@ -1,19 +1,22 @@
 """Student attendance endpoint."""
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.models.attendance import Attendance, AttendanceStatus
+from app.audit import audit_action, ActionType, EntityType
 
 router = APIRouter()
 
 
 @router.get("/attendance")
+@audit_action(ActionType.VIEW, EntityType.ATTENDANCE)
 async def get_my_attendance(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:

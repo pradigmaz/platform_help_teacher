@@ -81,7 +81,7 @@ class VerifyResponse(BaseModel):
 class BackupSettingsSchema(BaseModel):
     """Backup settings response/update."""
     enabled: bool = True
-    schedule_hour: int = Field(3, ge=0, le=23)
+    schedule_hour: int = Field(17, ge=0, le=23)
     schedule_minute: int = Field(0, ge=0, le=59)
     retention_days: int = Field(30, ge=1, le=365)
     max_backups: int = Field(10, ge=1, le=100)

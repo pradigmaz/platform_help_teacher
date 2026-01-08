@@ -26,7 +26,7 @@ import { NoteButton } from '@/components/notes';
 import { AddActivityDialog } from '@/components/admin/AddActivityDialog';
 import { LESSON_TYPE_INFO, canHaveGrade } from '../lib/journal-constants';
 import type { Lesson, Student, GradeData } from '../lib/journal-constants';
-import type { AttestationResult, AttestationType } from '@/lib/api';
+import type { AttestationResult } from '@/lib/api';
 
 interface JournalTableProps {
   lessons: Lesson[];
@@ -99,7 +99,7 @@ export function JournalTable({
               </div>
             </TableHead>
             {sortedLessons.map(lesson => {
-              const typeInfo = LESSON_TYPE_INFO[lesson.lesson_type] || LESSON_TYPE_INFO.LECTURE;
+              const typeInfo = LESSON_TYPE_INFO[lesson.lesson_type as keyof typeof LESSON_TYPE_INFO] || LESSON_TYPE_INFO.LECTURE;
               const Icon = typeInfo.icon;
               return (
                 <TableHead 
@@ -116,10 +116,10 @@ export function JournalTable({
                     </span>
                     <Badge 
                       variant="secondary" 
-                      className={`text-[10px] px-1.5 py-0 ${typeInfo.color} text-white`}
+                      className={`text-[10px] px-1.5 py-0 ${typeInfo.badge}`}
                     >
                       <Icon className="w-3 h-3 mr-0.5" />
-                      {typeInfo.short}{lesson.work_number ? `${lesson.work_number}` : ''}
+                      {typeInfo.shortLabel}{lesson.work_number ? `${lesson.work_number}` : ''}
                     </Badge>
                   </div>
                 </TableHead>

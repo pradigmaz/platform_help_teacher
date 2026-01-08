@@ -2,16 +2,27 @@
 """
 MinIO bucket initialization script.
 Creates required buckets: edu-uploads, edu-backups
+
+SECURITY: This script requires environment variables to be set.
+Do not use default credentials in production!
 """
 import os
 import sys
 from minio import Minio
 from minio.error import S3Error
 
-MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
-MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER", "minioadmin")
-MINIO_ROOT_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD", "minioadmin")
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT")
+MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER")
+MINIO_ROOT_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD")
 MINIO_USE_SSL = os.getenv("MINIO_USE_SSL", "false").lower() == "true"
+
+# Validate required environment variables
+if not all([MINIO_ENDPOINT, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD]):
+    print("ERROR: Missing required environment variables:")
+    print("  - MINIO_ENDPOINT")
+    print("  - MINIO_ROOT_USER")
+    print("  - MINIO_ROOT_PASSWORD")
+    sys.exit(1)
 
 BUCKETS = [
     {"name": "edu-uploads", "public": True},

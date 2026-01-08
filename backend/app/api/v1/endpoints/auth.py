@@ -1,4 +1,5 @@
 from typing import Any
+from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Response, Body, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -12,6 +13,8 @@ from app.db.session import get_db
 from app.core.redis import get_redis
 from app.models import User
 from app.audit import audit_action, ActionType, EntityType
+from app.audit.middleware import SESSION_COOKIE_NAME
+from app.audit.deps import set_audit_extra
 
 router = APIRouter()
 
@@ -63,6 +66,10 @@ async def login_with_otp(
 
     await redis.delete(f"auth:{otp}")
     
+    # Добавляем OTP в audit extra_data для связи с BOT_AUTH
+    set_audit_extra(request, "otp_used", otp[:3] + "***")  # Маскируем для безопасности
+    set_audit_extra(request, "auth_platform", platform)
+    
     # Поиск пользователя по platform
     if platform == "telegram":
         result = await db.execute(select(User).where(User.telegram_id == social_id))
@@ -90,10 +97,22 @@ async def login_with_otp(
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
     
+    # Generate session_id for audit tracking
+    session_id = str(uuid4())
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=session_id,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+    
     return {"message": "Logged in successfully", "user": {"full_name": user.full_name, "role": user.role}}
 
 @router.post("/logout")
 @audit_action(ActionType.AUTH_LOGOUT, EntityType.AUTH)
 async def logout(request: Request, response: Response):
     response.delete_cookie(key="access_token", httponly=True, samesite="lax")
+    response.delete_cookie(key=SESSION_COOKIE_NAME, httponly=True, samesite="lax")
     return {"message": "Logged out"}

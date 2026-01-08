@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import select
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -14,6 +16,7 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.csrf import get_csrf_config  # noqa: F401 - loads config
+from app.core.csrf_middleware import CSRFMiddleware
 from app.core.redis import close_redis
 from app.services.external_api import kis_client
 from app.services.pdf_service import pdf_service
@@ -21,6 +24,7 @@ from app.bots.telegram_bot import bot
 from app.bots import vk_bot
 from app.core.prestart_check import check_deployment_settings
 from app.audit.middleware import AuditMiddleware
+from app.audit.deps import set_audit_extra
 
 logging.basicConfig(
     level=logging.INFO,
@@ -93,10 +97,17 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
+# Отключаем Swagger/OpenAPI в production для безопасности
+_docs_url = "/docs" if settings.ENVIRONMENT == "development" else None
+_openapi_url = "/openapi.json" if settings.ENVIRONMENT == "development" else None
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     lifespan=lifespan,
-    debug=settings.ENVIRONMENT == "development"
+    debug=settings.ENVIRONMENT == "development",
+    docs_url=_docs_url,
+    openapi_url=_openapi_url,
+    redoc_url=None,  # Отключаем ReDoc везде
 )
 
 # Rate Limiting
@@ -108,6 +119,36 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
+
+# Validation Error Handler — логирует детали ошибок валидации в аудит
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Логирует ошибки валидации в аудит для анализа."""
+    # Добавляем детали ошибки в audit extra_data
+    error_details = [
+        {"loc": list(err.get("loc", [])), "msg": err.get("msg", ""), "type": err.get("type", "")}
+        for err in exc.errors()[:5]  # Лимит 5 ошибок
+    ]
+    set_audit_extra(request, "validation_errors", error_details)
+    
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()}
+    )
+
+
+# HTTP Exception Handler — логирует 4xx ошибки в аудит
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Логирует HTTP ошибки в аудит."""
+    if 400 <= exc.status_code < 500:
+        set_audit_extra(request, "error_detail", str(exc.detail)[:200])
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS, 
@@ -116,8 +157,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# IP Ban Middleware (блокировка после множества 429)
+from app.middleware.ip_ban import IPBanMiddleware
+app.add_middleware(IPBanMiddleware)
+
 # Audit Middleware (тихий сбор данных о действиях)
 app.add_middleware(AuditMiddleware)
+
+# CSRF Middleware (защита мутирующих запросов)
+app.add_middleware(CSRFMiddleware)
 
 app.include_router(api_router, prefix="/api/v1")
 

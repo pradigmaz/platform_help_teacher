@@ -1,20 +1,23 @@
 """Student attestation endpoint."""
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.models.attestation_settings import AttestationType
 from app.services.attestation_service import AttestationService
+from app.audit import audit_action, ActionType, EntityType
 
 router = APIRouter()
 
 
 @router.get("/attestation/{attestation_type}")
+@audit_action(ActionType.VIEW, EntityType.ATTESTATION)
 async def get_my_attestation(
     attestation_type: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:

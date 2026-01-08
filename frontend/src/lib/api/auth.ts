@@ -1,12 +1,9 @@
-import { api, ensureCsrfToken } from './client';
+import { api } from './client';
 import type { AuthResponse, User } from './types';
 
 export const AuthAPI = {
   login: async (otp: string) => {
-    const token = await ensureCsrfToken();
-    const { data } = await api.post<AuthResponse>('/auth/otp', { otp }, {
-      headers: { 'X-CSRF-Token': token }
-    });
+    const { data } = await api.post<AuthResponse>('/auth/otp', { otp });
     return data;
   },
   

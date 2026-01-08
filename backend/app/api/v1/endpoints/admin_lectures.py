@@ -246,15 +246,16 @@ async def upload_lecture_image(
     storage_path = f"lectures/{lecture_id}/{uuid4()}.{file_ext}"
     
     try:
-        # Получаем presigned URL для загрузки
+        # Получаем presigned URL для загрузки с валидацией magic bytes
         upload_url = await storage_service.create_presigned_upload_url(
             storage_path,
-            file.content_type
+            file.content_type,
+            content  # Передаём контент для проверки magic bytes
         )
         
         # Загружаем файл напрямую в MinIO через presigned URL
         import httpx
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.put(
                 upload_url,
                 content=content,

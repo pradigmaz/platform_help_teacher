@@ -15,7 +15,7 @@ class BackupSettings(Base, TimestampMixin):
     
     # Schedule
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    schedule_hour: Mapped[int] = mapped_column(Integer, default=3)  # 3:00 AM
+    schedule_hour: Mapped[int] = mapped_column(Integer, default=17)  # 17:00
     schedule_minute: Mapped[int] = mapped_column(Integer, default=0)
     
     # Retention

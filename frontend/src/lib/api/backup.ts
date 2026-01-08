@@ -52,21 +52,21 @@ export interface VerifyResponse {
 
 export const BackupAPI = {
   // Settings
-  getSettings: () => api.get<BackupSettings>('/admin/backups/settings'),
-  updateSettings: (data: BackupSettingsUpdate) => 
-    api.put<BackupSettings>('/admin/backups/settings', data),
+  getSettings: async () => (await api.get<BackupSettings>('/admin/backups/settings')).data,
+  updateSettings: async (data: BackupSettingsUpdate) => 
+    (await api.put<BackupSettings>('/admin/backups/settings', data)).data,
 
   // Backups
-  list: () => api.get<BackupListResponse>('/admin/backups'),
-  create: (name?: string) => 
-    api.post<BackupCreateResponse>('/admin/backups', name ? { name } : {}),
-  verify: (key: string) => 
-    api.post<VerifyResponse>(`/admin/backups/${encodeURIComponent(key)}/verify`),
-  restore: (key: string, dropExisting: boolean = false) => 
-    api.post<RestoreResponse>(`/admin/backups/${encodeURIComponent(key)}/restore`, { 
+  list: async () => (await api.get<BackupListResponse>('/admin/backups')).data,
+  create: async (name?: string) => 
+    (await api.post<BackupCreateResponse>('/admin/backups', name ? { name } : {})).data,
+  verify: async (key: string) => 
+    (await api.post<VerifyResponse>(`/admin/backups/${encodeURIComponent(key)}/verify`)).data,
+  restore: async (key: string, dropExisting: boolean = false) => 
+    (await api.post<RestoreResponse>(`/admin/backups/${encodeURIComponent(key)}/restore`, { 
       drop_existing: dropExisting,
       confirmation: `RESTORE-${key}`
-    }),
-  delete: (key: string) => 
-    api.delete(`/admin/backups/${encodeURIComponent(key)}`),
+    })).data,
+  delete: async (key: string) => 
+    (await api.delete(`/admin/backups/${encodeURIComponent(key)}`)).data,
 };

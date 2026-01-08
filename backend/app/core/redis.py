@@ -3,6 +3,10 @@ from app.core.config import settings
 
 redis_pool = None
 
+# Connection timeouts (seconds)
+REDIS_SOCKET_TIMEOUT = 5.0
+REDIS_SOCKET_CONNECT_TIMEOUT = 5.0
+
 
 async def get_redis() -> aioredis.Redis:
     """Get async Redis connection pool."""
@@ -18,6 +22,8 @@ async def get_redis() -> aioredis.Redis:
             password=settings.REDIS_PASSWORD,
             max_connections=20,
             decode_responses=True,
+            socket_timeout=REDIS_SOCKET_TIMEOUT,
+            socket_connect_timeout=REDIS_SOCKET_CONNECT_TIMEOUT,
         )
     return aioredis.Redis(connection_pool=redis_pool)
 

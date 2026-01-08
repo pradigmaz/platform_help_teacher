@@ -25,6 +25,7 @@ class Lecture(Base, TimestampMixin):
         ),
         Index('idx_lectures_subject_id', 'subject_id'),
         Index('idx_lectures_deleted_at', 'deleted_at'),
+        Index('idx_lectures_created_by_id', 'created_by_id'),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -36,6 +37,12 @@ class Lecture(Base, TimestampMixin):
     subject_id: Mapped[Optional[UUID]] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("subjects.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    # IDOR Protection: Track who created the lecture
+    created_by_id: Mapped[Optional[UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )
 

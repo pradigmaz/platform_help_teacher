@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.lecture import Lecture
 from app.schemas.lecture import LectureCreate, LectureUpdate
+from app.utils.html_sanitizer import sanitize_lexical_content
 
 
 class CRUDLecture:
@@ -18,10 +19,13 @@ class CRUDLecture:
         db: AsyncSession,
         data: LectureCreate
     ) -> Lecture:
-        """Создать лекцию."""
+        """Создать лекцию с санитизацией контента."""
+        # XSS Protection: санитизируем Lexical JSON контент
+        sanitized_content = sanitize_lexical_content(data.content) if data.content else {}
+        
         lecture = Lecture(
             title=data.title,
-            content=data.content,
+            content=sanitized_content,
             subject_id=data.subject_id
         )
         db.add(lecture)
@@ -94,11 +98,12 @@ class CRUDLecture:
         lecture: Lecture,
         data: LectureUpdate
     ) -> Lecture:
-        """Обновить лекцию."""
+        """Обновить лекцию с санитизацией контента."""
         if data.title is not None:
             lecture.title = data.title
         if data.content is not None:
-            lecture.content = data.content
+            # XSS Protection: санитизируем Lexical JSON контент
+            lecture.content = sanitize_lexical_content(data.content)
         if data.subject_id is not None:
             lecture.subject_id = data.subject_id
 

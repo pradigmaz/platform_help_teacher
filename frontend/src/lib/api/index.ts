@@ -20,6 +20,8 @@ export { AdminAPI } from './admin';
 export { TransfersAPI } from './transfers';
 export { AuditAPI } from './audit';
 export type { AuditLog, AuditLogListResponse, AuditStats, AuditFilters } from './audit';
+export { RateLimitAPI } from './rate-limit';
+export type { RateLimitWarning, WarningListResponse } from './rate-limit';
 export { BackupAPI } from './backup';
 export type { 
   BackupInfo, 

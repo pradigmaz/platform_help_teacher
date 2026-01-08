@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.core.limiter import limiter
+from app.core.redis import get_redis
 from app.models.group_report import GroupReport
 from app.schemas.report import (
     PublicReportData,
@@ -21,7 +22,7 @@ from app.schemas.report import (
     PinVerifyResponse,
 )
 from app.services.reports import ReportService
-from app.services.pin_service import report_pin_service
+from app.services.pin_service import report_pin_service, PIN_LOCKOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 

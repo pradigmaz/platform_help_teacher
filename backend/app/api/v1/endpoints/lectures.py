@@ -6,12 +6,14 @@ from app.db.session import get_db
 from app.crud.crud_lecture import crud_lecture
 from app.schemas.lecture import LectureResponse
 from app.core.limiter import limiter
+from app.audit import audit_action, ActionType, EntityType
 
 router = APIRouter()
 
 
 @router.get("/view/{code}", response_model=LectureResponse)
 @limiter.limit("30/minute")
+@audit_action(ActionType.VIEW, EntityType.LECTURE)
 async def get_public_lecture(
     request: Request,
     code: str,

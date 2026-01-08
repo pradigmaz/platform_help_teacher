@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 class AuditContext(BaseModel):
     """Контекст аудита, собираемый во время запроса."""
     request_id: str
+    correlation_id: Optional[str] = None  # Для связи цепочки действий
     
     # User
     user_id: Optional[UUID] = None
@@ -46,6 +47,7 @@ class AuditLogCreate(BaseModel):
     """Схема для создания записи аудита."""
     user_id: Optional[UUID] = None
     session_id: Optional[str] = None
+    correlation_id: Optional[str] = None
     actor_role: str = "anonymous"
     action_type: str
     entity_type: Optional[str] = None

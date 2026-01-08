@@ -4,7 +4,7 @@ VK Bot - Long Poll handler.
 """
 import logging
 import asyncio
-import random
+import secrets
 
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
@@ -51,7 +51,7 @@ def send_message_sync(user_id: int, message: str) -> bool:
         vk.messages.send(
             user_id=user_id,
             message=message,
-            random_id=random.randint(1, 2**31)
+            random_id=secrets.randbelow(2**31) + 1
         )
         return True
     except Exception as e:

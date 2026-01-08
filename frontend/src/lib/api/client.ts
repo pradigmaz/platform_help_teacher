@@ -36,14 +36,26 @@ export const api = axios.create({
   },
 });
 
-// Защита от SSRF
-api.interceptors.request.use((config) => {
+// Защита от SSRF + автоматическое добавление CSRF токена
+api.interceptors.request.use(async (config) => {
   if (!isValidRelativeUrl(config.url)) {
     return Promise.reject(new ApiError(400, 'Invalid URL: absolute URLs are not allowed'));
   }
   // Добавляем fingerprint в каждый запрос
   if (typeof window !== 'undefined') {
     config.headers['X-Device-Fingerprint'] = getFingerprint();
+  }
+  // Автоматически добавляем CSRF токен для мутирующих запросов
+  const method = config.method?.toUpperCase();
+  if (method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    try {
+      const token = await ensureCsrfTokenInternal();
+      if (token) {
+        config.headers['X-CSRF-Token'] = token;
+      }
+    } catch {
+      // Игнорируем ошибку получения токена для /auth/csrf-token
+    }
   }
   return config;
 });
@@ -62,13 +74,37 @@ axiosRetry(api, {
 
 // --- CSRF Token Management ---
 let csrfToken: string | null = null;
+let csrfTokenPromise: Promise<string | null> | null = null;
+
+// Внутренняя функция для interceptor (избегает бесконечной рекурсии)
+async function ensureCsrfTokenInternal(): Promise<string | null> {
+  // Если уже есть токен — возвращаем
+  if (csrfToken) return csrfToken;
+  
+  // Если уже идёт запрос — ждём его
+  if (csrfTokenPromise) return csrfTokenPromise;
+  
+  // Запрашиваем новый токен
+  csrfTokenPromise = axios.get<{ csrf_token: string }>(`${baseURL}/auth/csrf-token`, {
+    withCredentials: true,
+  }).then(({ data }) => {
+    csrfToken = data.csrf_token;
+    csrfTokenPromise = null;
+    return csrfToken;
+  }).catch(() => {
+    csrfTokenPromise = null;
+    return null;
+  });
+  
+  return csrfTokenPromise;
+}
 
 export async function ensureCsrfToken(): Promise<string> {
-  if (!csrfToken) {
-    const { data } = await api.get<{ csrf_token: string }>('/auth/csrf-token');
-    csrfToken = data.csrf_token;
+  const token = await ensureCsrfTokenInternal();
+  if (!token) {
+    throw new ApiError(0, 'Failed to obtain CSRF token');
   }
-  return csrfToken;
+  return token;
 }
 
 export function resetCsrfToken(): void {

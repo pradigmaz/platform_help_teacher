@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict, Optional, Set
 from fastapi import Request
 
-from .constants import SENSITIVE_FIELDS, MAX_BODY_SIZE, EXCLUDED_PATHS, AUDIT_PATH_PREFIXES
+from .constants import SENSITIVE_FIELDS, MAX_BODY_SIZE, EXCLUDED_PATHS, AUDIT_PATH_PREFIXES, ALLOWED_BODY_FIELDS
 from .schemas import IPInfo
 
 logger = logging.getLogger(__name__)
@@ -15,33 +15,51 @@ logger = logging.getLogger(__name__)
 def extract_ip_info(request: Request) -> IPInfo:
     """
     Извлечь информацию об IP из запроса.
-    Учитывает прокси (X-Forwarded-For, X-Real-IP).
+    
+    Приоритет:
+    1. X-Real-IP (устанавливается nginx для реального IP клиента)
+    2. client.host (fallback)
+    
+    X-Forwarded-For сохраняется для forensics, но НЕ используется
+    для определения real_ip (может быть подделан клиентом).
     """
     client_ip = request.client.host if request.client else "unknown"
     
-    # X-Forwarded-For: client, proxy1, proxy2
-    forwarded_for = request.headers.get("X-Forwarded-For")
+    # X-Real-IP устанавливается trusted proxy (nginx)
     x_real_ip = request.headers.get("X-Real-IP")
     
-    real_ip = client_ip
-    forwarded_chain = None
-    is_proxy = False
+    # X-Forwarded-For сохраняем для информации, но не доверяем
+    forwarded_for = request.headers.get("X-Forwarded-For")
     
-    if forwarded_for:
-        # Берём первый IP (оригинальный клиент)
-        ips = [ip.strip() for ip in forwarded_for.split(",")]
-        real_ip = ips[0]
-        forwarded_chain = forwarded_for
+    # Определяем реальный IP
+    if x_real_ip:
+        real_ip = x_real_ip.strip()
         is_proxy = True
-    elif x_real_ip:
-        real_ip = x_real_ip
-        is_proxy = True
+    else:
+        real_ip = client_ip
+        is_proxy = False
+    
+    # Валидация формата IP (базовая)
+    if not _is_valid_ip(real_ip):
+        real_ip = client_ip
     
     return IPInfo(
         real_ip=real_ip,
-        forwarded_chain=forwarded_chain,
+        forwarded_chain=forwarded_for,
         is_proxy=is_proxy
     )
+
+
+def _is_valid_ip(ip: str) -> bool:
+    """Базовая валидация формата IP адреса."""
+    if not ip or ip == "unknown":
+        return False
+    # IPv4 или IPv6
+    parts = ip.split(".")
+    if len(parts) == 4:
+        return all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
+    # IPv6 - просто проверяем наличие :
+    return ":" in ip
 
 
 def sanitize_value(value: Any, field_name: str = "") -> Any:
@@ -77,7 +95,12 @@ def sanitize_dict(data: Dict[str, Any], max_depth: int = 3) -> Dict[str, Any]:
 
 
 async def extract_body(request: Request) -> Optional[Dict[str, Any]]:
-    """Извлечь и санитизировать body запроса."""
+    """
+    Извлечь и санитизировать body запроса.
+    
+    Security: сохраняем только whitelist полей, остальные отфильтровываются.
+    PII protection: не сохраняем персональные данные.
+    """
     if request.method not in ("POST", "PUT", "PATCH"):
         return None
     
@@ -95,11 +118,15 @@ async def extract_body(request: Request) -> Optional[Dict[str, Any]]:
         try:
             data = json.loads(body)
             if isinstance(data, dict):
-                return sanitize_dict(data)
-            return {"_raw": str(data)[:500]}
+                # Фильтруем только разрешённые поля
+                filtered = {}
+                for key in ALLOWED_BODY_FIELDS:
+                    if key in data:
+                        filtered[key] = sanitize_value(data[key], key)
+                return filtered if filtered else None
+            return None  # Не сохраняем non-dict body
         except json.JSONDecodeError:
-            # Не JSON — сохраняем как строку (обрезанную)
-            return {"_raw": body.decode("utf-8", errors="ignore")[:500]}
+            return None  # Не сохраняем non-JSON body
     except Exception as e:
         logger.debug(f"Failed to extract body: {e}")
         return None

@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const DEFAULT_SETTINGS: BackupSettings = {
   enabled: true,
-  schedule_hour: 3,
+  schedule_hour: 17,
   schedule_minute: 0,
   retention_days: 30,
   max_backups: 10,

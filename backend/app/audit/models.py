@@ -29,6 +29,7 @@ class StudentAuditLog(Base):
         index=True
     )
     session_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    correlation_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     actor_role: Mapped[str] = mapped_column(String(20), nullable=False, default="anonymous", index=True)
     
     # Действие
