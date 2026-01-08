@@ -9,6 +9,7 @@ from app.api import deps
 from app.db.session import get_db
 from app.core.limiter import limiter
 from app.models import User, Group, Lab
+from app.models.lecture import Lecture
 from app.schemas import StudentProfileOut, StatsResponse
 from app.services.student_service import StudentService
 
@@ -40,10 +41,15 @@ async def get_stats(
     labs_result = await db.execute(select(func.count(Lab.id)))
     active_labs = labs_result.scalar() or 0
 
+    # Считаем количество лекций
+    lectures_result = await db.execute(select(func.count(Lecture.id)))
+    total_lectures = lectures_result.scalar() or 0
+
     return {
         "total_users": total_users,
         "total_groups": total_groups,
         "total_students": total_students,
+        "total_lectures": total_lectures,
         "active_labs": active_labs,
         "total_submissions": 0
     }

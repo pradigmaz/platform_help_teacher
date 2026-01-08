@@ -30,6 +30,7 @@ interface DashboardStats {
   total_users: number;
   total_students: number;
   total_groups: number;
+  total_lectures: number;
   active_labs: number;
 }
 
@@ -129,6 +130,13 @@ export default function AdminPanel() {
       description: "Всего в системе"
     },
     {
+      name: "Лекций",
+      value: stats?.total_lectures ?? 0,
+      icon: BookOpen,
+      color: "text-green-500",
+      description: "Учебных материалов"
+    },
+    {
       name: "Лабораторных",
       value: stats?.active_labs ?? 0,
       icon: FlaskConical,
@@ -138,15 +146,6 @@ export default function AdminPanel() {
   ];
 
   const features = [
-    {
-      Icon: GraduationCap,
-      name: "Группы",
-      description: "Создание и редактирование учебных групп.",
-      href: "/admin/groups",
-      cta: "Открыть",
-      background: null,
-      className: "col-span-1",
-    },
     {
       Icon: BookOpen,
       name: "Лекции",
@@ -190,7 +189,7 @@ export default function AdminPanel() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat, idx) => (
           <MagicCard
             key={idx}

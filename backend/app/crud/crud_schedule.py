@@ -225,6 +225,58 @@ class CRUDLesson:
             return True
         return False
 
+    async def get_grouped_lectures(
+        self,
+        db: AsyncSession,
+        start_date: date,
+        end_date: date
+    ) -> List[dict]:
+        """
+        Получить лекции сгруппированные по (дата + пара + предмет).
+        Возвращает список с группами для каждой лекции.
+        """
+        from sqlalchemy.orm import selectinload
+        from app.models.group import Group
+        from app.models.subject import Subject
+        
+        query = (
+            select(Lesson)
+            .options(selectinload(Lesson.group), selectinload(Lesson.subject))
+            .where(
+                and_(
+                    Lesson.lesson_type == LessonType.LECTURE,
+                    Lesson.date >= start_date,
+                    Lesson.date <= end_date
+                )
+            )
+            .order_by(Lesson.date, Lesson.lesson_number)
+        )
+        result = await db.execute(query)
+        lessons = list(result.scalars().all())
+        
+        # Группируем по (date, lesson_number, subject_id)
+        grouped: dict = {}
+        for lesson in lessons:
+            key = (lesson.date, lesson.lesson_number, lesson.subject_id)
+            if key not in grouped:
+                grouped[key] = {
+                    "date": lesson.date.isoformat(),
+                    "lesson_number": lesson.lesson_number,
+                    "subject_id": str(lesson.subject_id) if lesson.subject_id else None,
+                    "subject_name": lesson.subject.name if lesson.subject else None,
+                    "topic": lesson.topic,
+                    "is_cancelled": lesson.is_cancelled,
+                    "ended_early": lesson.ended_early,
+                    "groups": []
+                }
+            grouped[key]["groups"].append({
+                "id": str(lesson.group.id),
+                "name": lesson.group.name,
+                "lesson_id": str(lesson.id)
+            })
+        
+        return list(grouped.values())
+
 
 schedule = CRUDSchedule()
 lesson = CRUDLesson()

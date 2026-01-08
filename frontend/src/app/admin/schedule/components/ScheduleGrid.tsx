@@ -6,15 +6,19 @@ import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { LESSON_TIMES, WEEKDAYS } from '@/lib/schedule-constants';
 import { LessonCard, LessonData } from './LessonCard';
+import { LectureCard } from './LectureCard';
+import type { GroupedLecture } from '@/components/schedule';
 
 interface ScheduleGridProps {
   lessons: LessonData[];
+  groupedLectures?: GroupedLecture[];
   currentWeek: Date;
   onLessonClick?: (lesson: LessonData) => void;
+  onLectureClick?: (lecture: GroupedLecture) => void;
   onLessonAction?: (lessonId: string, action: 'cancel' | 'end_early' | 'restore') => void;
 }
 
-export function ScheduleGrid({ lessons, currentWeek, onLessonClick, onLessonAction }: ScheduleGridProps) {
+export function ScheduleGrid({ lessons, groupedLectures = [], currentWeek, onLessonClick, onLectureClick, onLessonAction }: ScheduleGridProps) {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   
   // Генерируем даты недели (Пн-Сб)
@@ -35,12 +39,26 @@ export function ScheduleGrid({ lessons, currentWeek, onLessonClick, onLessonActi
     return map;
   }, [lessons]);
 
+  // Группируем лекции по date-lesson_number
+  const lecturesBySlot = useMemo(() => {
+    const map = new Map<string, GroupedLecture[]>();
+    groupedLectures.forEach((lecture) => {
+      const key = `${lecture.date}-${lecture.lesson_number}`;
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(lecture);
+    });
+    return map;
+  }, [groupedLectures]);
+
   // Находим активные слоты (где есть занятия)
   const activeSlots = useMemo(() => {
     const slots = new Set<number>();
     lessons.forEach((lesson) => slots.add(lesson.lesson_number));
+    groupedLectures.forEach((lecture) => slots.add(lecture.lesson_number));
     return Array.from(slots).sort((a, b) => a - b);
-  }, [lessons]);
+  }, [lessons, groupedLectures]);
 
   // Если нет занятий — показываем слоты 1-4
   const slotsToShow = activeSlots.length > 0 ? activeSlots : [1, 2, 3, 4];
@@ -111,8 +129,10 @@ export function ScheduleGrid({ lessons, currentWeek, onLessonClick, onLessonActi
                 const dateStr = format(date, 'yyyy-MM-dd');
                 const key = `${dateStr}-${slotNumber}`;
                 const cellLessons = lessonsBySlot.get(key) || [];
+                const cellLectures = lecturesBySlot.get(key) || [];
                 const today = isToday(date);
                 const past = isPast(date) && !today;
+                const hasContent = cellLessons.length > 0 || cellLectures.length > 0;
 
                 return (
                   <div
@@ -121,11 +141,20 @@ export function ScheduleGrid({ lessons, currentWeek, onLessonClick, onLessonActi
                       'min-h-[100px] p-1.5 border-r border-border last:border-r-0',
                       today && 'bg-primary/5 dark:bg-primary/10',
                       past && 'bg-muted/30',
-                      cellLessons.length === 0 && 'group'
+                      !hasContent && 'group'
                     )}
                   >
-                    {cellLessons.length > 0 ? (
+                    {hasContent ? (
                       <div className="space-y-1">
+                        {/* Grouped lectures */}
+                        {cellLectures.map((lecture, idx) => (
+                          <LectureCard
+                            key={`lecture-${idx}`}
+                            lecture={lecture}
+                            onClick={() => onLectureClick?.(lecture)}
+                          />
+                        ))}
+                        {/* Regular lessons (labs, practices) */}
                         {cellLessons.map((lesson) => (
                           <LessonCard
                             key={lesson.id}

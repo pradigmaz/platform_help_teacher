@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/sonner';
-import { LessonSheet, type LessonSheetData } from '@/components/schedule';
+import { LessonSheet, LectureSheet, type LessonSheetData, type GroupedLecture } from '@/components/schedule';
 import { 
   WeekNavigation, 
   ScheduleGrid, 
@@ -21,12 +21,14 @@ import { ConflictResolver, type ScheduleConflict } from './components/ConflictRe
 
 export default function SchedulePage() {
   const [lessons, setLessons] = useState<LessonData[]>([]);
+  const [groupedLectures, setGroupedLectures] = useState<GroupedLecture[]>([]);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isParsing, setIsParsing] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<LessonSheetData | null>(null);
+  const [selectedLecture, setSelectedLecture] = useState<GroupedLecture | null>(null);
   
   // Modals
   const [isParserOpen, setIsParserOpen] = useState(false);
@@ -94,13 +96,26 @@ export default function SchedulePage() {
     setIsLoading(true);
     
     try {
+      // Load regular lessons (non-lectures)
       const { data } = await api.get('/admin/journal/lessons', {
         params: {
           start_date: format(weekStart, 'yyyy-MM-dd'),
           end_date: format(weekEnd, 'yyyy-MM-dd'),
         },
       });
-      setLessons(data);
+      // Filter out lectures - they will be loaded separately
+      const nonLectures = data.filter((l: LessonData) => l.lesson_type.toLowerCase() !== 'lecture');
+      setLessons(nonLectures);
+      
+      // Load grouped lectures
+      const { data: lectures } = await api.get('/admin/lectures/grouped', {
+        params: {
+          start_date: format(weekStart, 'yyyy-MM-dd'),
+          end_date: format(weekEnd, 'yyyy-MM-dd'),
+        },
+      });
+      setGroupedLectures(lectures);
+      
       setLastUpdated(format(new Date(), 'HH:mm'));
     } catch {
       console.error('Ошибка загрузки занятий');
@@ -191,9 +206,11 @@ export default function SchedulePage() {
         </div>
       ) : (
         <ScheduleGrid 
-          lessons={lessons} 
+          lessons={lessons}
+          groupedLectures={groupedLectures}
           currentWeek={currentWeek}
           onLessonClick={handleLessonClick}
+          onLectureClick={setSelectedLecture}
           onLessonAction={handleLessonAction}
         />
       )}
@@ -230,6 +247,31 @@ export default function SchedulePage() {
         onSave={() => {
           loadLessons();
           setSelectedLesson(null);
+        }}
+      />
+
+      {/* Lecture Sheet (grouped) */}
+      <LectureSheet
+        lecture={selectedLecture}
+        isOpen={!!selectedLecture}
+        onClose={() => setSelectedLecture(null)}
+        onSave={(updatedStatus) => {
+          // Optimistic update
+          if (selectedLecture && updatedStatus) {
+            setGroupedLectures(prev => prev.map(lec => {
+              if (lec.date === selectedLecture.date && 
+                  lec.lesson_number === selectedLecture.lesson_number &&
+                  lec.subject_id === selectedLecture.subject_id) {
+                return {
+                  ...lec,
+                  is_cancelled: updatedStatus === 'cancelled',
+                  ended_early: updatedStatus === 'early',
+                };
+              }
+              return lec;
+            }));
+          }
+          setSelectedLecture(null);
         }}
       />
     </div>
