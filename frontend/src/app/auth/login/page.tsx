@@ -11,12 +11,37 @@ import { AxiosError } from 'axios';
 function LoginForm() {
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const router = useRouter()
   const searchParams = useSearchParams()
   const loginAttemptedRef = useRef(false)
 
+  // Проверка авторизации при загрузке
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/v1/users/me', { credentials: 'include' })
+        if (res.ok) {
+          const user = await res.json()
+          if (user.role === 'admin' || user.role === 'teacher') {
+            router.replace('/admin')
+            return
+          } else if (user.role === 'student') {
+            router.replace('/dashboard')
+            return
+          }
+        }
+      } catch {
+        // Не залогинен - показываем форму
+      }
+      setCheckingAuth(false)
+    }
+    checkAuth()
+  }, [router])
+
   // Авто-вход, если код передан в URL (?code=123456)
   useEffect(() => {
+    if (checkingAuth) return
     const codeFromUrl = searchParams.get('code')
     if (codeFromUrl && codeFromUrl.length === 6 && !loginAttemptedRef.current) {
       setOtp(codeFromUrl)
@@ -26,7 +51,7 @@ function LoginForm() {
       return () => clearTimeout(timer)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+  }, [searchParams, checkingAuth])
 
   const handleLogin = async (code: string) => {
     if (code.length !== 6) return
@@ -77,6 +102,14 @@ function LoginForm() {
       toast.error(message);
       setLoading(false);
     }
+  }
+
+  if (checkingAuth) {
+    return (
+      <div className="flex items-center justify-center">
+        <Loader2 className="animate-spin text-white" size={32} />
+      </div>
+    )
   }
 
   return (

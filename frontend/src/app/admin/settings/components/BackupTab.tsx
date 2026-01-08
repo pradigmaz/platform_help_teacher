@@ -122,6 +122,24 @@ export function BackupTab() {
     }
   };
 
+  const handleUpload = async (file: File): Promise<boolean> => {
+    try {
+      const result = await BackupAPI.upload(file);
+      if (result.success) {
+        toast.success(`Бэкап загружен: ${result.backup_key}`);
+        await loadData();
+        return true;
+      } else {
+        toast.error(`Ошибка: ${result.error}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to upload backup:', error);
+      toast.error('Ошибка загрузки бэкапа');
+      return false;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -147,6 +165,7 @@ export function BackupTab() {
         onVerify={handleVerify}
         onRestore={handleRestore}
         onDelete={handleDelete}
+        onUpload={handleUpload}
       />
     </div>
   );

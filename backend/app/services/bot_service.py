@@ -230,7 +230,11 @@ async def process_start_command(
     # Логируем генерацию OTP
     await log_bot_auth(db, social_id, platform, user.id, username)
     
-    login_url = f"{settings.FRONTEND_URL}/auth/login?code={otp}"
+    # Разные URL для разных ролей
+    if user.role in ("admin", "teacher"):
+        login_url = f"{settings.FRONTEND_URL}/auth/login?code={otp}"
+    else:
+        login_url = f"{settings.FRONTEND_URL}/?code={otp}"
     
     if platform == "telegram":
         # HTML разметка для Telegram

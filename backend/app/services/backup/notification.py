@@ -2,6 +2,7 @@
 Backup notification service.
 Sends backup files to admin via Telegram/VK.
 """
+import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
@@ -20,6 +21,9 @@ class BackupNotificationService:
     
     def __init__(self):
         self._bot: Optional[Bot] = None
+        self._vk_session = None
+        self._vk_api = None
+        self._vk_upload = None
     
     @property
     def bot(self) -> Bot:
@@ -30,6 +34,26 @@ class BackupNotificationService:
                 default=DefaultBotProperties(parse_mode=ParseMode.HTML)
             )
         return self._bot
+    
+    def _init_vk(self) -> bool:
+        """Lazy init VK API."""
+        if self._vk_session is not None:
+            return True
+        
+        if not settings.VK_BOT_TOKEN or not settings.VK_GROUP_ID:
+            return False
+        
+        try:
+            import vk_api
+            from vk_api import VkUpload
+            
+            self._vk_session = vk_api.VkApi(token=settings.VK_BOT_TOKEN)
+            self._vk_api = self._vk_session.get_api()
+            self._vk_upload = VkUpload(self._vk_session)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to init VK API: {e}")
+            return False
     
     async def send_backup_to_admin(
         self,
@@ -77,6 +101,75 @@ class BackupNotificationService:
             
         except Exception as e:
             logger.error(f"Failed to send backup to admin: {e}")
+            return False
+    
+    async def send_backup_to_vk(
+        self,
+        file_path: Path,
+        backup_name: str,
+        size: int,
+        admin_vk_id: Optional[int] = None,
+    ) -> bool:
+        """
+        Send encrypted backup file to admin via VK.
+        
+        Args:
+            file_path: Path to encrypted backup file
+            backup_name: Name of the backup
+            size: File size in bytes
+            admin_vk_id: VK ID to send to
+        
+        Returns:
+            True if sent successfully
+        """
+        if not admin_vk_id:
+            logger.warning("No admin VK ID provided for backup notification")
+            return False
+        
+        if not self._init_vk():
+            logger.warning("VK bot not configured")
+            return False
+        
+        try:
+            import vk_api.utils
+            
+            size_kb = size / 1024
+            caption = (
+                f"🔐 Резервная копия БД\n\n"
+                f"📦 {backup_name}\n"
+                f"📊 Размер: {size_kb:.1f} KB\n\n"
+                f"⚠️ Файл зашифрован AES-256-GCM"
+            )
+            
+            loop = asyncio.get_event_loop()
+            
+            # VkUpload.document_message is sync, run in executor
+            doc = await loop.run_in_executor(
+                None,
+                lambda: self._vk_upload.document_message(
+                    str(file_path),
+                    title=backup_name,
+                    peer_id=admin_vk_id
+                )
+            )
+            
+            attachment = f"doc{doc['doc']['owner_id']}_{doc['doc']['id']}"
+            
+            await loop.run_in_executor(
+                None,
+                lambda: self._vk_api.messages.send(
+                    peer_id=admin_vk_id,
+                    message=caption,
+                    attachment=attachment,
+                    random_id=vk_api.utils.get_random_id()
+                )
+            )
+            
+            logger.info(f"Backup sent to VK admin {admin_vk_id}: {backup_name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to send backup to VK: {e}")
             return False
     
     async def notify_backup_success(

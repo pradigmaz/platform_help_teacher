@@ -2,22 +2,48 @@
 
 import { useState, useEffect, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { Loader2, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { AuthAPI, ApiError } from '@/lib/api'
 import { ZodError } from 'zod'
 import { AxiosError } from 'axios'
 
-const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || ''
+const TG_BOT_URL = process.env.NEXT_PUBLIC_TG_BOT_URL || process.env.NEXT_PUBLIC_BOT_URL || ''
+const VK_BOT_URL = process.env.NEXT_PUBLIC_VK_BOT_URL || ''
 
 function LoginForm() {
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const router = useRouter()
   const searchParams = useSearchParams()
   const loginAttemptedRef = useRef(false)
 
+  // Проверка авторизации при загрузке
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/v1/users/me', { credentials: 'include' })
+        if (res.ok) {
+          const user = await res.json()
+          if (user.role === 'admin' || user.role === 'teacher') {
+            router.replace('/admin')
+            return
+          } else if (user.role === 'student') {
+            router.replace('/dashboard')
+            return
+          }
+        }
+      } catch {
+        // Не залогинен - показываем форму
+      }
+      setCheckingAuth(false)
+    }
+    checkAuth()
+  }, [router])
+
+  useEffect(() => {
+    if (checkingAuth) return
     const codeFromUrl = searchParams.get('code')
     if (codeFromUrl && codeFromUrl.length === 6 && !loginAttemptedRef.current) {
       setOtp(codeFromUrl)
@@ -26,7 +52,7 @@ function LoginForm() {
       return () => clearTimeout(timer)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+  }, [searchParams, checkingAuth])
 
   const handleLogin = async (code: string) => {
     if (code.length !== 6) return
@@ -69,6 +95,14 @@ function LoginForm() {
     }
   }
 
+  if (checkingAuth) {
+    return (
+      <div className="flex items-center justify-center">
+        <Loader2 className="animate-spin text-white" size={32} />
+      </div>
+    )
+  }
+
   return (
     <div className="w-full max-w-md p-8 space-y-6 bg-black/50 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
       <div className="text-center space-y-2">
@@ -99,21 +133,39 @@ function LoginForm() {
         </button>
       </div>
 
-      <div className="text-center text-sm text-gray-500">
-        Нет кода? Напишите{' '}
-        {BOT_URL ? (
-          <a 
-            href={BOT_URL} 
-            target="_blank" 
+      {/* Выбор соц.сети */}
+      <div className="space-y-3">
+        <p className="text-center text-sm text-gray-500">Нет кода? Получите в боте:</p>
+        <div className="flex gap-3">
+          <a
+            href={TG_BOT_URL || '#'}
+            target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-blue-400 hover:text-blue-300 transition underline"
+            className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+              TG_BOT_URL 
+                ? 'bg-white/10 hover:bg-white/20 text-white border border-white/10' 
+                : 'bg-gray-800 text-gray-600 cursor-not-allowed pointer-events-none'
+            }`}
           >
-            /start
+            <MessageCircle size={18} />
+            Telegram
           </a>
-        ) : (
-          <span className="font-mono text-blue-400">/start</span>
-        )}
-        {' '}боту
+          <a
+            href={VK_BOT_URL || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+              VK_BOT_URL 
+                ? 'bg-white/10 hover:bg-white/20 text-white border border-white/10' 
+                : 'bg-gray-800 text-gray-600 cursor-not-allowed pointer-events-none'
+            }`}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.684 0H8.316C1.592 0 0 1.592 0 8.316v7.368C0 22.408 1.592 24 8.316 24h7.368C22.408 24 24 22.408 24 15.684V8.316C24 1.592 22.408 0 15.684 0zm3.692 17.123h-1.744c-.66 0-.864-.525-2.05-1.727-1.033-1-1.49-1.135-1.744-1.135-.356 0-.458.102-.458.593v1.575c0 .424-.135.678-1.253.678-1.846 0-3.896-1.118-5.335-3.202C4.624 10.857 4 8.684 4 8.245c0-.254.102-.491.593-.491h1.744c.44 0 .61.203.78.678.847 2.455 2.27 4.607 2.862 4.607.22 0 .322-.102.322-.66V9.721c-.068-1.186-.695-1.287-.695-1.71 0-.203.17-.407.44-.407h2.744c.373 0 .508.203.508.643v3.473c0 .372.17.508.271.508.22 0 .407-.136.813-.542 1.254-1.406 2.151-3.574 2.151-3.574.119-.254.322-.491.763-.491h1.744c.525 0 .644.27.525.643-.22 1.017-2.354 4.031-2.354 4.031-.186.305-.254.44 0 .78.186.254.796.779 1.203 1.253.745.847 1.32 1.558 1.473 2.05.17.49-.085.744-.576.744z"/>
+            </svg>
+            VK
+          </a>
+        </div>
       </div>
     </div>
   )

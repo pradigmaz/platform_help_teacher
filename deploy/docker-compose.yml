@@ -127,6 +127,8 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_BOT_URL: ${NEXT_PUBLIC_BOT_URL}
+      NEXT_PUBLIC_TG_BOT_URL: ${NEXT_PUBLIC_TG_BOT_URL}
+      NEXT_PUBLIC_VK_BOT_URL: ${NEXT_PUBLIC_VK_BOT_URL}
       BACKEND_URL: http://backend:8000
       NODE_OPTIONS: "--max-old-space-size=2048"
     depends_on:

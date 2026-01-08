@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Loader2, Download, Trash2, CheckCircle, AlertCircle, RefreshCw, Shield } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Plus, Loader2, Download, Trash2, CheckCircle, AlertCircle, RefreshCw, Shield, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,9 @@ interface BackupListCardProps {
   onVerify: (key: string) => Promise<boolean>;
   onRestore: (key: string, dropExisting: boolean) => Promise<boolean>;
   onDelete: (key: string) => void;
+  onUpload: (file: File) => Promise<boolean>;
+}
+  onDelete: (key: string) => void;
 }
 
 export function BackupListCard({
@@ -40,6 +43,7 @@ export function BackupListCard({
   onVerify,
   onRestore,
   onDelete,
+  onUpload,
 }: BackupListCardProps) {
   const [verifying, setVerifying] = useState<string | null>(null);
   const [verified, setVerified] = useState<Record<string, boolean>>({});
@@ -47,12 +51,32 @@ export function BackupListCard({
   const [restoreConfirmed, setRestoreConfirmed] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleVerify = async (key: string) => {
     setVerifying(key);
     const valid = await onVerify(key);
     setVerified({ ...verified, [key]: valid });
     setVerifying(null);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.enc')) {
+      return;
+    }
+    
+    setUploading(true);
+    await onUpload(file);
+    setUploading(false);
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleRestore = async () => {
@@ -87,6 +111,25 @@ export function BackupListCard({
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={onRefresh} disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".enc"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <><Upload className="h-4 w-4 mr-1" />Загрузить</>
+                )}
               </Button>
               <Button size="sm" onClick={onCreate} disabled={isCreating}>
                 {isCreating ? (

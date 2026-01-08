@@ -50,6 +50,13 @@ export interface VerifyResponse {
   backup_key: string;
 }
 
+export interface BotStatusResponse {
+  telegram_available: boolean;
+  vk_available: boolean;
+  telegram_admin_id: number | null;
+  vk_admin_id: number | null;
+}
+
 export const BackupAPI = {
   // Settings
   getSettings: async () => (await api.get<BackupSettings>('/admin/backups/settings')).data,
@@ -69,4 +76,16 @@ export const BackupAPI = {
     })).data,
   delete: async (key: string) => 
     (await api.delete(`/admin/backups/${encodeURIComponent(key)}`)).data,
+  
+  // Upload
+  upload: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return (await api.post<BackupCreateResponse>('/admin/backups/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+  },
+  
+  // Bot status
+  getBotStatus: async () => (await api.get<BotStatusResponse>('/admin/backups/bot-status')).data,
 };

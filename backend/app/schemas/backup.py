@@ -9,6 +9,9 @@ from pydantic import BaseModel, Field
 # Security: Only allow safe backup key format
 SAFE_BACKUP_KEY_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,100}\.enc$')
 
+# Max upload size: 50MB (Telegram limit, VK allows 200MB)
+MAX_BACKUP_UPLOAD_SIZE = 50 * 1024 * 1024
+
 
 def validate_backup_key(key: str) -> str:
     """
@@ -20,7 +23,6 @@ def validate_backup_key(key: str) -> str:
             "Invalid backup key format. "
             "Must be alphanumeric with underscores/hyphens, ending with .enc"
         )
-    # Extra safety: reject any path separators
     if '/' in key or '\\' in key or '..' in key:
         raise ValueError("Path separators not allowed in backup key")
     return key
@@ -102,3 +104,19 @@ class BackupSettingsUpdate(BaseModel):
     max_backups: Optional[int] = Field(None, ge=1, le=100)
     notify_on_success: Optional[bool] = None
     notify_on_failure: Optional[bool] = None
+
+
+class UploadBackupResponse(BaseModel):
+    """Response after uploading backup file."""
+    success: bool
+    backup_key: Optional[str] = None
+    size: Optional[int] = None
+    error: Optional[str] = None
+
+
+class BotStatusResponse(BaseModel):
+    """Status of available notification bots."""
+    telegram_available: bool
+    vk_available: bool
+    telegram_admin_id: Optional[int] = None
+    vk_admin_id: Optional[int] = None
