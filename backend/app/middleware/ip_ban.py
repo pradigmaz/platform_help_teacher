@@ -6,11 +6,15 @@ IP Ban Middleware — временная блокировка IP после мн
 """
 import logging
 from typing import Optional
+from uuid import UUID
 
+import jwt
+from jwt.exceptions import InvalidTokenError
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from app.core.config import settings
 from app.core.redis import get_redis
 from app.services.rate_limit import get_rate_limit_service, WarningLevel
 from app.services.rate_limit.constants import MESSAGES
@@ -35,8 +39,8 @@ class IPBanMiddleware(BaseHTTPMiddleware):
         if not ip:
             return await call_next(request)
         
-        # Получаем user_id из сессии если есть
-        user_id = getattr(request.state, "user_id", None)
+        # Извлекаем user_id из токена (если есть)
+        user_id = self._get_user_id_from_token(request)
         
         service = get_rate_limit_service()
         
@@ -86,5 +90,21 @@ class IPBanMiddleware(BaseHTTPMiddleware):
         
         if request.client:
             return request.client.host
+        
+        return None
+    
+    def _get_user_id_from_token(self, request: Request) -> Optional[UUID]:
+        """Извлекает user_id из JWT токена в cookie."""
+        token = request.cookies.get("access_token")
+        if not token:
+            return None
+        
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            user_id_str = payload.get("sub")
+            if user_id_str:
+                return UUID(user_id_str)
+        except (InvalidTokenError, ValueError):
+            pass
         
         return None

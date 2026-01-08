@@ -85,6 +85,11 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Failed to seed superuser: {e}")
     
+    # --- LOAD ADMIN IDS FOR RATE LIMIT BYPASS ---
+    async with AsyncSessionLocal() as db:
+        from app.services.rate_limit.service import load_admin_ids_from_db
+        await load_admin_ids_from_db(db)
+    
     yield
     
     logger.info("🛑 Application shutting down...")
