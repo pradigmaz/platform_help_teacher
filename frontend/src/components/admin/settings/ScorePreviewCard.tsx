@@ -12,6 +12,9 @@ interface ScorePreviewCardProps {
   activityReserve: number;
   grade4Coef: number;
   grade3Coef: number;
+  lateCoef: number;
+  totalWeight: number;
+  exampleLessonsCount?: number; // Примерное кол-во занятий для расчёта
 }
 
 export function ScorePreviewCard({
@@ -22,11 +25,19 @@ export function ScorePreviewCard({
   activityReserve,
   grade4Coef,
   grade3Coef,
+  lateCoef,
+  totalWeight,
+  exampleLessonsCount = 10,
 }: ScorePreviewCardProps) {
   const labsMax = maxPoints * (labsWeight / 100);
   const labsPerWork = labsCount > 0 ? labsMax / labsCount : 0;
   const attendanceMax = maxPoints * (attendanceWeight / 100);
   const reserveMax = maxPoints * (activityReserve / 100);
+  
+  // Расчёт штрафов за посещаемость (на примере N занятий)
+  const pointsPerLesson = exampleLessonsCount > 0 ? attendanceMax / exampleLessonsCount : 0;
+  const absentPenalty = pointsPerLesson; // За прогул теряется весь балл за занятие
+  const latePenalty = pointsPerLesson * (1 - lateCoef); // За опоздание теряется часть
 
   const rows = [
     {
@@ -39,7 +50,7 @@ export function ScorePreviewCard({
       component: 'Посещаемость',
       weight: `${attendanceWeight}%`,
       max: attendanceMax.toFixed(2),
-      perUnit: '% от посещённых',
+      perUnit: `−${absentPenalty.toFixed(2)} за прогул, −${latePenalty.toFixed(2)} за опозд.`,
     },
     {
       component: 'Резерв (активность)',
@@ -78,7 +89,9 @@ export function ScorePreviewCard({
             ))}
             <TableRow className="font-bold">
               <TableCell>ИТОГО</TableCell>
-              <TableCell className="text-right">100%</TableCell>
+              <TableCell className={`text-right ${Math.abs(totalWeight - 100) < 0.01 ? '' : 'text-red-500'}`}>
+                {totalWeight.toFixed(0)}%
+              </TableCell>
               <TableCell className="text-right font-mono">{maxPoints.toFixed(2)}</TableCell>
               <TableCell></TableCell>
             </TableRow>

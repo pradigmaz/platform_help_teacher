@@ -165,11 +165,11 @@ export default function AttestationScoresPage() {
           case 'total':
             return (a.total_score - b.total_score) * multiplier;
           case 'labs':
-            return (a.lab_score - b.lab_score) * multiplier;
+            return (a.breakdown.labs_score - b.breakdown.labs_score) * multiplier;
           case 'attendance':
-            return (a.attendance_score - b.attendance_score) * multiplier;
+            return (a.breakdown.attendance_score - b.breakdown.attendance_score) * multiplier;
           case 'activity':
-            return (a.activity_score - b.activity_score) * multiplier;
+            return (a.breakdown.activity_score - b.breakdown.activity_score) * multiplier;
           default:
             return 0;
         }

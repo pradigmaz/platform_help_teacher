@@ -239,15 +239,15 @@ export function JournalTable({
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Лабы:</span>
-                                <span>{attestationScores[student.id].lab_score.toFixed(1)}</span>
+                                <span>{attestationScores[student.id].breakdown.labs_score.toFixed(1)}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Посещ.:</span>
-                                <span>{attestationScores[student.id].attendance_score.toFixed(1)}</span>
+                                <span>{attestationScores[student.id].breakdown.attendance_score.toFixed(1)}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Актив.:</span>
-                                <span>{attestationScores[student.id].activity_score.toFixed(1)}</span>
+                                <span>{attestationScores[student.id].breakdown.activity_score.toFixed(1)}</span>
                               </div>
                               {!attestationScores[student.id].is_passing && (
                                 <div className="text-red-500 text-[10px] pt-1 border-t mt-1">

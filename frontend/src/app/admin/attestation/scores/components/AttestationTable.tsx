@@ -170,13 +170,13 @@ export function AttestationTable({
 
               {/* Scores */}
               <TableCell className="text-center font-mono text-sm">
-                {student.lab_score.toFixed(1)}
+                {student.breakdown.labs_score.toFixed(1)}
               </TableCell>
               <TableCell className="text-center font-mono text-sm">
-                {student.attendance_score.toFixed(1)}
+                {student.breakdown.attendance_score.toFixed(1)}
               </TableCell>
               <TableCell className="text-center font-mono text-sm">
-                {student.activity_score.toFixed(1)}
+                {student.breakdown.activity_score.toFixed(1)}
               </TableCell>
 
               {/* Total */}

@@ -62,7 +62,7 @@ export function StudentDetailSheet({
     }
   };
 
-  const breakdown = student.components_breakdown;
+  const breakdown = student.breakdown;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -138,15 +138,12 @@ export function StudentDetailSheet({
             <BreakdownCard
               icon={<FlaskConical className="h-4 w-4" />}
               title="Лабораторные"
-              score={student.lab_score}
-              maxScore={breakdown?.labs_weighted_score ? student.lab_score : 24}
+              score={student.breakdown.labs_score}
+              maxScore={student.breakdown.labs_max}
               color="purple"
               details={breakdown ? (
                 <div className="text-xs text-muted-foreground space-y-1">
-                  <p>Сдано: {breakdown.labs_count} из {breakdown.labs_required}</p>
-                  {breakdown.labs_bonus > 0 && (
-                    <p className="text-green-600">+{breakdown.labs_bonus.toFixed(1)} бонус</p>
-                  )}
+                  <p>Сдано: {breakdown.labs_count}</p>
                 </div>
               ) : null}
             />
@@ -155,16 +152,16 @@ export function StudentDetailSheet({
             <BreakdownCard
               icon={<CalendarCheck className="h-4 w-4" />}
               title="Посещаемость"
-              score={student.attendance_score}
-              maxScore={breakdown?.attendance_weighted_score ? student.attendance_score : 8}
+              score={student.breakdown.attendance_score}
+              maxScore={student.breakdown.attendance_max}
               color="blue"
               details={breakdown ? (
                 <div className="text-xs text-muted-foreground space-y-1">
-                  <p>Занятий: {breakdown.attendance_total_classes}</p>
+                  <p>Занятий: {breakdown.total_classes}</p>
                   <p>
-                    ✓ {breakdown.attendance_present} | 
-                    ⏰ {breakdown.attendance_late} | 
-                    ✗ {breakdown.attendance_absent}
+                    ✓ {breakdown.present_count} | 
+                    ⏰ {breakdown.late_count} | 
+                    ✗ {breakdown.absent_count}
                   </p>
                 </div>
               ) : null}
@@ -174,12 +171,12 @@ export function StudentDetailSheet({
             <BreakdownCard
               icon={<Sparkles className="h-4 w-4" />}
               title="Активность"
-              score={student.activity_score}
-              maxScore={8}
+              score={student.breakdown.activity_score}
+              maxScore={student.breakdown.activity_max}
               color="amber"
               details={breakdown ? (
                 <div className="text-xs text-muted-foreground">
-                  <p>Начислено баллов: {breakdown.activity_raw_score}</p>
+                  {breakdown.bonus_blocked && <p className="text-yellow-600">Бонусы заблокированы</p>}
                 </div>
               ) : null}
             />
@@ -224,9 +221,7 @@ export function StudentDetailSheet({
                         Для получения зачёта необходимо набрать ещё <span className="font-semibold">{pointsToPass.toFixed(1)} баллов</span>.
                       </p>
                       <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
-                        {breakdown && breakdown.labs_count < breakdown.labs_required && (
-                          <li>Сдать недостающие лабораторные работы</li>
-                        )}
+                        <li>Сдать недостающие лабораторные работы</li>
                         <li>Получить баллы за активность</li>
                         <li>Улучшить посещаемость</li>
                       </ul>

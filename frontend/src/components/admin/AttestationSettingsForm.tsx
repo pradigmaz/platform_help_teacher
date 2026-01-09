@@ -20,6 +20,18 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { GradeScaleCard } from './GradeScaleCard';
 import { ScorePreviewCard } from './settings';
 
+// Helper для расчёта периодов аттестации
+function formatPeriod(startDate: string, weekStart: number, weekEnd: number): string {
+  const start = new Date(startDate);
+  const periodStart = new Date(start);
+  periodStart.setDate(start.getDate() + (weekStart - 1) * 7);
+  const periodEnd = new Date(start);
+  periodEnd.setDate(start.getDate() + weekEnd * 7 - 1);
+  
+  const formatDate = (d: Date) => d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+  return `${formatDate(periodStart)} — ${formatDate(periodEnd)}`;
+}
+
 interface FormState {
   labs_weight: number;
   attendance_weight: number;
@@ -157,6 +169,42 @@ export function AttestationSettingsForm() {
           </div>
         </BlurFade>
 
+        {/* Semester Date & Periods */}
+        <BlurFade delay={0.12}>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="w-4 h-4 text-blue-500" />
+                    <Label>Дата начала семестра</Label>
+                  </div>
+                  <Input 
+                    type="date" 
+                    value={form.semester_start_date} 
+                    onChange={e => update('semester_start_date', e.target.value)} 
+                    disabled={attestationType === 'second'}
+                  />
+                </div>
+                {form.semester_start_date && (
+                  <div className="flex-1 text-sm space-y-1">
+                    <p className="text-muted-foreground">Периоды аттестаций:</p>
+                    <p><span className="font-medium">1-я:</span> {formatPeriod(form.semester_start_date, 1, 7)}</p>
+                    <p className={attestationType === 'second' ? '' : 'text-muted-foreground'}>
+                      <span className="font-medium">2-я:</span> {formatPeriod(form.semester_start_date, 8, 14)}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {!form.semester_start_date && (
+                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />Укажите для автовычисления периодов
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </BlurFade>
+
         {/* Tabs */}
         <BlurFade delay={0.15}>
           <Tabs value={attestationType} onValueChange={(v) => setAttestationType(v as AttestationType)}>
@@ -195,6 +243,8 @@ export function AttestationSettingsForm() {
             activityReserve={form.activity_reserve}
             grade4Coef={form.grade_4_coef}
             grade3Coef={form.grade_3_coef}
+            lateCoef={form.late_coef}
+            totalWeight={totalWeight}
           />
         </BlurFade>
 
@@ -212,7 +262,7 @@ export function AttestationSettingsForm() {
                 <div>
                   <Label>Вес (%)</Label>
                   <div className="flex items-center gap-2">
-                    <Slider value={[form.labs_weight]} onValueChange={([v]) => update('labs_weight', v)} max={100} step={5} />
+                    <Slider value={[form.labs_weight]} onValueChange={([v]) => update('labs_weight', v)} max={100} step={1} />
                     <span className="w-12 text-right font-mono">{form.labs_weight}%</span>
                   </div>
                 </div>
@@ -231,14 +281,14 @@ export function AttestationSettingsForm() {
                 <div>
                   <Label>Коэф. оценки 4</Label>
                   <div className="flex items-center gap-2">
-                    <Slider value={[form.grade_4_coef * 100]} onValueChange={([v]) => update('grade_4_coef', v / 100)} max={100} step={5} />
+                    <Slider value={[form.grade_4_coef * 100]} onValueChange={([v]) => update('grade_4_coef', v / 100)} max={100} step={1} />
                     <span className="w-12 text-right font-mono">{(form.grade_4_coef * 100).toFixed(0)}%</span>
                   </div>
                 </div>
                 <div>
                   <Label>Коэф. оценки 3</Label>
                   <div className="flex items-center gap-2">
-                    <Slider value={[form.grade_3_coef * 100]} onValueChange={([v]) => update('grade_3_coef', v / 100)} max={100} step={5} />
+                    <Slider value={[form.grade_3_coef * 100]} onValueChange={([v]) => update('grade_3_coef', v / 100)} max={100} step={1} />
                     <span className="w-12 text-right font-mono">{(form.grade_3_coef * 100).toFixed(0)}%</span>
                   </div>
                 </div>
@@ -261,14 +311,14 @@ export function AttestationSettingsForm() {
               <div>
                 <Label>Вес (%)</Label>
                 <div className="flex items-center gap-2">
-                  <Slider value={[form.attendance_weight]} onValueChange={([v]) => update('attendance_weight', v)} max={100} step={5} />
+                  <Slider value={[form.attendance_weight]} onValueChange={([v]) => update('attendance_weight', v)} max={100} step={1} />
                   <span className="w-12 text-right font-mono">{form.attendance_weight}%</span>
                 </div>
               </div>
               <div>
                 <Label>Коэф. опоздания</Label>
                 <div className="flex items-center gap-2">
-                  <Slider value={[form.late_coef * 100]} onValueChange={([v]) => update('late_coef', v / 100)} max={100} step={5} />
+                  <Slider value={[form.late_coef * 100]} onValueChange={([v]) => update('late_coef', v / 100)} max={100} step={1} />
                   <span className="w-12 text-right font-mono">{(form.late_coef * 100).toFixed(0)}%</span>
                 </div>
               </div>
@@ -290,7 +340,7 @@ export function AttestationSettingsForm() {
               <div>
                 <Label>Резерв (%)</Label>
                 <div className="flex items-center gap-2">
-                  <Slider value={[form.activity_reserve]} onValueChange={([v]) => update('activity_reserve', v)} max={30} step={5} />
+                  <Slider value={[form.activity_reserve]} onValueChange={([v]) => update('activity_reserve', v)} max={30} step={1} />
                   <span className="w-12 text-right font-mono">{form.activity_reserve}%</span>
                 </div>
               </div>
@@ -308,24 +358,32 @@ export function AttestationSettingsForm() {
         </BlurFade>
 
         {/* Semester Date */}
-        {attestationType === 'first' && (
-          <BlurFade delay={0.5}>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-4 h-4 text-blue-500" />
-                  <Label>Дата начала семестра</Label>
-                </div>
-                <Input type="date" value={form.semester_start_date} onChange={e => update('semester_start_date', e.target.value)} />
-                {!form.semester_start_date && (
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />Укажите для автовычисления периодов
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </BlurFade>
-        )}
+        <BlurFade delay={0.5}>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="w-4 h-4 text-blue-500" />
+                <Label>Дата начала семестра</Label>
+              </div>
+              <Input 
+                type="date" 
+                value={form.semester_start_date} 
+                onChange={e => update('semester_start_date', e.target.value)} 
+                disabled={attestationType === 'second'}
+              />
+              {attestationType === 'second' ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Настраивается в 1-й аттестации
+                </p>
+              ) : !form.semester_start_date && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />Укажите для автовычисления периодов
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </BlurFade>
+
       </div>
     </TooltipProvider>
   );
