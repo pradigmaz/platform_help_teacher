@@ -1,4 +1,5 @@
 'use client';
+'use no memo';
 
 import { useEffect, useState, useCallback } from 'react';
 import { PublicLecturesAPI, type LectureResponse } from '@/lib/lectures-api';

@@ -1,4 +1,5 @@
 'use client';
+'use no memo';
 
 import { useReducer, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';

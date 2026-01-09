@@ -1,4 +1,5 @@
 'use client';
+'use no memo';
 
 import { useState, useEffect } from 'react';
 import { startOfWeek, endOfWeek } from 'date-fns';

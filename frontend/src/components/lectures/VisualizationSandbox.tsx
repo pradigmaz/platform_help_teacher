@@ -1,4 +1,5 @@
 'use client';
+'use no memo';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';

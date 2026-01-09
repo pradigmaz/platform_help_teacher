@@ -1,4 +1,5 @@
 'use client';
+'use no memo';
 
 import { useState, useEffect, use } from 'react';
 import { PublicReportAPI, PublicReportData, ApiError } from '@/lib/api';

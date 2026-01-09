@@ -1,3 +1,6 @@
+'use client';
+/* @react-compiler-disable */
+
 import { motion, useMotionValue, useTransform, type PanInfo } from 'motion/react';
 import { useState, useEffect, useMemo } from 'react';
 

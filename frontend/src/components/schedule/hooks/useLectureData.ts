@@ -1,4 +1,5 @@
 'use client';
+'use no memo';
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';

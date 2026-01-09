@@ -1,4 +1,5 @@
 "use client"
+/* @react-compiler-disable */
 
 import React, { useEffect, useId, useMemo, useRef, useState } from "react"
 import { motion } from "motion/react"

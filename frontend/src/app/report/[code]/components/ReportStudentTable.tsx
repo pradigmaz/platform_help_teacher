@@ -25,7 +25,7 @@ import {
   Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PublicStudentData, PublicReportData } from '@/lib/api';
+import { PublicReportData } from '@/lib/api';
 
 interface ReportStudentTableProps {
   data: PublicReportData;
@@ -34,6 +34,16 @@ interface ReportStudentTableProps {
 
 type SortKey = 'name' | 'total' | 'labs' | 'attendance' | 'activity';
 type SortOrder = 'asc' | 'desc';
+
+// Вынесен за пределы компонента для React Compiler
+function SortIcon({ columnKey, sortKey, sortOrder }: { columnKey: SortKey; sortKey: SortKey; sortOrder: SortOrder }) {
+  if (sortKey !== columnKey) {
+    return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+  }
+  return sortOrder === 'asc' 
+    ? <ArrowUp className="h-4 w-4 ml-1" />
+    : <ArrowDown className="h-4 w-4 ml-1" />;
+}
 
 export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
   const router = useRouter();
@@ -85,15 +95,6 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
     router.push(`/report/${code}/student/${studentId}`);
   };
 
-  const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
-    if (sortKey !== columnKey) {
-      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
-    }
-    return sortOrder === 'asc' 
-      ? <ArrowUp className="h-4 w-4 ml-1" />
-      : <ArrowDown className="h-4 w-4 ml-1" />;
-  };
-
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -124,7 +125,7 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
                     onClick={() => handleSort('name')}
                   >
                     {show_names ? 'ФИО' : 'Студент'}
-                    <SortIcon columnKey="name" />
+                    <SortIcon columnKey="name" sortKey={sortKey} sortOrder={sortOrder} />
                   </Button>
                 </TableHead>
                 {show_grades && (
@@ -137,7 +138,7 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
                         onClick={() => handleSort('total')}
                       >
                         Баллы
-                        <SortIcon columnKey="total" />
+                        <SortIcon columnKey="total" sortKey={sortKey} sortOrder={sortOrder} />
                       </Button>
                     </TableHead>
                     <TableHead className="hidden md:table-cell">
@@ -148,7 +149,7 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
                         onClick={() => handleSort('labs')}
                       >
                         Лабы
-                        <SortIcon columnKey="labs" />
+                        <SortIcon columnKey="labs" sortKey={sortKey} sortOrder={sortOrder} />
                       </Button>
                     </TableHead>
                   </>
@@ -162,7 +163,7 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
                       onClick={() => handleSort('attendance')}
                     >
                       Посещ.
-                      <SortIcon columnKey="attendance" />
+                      <SortIcon columnKey="attendance" sortKey={sortKey} sortOrder={sortOrder} />
                     </Button>
                   </TableHead>
                 )}

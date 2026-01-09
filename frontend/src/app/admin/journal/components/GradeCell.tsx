@@ -1,4 +1,5 @@
 'use client';
+'use no memo';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';

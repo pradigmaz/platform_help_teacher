@@ -1,4 +1,5 @@
 "use client"
+/* @react-compiler-disable */
 
 import React from "react"
 import { HTMLMotionProps, motion, type PanInfo } from "motion/react"

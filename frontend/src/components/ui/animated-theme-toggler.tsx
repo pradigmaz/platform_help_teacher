@@ -1,4 +1,5 @@
 "use client"
+'use no memo';
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Moon, Sun } from "lucide-react"
