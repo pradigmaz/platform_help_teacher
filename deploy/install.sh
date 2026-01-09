@@ -132,13 +132,31 @@ docker compose down 2>/dev/null || true
 # ============================================
 log_step "Шаг 1/8: Проверка зависимостей"
 
+# Check if running as root
+if [ "$EUID" -eq 0 ]; then
+    log_error "Не запускайте скрипт от root!"
+    echo "Используйте обычного пользователя с sudo правами."
+    exit 1
+fi
+
 # Docker
 if ! command -v docker &> /dev/null; then
     log_error "Docker не установлен!"
-    echo "Установите Docker: https://docs.docker.com/engine/install/"
-    exit 1
+    echo "Установка Docker..."
+    curl -fsSL https://get.docker.com | sudo sh
+    sudo usermod -aG docker $USER
+    log_warn "Перелогиньтесь и запустите скрипт снова!"
+    exit 0
 fi
 log_info "Docker: $(docker --version)"
+
+# Check Docker group
+if ! groups | grep -q docker; then
+    log_error "Пользователь не в группе docker!"
+    sudo usermod -aG docker $USER
+    log_warn "Перелогиньтесь и запустите скрипт снова!"
+    exit 0
+fi
 
 # Docker Compose
 if ! docker compose version &> /dev/null; then
@@ -155,9 +173,29 @@ if ! command -v openssl &> /dev/null; then
 fi
 log_info "OpenSSL: OK"
 
+# Check swap
+SWAP_SIZE=$(free -m | awk '/^Swap:/ {print $2}')
+if [ "$SWAP_SIZE" -lt 1024 ]; then
+    log_warn "Swap < 1GB (текущий: ${SWAP_SIZE}MB)"
+    ask_yes_no "Создать swap 2GB?" "y" "CREATE_SWAP"
+    if [ "$CREATE_SWAP" = "true" ]; then
+        log_info "Создание swap 2GB..."
+        sudo fallocate -l 2G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+        sudo sysctl vm.swappiness=10
+        echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+        log_info "Swap создан: 2GB"
+    fi
+else
+    log_info "Swap: ${SWAP_SIZE}MB"
+fi
+
 # Check ports
 PORTS_BUSY=""
-for port in 80 9000 9001; do
+for port in 80 443; do
     if ! check_port $port; then
         PORTS_BUSY="$PORTS_BUSY $port"
     fi
@@ -420,10 +458,10 @@ log_info "Конфигурация сохранена в .env"
 log_step "Шаг 7/8: Сборка и запуск"
 
 log_info "Сборка Docker образов..."
-docker compose -f docker-compose.yml build
+docker compose -f docker-compose.prod.yml build
 
 log_info "Запуск контейнеров..."
-docker compose -f docker-compose.yml up -d
+docker compose -f docker-compose.prod.yml up -d
 
 echo ""
 echo "⏳ Ожидание запуска сервисов (30 сек)..."
@@ -431,7 +469,7 @@ sleep 30
 
 # Check container status
 FAILED_CONTAINERS=""
-for container in edu-db edu-redis edu-minio edu-backend edu-frontend; do
+for container in edu-db-prod edu-redis-prod edu-minio-prod edu-backend-prod edu-frontend-prod; do
     if ! docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
         FAILED_CONTAINERS="$FAILED_CONTAINERS $container"
     fi
@@ -439,15 +477,31 @@ done
 
 if [ -n "$FAILED_CONTAINERS" ]; then
     log_error "Не запустились контейнеры:$FAILED_CONTAINERS"
-    echo "Проверьте логи: docker compose logs"
+    echo "Проверьте логи: docker compose -f docker-compose.prod.yml logs"
     exit 1
 fi
 
 log_info "Все контейнеры запущены"
 
+# Run migrations
+log_info "Применение миграций БД..."
+docker exec edu-backend-prod alembic upgrade head || log_warn "Migration warning"
+
 # Initialize MinIO
 log_info "Инициализация MinIO бакетов..."
-docker compose exec -T backend python scripts/init_minio.py || log_warn "MinIO init warning"
+docker exec edu-backend-prod python -c "from app.core.config import settings; from minio import Minio; client = Minio(settings.MINIO_ENDPOINT, settings.MINIO_ROOT_USER, settings.MINIO_ROOT_PASSWORD, secure=False); client.make_bucket(settings.MINIO_BUCKET_NAME) if not client.bucket_exists(settings.MINIO_BUCKET_NAME) else None" || log_warn "MinIO init warning"
+
+# Setup SSL if needed
+if [ "$USE_HTTPS" = "true" ] && [[ "$DOMAIN" != *"ngrok"* ]]; then
+    log_info "Настройка SSL сертификата..."
+    ask "Email для Let's Encrypt" "" "SSL_EMAIL"
+    docker compose -f docker-compose.prod.yml run --rm certbot certonly \
+        --webroot -w /var/www/certbot \
+        -d "$DOMAIN" \
+        --email "$SSL_EMAIL" \
+        --agree-tos --non-interactive || log_warn "SSL setup failed - настройте вручную"
+    docker compose -f docker-compose.prod.yml restart nginx
+fi
 
 # ============================================
 # STEP 8: FINAL REPORT
@@ -460,8 +514,7 @@ echo -e "${GREEN}║           УСТАНОВКА УСПЕШНО ЗАВЕРШЕ�
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${CYAN}Frontend:${NC}      ${FRONTEND_URL}"
-echo -e "  ${CYAN}API Docs:${NC}      ${FRONTEND_URL}/docs"
-echo -e "  ${CYAN}MinIO Console:${NC} http://localhost:9001"
+echo -e "  ${CYAN}API Docs:${NC}      ${FRONTEND_URL}/api/docs"
 if [ -n "$BOT_URL" ]; then
 echo -e "  ${CYAN}Telegram Bot:${NC}  ${BOT_URL}"
 fi
@@ -471,7 +524,14 @@ echo ""
 
 # Status check
 echo -e "${CYAN}Статус сервисов:${NC}"
-docker compose ps --format "table {{.Name}}\t{{.Status}}"
+docker compose -f docker-compose.prod.yml ps --format "table {{.Name}}\t{{.Status}}"
+echo ""
+
+# Useful commands
+echo -e "${CYAN}Полезные команды:${NC}"
+echo "  Логи:      docker compose -f docker-compose.prod.yml logs -f"
+echo "  Рестарт:   docker compose -f docker-compose.prod.yml restart"
+echo "  Остановка: docker compose -f docker-compose.prod.yml down"
 echo ""
 
 log_info "Установка завершена!"
