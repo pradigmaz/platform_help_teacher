@@ -14,7 +14,8 @@ function getLabStatus(lab: DeadlinesListProps['labs'][0]): LabStatus {
   switch (lab.submission.status) {
     case 'ACCEPTED': return 'accepted';
     case 'REJECTED': return 'rejected';
-    case 'PENDING': return 'pending';
+    case 'IN_REVIEW':
+    case 'READY': return 'pending';
     default: return 'not_submitted';
   }
 }

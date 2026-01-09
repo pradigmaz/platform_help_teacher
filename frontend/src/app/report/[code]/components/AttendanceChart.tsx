@@ -64,7 +64,7 @@ export function AttendanceChart({ distribution }: AttendanceChartProps) {
                 outerRadius={80}
                 paddingAngle={2}
                 dataKey="value"
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
                 labelLine={false}
               >
                 {data.map((entry) => (
@@ -75,7 +75,7 @@ export function AttendanceChart({ distribution }: AttendanceChartProps) {
                 ))}
               </Pie>
               <Tooltip 
-                formatter={(value: number) => [`${value} занятий`, '']}
+                formatter={(value) => [`${value} занятий`, '']}
                 contentStyle={{ 
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
@@ -85,7 +85,7 @@ export function AttendanceChart({ distribution }: AttendanceChartProps) {
               <Legend 
                 verticalAlign="bottom" 
                 height={36}
-                formatter={(value) => <span className="text-sm">{value}</span>}
+                formatter={(value: string) => <span className="text-sm">{value}</span>}
               />
             </PieChart>
           </ResponsiveContainer>

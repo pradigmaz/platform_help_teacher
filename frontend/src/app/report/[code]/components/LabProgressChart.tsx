@@ -61,8 +61,8 @@ export function LabProgressChart({ progress }: LabProgressChartProps) {
                 tick={{ fontSize: 12 }}
               />
               <Tooltip 
-                formatter={(value: number, name: string, props) => {
-                  const item = props.payload;
+                formatter={(value, _name, props) => {
+                  const item = (props as { payload: { completed: number; total: number; fullName: string } }).payload;
                   return [`${item.completed}/${item.total} студентов (${value}%)`, item.fullName];
                 }}
                 contentStyle={{ 

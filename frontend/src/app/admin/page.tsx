@@ -30,7 +30,7 @@ interface DashboardStats {
   total_users: number;
   total_students: number;
   total_groups: number;
-  total_lectures: number;
+  total_lectures?: number;
   active_labs: number;
 }
 

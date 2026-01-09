@@ -12,7 +12,7 @@ import type { QuickStatsProps } from './types';
 function getLabStats(labs: QuickStatsProps['labs']) {
   const total = labs.length;
   const accepted = labs.filter(l => l.submission?.status === 'ACCEPTED').length;
-  const pending = labs.filter(l => l.submission?.status === 'PENDING').length;
+  const pending = labs.filter(l => l.submission?.status === 'IN_REVIEW' || l.submission?.status === 'READY').length;
   const percent = total > 0 ? Math.round((accepted / total) * 100) : 0;
   return { total, accepted, pending, percent };
 }
