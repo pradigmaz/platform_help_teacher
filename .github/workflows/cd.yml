@@ -19,8 +19,37 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          command_timeout: 30m
           script: |
+            set -e
+            echo "=== Starting deploy ==="
             cd ~/platform_help_teacher
+            echo "=== Git pull ==="
             git pull origin master
             cd deploy
-            ./rebuild.sh
+            
+            # Check .env
+            if [ ! -f ".env" ]; then
+              echo "ERROR: .env not found! Run: cp .env.example .env && nano .env"
+              exit 1
+            fi
+            
+            echo "=== Stopping containers ==="
+            docker compose -f docker-compose.prod.yml down || true
+            
+            echo "=== Building (this takes ~10-15 min) ==="
+            docker compose -f docker-compose.prod.yml build --progress=plain 2>&1 | tail -100
+            
+            echo "=== Starting containers ==="
+            docker compose -f docker-compose.prod.yml up -d
+            
+            echo "=== Waiting for services ==="
+            sleep 30
+            
+            echo "=== Container status ==="
+            docker compose -f docker-compose.prod.yml ps
+            
+            echo "=== Running migrations ==="
+            docker exec edu-backend-prod alembic upgrade head || echo "Migration warning"
+            
+            echo "=== Deploy complete ==="
