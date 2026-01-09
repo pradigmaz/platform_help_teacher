@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   deploy:
@@ -21,6 +21,6 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
             cd ~/edu-platform
-            git pull origin main
+            git pull origin master
             cd deploy
             ./rebuild.sh
