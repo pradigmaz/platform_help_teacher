@@ -37,7 +37,7 @@ jobs:
             echo "=== Stopping containers ==="
             docker compose -f docker-compose.prod.yml down || true
             
-            echo "=== Building (this takes ~10-15 min) ==="
+            echo "=== Building (uses cache, ~2-3 min) ==="
             docker compose -f docker-compose.prod.yml build --progress=plain 2>&1 | tail -100
             
             echo "=== Starting containers ==="

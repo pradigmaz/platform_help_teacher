@@ -32,7 +32,7 @@ docker compose -f docker-compose.prod.yml down 2>/dev/null || true
 
 # Build
 log_info "Сборка Docker образов..."
-docker compose -f docker-compose.prod.yml build --no-cache
+docker compose -f docker-compose.prod.yml build
 
 # Start
 log_info "Запуск контейнеров..."
