@@ -1,6 +1,22 @@
 {
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "typecheck": "cd frontend && npx tsc --noEmit",
+    "lint": "cd frontend && npm run lint",
+    "check": "npm run typecheck && npm run lint"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2"
+  },
   "dependencies": {
     "axios-retry": "^4.5.0",
     "react-error-boundary": "^6.0.0"
+  },
+  "lint-staged": {
+    "frontend/src/**/*.{ts,tsx}": [
+      "bash -c 'cd frontend && npx tsc --noEmit'"
+    ]
   }
 }
