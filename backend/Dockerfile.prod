@@ -21,7 +21,6 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/root/.local/bin:$PATH" \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Runtime зависимости + Playwright browser deps
@@ -50,8 +49,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем установленные Python пакеты
-COPY --from=builder /root/.local /root/.local
+# Копируем установленные Python пакеты в общедоступное место
+COPY --from=builder /root/.local /home/appuser/.local
 
 # Устанавливаем Playwright браузер (Chromium)
 RUN python -m playwright install chromium
@@ -59,7 +58,11 @@ RUN python -m playwright install chromium
 # Создаём пользователя после установки браузера
 RUN addgroup --system --gid 1001 appgroup \
     && adduser --system --uid 1001 --gid 1001 appuser \
-    && chown -R appuser:appgroup /ms-playwright
+    && chown -R appuser:appgroup /ms-playwright \
+    && chown -R appuser:appgroup /home/appuser/.local
+
+# Обновляем PATH для appuser
+ENV PATH="/home/appuser/.local/bin:$PATH"
 
 # Копируем только необходимый код
 COPY --chown=appuser:appgroup app ./app
