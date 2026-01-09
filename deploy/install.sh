@@ -296,14 +296,16 @@ ask_yes_no "Есть Telegram бот?" "y" "HAS_TG_BOT"
 
 if [ "$HAS_TG_BOT" = "true" ]; then
     while true; do
-        ask "Токен бота (от @BotFather)" "" "TELEGRAM_BOT_TOKEN"
+        echo -ne "${CYAN}Токен бота (от @BotFather)${NC}: "
+        read TELEGRAM_BOT_TOKEN
         if validate_tg_token "$TELEGRAM_BOT_TOKEN"; then
             break
         fi
         log_error "Неверный формат токена! Пример: 123456789:ABCdefGHI..."
     done
     
-    ask "Username бота (без @)" "" "TELEGRAM_BOT_USERNAME"
+    echo -ne "${CYAN}Username бота (без @)${NC}: "
+    read TELEGRAM_BOT_USERNAME
     
     TELEGRAM_WEBHOOK_SECRET=$(openssl rand -hex 16)
     TELEGRAM_WEBHOOK_URL="${PROTOCOL}://${DOMAIN}"
@@ -321,14 +323,16 @@ ask_yes_no "Есть VK бот?" "n" "HAS_VK_BOT"
 
 if [ "$HAS_VK_BOT" = "true" ]; then
     while true; do
-        ask "ID группы VK" "" "VK_GROUP_ID"
+        echo -ne "${CYAN}ID группы VK${NC}: "
+        read VK_GROUP_ID
         if validate_number "$VK_GROUP_ID"; then
             break
         fi
         log_error "ID группы должен быть числом!"
     done
     
-    ask "Токен группы VK" "" "VK_BOT_TOKEN"
+    echo -ne "${CYAN}Токен группы VK${NC}: "
+    read VK_BOT_TOKEN
     log_info "VK бот настроен: группа $VK_GROUP_ID"
 fi
 
