@@ -134,9 +134,10 @@ log_step "Шаг 1/8: Проверка зависимостей"
 
 # Check if running as root
 if [ "$EUID" -eq 0 ]; then
-    log_error "Не запускайте скрипт от root!"
-    echo "Используйте обычного пользователя с sudo правами."
-    exit 1
+    log_warn "Запуск от root — swap и Docker будут настроены напрямую"
+    IS_ROOT=true
+else
+    IS_ROOT=false
 fi
 
 # Docker
@@ -180,13 +181,23 @@ if [ "$SWAP_SIZE" -lt 1024 ]; then
     ask_yes_no "Создать swap 2GB?" "y" "CREATE_SWAP"
     if [ "$CREATE_SWAP" = "true" ]; then
         log_info "Создание swap 2GB..."
-        sudo fallocate -l 2G /swapfile
-        sudo chmod 600 /swapfile
-        sudo mkswap /swapfile
-        sudo swapon /swapfile
-        echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-        sudo sysctl vm.swappiness=10
-        echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+        if [ "$IS_ROOT" = "true" ]; then
+            fallocate -l 2G /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+            sysctl vm.swappiness=10
+            echo 'vm.swappiness=10' >> /etc/sysctl.conf
+        else
+            sudo fallocate -l 2G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+            echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+            sudo sysctl vm.swappiness=10
+            echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+        fi
         log_info "Swap создан: 2GB"
     fi
 else
