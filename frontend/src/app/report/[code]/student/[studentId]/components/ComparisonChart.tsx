@@ -103,7 +103,7 @@ export function ComparisonChart({ data }: ComparisonChartProps) {
                 <LabelList 
                   dataKey="value" 
                   position="right" 
-                  formatter={(value: number) => value.toFixed(1)}
+                  formatter={(value) => typeof value === 'number' ? value.toFixed(1) : String(value)}
                   style={{ fontSize: 12, fontWeight: 600 }}
                 />
               </Bar>
