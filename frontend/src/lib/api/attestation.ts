@@ -7,7 +7,6 @@ import {
   type GroupAttestationResult,
   type GradeScale,
   type BackendGradeScale,
-  type ComponentsConfigAPI,
   convertGradeScale,
 } from './types';
 
@@ -39,14 +38,6 @@ export const AttestationAPI = {
       `/admin/attestation/grade-scale/${type}`
     );
     return convertGradeScale(data, type);
-  },
-
-  updateComponentsConfig: async (type: AttestationType, config: ComponentsConfigAPI) => {
-    const { data } = await api.patch<AttestationSettings>(
-      '/admin/attestation/settings',
-      { attestation_type: type, components_config: config }
-    );
-    return data;
   },
 
   calculateStudent: async (studentId: string, type: AttestationType, activityPoints = 0) => {

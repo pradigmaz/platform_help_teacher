@@ -1,25 +1,22 @@
 """
-Модуль аттестации - расчёт баллов и управление настройками.
+Модуль аттестации - автобалансировка баллов.
 
 Структура:
-- constants.py - константы (MIN_GRADE, MAX_GRADE, etc.)
-- models.py - dataclass'ы для результатов расчёта
+- calculator.py - фасад калькуляторов
 - lab_calculator.py - расчёт баллов за лабораторные
 - attendance_calculator.py - расчёт баллов за посещаемость
-- work_calculator.py - расчёт баллов за работы
-- calculator.py - фасад калькуляторов
-- settings.py - управление настройками аттестации
-- student_score.py - расчёт баллов для одного студента
-- batch.py - пакетные операции расчёта
-- service.py - фасад для всех модулей
+- settings.py - управление настройками
+- student_score.py - расчёт для одного студента
+- batch.py - пакетные операции
+- service.py - фасад модуля
 """
 from .service import AttestationService
 from .calculator import AttestationCalculator
-from .models import LabScoreResult, AttendanceScoreResult, WorkScoreResult
-from .settings import AttestationSettingsManager, DEFAULT_SETTINGS
+from .lab_calculator import LabScoreResult, LabScoreCalculator
+from .attendance_calculator import AttendanceScoreResult, AttendanceScoreCalculator
+from .settings import AttestationSettingsManager
 from .student_score import StudentScoreCalculator
 from .batch import BatchScoreCalculator
-from .constants import MIN_GRADE, MAX_GRADE, GRADE_RANGE
 
 __all__ = [
     "AttestationService",
@@ -28,10 +25,7 @@ __all__ = [
     "StudentScoreCalculator",
     "BatchScoreCalculator",
     "LabScoreResult",
+    "LabScoreCalculator",
     "AttendanceScoreResult",
-    "WorkScoreResult",
-    "DEFAULT_SETTINGS",
-    "MIN_GRADE",
-    "MAX_GRADE",
-    "GRADE_RANGE",
+    "AttendanceScoreCalculator",
 ]

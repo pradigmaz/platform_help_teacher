@@ -1,15 +1,9 @@
-"""
-Обратная совместимость - реэкспорт из нового модуля attestation/.
-
-Используйте:
-    from app.services.attestation import AttestationService, AttestationCalculator
-"""
+"""Реэкспорт из модуля attestation/."""
 from app.services.attestation import (
     AttestationService,
     AttestationCalculator,
     LabScoreResult,
     AttendanceScoreResult,
-    WorkScoreResult,
 )
 
 __all__ = [
@@ -17,5 +11,4 @@ __all__ = [
     "AttestationCalculator",
     "LabScoreResult",
     "AttendanceScoreResult",
-    "WorkScoreResult",
 ]

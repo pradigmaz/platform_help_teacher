@@ -1,8 +1,7 @@
 """
-Модуль аудита изменений настроек аттестации.
+Аудит изменений настроек аттестации.
 """
 import logging
-from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from uuid import UUID
 
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class AttestationAuditService:
-    """Сервис аудита изменений настроек аттестации."""
+    """Сервис аудита настроек аттестации."""
     
     SETTINGS_TYPE = "attestation"
     
@@ -32,24 +31,10 @@ class AttestationAuditService:
         changed_by_id: UUID,
         ip_address: Optional[str] = None
     ) -> SettingsAuditLog:
-        """
-        Логирование изменения настроек аттестации.
-        
-        Args:
-            attestation_type: Тип аттестации
-            action: Действие (create, update)
-            old_settings: Старые настройки (None для create)
-            new_settings: Новые настройки
-            changed_by_id: ID пользователя
-            ip_address: IP адрес
-            
-        Returns:
-            SettingsAuditLog: Созданная запись
-        """
+        """Логирование изменения настроек."""
         old_values = self._settings_to_dict(old_settings) if old_settings else None
         new_values = self._settings_to_dict(new_settings)
         
-        # Определяем изменённые поля
         changed_fields = None
         if old_values and new_values:
             changed_fields = [
@@ -71,32 +56,33 @@ class AttestationAuditService:
         self.db.add(audit_log)
         await self.db.flush()
         
-        logger.info(
-            f"Audit log: {action} attestation settings '{attestation_type.value}' "
-            f"by user {changed_by_id}, changed fields: {changed_fields}"
-        )
-        
+        logger.info(f"Audit: {action} attestation '{attestation_type.value}' by {changed_by_id}")
         return audit_log
     
     def _settings_to_dict(self, settings: AttestationSettings) -> Dict[str, Any]:
-        """Конвертация настроек в словарь для логирования."""
+        """Конвертация настроек в словарь."""
         return {
             'labs_weight': settings.labs_weight,
             'attendance_weight': settings.attendance_weight,
-            'activity_weight': settings.activity_weight,
-            'required_labs_count': settings.required_labs_count,
-            'bonus_per_extra_lab': settings.bonus_per_extra_lab,
-            'soft_deadline_penalty': settings.soft_deadline_penalty,
-            'hard_deadline_penalty': settings.hard_deadline_penalty,
-            'soft_deadline_days': settings.soft_deadline_days,
-            'present_points': settings.present_points,
-            'late_points': settings.late_points,
-            'excused_points': settings.excused_points,
-            'absent_points': settings.absent_points,
+            'activity_reserve': settings.activity_reserve,
+            'labs_count_first': settings.labs_count_first,
+            'labs_count_second': settings.labs_count_second,
+            'grade_4_coef': settings.grade_4_coef,
+            'grade_3_coef': settings.grade_3_coef,
+            'late_coef': settings.late_coef,
+            'late_max_grade': settings.late_max_grade,
+            'very_late_max_grade': settings.very_late_max_grade,
+            'late_threshold_days': settings.late_threshold_days,
+            'self_works_enabled': settings.self_works_enabled,
+            'self_works_weight': settings.self_works_weight,
+            'self_works_count': settings.self_works_count,
+            'colloquium_enabled': settings.colloquium_enabled,
+            'colloquium_weight': settings.colloquium_weight,
+            'colloquium_count': settings.colloquium_count,
             'activity_enabled': settings.activity_enabled,
-            'participation_points': settings.participation_points,
             'period_start_date': str(settings.period_start_date) if settings.period_start_date else None,
             'period_end_date': str(settings.period_end_date) if settings.period_end_date else None,
+            'semester_start_date': str(settings.semester_start_date) if settings.semester_start_date else None,
         }
     
     async def get_audit_history(
@@ -104,16 +90,7 @@ class AttestationAuditService:
         attestation_type: Optional[AttestationType] = None,
         limit: int = 50
     ) -> List[SettingsAuditLog]:
-        """
-        Получение истории изменений настроек.
-        
-        Args:
-            attestation_type: Фильтр по типу аттестации (опционально)
-            limit: Максимальное количество записей
-            
-        Returns:
-            List[SettingsAuditLog]: Список записей аудита
-        """
+        """Получение истории изменений."""
         query = (
             select(SettingsAuditLog)
             .where(SettingsAuditLog.settings_type == self.SETTINGS_TYPE)
@@ -122,9 +99,7 @@ class AttestationAuditService:
         )
         
         if attestation_type:
-            query = query.where(
-                SettingsAuditLog.settings_key == attestation_type.value
-            )
+            query = query.where(SettingsAuditLog.settings_key == attestation_type.value)
         
         result = await self.db.execute(query)
         return list(result.scalars().all())

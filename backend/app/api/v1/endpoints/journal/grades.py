@@ -18,6 +18,7 @@ from app.schemas.lesson_grade import (
 )
 from app.crud import crud_lesson_grade
 from app.core.limiter import limiter
+from app.services.attestation.deadline_validator import get_max_allowed_grade, validate_grade_for_max
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -190,7 +191,20 @@ async def create_grade(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_teacher)
 ):
-    """Создать оценку."""
+    """Создать оценку с проверкой дедлайна."""
+    # Получаем занятие для проверки дедлайна
+    lesson_result = await db.execute(select(Lesson).where(Lesson.id == data.lesson_id))
+    lesson = lesson_result.scalar_one_or_none()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    # Проверяем максимально допустимую оценку по дедлайну
+    max_allowed = await get_max_allowed_grade(db, lesson)
+    try:
+        validate_grade_for_max(data.grade, max_allowed)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
     grade = await crud_lesson_grade.upsert_lesson_grade(
         db,
         lesson_id=data.lesson_id,
@@ -210,7 +224,25 @@ async def update_grade(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_teacher)
 ):
-    """Обновить оценку."""
+    """Обновить оценку с проверкой дедлайна."""
+    # Получаем существующую оценку с занятием
+    existing_result = await db.execute(
+        select(LessonGrade)
+        .options(selectinload(LessonGrade.lesson))
+        .where(LessonGrade.id == grade_id)
+    )
+    existing = existing_result.scalar_one_or_none()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Grade not found")
+    
+    # Проверяем дедлайн если меняется оценка
+    if data.grade is not None and existing.lesson:
+        max_allowed = await get_max_allowed_grade(db, existing.lesson)
+        try:
+            validate_grade_for_max(data.grade, max_allowed)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    
     grade = await crud_lesson_grade.update_lesson_grade(
         db,
         grade_id=grade_id,
@@ -268,7 +300,23 @@ async def bulk_update_grades(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_teacher)
 ):
-    """Массовое создание/обновление оценок."""
+    """Массовое создание/обновление оценок с проверкой дедлайна."""
+    # Получаем занятие для проверки дедлайна
+    lesson_result = await db.execute(select(Lesson).where(Lesson.id == data.lesson_id))
+    lesson = lesson_result.scalar_one_or_none()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    # Проверяем максимально допустимую оценку
+    max_allowed = await get_max_allowed_grade(db, lesson)
+    
+    # Валидируем все оценки
+    for grade_item in data.grades:
+        try:
+            validate_grade_for_max(grade_item.grade, max_allowed)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    
     updated = []
     for grade_item in data.grades:
         grade = await crud_lesson_grade.upsert_lesson_grade(
@@ -283,4 +331,21 @@ async def bulk_update_grades(
         updated.append(grade)
     
     logger.info(f"Bulk updated {len(updated)} grades for lesson {data.lesson_id}")
-    return {"updated": len(updated)}
+    return {"updated": len(updated), "max_allowed_grade": max_allowed}
+
+
+
+@router.get("/grades/max-allowed/{lesson_id}")
+async def get_lesson_max_grade(
+    lesson_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_teacher)
+):
+    """Получить максимально допустимую оценку для занятия с учётом дедлайна."""
+    lesson_result = await db.execute(select(Lesson).where(Lesson.id == lesson_id))
+    lesson = lesson_result.scalar_one_or_none()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    max_allowed = await get_max_allowed_grade(db, lesson)
+    return {"lesson_id": str(lesson_id), "max_allowed_grade": max_allowed}

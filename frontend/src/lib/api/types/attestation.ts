@@ -1,29 +1,65 @@
+/**
+ * Типы для системы аттестации (автобалансировка).
+ */
+
 export type AttestationType = 'first' | 'second';
+
+export interface ScorePreview {
+  component: string;
+  weight: number;
+  max_points: number;
+  points_per_unit: number;
+  unit_label: string;
+}
 
 export interface AttestationSettings {
   id: string;
   attestation_type: AttestationType;
+  
+  // Веса компонентов (сумма = 100%)
   labs_weight: number;
   attendance_weight: number;
-  activity_weight: number;
-  required_labs_count: number;
-  bonus_per_extra_lab: number;
-  soft_deadline_penalty: number;
-  hard_deadline_penalty: number;
-  soft_deadline_days: number;
-  present_points: number;
-  late_points: number;
-  excused_points: number;
-  absent_points: number;
+  activity_reserve: number;
+  
+  // Количество работ
+  labs_count_first: number;
+  labs_count_second: number;
+  
+  // Коэффициенты оценок (5=1.0 и 2=0.0 фиксированы)
+  grade_4_coef: number;
+  grade_3_coef: number;
+  
+  // Посещаемость
+  late_coef: number;
+  
+  // Дедлайны
+  late_max_grade: number;
+  very_late_max_grade: number;
+  late_threshold_days: number;
+  
+  // Опциональные компоненты
+  self_works_enabled: boolean;
+  self_works_weight: number;
+  self_works_count: number;
+  colloquium_enabled: boolean;
+  colloquium_weight: number;
+  colloquium_count: number;
+  
+  // Активность
   activity_enabled: boolean;
-  participation_points: number;
+  
+  // Периоды
   period_start_date: string | null;
   period_end_date: string | null;
   semester_start_date: string | null;
+  
+  // Мета
   created_at: string;
   updated_at: string;
   max_points: number;
   min_passing_points: number;
+  grade_scale: Record<string, [number, number]>;
+  score_preview: ScorePreview[];
   calculated_period_start: string | null;
   calculated_period_end: string | null;
 }
@@ -32,55 +68,58 @@ export interface AttestationSettingsUpdate {
   attestation_type: AttestationType;
   labs_weight: number;
   attendance_weight: number;
-  activity_weight: number;
-  required_labs_count: number;
-  bonus_per_extra_lab: number;
-  soft_deadline_penalty: number;
-  hard_deadline_penalty: number;
-  soft_deadline_days: number;
-  present_points: number;
-  late_points: number;
-  excused_points: number;
-  absent_points: number;
+  activity_reserve: number;
+  labs_count_first: number;
+  labs_count_second: number;
+  grade_4_coef: number;
+  grade_3_coef: number;
+  late_coef: number;
+  late_max_grade: number;
+  very_late_max_grade: number;
+  late_threshold_days: number;
+  self_works_enabled: boolean;
+  self_works_weight: number;
+  self_works_count: number;
+  colloquium_enabled: boolean;
+  colloquium_weight: number;
+  colloquium_count: number;
   activity_enabled: boolean;
-  participation_points: number;
   period_start_date?: string | null;
   period_end_date?: string | null;
   semester_start_date?: string | null;
 }
 
 export interface ComponentBreakdown {
-  labs_raw_score: number;
-  labs_weighted_score: number;
+  labs_score: number;
   labs_count: number;
-  labs_required: number;
-  labs_bonus: number;
-  attendance_raw_score: number;
-  attendance_weighted_score: number;
-  attendance_total_classes: number;
-  attendance_present: number;
-  attendance_late: number;
-  attendance_excused: number;
-  attendance_absent: number;
-  activity_raw_score: number;
-  activity_weighted_score: number;
+  labs_max: number;
+  attendance_score: number;
+  attendance_ratio: number;
+  attendance_max: number;
+  total_classes: number;
+  present_count: number;
+  late_count: number;
+  excused_count: number;
+  absent_count: number;
+  activity_score: number;
+  activity_max: number;
+  bonus_blocked: boolean;
+  self_works_score?: number;
+  colloquium_score?: number;
 }
 
 export interface AttestationResult {
   student_id: string;
   student_name: string;
   attestation_type: AttestationType;
+  group_code?: string;
   total_score: number;
-  lab_score: number;
-  attendance_score: number;
-  activity_score: number;
   grade: string;
   is_passing: boolean;
   max_points: number;
   min_passing_points: number;
-  components_breakdown: ComponentBreakdown;
+  breakdown: ComponentBreakdown;
   calculated_at?: string;
-  group_code?: string;
 }
 
 export interface GroupAttestationResult {
@@ -107,10 +146,8 @@ export interface GradeScale {
   };
 }
 
-// Тип ответа от backend (русские ключи)
 export type BackendGradeScale = Record<string, [number, number]>;
 
-// Маппинг русских ключей в английские
 const GRADE_KEY_MAP: Record<string, keyof GradeScale['grades']> = {
   'отл': 'excellent',
   'хор': 'good',
@@ -118,9 +155,6 @@ const GRADE_KEY_MAP: Record<string, keyof GradeScale['grades']> = {
   'неуд': 'unsatisfactory',
 };
 
-/**
- * Конвертация GradeScale из backend формата в frontend формат.
- */
 export function convertGradeScale(
   backendScale: BackendGradeScale,
   attestationType: AttestationType
@@ -143,47 +177,4 @@ export function convertGradeScale(
   }
   
   return { max: maxPoints, min: minPoints, grades };
-}
-
-export interface ComponentsConfigAPI {
-  labs: {
-    enabled: boolean;
-    weight: number;
-    grading_mode: 'binary' | 'graded';
-    grading_scale: 5 | 10 | 100;
-    required_count: number;
-    bonus_per_extra: number;
-    soft_deadline_days: number;
-    soft_deadline_penalty: number;
-    hard_deadline_penalty: number;
-  };
-  tests: {
-    enabled: boolean;
-    weight: number;
-    grading_scale: 5 | 10 | 100;
-    required_count: number;
-    allow_retakes: boolean;
-    max_retakes: number;
-    retake_penalty: number;
-    best_n_count: number | null;
-  };
-  attendance: {
-    enabled: boolean;
-    weight: number;
-    mode: 'per_class' | 'percentage';
-    points_per_class: number;
-    max_points: number;
-    penalty_enabled: boolean;
-    penalty_per_absence: number;
-    excused_absence_counts: boolean;
-  };
-  activity: {
-    enabled: boolean;
-    weight: number;
-    max_points: number;
-    points_per_activity: number;
-    allow_negative: boolean;
-    negative_limit: number;
-    categories_enabled: boolean;
-  };
 }

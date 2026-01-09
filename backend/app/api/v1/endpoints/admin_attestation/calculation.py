@@ -48,22 +48,7 @@ async def calculate_student_attestation(
             attestation_type=attestation_type,
             activity_points=activity_points
         )
-        
-        return AttestationResultResponse(
-            student_id=result.student_id,
-            student_name=result.student_name,
-            attestation_type=attestation_type,
-            total_score=result.total_score,
-            lab_score=result.lab_score,
-            attendance_score=result.attendance_score,
-            activity_score=result.activity_score,
-            grade=result.grade,
-            is_passing=result.is_passing,
-            max_points=result.max_points,
-            min_passing_points=result.min_passing_points,
-            components_breakdown=result.components_breakdown,
-            calculated_at=datetime.now(timezone.utc)
-        )
+        return AttestationResultResponse(**result.model_dump())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -77,7 +62,7 @@ async def calculate_group_attestation(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
-    """Рассчитать баллы аттестации для всей группы."""
+    """Рассчитать баллы аттестации для группы."""
     group_result = await db.execute(select(Group).where(Group.id == group_id))
     group = group_result.scalar_one_or_none()
     if not group:
@@ -90,7 +75,7 @@ async def calculate_group_attestation(
             User.is_active == True
         )
     )
-    students = students_result.scalars().all()
+    students = list(students_result.scalars().all())
     
     if not students:
         raise HTTPException(status_code=404, detail="В группе нет активных студентов")
@@ -105,62 +90,16 @@ async def calculate_group_attestation(
     return _build_group_response(group_id, group.code, attestation_type, results, errors)
 
 
-@router.get("/attestation/scores/all/{attestation_type}", response_model=GroupAttestationResponse)
-@limiter.limit("5/minute")
-async def calculate_all_students_attestation(
-    request: Request,
-    attestation_type: AttestationTypeSchema,
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, ge=1, le=500),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_superuser),
-):
-    """Рассчитать баллы аттестации для ВСЕХ студентов."""
-    service = AttestationService(db)
-    
-    all_results, errors = await service.calculate_all_students_scores(
-        attestation_type=attestation_type
-    )
-    
-    if not all_results:
-        raise HTTPException(status_code=404, detail="Нет активных студентов")
-    
-    total_count = len(all_results)
-    passing_students = sum(1 for r in all_results if r.is_passing)
-    
-    grade_distribution: Dict[str, int] = {"неуд": 0, "уд": 0, "хор": 0, "отл": 0}
-    for r in all_results:
-        if r.grade in grade_distribution:
-            grade_distribution[r.grade] += 1
-    
-    average_score = sum(r.total_score for r in all_results) / total_count if total_count else 0.0
-    paginated_results = all_results[skip:skip + limit]
-    
-    return GroupAttestationResponse(
-        group_id=None,
-        group_code="ALL",
-        attestation_type=attestation_type,
-        calculated_at=datetime.now(timezone.utc),
-        total_students=total_count,
-        passing_students=passing_students,
-        failing_students=total_count - passing_students,
-        grade_distribution=grade_distribution,
-        average_score=round(average_score, 2),
-        students=paginated_results,
-        errors=errors
-    )
-
-
 def _build_group_response(group_id, group_code, attestation_type, results, errors):
     """Построить ответ для группы."""
-    passing_students = sum(1 for r in results if r.is_passing)
+    passing = sum(1 for r in results if r.is_passing)
     
-    grade_distribution: Dict[str, int] = {"неуд": 0, "уд": 0, "хор": 0, "отл": 0}
+    grade_dist: Dict[str, int] = {"неуд": 0, "уд": 0, "хор": 0, "отл": 0}
     for r in results:
-        if r.grade in grade_distribution:
-            grade_distribution[r.grade] += 1
+        if r.grade in grade_dist:
+            grade_dist[r.grade] += 1
     
-    average_score = sum(r.total_score for r in results) / len(results) if results else 0.0
+    avg = sum(r.total_score for r in results) / len(results) if results else 0.0
     
     return GroupAttestationResponse(
         group_id=group_id,
@@ -168,10 +107,10 @@ def _build_group_response(group_id, group_code, attestation_type, results, error
         attestation_type=attestation_type,
         calculated_at=datetime.now(timezone.utc),
         total_students=len(results),
-        passing_students=passing_students,
-        failing_students=len(results) - passing_students,
-        grade_distribution=grade_distribution,
-        average_score=round(average_score, 2),
+        passing_students=passing,
+        failing_students=len(results) - passing,
+        grade_distribution=grade_dist,
+        average_score=round(avg, 2),
         students=results,
         errors=errors
     )

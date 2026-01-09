@@ -39,13 +39,15 @@ def generate_recommendations(
     """Генерация рекомендаций для студента."""
     recommendations = []
     
-    if result:
-        if result.lab_score < result.max_points * 0.3:
+    if result and result.breakdown:
+        # Проверяем баллы за лабы относительно максимума компонента
+        if result.breakdown.labs_score < result.breakdown.labs_max * 0.3:
             missing_labs = labs_total - labs_completed
             if missing_labs > 0:
                 recommendations.append(f"Необходимо сдать {missing_labs} лабораторных работ")
         
-        if result.attendance_score < result.max_points * 0.1:
+        # Проверяем баллы за посещаемость относительно максимума компонента
+        if result.breakdown.attendance_score < result.breakdown.attendance_max * 0.5:
             recommendations.append("Рекомендуется улучшить посещаемость занятий")
     
     if att_stats:

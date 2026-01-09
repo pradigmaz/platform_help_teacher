@@ -1,46 +1,54 @@
 """
 Модель глобальных настроек аттестации.
-Хранит конфигурацию расчёта баллов для первой и второй аттестации.
-Настройки применяются ко всем группам и предметам.
+Система автобалансировки: веса + количество работ → автоматический расчёт баллов.
+
+Фиксированные константы университета:
+- 1-я аттестация: макс 35 баллов
+- 2-я аттестация: макс 70 баллов (накопительно)
+- Коэффициенты: grade_5 = 1.0 (фикс), grade_2 = 0.0 (фикс)
 """
 from datetime import date, timedelta
-from sqlalchemy import String, Integer, Float, Boolean, Date, Enum as SQLEnum, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Integer, Float, Boolean, Date, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from uuid import UUID, uuid4
 from enum import Enum
-from typing import Dict, Any, Optional, Tuple
+from typing import Optional, Tuple
 from .base import Base, TimestampMixin
 
 
 # Константы недель аттестации по регламенту
-FIRST_ATTESTATION_WEEK = 8   # 1-я аттестация на 8-й неделе
-SECOND_ATTESTATION_WEEK = 14  # 2-я аттестация на 14-й неделе
+FIRST_ATTESTATION_WEEK = 8
+SECOND_ATTESTATION_WEEK = 14
+
+# Фиксированные коэффициенты (не хранятся в БД)
+GRADE_5_COEF = 1.0  # Фиксировано
+GRADE_2_COEF = 0.0  # Фиксировано (работа не засчитана)
 
 
 class AttestationType(str, Enum):
     """Тип аттестации"""
-    FIRST = "first"   # 1-я аттестация (7-я неделя, макс 35 баллов)
-    SECOND = "second" # 2-я аттестация (13-я неделя, макс 70 баллов)
+    FIRST = "first"   # 1-я аттестация (макс 35 баллов)
+    SECOND = "second" # 2-я аттестация (макс 70 баллов, накопительно)
 
     @property
     def number(self) -> int:
         return 1 if self == AttestationType.FIRST else 2
+    
+    @property
+    def max_points(self) -> int:
+        return 35 if self == AttestationType.FIRST else 70
 
 
 class AttestationSettings(Base, TimestampMixin):
     """
-    Глобальные настройки расчёта баллов для аттестации.
-    Применяются ко всем группам и предметам.
+    Настройки автобалансировки аттестации.
     
-    Фиксированные ограничения университета:
-    - 1-я аттестация: макс 35 баллов, мин 20 для зачёта
-    - 2-я аттестация: макс 70 баллов, мин 40 для зачёта
+    Препод задаёт:
+    - Веса компонентов (лабы, посещаемость, резерв активности)
+    - Количество работ для каждой аттестации
+    - Коэффициенты оценок 4 и 3 (5=1.0 и 2=0.0 фиксированы)
     
-    Настраиваемые параметры:
-    - Веса компонентов (лабы, посещаемость, активность)
-    - Коэффициенты штрафов за просрочку
-    - Баллы за статусы посещаемости
+    Система автоматически рассчитывает баллы за каждую работу.
     """
     __tablename__ = "attestation_settings"
     
@@ -55,103 +63,115 @@ class AttestationSettings(Base, TimestampMixin):
         unique=True
     )
     
-    # Веса компонентов (должны суммироваться в 100)
-    labs_weight: Mapped[float] = mapped_column(Float, default=60.0, nullable=False)
+    # === ВЕСА КОМПОНЕНТОВ (сумма = 100%) ===
+    labs_weight: Mapped[float] = mapped_column(Float, default=70.0, nullable=False)
     attendance_weight: Mapped[float] = mapped_column(Float, default=20.0, nullable=False)
-    activity_weight: Mapped[float] = mapped_column(Float, default=20.0, nullable=False)
+    activity_reserve: Mapped[float] = mapped_column(Float, default=10.0, nullable=False)
     
-    # Настройки лабораторных работ
-    required_labs_count: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
-    bonus_per_extra_lab: Mapped[float] = mapped_column(Float, default=0.4, nullable=False)
+    # === КОЛИЧЕСТВО РАБОТ ===
+    labs_count_first: Mapped[int] = mapped_column(Integer, default=8, nullable=False)
+    labs_count_second: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
     
-    # Коэффициенты штрафов за просрочку (Requirements 1.7, 1.8, 1.9)
-    soft_deadline_penalty: Mapped[float] = mapped_column(Float, default=0.7, nullable=False)
-    hard_deadline_penalty: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
-    soft_deadline_days: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
+    # === КОЭФФИЦИЕНТЫ ОЦЕНОК (grade_5=1.0 и grade_2=0.0 фиксированы) ===
+    grade_4_coef: Mapped[float] = mapped_column(Float, default=0.7, nullable=False)
+    grade_3_coef: Mapped[float] = mapped_column(Float, default=0.4, nullable=False)
     
-    # Настройки посещаемости - баллы за статусы
-    present_points: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
-    late_points: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
-    excused_points: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    absent_points: Mapped[float] = mapped_column(Float, default=-0.1, nullable=False)
+    # === ПОСЕЩАЕМОСТЬ ===
+    late_coef: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
     
-    # Настройки активности (Requirements 1.10)
+    # === ДЕДЛАЙНЫ ===
+    late_max_grade: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
+    very_late_max_grade: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    late_threshold_days: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
+    
+    # === ОПЦИОНАЛЬНЫЕ КОМПОНЕНТЫ ===
+    # Самостоятельные работы
+    self_works_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    self_works_weight: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    self_works_count: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+    
+    # Коллоквиум
+    colloquium_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    colloquium_weight: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    colloquium_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    
+    # === АКТИВНОСТЬ ===
     activity_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    participation_points: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
     
-    # Период аттестации (для фильтрации посещаемости)
+    # === ПЕРИОДЫ ===
     period_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
     period_end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
-    
-    # Дата начала семестра (для автовычисления периодов)
     semester_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
     
-    # Новая гибкая конфигурация компонентов (JSON)
-    components_config: Mapped[Dict[str, Any]] = mapped_column(
-        JSONB, 
-        nullable=True,
-        default=None,
-        comment="Гибкая конфигурация компонентов аттестации"
-    )
+    # === МЕТОДЫ РАСЧЁТА ===
     
-    # Фиксированные константы университета (не хранятся в БД)
+    def get_grade_coef(self, grade: int) -> float:
+        """Коэффициент для оценки (5=1.0, 4=настр., 3=настр., 2=0.0)"""
+        return {
+            5: GRADE_5_COEF,
+            4: self.grade_4_coef,
+            3: self.grade_3_coef,
+            2: GRADE_2_COEF
+        }.get(grade, 0.0)
+    
+    def get_labs_count(self) -> int:
+        """Количество лаб для текущего типа аттестации"""
+        if self.attestation_type == AttestationType.FIRST:
+            return self.labs_count_first
+        return self.labs_count_first + self.labs_count_second
+    
+    def get_max_component_points(self, weight: float) -> float:
+        """Максимум баллов для компонента = max_attestation * (weight / 100)"""
+        max_att = self.attestation_type.max_points
+        return max_att * (weight / 100)
+    
+    def get_points_per_work(self, weight: float, work_count: int) -> float:
+        """Баллы за одну работу на 5 = max_component / work_count"""
+        if work_count <= 0:
+            return 0.0
+        return self.get_max_component_points(weight) / work_count
+    
+    def calculate_work_points(self, grade: int, weight: float, work_count: int) -> float:
+        """Баллы за работу = points_per_work * grade_coef"""
+        return self.get_points_per_work(weight, work_count) * self.get_grade_coef(grade)
+    
+    # === СТАТИЧЕСКИЕ МЕТОДЫ ===
+    
     @staticmethod
     def get_max_points(attestation_type: AttestationType) -> int:
         """Максимальные баллы по уставу университета"""
-        return 35 if attestation_type == AttestationType.FIRST else 70
+        return attestation_type.max_points
     
     @staticmethod
     def get_min_passing_points(attestation_type: AttestationType) -> int:
-        """Минимальные баллы для зачёта по уставу университета"""
+        """Минимальные баллы для зачёта"""
         return 20 if attestation_type == AttestationType.FIRST else 40
     
     @staticmethod
     def get_grade_scale(attestation_type: AttestationType) -> dict:
-        """
-        Фиксированная шкала оценок университета.
-        Возвращает словарь с границами для каждой оценки.
-        """
+        """Фиксированная шкала оценок университета"""
         if attestation_type == AttestationType.FIRST:
-            return {
-                "неуд": (0, 19.99),
-                "уд": (20, 25),
-                "хор": (26, 30),
-                "отл": (31, 35)
-            }
-        else:
-            return {
-                "неуд": (0, 39.99),
-                "уд": (40, 50),
-                "хор": (51, 60),
-                "отл": (61, 70)
-            }
+            return {"неуд": (0, 19.99), "уд": (20, 25), "хор": (26, 30), "отл": (31, 35)}
+        return {"неуд": (0, 39.99), "уд": (40, 50), "хор": (51, 60), "отл": (61, 70)}
     
     def validate_weights(self) -> bool:
-        """Проверка, что веса компонентов суммируются в 100%"""
-        total = self.labs_weight + self.attendance_weight + self.activity_weight
+        """Проверка суммы весов = 100%"""
+        total = self.labs_weight + self.attendance_weight + self.activity_reserve
+        if self.self_works_enabled:
+            total += self.self_works_weight
+        if self.colloquium_enabled:
+            total += self.colloquium_weight
         return abs(total - 100.0) < 0.01
 
     @staticmethod
     def calculate_attestation_period(
         semester_start: date, 
-        attestation_type: 'AttestationType'
+        attestation_type: AttestationType
     ) -> Tuple[date, date]:
-        """
-        Вычисляет период аттестации на основе даты начала семестра.
-        
-        По регламенту:
-        - 1-я аттестация: недели 1-8 (баллы накапливаются, макс 35)
-        - 2-я аттестация: недели 9-14 (баллы накапливаются, макс 70)
-        
-        Returns:
-            Tuple[date, date]: (начало периода, конец периода)
-        """
+        """Вычисляет период аттестации"""
         if attestation_type == AttestationType.FIRST:
-            # Период 1-й аттестации: начало семестра → конец 8-й недели
-            start = semester_start
-            end = semester_start + timedelta(weeks=FIRST_ATTESTATION_WEEK)
-        else:
-            # Период 2-й аттестации: конец 8-й недели → конец 14-й недели
-            start = semester_start + timedelta(weeks=FIRST_ATTESTATION_WEEK)
-            end = semester_start + timedelta(weeks=SECOND_ATTESTATION_WEEK)
-        return (start, end)
+            return (semester_start, semester_start + timedelta(weeks=FIRST_ATTESTATION_WEEK))
+        return (
+            semester_start + timedelta(weeks=FIRST_ATTESTATION_WEEK),
+            semester_start + timedelta(weeks=SECOND_ATTESTATION_WEEK)
+        )

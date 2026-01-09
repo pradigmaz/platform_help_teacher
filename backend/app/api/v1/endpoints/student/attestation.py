@@ -46,33 +46,32 @@ async def get_my_attestation(
             activity_points=0,
         )
         
+        b = result.breakdown
         return {
             "attestation_type": attestation_type,
             "total_score": result.total_score,
-            "lab_score": result.lab_score,
-            "attendance_score": result.attendance_score,
-            "activity_score": result.activity_score,
             "grade": result.grade,
             "is_passing": result.is_passing,
             "max_points": result.max_points,
             "min_passing_points": result.min_passing_points,
             "breakdown": {
                 "labs": {
-                    "raw": result.components_breakdown.labs_raw_score,
-                    "weighted": result.components_breakdown.labs_weighted_score,
-                    "count": result.components_breakdown.labs_count,
-                    "required": result.components_breakdown.labs_required,
+                    "score": b.labs_score,
+                    "max": b.labs_max,
+                    "count": b.labs_count,
                 },
                 "attendance": {
-                    "raw": result.components_breakdown.attendance_raw_score,
-                    "weighted": result.components_breakdown.attendance_weighted_score,
-                    "total_classes": result.components_breakdown.attendance_total_classes,
-                    "present": result.components_breakdown.attendance_present,
-                    "late": result.components_breakdown.attendance_late,
+                    "score": b.attendance_score,
+                    "max": b.attendance_max,
+                    "ratio": b.attendance_ratio,
+                    "total_classes": b.total_classes,
+                    "present": b.present_count,
+                    "late": b.late_count,
                 },
                 "activity": {
-                    "raw": result.components_breakdown.activity_raw_score,
-                    "weighted": result.components_breakdown.activity_weighted_score,
+                    "score": b.activity_score,
+                    "max": b.activity_max,
+                    "bonus_blocked": b.bonus_blocked,
                 },
             },
         }

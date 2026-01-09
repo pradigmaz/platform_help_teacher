@@ -1,6 +1,4 @@
 """Attestation settings endpoints."""
-from typing import Dict
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,20 +24,6 @@ async def get_grade_scale(
 ):
     """Получить шкалу оценок для типа аттестации."""
     return AttestationSettings.get_grade_scale(attestation_type)
-
-
-@router.post("/attestation/settings/initialize", response_model=Dict[str, AttestationSettingsResponse])
-async def initialize_attestation_settings(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_superuser),
-):
-    """Инициализировать глобальные настройки аттестации."""
-    service = AttestationService(db)
-    first_settings, second_settings = await service.initialize_settings()
-    return {
-        "first": service.to_response(first_settings),
-        "second": service.to_response(second_settings)
-    }
 
 
 @router.get("/attestation/settings/{attestation_type}", response_model=AttestationSettingsResponse)
