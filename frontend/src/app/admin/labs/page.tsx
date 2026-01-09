@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -228,7 +229,7 @@ export default function AdminLabsPage() {
             <Settings className="mr-2 h-4 w-4" /> Настройки
           </Button>
           <Button asChild className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
-            <a href="/admin/labs/new"><Plus className="mr-2 h-4 w-4" /> Создать (редактор)</a>
+            <Link href="/admin/labs/new"><Plus className="mr-2 h-4 w-4" /> Создать (редактор)</Link>
           </Button>
           <Button variant="secondary" onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" /> Быстрое создание
