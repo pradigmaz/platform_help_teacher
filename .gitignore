@@ -52,7 +52,6 @@ backend/setup_webhook.py
 backend/*.html
 
 # Root level junk
-package.json
 scripts/
 !backend/scripts/
 
