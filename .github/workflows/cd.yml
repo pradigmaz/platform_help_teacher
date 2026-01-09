@@ -25,7 +25,8 @@ jobs:
             echo "=== Starting deploy ==="
             cd ~/platform_help_teacher
             echo "=== Git pull ==="
-            git pull origin master
+            git fetch origin master
+            git reset --hard origin/master
             cd deploy
             
             # Check .env
