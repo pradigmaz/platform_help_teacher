@@ -190,6 +190,7 @@ export class CodeBlockNode extends DecoratorNode<JSX.Element> {
 
   decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
     // Динамический импорт компонента
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { CodeBlockComponent } = require('../CodeBlockComponent');
     return createElement(CodeBlockComponent, {
       nodeKey: this.__key,

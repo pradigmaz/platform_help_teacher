@@ -41,6 +41,7 @@ export class ViewerSnippetNode extends SnippetNode {
   }
 
   decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { CodeSnippet } = require('@/components/ui/code-snippet');
     return createElement(CodeSnippet, {
       code: this.__code,

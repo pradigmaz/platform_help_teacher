@@ -61,4 +61,5 @@ export interface LabCreate {
   lesson_id?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface LabUpdate extends Partial<LabCreate> {}

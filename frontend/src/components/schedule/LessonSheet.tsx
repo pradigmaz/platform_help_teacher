@@ -10,6 +10,7 @@ import { canHaveGrade } from './constants';
 import { useLessonData } from './hooks/useLessonData';
 import { SheetHeader, LessonStatus, LessonTopic, StudentsTable } from './components';
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface LessonSheetData extends LessonData {}
 
 interface LessonSheetProps {

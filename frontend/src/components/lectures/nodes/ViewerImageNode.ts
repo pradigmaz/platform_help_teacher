@@ -45,6 +45,7 @@ export class ViewerImageNode extends ImageNode {
 
   decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
     // Динамический импорт Viewer компонента
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { ImageViewerComponent } = require('../ImageViewerComponent');
     return createElement(ImageViewerComponent, {
       src: this.__src,

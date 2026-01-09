@@ -43,6 +43,7 @@ export class ViewerCodeBlockNode extends CodeBlockNode {
 
   decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
     // Динамический импорт Viewer компонента
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { CodeBlockViewerComponent } = require('../CodeBlockViewerComponent');
     return createElement(CodeBlockViewerComponent, {
       code: this.__code,

@@ -137,6 +137,7 @@ export class SnippetNode extends DecoratorNode<JSX.Element> {
   }
 
   decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { SnippetComponent } = require('../SnippetComponent');
     return createElement(SnippetComponent, {
       nodeKey: this.__key,
