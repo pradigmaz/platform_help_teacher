@@ -34,7 +34,7 @@ export default function AdminLecturesPage() {
     try {
       const lecture = await LecturesAPI.create({
         title,
-        content: { root: { children: [], direction: null, format: '', indent: 0, type: 'root', version: 1 } } as SerializedEditorState,
+        content: { root: { children: [], direction: null, format: '', indent: 0, type: 'root', version: 1 } } as unknown as SerializedEditorState,
         subject_id: subjectId,
       });
       toast.success('Лекция создана');

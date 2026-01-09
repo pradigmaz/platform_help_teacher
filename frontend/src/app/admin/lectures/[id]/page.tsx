@@ -53,8 +53,8 @@ export default function LectureEditorPage() {
   useEffect(() => {
     if (isNew) {
       setTitle('Новая лекция');
-      setPreviewContent(emptyEditorState as SerializedEditorState);
-      setDebouncedPreviewContent(emptyEditorState as SerializedEditorState);
+      setPreviewContent(emptyEditorState as unknown as SerializedEditorState);
+      setDebouncedPreviewContent(emptyEditorState as unknown as SerializedEditorState);
       return;
     }
 
@@ -63,8 +63,8 @@ export default function LectureEditorPage() {
         const data = await LecturesAPI.get(lectureId);
         setLecture(data);
         setTitle(data.title);
-        setPreviewContent(data.content as SerializedEditorState);
-        setDebouncedPreviewContent(data.content as SerializedEditorState);
+        setPreviewContent(data.content as unknown as SerializedEditorState);
+        setDebouncedPreviewContent(data.content as unknown as SerializedEditorState);
       } catch (error) {
         toast.error('Не удалось загрузить лекцию');
         router.push('/admin/lectures');
@@ -129,7 +129,7 @@ export default function LectureEditorPage() {
         )}>
           {previewMode !== 'full' && (
             <LectureEditor
-              initialContent={(lecture?.content || emptyEditorState) as SerializedEditorState}
+              initialContent={(lecture?.content || emptyEditorState) as unknown as SerializedEditorState}
               onSave={handleSave}
               onChange={handleContentChange}
               autoSaveInterval={30000}
