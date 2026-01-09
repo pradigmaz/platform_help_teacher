@@ -55,7 +55,7 @@ sudo ufw default deny incoming
 sudo ufw default allow outgoing
 
 # Разрешить SSH (на новом порту если меняли)
-sudo ufw allow 2222/tcp comment 'SSH'
+sudo ufw allow 2026/tcp comment 'SSH'
 
 # Разрешить HTTP/HTTPS
 sudo ufw allow 80/tcp comment 'HTTP'
