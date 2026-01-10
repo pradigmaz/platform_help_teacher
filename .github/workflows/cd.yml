@@ -40,6 +40,7 @@ jobs:
             # Determine what needs rebuild
             REBUILD_BACKEND=false
             REBUILD_FRONTEND=false
+            NGINX_ONLY=false
             
             if echo "$CHANGED_FILES" | grep -qE "^backend/"; then
               REBUILD_BACKEND=true
@@ -48,27 +49,46 @@ jobs:
               REBUILD_FRONTEND=true
             fi
             
-            # If only config/docs changed - just restart
+            # Check if only nginx/deploy configs changed
             if [ "$REBUILD_BACKEND" = "false" ] && [ "$REBUILD_FRONTEND" = "false" ]; then
+              if echo "$CHANGED_FILES" | grep -qE "^deploy/nginx"; then
+                NGINX_ONLY=true
+              fi
+            fi
+            
+            # NGINX-only: hot reload without restart
+            if [ "$NGINX_ONLY" = "true" ]; then
+              echo "=== Nginx config changed, hot reload ==="
+              docker cp nginx.conf edu-proxy-prod:/etc/nginx/nginx.conf
+              docker exec edu-proxy-prod nginx -t && docker exec edu-proxy-prod nginx -s reload
+              echo "=== Nginx reloaded ==="
+            # No code changes: just restart
+            elif [ "$REBUILD_BACKEND" = "false" ] && [ "$REBUILD_FRONTEND" = "false" ]; then
               echo "=== No code changes, restarting containers ==="
               docker compose -f docker-compose.prod.yml restart
               sleep 10
+            # Code changed: rebuild
             else
               echo "=== Code changed, rebuilding ==="
               
               # Build only changed services (with cache)
               if [ "$REBUILD_BACKEND" = "true" ]; then
                 echo "Rebuilding backend..."
-                docker compose -f docker-compose.prod.yml build --no-cache backend celery
+                docker compose -f docker-compose.prod.yml build backend celery
               fi
               if [ "$REBUILD_FRONTEND" = "true" ]; then
                 echo "Rebuilding frontend..."
-                docker compose -f docker-compose.prod.yml build --no-cache frontend
+                docker compose -f docker-compose.prod.yml build frontend
               fi
               
               # Restart with new images
               docker compose -f docker-compose.prod.yml up -d
               sleep 20
+              
+              # Reload nginx to refresh DNS cache (backend IP may have changed)
+              echo "=== Reloading nginx DNS cache ==="
+              docker cp nginx.conf edu-proxy-prod:/etc/nginx/nginx.conf
+              docker exec edu-proxy-prod nginx -s reload
             fi
             
             # Run migrations if backend changed
