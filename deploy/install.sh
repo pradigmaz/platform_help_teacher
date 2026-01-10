@@ -693,9 +693,11 @@ log_info "Все контейнеры запущены"
 log_info "Применение миграций БД..."
 docker exec edu-backend-prod alembic upgrade head || log_warn "Migration warning"
 
-# Initialize MinIO
+# Initialize MinIO bucket via mc client
 log_info "Инициализация MinIO бакетов..."
-docker exec edu-backend-prod python -c "from app.core.config import settings; from minio import Minio; client = Minio(settings.MINIO_ENDPOINT, settings.MINIO_ROOT_USER, settings.MINIO_ROOT_PASSWORD, secure=False); client.make_bucket(settings.MINIO_BUCKET_NAME) if not client.bucket_exists(settings.MINIO_BUCKET_NAME) else None" || log_warn "MinIO init warning"
+docker run --rm --network deploy_backend-net \
+    -e MC_HOST_minio="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000" \
+    minio/mc mb --ignore-existing minio/${MINIO_BUCKET_NAME} 2>/dev/null || log_warn "MinIO init warning (bucket may already exist)"
 
 
 

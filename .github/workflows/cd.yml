@@ -22,35 +22,61 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
-            echo "=== Starting deploy ==="
             cd ~/platform_help_teacher
-            echo "=== Git pull ==="
+            
+            # Detect what changed
             git fetch origin master
+            CHANGED_FILES=$(git diff --name-only HEAD origin/master)
+            echo "Changed files: $CHANGED_FILES"
+            
             git reset --hard origin/master
             cd deploy
             
-            # Check .env
             if [ ! -f ".env" ]; then
-              echo "ERROR: .env not found! Run: cp .env.example .env && nano .env"
+              echo "ERROR: .env not found!"
               exit 1
             fi
             
-            echo "=== Stopping containers ==="
-            docker compose -f docker-compose.prod.yml down || true
+            # Determine what needs rebuild
+            REBUILD_BACKEND=false
+            REBUILD_FRONTEND=false
             
-            echo "=== Building (uses cache, ~2-3 min) ==="
-            docker compose -f docker-compose.prod.yml build --progress=plain 2>&1 | tail -100
+            if echo "$CHANGED_FILES" | grep -qE "^backend/"; then
+              REBUILD_BACKEND=true
+            fi
+            if echo "$CHANGED_FILES" | grep -qE "^frontend/"; then
+              REBUILD_FRONTEND=true
+            fi
             
-            echo "=== Starting containers ==="
-            docker compose -f docker-compose.prod.yml up -d
+            # If only config/docs changed - just restart
+            if [ "$REBUILD_BACKEND" = "false" ] && [ "$REBUILD_FRONTEND" = "false" ]; then
+              echo "=== No code changes, restarting containers ==="
+              docker compose -f docker-compose.prod.yml restart
+              sleep 10
+            else
+              echo "=== Code changed, rebuilding ==="
+              
+              # Build only changed services (with cache)
+              if [ "$REBUILD_BACKEND" = "true" ]; then
+                echo "Rebuilding backend..."
+                docker compose -f docker-compose.prod.yml build --no-cache backend celery
+              fi
+              if [ "$REBUILD_FRONTEND" = "true" ]; then
+                echo "Rebuilding frontend..."
+                docker compose -f docker-compose.prod.yml build --no-cache frontend
+              fi
+              
+              # Restart with new images
+              docker compose -f docker-compose.prod.yml up -d
+              sleep 20
+            fi
             
-            echo "=== Waiting for services ==="
-            sleep 30
+            # Run migrations if backend changed
+            if [ "$REBUILD_BACKEND" = "true" ]; then
+              echo "=== Running migrations ==="
+              docker exec edu-backend-prod alembic upgrade head || echo "Migration warning"
+            fi
             
-            echo "=== Container status ==="
+            echo "=== Status ==="
             docker compose -f docker-compose.prod.yml ps
-            
-            echo "=== Running migrations ==="
-            docker exec edu-backend-prod alembic upgrade head || echo "Migration warning"
-            
             echo "=== Deploy complete ==="
