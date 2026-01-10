@@ -7,7 +7,7 @@ class CsrfSettings(BaseSettings):
     secret_key: str = settings.SECRET_KEY
     cookie_samesite: str = "lax"
     cookie_secure: bool = settings.ENVIRONMENT == "production"
-    cookie_httponly: bool = True
+    cookie_httponly: bool = False  # JS должен читать cookie для CSRF
     token_location: str = "header"
     header_name: str = "X-CSRF-Token"
     header_type: str = ""
