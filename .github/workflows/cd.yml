@@ -65,7 +65,7 @@ jobs:
             # No code changes: just restart
             elif [ "$REBUILD_BACKEND" = "false" ] && [ "$REBUILD_FRONTEND" = "false" ]; then
               echo "=== No code changes, restarting containers ==="
-              docker compose -f docker-compose.prod.yml restart
+              docker compose restart
               sleep 10
             # Code changed: rebuild
             else
@@ -74,15 +74,15 @@ jobs:
               # Build only changed services (with cache)
               if [ "$REBUILD_BACKEND" = "true" ]; then
                 echo "Rebuilding backend..."
-                docker compose -f docker-compose.prod.yml build backend celery
+                docker compose build backend celery
               fi
               if [ "$REBUILD_FRONTEND" = "true" ]; then
                 echo "Rebuilding frontend..."
-                docker compose -f docker-compose.prod.yml build frontend
+                docker compose build frontend
               fi
               
               # Restart with new images
-              docker compose -f docker-compose.prod.yml up -d
+              docker compose up -d
               sleep 20
               
               # Reload nginx to refresh DNS cache (backend IP may have changed)
@@ -97,5 +97,5 @@ jobs:
             fi
             
             echo "=== Status ==="
-            docker compose -f docker-compose.prod.yml ps
+            docker compose ps
             echo "=== Deploy complete ==="
