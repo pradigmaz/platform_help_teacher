@@ -1,81 +1,32 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { Sparkles } from '@/components/ui/sparkles';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { Save, RotateCcw, Award, Calendar, AlertCircle, FlaskConical, Clock, Zap } from 'lucide-react';
+import { Save, RotateCcw, Award } from 'lucide-react';
 import { toast } from 'sonner';
 import { AttestationAPI, AttestationType } from '@/lib/api';
-import { BorderBeam } from '@/components/ui/border-beam';
-import { cn } from '@/lib/utils';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { GradeScaleCard } from './GradeScaleCard';
 import { ScorePreviewCard } from './settings';
-
-// Helper для расчёта периодов аттестации
-function formatPeriod(startDate: string, weekStart: number, weekEnd: number): string {
-  const start = new Date(startDate);
-  const periodStart = new Date(start);
-  periodStart.setDate(start.getDate() + (weekStart - 1) * 7);
-  const periodEnd = new Date(start);
-  periodEnd.setDate(start.getDate() + weekEnd * 7 - 1);
-  
-  const formatDate = (d: Date) => d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-  return `${formatDate(periodStart)} — ${formatDate(periodEnd)}`;
-}
-
-interface FormState {
-  labs_weight: number;
-  attendance_weight: number;
-  activity_reserve: number;
-  labs_count_first: number;
-  labs_count_second: number;
-  grade_4_coef: number;
-  grade_3_coef: number;
-  late_coef: number;
-  absent_coef: number;
-  late_max_grade: number;
-  very_late_max_grade: number;
-  late_threshold_days: number;
-  self_works_enabled: boolean;
-  self_works_weight: number;
-  self_works_count: number;
-  colloquium_enabled: boolean;
-  colloquium_weight: number;
-  colloquium_count: number;
-  activity_enabled: boolean;
-  semester_start_date: string;
-}
-
-const DEFAULT_STATE: FormState = {
-  labs_weight: 70, attendance_weight: 20, activity_reserve: 10,
-  labs_count_first: 8, labs_count_second: 10,
-  grade_4_coef: 0.7, grade_3_coef: 0.4,
-  late_coef: 0.5,
-  absent_coef: 0,
-  late_max_grade: 4, very_late_max_grade: 3, late_threshold_days: 7,
-  self_works_enabled: false, self_works_weight: 0, self_works_count: 2,
-  colloquium_enabled: false, colloquium_weight: 0, colloquium_count: 1,
-  activity_enabled: true,
-  semester_start_date: '',
-};
+import {
+  LabsSettingsCard,
+  AttendanceSettingsCard,
+  ActivitySettingsCard,
+  SemesterDateCard,
+  AttestationFormState,
+  DEFAULT_FORM_STATE,
+} from './attestation-settings';
 
 export function AttestationSettingsForm() {
   const [attestationType, setAttestationType] = useState<AttestationType>('first');
-  const [form, setForm] = useState<FormState>(DEFAULT_STATE);
+  const [form, setForm] = useState<AttestationFormState>(DEFAULT_FORM_STATE);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   const maxPoints = attestationType === 'first' ? 35 : 70;
-  const minPassing = attestationType === 'first' ? 20 : 40;
 
   const totalWeight = useMemo(() => {
     let total = form.labs_weight + form.attendance_weight + form.activity_reserve;
@@ -86,8 +37,8 @@ export function AttestationSettingsForm() {
 
   const isWeightValid = Math.abs(totalWeight - 100) < 0.01;
 
-  const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm(prev => ({ ...prev, [key]: value }));
+  const update = <K extends keyof AttestationFormState>(key: K, value: AttestationFormState[K]) => {
+    setForm((prev: AttestationFormState) => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
@@ -162,7 +113,7 @@ export function AttestationSettingsForm() {
               <p className="text-muted-foreground">Автобалансировка баллов</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => { setForm(DEFAULT_STATE); setHasChanges(false); }} disabled={!hasChanges || saving}>
+              <Button variant="outline" onClick={() => { setForm(DEFAULT_FORM_STATE); setHasChanges(false); }} disabled={!hasChanges || saving}>
                 <RotateCcw className="w-4 h-4 mr-2" />Сбросить
               </Button>
               <Button onClick={handleSave} disabled={!hasChanges || saving || !isWeightValid}>
@@ -174,38 +125,7 @@ export function AttestationSettingsForm() {
 
         {/* Semester Date & Periods */}
         <BlurFade delay={0.12}>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="w-4 h-4 text-blue-500" />
-                    <Label>Дата начала семестра</Label>
-                  </div>
-                  <Input 
-                    type="date" 
-                    value={form.semester_start_date} 
-                    onChange={e => update('semester_start_date', e.target.value)} 
-                    disabled={attestationType === 'second'}
-                  />
-                </div>
-                {form.semester_start_date && (
-                  <div className="flex-1 text-sm space-y-1">
-                    <p className="text-muted-foreground">Периоды аттестаций:</p>
-                    <p><span className="font-medium">1-я:</span> {formatPeriod(form.semester_start_date, 1, 7)}</p>
-                    <p className={attestationType === 'second' ? '' : 'text-muted-foreground'}>
-                      <span className="font-medium">2-я:</span> {formatPeriod(form.semester_start_date, 8, 14)}
-                    </p>
-                  </div>
-                )}
-              </div>
-              {!form.semester_start_date && (
-                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />Укажите для автовычисления периодов
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          <SemesterDateCard form={form} attestationType={attestationType} onUpdate={update} />
         </BlurFade>
 
         {/* Tabs */}
@@ -220,24 +140,8 @@ export function AttestationSettingsForm() {
 
         <BlurFade delay={0.2}><GradeScaleCard attestationType={attestationType} /></BlurFade>
 
-        {/* Weight Summary */}
-        <BlurFade delay={0.25}>
-          <Card className="relative overflow-hidden">
-            <BorderBeam size={200} duration={10} />
-            <CardContent className="pt-4">
-              <div className="flex flex-wrap items-center gap-4 text-sm">
-                <Badge variant="outline" className="bg-green-500/10">Макс: {maxPoints} б.</Badge>
-                <Badge variant="outline" className="bg-yellow-500/10">Мин: {minPassing} б.</Badge>
-                <Badge variant="outline" className={cn(isWeightValid ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600")}>
-                  Веса: {totalWeight.toFixed(0)}% {isWeightValid ? '✓' : '(нужно 100%)'}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-        </BlurFade>
-
         {/* Score Preview */}
-        <BlurFade delay={0.3}>
+        <BlurFade delay={0.25}>
           <ScorePreviewCard
             maxPoints={maxPoints}
             labsWeight={form.labs_weight}
@@ -254,127 +158,18 @@ export function AttestationSettingsForm() {
 
         {/* Labs Settings */}
         <BlurFade delay={0.35}>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <FlaskConical className="w-5 h-5 text-blue-500" />
-                Лабораторные работы
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Вес (%)</Label>
-                  <div className="flex items-center gap-2">
-                    <Slider value={[form.labs_weight]} onValueChange={([v]) => update('labs_weight', v)} max={100} step={1} />
-                    <span className="w-12 text-right font-mono">{form.labs_weight}%</span>
-                  </div>
-                </div>
-                <div>
-                  <Label>Кол-во для 1-й атт.</Label>
-                  <Input type="number" value={form.labs_count_first} onChange={e => update('labs_count_first', +e.target.value)} min={1} max={20} />
-                </div>
-              </div>
-              {attestationType === 'second' && (
-                <div>
-                  <Label>Доп. лаб для 2-й атт.</Label>
-                  <Input type="number" value={form.labs_count_second} onChange={e => update('labs_count_second', +e.target.value)} min={0} max={20} />
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Коэф. оценки 4</Label>
-                  <div className="flex items-center gap-2">
-                    <Slider value={[form.grade_4_coef * 100]} onValueChange={([v]) => update('grade_4_coef', v / 100)} max={100} step={1} />
-                    <span className="w-12 text-right font-mono">{(form.grade_4_coef * 100).toFixed(0)}%</span>
-                  </div>
-                </div>
-                <div>
-                  <Label>Коэф. оценки 3</Label>
-                  <div className="flex items-center gap-2">
-                    <Slider value={[form.grade_3_coef * 100]} onValueChange={([v]) => update('grade_3_coef', v / 100)} max={100} step={1} />
-                    <span className="w-12 text-right font-mono">{(form.grade_3_coef * 100).toFixed(0)}%</span>
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">Оценка 5 = 100% (фикс), Оценка 2 = 0% (работа не засчитана)</p>
-            </CardContent>
-          </Card>
+          <LabsSettingsCard form={form} attestationType={attestationType} onUpdate={update} />
         </BlurFade>
 
         {/* Attendance */}
         <BlurFade delay={0.4}>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Clock className="w-5 h-5 text-green-500" />
-                Посещаемость
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Вес (%)</Label>
-                <div className="flex items-center gap-2">
-                  <Slider value={[form.attendance_weight]} onValueChange={([v]) => update('attendance_weight', v)} max={100} step={1} />
-                  <span className="w-12 text-right font-mono">{form.attendance_weight}%</span>
-                </div>
-              </div>
-              <div>
-                <Label>Баллы за опоздание (% от присутствия)</Label>
-                <div className="flex items-center gap-2">
-                  <Slider value={[form.late_coef * 100]} onValueChange={([v]) => update('late_coef', v / 100)} max={100} step={5} />
-                  <span className="w-12 text-right font-mono">{(form.late_coef * 100).toFixed(0)}%</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Опоздание = {(form.late_coef * 100).toFixed(0)}% от баллов за присутствие
-                </p>
-              </div>
-              <div>
-                <Label>Штраф за прогул (% от присутствия)</Label>
-                <div className="flex items-center gap-2">
-                  <Slider value={[Math.abs(form.absent_coef) * 100]} onValueChange={([v]) => update('absent_coef', -v / 100)} max={100} step={5} />
-                  <span className="w-12 text-right font-mono text-red-500">{form.absent_coef === 0 ? '0%' : `${(form.absent_coef * 100).toFixed(0)}%`}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {form.absent_coef === 0 && 'Прогул = 0 баллов (без штрафа)'}
-                  {form.absent_coef < 0 && `Прогул = ${(form.absent_coef * 100).toFixed(0)}% от присутствия (штраф)`}
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground">Кол-во занятий определяется автоматически из расписания</p>
-            </CardContent>
-          </Card>
+          <AttendanceSettingsCard form={form} onUpdate={update} />
         </BlurFade>
 
         {/* Activity Reserve */}
         <BlurFade delay={0.45}>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Zap className="w-5 h-5 text-yellow-500" />
-                Резерв для активности
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Резерв (%)</Label>
-                <div className="flex items-center gap-2">
-                  <Slider value={[form.activity_reserve]} onValueChange={([v]) => update('activity_reserve', v)} max={30} step={1} />
-                  <span className="w-12 text-right font-mono">{form.activity_reserve}%</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={form.activity_enabled} onCheckedChange={v => update('activity_enabled', v)} />
-                <Label>Включить активность</Label>
-              </div>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>• Бонусы ограничены резервом и макс баллами</p>
-                <p>• Штрафы без ограничений</p>
-                <p>• Если студент набрал макс — бонусы заблокированы</p>
-              </div>
-            </CardContent>
-          </Card>
+          <ActivitySettingsCard form={form} onUpdate={update} />
         </BlurFade>
-
       </div>
     </TooltipProvider>
   );

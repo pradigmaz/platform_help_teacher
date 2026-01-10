@@ -16,14 +16,13 @@ export default function NewLabPage() {
       const created = await LabsAPI.adminCreate({
         number: data.number,
         title: data.title,
-        topic: data.topic,
         goal: data.goal,
         formatting_guide: data.formatting_guide,
         theory_content: data.theory_content as unknown as Record<string, unknown>,
         practice_content: data.practice_content as unknown as Record<string, unknown>,
         variants: data.variants,
         questions: data.questions,
-        max_grade: data.max_grade,
+        max_grade: 5,
         deadline: data.deadline,
         is_sequential: data.is_sequential,
       });

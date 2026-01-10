@@ -14,10 +14,6 @@ export function LabInfoBadges({ lab }: LabInfoBadgesProps) {
     <>
       {/* Info badges */}
       <div className="flex flex-wrap gap-2">
-        <Badge variant="secondary" className="gap-1">
-          <Target className="h-3 w-3" />
-          Макс. оценка: {lab.max_grade}
-        </Badge>
         {lab.deadline && (
           <Badge variant="outline" className="gap-1">
             <Calendar className="h-3 w-3" />

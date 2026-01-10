@@ -203,11 +203,13 @@ async def get_lab_settings(
     settings = result.scalar_one_or_none()
     
     if not settings:
-        # Создаём настройки по умолчанию
-        settings = LabSettings(labs_count=10, default_max_grade=10)
-        db.add(settings)
-        await db.commit()
-        await db.refresh(settings)
+        # Возвращаем дефолтные значения без сохранения, is_configured=False
+        return schemas.LabSettingsResponse(
+            labs_count=10,
+            grading_scale="10",
+            default_max_grade=10,
+            is_configured=False,
+        )
     
     return settings
 

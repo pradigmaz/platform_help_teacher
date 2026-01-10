@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,28 +18,31 @@ interface LabSettings {
   labs_count: number;
   grading_scale: '5' | '10' | '100';
   default_max_grade: number;
+  is_configured: boolean;
 }
 
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: LabSettings;
-  setSettings: (settings: LabSettings) => void;
+  setSettings: React.Dispatch<React.SetStateAction<LabSettings>>;
   onSave: () => void;
+  isInitialSetup?: boolean;
 }
 
-export function SettingsDialog({ open, onOpenChange, settings, setSettings, onSave }: SettingsDialogProps) {
+export function SettingsDialog({ open, onOpenChange, settings, setSettings, onSave, isInitialSetup }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
-            Настройки лабораторных
+            {isInitialSetup ? 'Настройка лабораторных' : 'Настройки лабораторных'}
           </DialogTitle>
           <DialogDescription>
-            Количество лабораторных для отслеживания прогресса.
-            Шкала оценок настраивается в разделе «Аттестация».
+            {isInitialSetup 
+              ? 'Укажите количество лабораторных работ в семестре для начала работы.'
+              : 'Количество лабораторных для отслеживания прогресса. Шкала оценок настраивается в разделе «Аттестация».'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -56,8 +60,8 @@ export function SettingsDialog({ open, onOpenChange, settings, setSettings, onSa
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
-          <Button onClick={onSave}>Сохранить</Button>
+          {!isInitialSetup && <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>}
+          <Button onClick={onSave}>{isInitialSetup ? 'Начать работу' : 'Сохранить'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

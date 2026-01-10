@@ -31,6 +31,7 @@ export interface AttestationSettings {
   
   // Посещаемость
   late_coef: number;
+  absent_coef: number;
   
   // Дедлайны
   late_max_grade: number;

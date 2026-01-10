@@ -13,6 +13,7 @@ class LabSettingsResponse(BaseModel):
     labs_count: int
     grading_scale: GradingScale
     default_max_grade: int
+    is_configured: bool = True
 
     class Config:
         from_attributes = True

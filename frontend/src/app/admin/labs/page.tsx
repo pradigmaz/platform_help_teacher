@@ -18,7 +18,6 @@ import { Sparkles } from '@/components/ui/sparkles';
 import {
   LabsTable,
   StatsCards,
-  LabDialog,
   SettingsDialog,
   QueueDialog,
   GradeDialog,
@@ -34,17 +33,11 @@ interface Lab {
   created_at: string;
 }
 
-interface LabForm {
-  title: string;
-  description: string;
-  max_grade: number;
-  deadline: string;
-}
-
 interface LabSettings {
   labs_count: number;
   grading_scale: '5' | '10' | '100';
   default_max_grade: number;
+  is_configured: boolean;
 }
 
 const GRADING_SCALES = [
@@ -53,20 +46,15 @@ const GRADING_SCALES = [
   { value: '100', label: '100-балльная' },
 ];
 
-const initialForm: LabForm = { title: '', description: '', max_grade: 10, deadline: '' };
-
 export default function AdminLabsPage() {
   // Labs state
   const [labs, setLabs] = useState<Lab[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingLab, setEditingLab] = useState<Lab | null>(null);
-  const [form, setForm] = useState<LabForm>(initialForm);
 
   // Settings state
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [labSettings, setLabSettings] = useState<LabSettings>({
-    labs_count: 10, grading_scale: '10', default_max_grade: 10,
+    labs_count: 10, grading_scale: '10', default_max_grade: 10, is_configured: true,
   });
 
   // Queue state
@@ -98,6 +86,10 @@ export default function AdminLabsPage() {
     try {
       const response = await api.get('/admin/lab-settings');
       setLabSettings(response.data);
+      // Если настройки не сконфигурированы — открываем диалог
+      if (!response.data.is_configured) {
+        setSettingsDialogOpen(true);
+      }
     } catch { console.error('Ошибка загрузки настроек'); }
   };
 
@@ -108,24 +100,6 @@ export default function AdminLabsPage() {
       setQueue(data);
     } catch { toast.error('Ошибка загрузки очереди'); }
     finally { setQueueLoading(false); }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const payload = { ...form, deadline: form.deadline || null };
-      if (editingLab) {
-        await api.patch(`/admin/labs/${editingLab.id}`, payload);
-        toast.success('Лабораторная работа обновлена');
-      } else {
-        await api.post('/admin/labs', payload);
-        toast.success('Лабораторная работа создана');
-      }
-      setDialogOpen(false);
-      setEditingLab(null);
-      setForm(initialForm);
-      fetchLabs();
-    } catch { toast.error('Ошибка сохранения'); }
   };
 
   const handleDelete = async (id: string) => {
@@ -141,6 +115,7 @@ export default function AdminLabsPage() {
     try {
       await api.patch('/admin/lab-settings', labSettings);
       toast.success('Настройки сохранены');
+      setLabSettings({ ...labSettings, is_configured: true });
       setSettingsDialogOpen(false);
     } catch { toast.error('Ошибка сохранения настроек'); }
   };
@@ -174,12 +149,6 @@ export default function AdminLabsPage() {
       setSelectedSubmission(null);
       fetchQueue();
     } catch { toast.error('Ошибка отклонения работы'); }
-  };
-
-  const openCreateDialog = () => {
-    setEditingLab(null);
-    setForm({ ...initialForm, max_grade: labSettings.default_max_grade });
-    setDialogOpen(true);
   };
 
   const openQueueDialog = () => {
@@ -229,10 +198,7 @@ export default function AdminLabsPage() {
             <Settings className="mr-2 h-4 w-4" /> Настройки
           </Button>
           <Button asChild className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
-            <Link href="/admin/labs/new"><Plus className="mr-2 h-4 w-4" /> Создать (редактор)</Link>
-          </Button>
-          <Button variant="secondary" onClick={openCreateDialog}>
-            <Plus className="mr-2 h-4 w-4" /> Быстрое создание
+            <Link href="/admin/labs/new"><Plus className="mr-2 h-4 w-4" /> Создать</Link>
           </Button>
         </div>
 
@@ -261,8 +227,18 @@ export default function AdminLabsPage() {
       </div>
 
       {/* Dialogs */}
-      <LabDialog open={dialogOpen} onOpenChange={setDialogOpen} form={form} setForm={setForm} onSubmit={handleSubmit} isEditing={!!editingLab} />
-      <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} settings={labSettings} setSettings={setLabSettings} onSave={handleSaveSettings} />
+      <SettingsDialog 
+        open={settingsDialogOpen} 
+        onOpenChange={(open) => {
+          // Не позволяем закрыть диалог если настройки не сконфигурированы
+          if (!open && !labSettings.is_configured) return;
+          setSettingsDialogOpen(open);
+        }} 
+        settings={labSettings} 
+        setSettings={setLabSettings} 
+        onSave={handleSaveSettings}
+        isInitialSetup={!labSettings.is_configured}
+      />
       <QueueDialog
         open={queueDialogOpen} onOpenChange={setQueueDialogOpen} queue={queue} loading={queueLoading}
         onRefresh={fetchQueue} selectedSubmission={selectedSubmission} onSelectSubmission={handleSelectSubmission}
