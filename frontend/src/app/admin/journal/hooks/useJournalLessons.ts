@@ -103,46 +103,50 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
     }
   };
 
+  // Stable keys for dependencies
+  const semesterKey = `${selectedSemester.academicYear}-${selectedSemester.semester}`;
+  const weekKey = `${format(weekStart, 'yyyy-MM-dd')}-${format(weekEnd, 'yyyy-MM-dd')}`;
+
   // Load subjects for current semester
-  const loadSemesterSubjects = useCallback(async () => {
+  useEffect(() => {
     if (!selectedGroupId) return;
     
-    const semDates = getSemesterDates(selectedSemester);
-    try {
-      const { data: semesterLessons } = await api.get('/admin/journal/lessons', {
-        params: {
-          group_id: selectedGroupId,
-          start_date: format(semDates.start, 'yyyy-MM-dd'),
-          end_date: format(semDates.end, 'yyyy-MM-dd'),
+    const loadSemesterSubjects = async () => {
+      const semDates = getSemesterDates(selectedSemester);
+      try {
+        const { data: semesterLessons } = await api.get('/admin/journal/lessons', {
+          params: {
+            group_id: selectedGroupId,
+            start_date: format(semDates.start, 'yyyy-MM-dd'),
+            end_date: format(semDates.end, 'yyyy-MM-dd'),
+          }
+        });
+        
+        const subjectIds = new Set(
+          semesterLessons.map((l: Lesson) => l.subject_id).filter(Boolean)
+        );
+        
+        const { data: allSubjects } = await api.get('/admin/subjects/');
+        const filtered = allSubjects.filter((s: Subject) => subjectIds.has(s.id));
+        setSubjects(filtered);
+        
+        if (selectedSubjectId !== 'all' && !subjectIds.has(selectedSubjectId)) {
+          setSelectedSubjectId('all');
         }
-      });
-      
-      const subjectIds = new Set(
-        semesterLessons.map((l: Lesson) => l.subject_id).filter(Boolean)
-      );
-      
-      const { data: allSubjects } = await api.get('/admin/subjects/');
-      const filtered = allSubjects.filter((s: Subject) => subjectIds.has(s.id));
-      setSubjects(filtered);
-      
-      if (selectedSubjectId !== 'all' && !subjectIds.has(selectedSubjectId)) {
-        setSelectedSubjectId('all');
+      } catch {
+        toast.error('Ошибка загрузки предметов семестра');
       }
-    } catch {
-      toast.error('Ошибка загрузки предметов семестра');
-    }
-  }, [selectedGroupId, selectedSemester]);
-
-  useEffect(() => {
-    if (selectedGroupId) loadSemesterSubjects();
-  }, [selectedGroupId, selectedSemester, loadSemesterSubjects]);
+    };
+    
+    loadSemesterSubjects();
+  }, [selectedGroupId, semesterKey]);
 
   // Load lessons and students
   useEffect(() => {
     if (selectedGroupId && (initialLoadDone || !lessonIdParam)) {
       loadLessonsData();
     }
-  }, [selectedGroupId, selectedSubjectId, selectedLessonType, weekStart, weekEnd, attestationPeriod, selectedSemester, initialLoadDone]);
+  }, [selectedGroupId, selectedSubjectId, selectedLessonType, weekKey, attestationPeriod, semesterKey, initialLoadDone]);
 
   const loadLessonsData = useCallback(async () => {
     if (!selectedGroupId) return;
@@ -189,7 +193,8 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
     } finally {
       setIsLoading(false);
     }
-  }, [selectedGroupId, selectedSubjectId, selectedLessonType, weekStart, weekEnd, attestationPeriod, selectedSemester]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGroupId, selectedSubjectId, selectedLessonType, weekKey, attestationPeriod, semesterKey]);
 
   return {
     groups,
