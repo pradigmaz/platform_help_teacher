@@ -87,7 +87,6 @@ jobs:
               
               # Reload nginx to refresh DNS cache (backend IP may have changed)
               echo "=== Reloading nginx DNS cache ==="
-              docker cp nginx.conf edu-proxy-prod:/etc/nginx/nginx.conf
               docker exec edu-proxy-prod nginx -s reload
             fi
             
