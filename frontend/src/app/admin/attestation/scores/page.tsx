@@ -142,8 +142,12 @@ export default function AttestationScoresPage() {
           ? await AttestationAPI.calculateAllStudents(attestationType)
           : await AttestationAPI.calculateGroup(selectedGroupId, attestationType);
         dispatch({ type: 'SET_DATA', payload: result });
-      } catch {
-        toast.error('Ошибка загрузки данных аттестации');
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Ошибка загрузки';
+        // Не показываем toast для "нет студентов" — это не ошибка
+        if (!message.includes('нет активных студентов')) {
+          toast.error(message);
+        }
         dispatch({ type: 'SET_DATA', payload: null });
       }
     };
@@ -292,9 +296,15 @@ export default function AttestationScoresPage() {
         </>
       ) : (
         <div className="text-center py-12 text-muted-foreground">
-          {viewMode === 'by-group' && !selectedGroupId 
-            ? 'Выберите группу для просмотра баллов'
-            : 'Нет данных для отображения'}
+          <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="text-lg font-medium">
+            {viewMode === 'by-group' && !selectedGroupId 
+              ? 'Выберите группу для просмотра баллов'
+              : 'В группе нет активных студентов'}
+          </p>
+          <p className="text-sm mt-1">
+            {viewMode === 'by-group' && selectedGroupId && 'Добавьте студентов в группу для расчёта аттестации'}
+          </p>
         </div>
       )}
 

@@ -471,7 +471,80 @@ log_info "Конфигурация сохранена в .env"
 # ============================================
 # STEP 7: BUILD AND START
 # ============================================
-log_step "Шаг 7/8: Сборка и запуск"
+log_step "Шаг 7/9: SSL сертификат"
+
+# SSL setup BEFORE nginx with full config
+if [ "$USE_HTTPS" = "true" ] && [[ "$DOMAIN" != *"ngrok"* ]]; then
+    log_info "Получение SSL сертификата (до запуска nginx)..."
+    
+    ask "Email для Let's Encrypt" "" "SSL_EMAIL"
+    
+    # Create directories for certbot
+    mkdir -p certbot-www certbot-data
+    
+    # Start temporary nginx for ACME challenge
+    log_info "Запуск временного nginx для проверки домена..."
+    docker run -d --name temp-nginx \
+        -p 80:80 \
+        -v "$(pwd)/certbot-www:/var/www/certbot:ro" \
+        nginx:alpine sh -c "mkdir -p /var/www/certbot/.well-known/acme-challenge && nginx -g 'daemon off;'"
+    
+    sleep 3
+    
+    # Get certificate
+    log_info "Запрос сертификата от Let's Encrypt..."
+    docker run --rm \
+        -v "$(pwd)/certbot-data:/etc/letsencrypt" \
+        -v "$(pwd)/certbot-www:/var/www/certbot" \
+        certbot/certbot certonly \
+        --webroot --webroot-path=/var/www/certbot \
+        -d "$DOMAIN" \
+        --email "$SSL_EMAIL" \
+        --agree-tos --non-interactive
+    
+    CERT_RESULT=$?
+    
+    # Stop temporary nginx
+    docker stop temp-nginx && docker rm temp-nginx
+    
+    if [ $CERT_RESULT -ne 0 ]; then
+        log_error "Не удалось получить SSL сертификат!"
+        echo "Проверьте:"
+        echo "  1. Домен $DOMAIN направлен на этот сервер"
+        echo "  2. Порт 80 открыт в firewall"
+        echo ""
+        ask_yes_no "Продолжить без SSL (HTTP only)?" "n" "CONTINUE_NO_SSL"
+        if [ "$CONTINUE_NO_SSL" = "false" ]; then
+            rm -rf certbot-www certbot-data
+            exit 1
+        fi
+        USE_HTTPS=false
+        PROTOCOL="http"
+        FRONTEND_URL="${PROTOCOL}://${DOMAIN}"
+        API_URL="${PROTOCOL}://${DOMAIN}/api/v1"
+    else
+        log_info "SSL сертификат получен!"
+        
+        # Copy certs to docker volume
+        log_info "Копирование сертификатов в Docker volume..."
+        docker volume create deploy_certbot_data 2>/dev/null || true
+        docker run --rm \
+            -v "$(pwd)/certbot-data:/source:ro" \
+            -v deploy_certbot_data:/dest \
+            alpine sh -c "cp -r /source/* /dest/"
+        
+        # Cleanup temp dirs
+        rm -rf certbot-www certbot-data
+    fi
+else
+    if [[ "$DOMAIN" == *"ngrok"* ]]; then
+        log_info "Ngrok домен — SSL не требуется (ngrok предоставляет HTTPS)"
+    else
+        log_info "HTTP режим — SSL пропущен"
+    fi
+fi
+
+log_step "Шаг 8/9: Сборка и запуск"
 
 log_info "Сборка Docker образов..."
 docker compose -f docker-compose.prod.yml build
@@ -507,22 +580,12 @@ docker exec edu-backend-prod alembic upgrade head || log_warn "Migration warning
 log_info "Инициализация MinIO бакетов..."
 docker exec edu-backend-prod python -c "from app.core.config import settings; from minio import Minio; client = Minio(settings.MINIO_ENDPOINT, settings.MINIO_ROOT_USER, settings.MINIO_ROOT_PASSWORD, secure=False); client.make_bucket(settings.MINIO_BUCKET_NAME) if not client.bucket_exists(settings.MINIO_BUCKET_NAME) else None" || log_warn "MinIO init warning"
 
-# Setup SSL if needed
-if [ "$USE_HTTPS" = "true" ] && [[ "$DOMAIN" != *"ngrok"* ]]; then
-    log_info "Настройка SSL сертификата..."
-    ask "Email для Let's Encrypt" "" "SSL_EMAIL"
-    docker compose -f docker-compose.prod.yml run --rm certbot certonly \
-        --webroot -w /var/www/certbot \
-        -d "$DOMAIN" \
-        --email "$SSL_EMAIL" \
-        --agree-tos --non-interactive || log_warn "SSL setup failed - настройте вручную"
-    docker compose -f docker-compose.prod.yml restart nginx
-fi
+
 
 # ============================================
-# STEP 8: FINAL REPORT
+# STEP 9: FINAL REPORT
 # ============================================
-log_step "Шаг 8/8: Готово!"
+log_step "Шаг 9/9: Готово!"
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
