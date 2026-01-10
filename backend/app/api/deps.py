@@ -70,6 +70,10 @@ async def verify_telegram_ip(request: Request):
     При работе через прокси (Nginx) доверяем X-Forwarded-For,
     если сам запрос пришел из локальной сети (Docker network).
     """
+    # В dev-режиме пропускаем проверку IP (для ngrok и локальной разработки)
+    if settings.ENVIRONMENT == "development":
+        return
+    
     client_host = request.client.host if request.client else None
     
     # 1. Попытка получить реальный IP из заголовка X-Forwarded-For
@@ -86,14 +90,8 @@ async def verify_telegram_ip(request: Request):
 
     try:
         real_ip = ipaddress.ip_address(real_ip_str)
-        
-        # 2. Если мы в dev-режиме, разрешаем локальные запросы (например, ngrok)
-        if settings.ENVIRONMENT == "development":
-            # Разрешаем локалхост и приватные сети (Docker)
-            if real_ip.is_private or real_ip.is_loopback:
-                return
 
-        # 3. Проверка подсетей Telegram
+        # Проверка подсетей Telegram
         is_allowed = any(real_ip in ipaddress.ip_network(subnet) for subnet in TELEGRAM_SUBNETS)
         if not is_allowed:
             logger.warning(f"Unauthorized Webhook IP: {real_ip_str} (Client: {client_host})")

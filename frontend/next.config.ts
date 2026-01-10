@@ -32,7 +32,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://cdn.plot.ly; script-src-elem 'self' 'unsafe-eval' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://cdn.plot.ly; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; font-src 'self'; connect-src 'self' https://*.ngrok-free.app https://*.ngrok.io wss://*.ngrok-free.app wss://*.ngrok.io https://cdn.jsdelivr.net https://cdn.plot.ly; frame-src 'self' blob: https://*.ngrok-free.app; worker-src 'self' blob:;",
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://cdn.plot.ly; script-src-elem 'self' 'unsafe-eval' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://cdn.plot.ly; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; font-src 'self'; connect-src 'self' https://platform-edu.ru https://*.ngrok-free.app https://*.ngrok.io wss://*.ngrok-free.app wss://*.ngrok.io https://cdn.jsdelivr.net https://cdn.plot.ly; frame-src 'self' blob: https://*.ngrok-free.app; worker-src 'self' blob:;",
           },
         ],
       },

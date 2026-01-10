@@ -224,10 +224,8 @@ services:
     container_name: edu-proxy
     ports:
       - "80:80"
-      # SECURITY: MinIO ports removed from public exposure
-      # Access MinIO console via SSH tunnel or internal network only
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.dev.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - backend
       - frontend
