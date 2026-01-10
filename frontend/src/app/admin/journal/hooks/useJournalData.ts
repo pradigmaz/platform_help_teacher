@@ -57,6 +57,11 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
   });
 
   // Load attendance, grades, stats when lessons change
+  // Use lessons length + first/last ID as stable dependency instead of array reference
+  const lessonsKey = lessonsHook.lessons.length > 0 
+    ? `${lessonsHook.lessons.length}-${lessonsHook.lessons[0]?.id}-${lessonsHook.lessons[lessonsHook.lessons.length - 1]?.id}`
+    : '';
+  
   useEffect(() => {
     if (lessonsHook.lessons.length > 0 && filters.selectedGroupId) {
       const lessonIds = lessonsHook.lessons.map((l: Lesson) => l.id);
@@ -81,7 +86,7 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
       gradesHook.setGrades({});
       statsHook.setStats(null);
     }
-  }, [lessonsHook.lessons, filters.selectedGroupId, filters.attestationPeriod]);
+  }, [lessonsKey, filters.selectedGroupId, filters.attestationPeriod]);
 
   return {
     // Filters

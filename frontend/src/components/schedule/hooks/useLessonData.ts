@@ -160,7 +160,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
 
       // Save status
       if (status !== 'normal' || lesson.is_cancelled || lesson.ended_early) {
-        await api.patch(`/admin/schedule/lessons/${lesson.id}`, {
+        await api.patch(`/admin/lessons/${lesson.id}`, {
           is_cancelled: status === 'cancelled',
           ended_early: status === 'early'
         });
@@ -168,7 +168,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
 
       // Save topic
       if (topic !== (lesson.topic || '')) {
-        await api.patch(`/admin/schedule/lessons/${lesson.id}`, { topic });
+        await api.patch(`/admin/lessons/${lesson.id}`, { topic });
       }
 
       setHasChanges(false);

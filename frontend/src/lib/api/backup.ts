@@ -64,7 +64,7 @@ export const BackupAPI = {
     (await api.put<BackupSettings>('/admin/backups/settings', data)).data,
 
   // Backups
-  list: async () => (await api.get<BackupListResponse>('/admin/backups')).data,
+  list: async () => (await api.get<BackupListResponse>('/admin/backups/')).data,
   create: async (name?: string) => 
     (await api.post<BackupCreateResponse>('/admin/backups', name ? { name } : {})).data,
   verify: async (key: string) => 
