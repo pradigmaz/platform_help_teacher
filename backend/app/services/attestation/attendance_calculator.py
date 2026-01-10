@@ -80,9 +80,11 @@ class AttendanceScoreCalculator:
         if counted_classes == 0:
             ratio = 0.0
         else:
-            # present = 1.0, late = late_coef, absent = 0
-            effective_attendance = present_count + (late_count * settings.late_coef)
+            # present = 1.0, late = late_coef, absent = absent_coef (0 или отрицательный)
+            effective_attendance = present_count + (late_count * settings.late_coef) + (absent_count * settings.absent_coef)
             ratio = effective_attendance / counted_classes
+            # Ratio может быть отрицательным при штрафах за прогулы
+            ratio = max(ratio, -1.0)  # Ограничиваем снизу
         
         score = ratio * max_score
         

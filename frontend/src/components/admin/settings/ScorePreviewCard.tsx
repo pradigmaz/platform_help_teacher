@@ -13,6 +13,7 @@ interface ScorePreviewCardProps {
   grade4Coef: number;
   grade3Coef: number;
   lateCoef: number;
+  absentCoef: number;
   totalWeight: number;
   exampleLessonsCount?: number; // Примерное кол-во занятий для расчёта
 }
@@ -26,6 +27,7 @@ export function ScorePreviewCard({
   grade4Coef,
   grade3Coef,
   lateCoef,
+  absentCoef,
   totalWeight,
   exampleLessonsCount = 10,
 }: ScorePreviewCardProps) {
@@ -36,7 +38,8 @@ export function ScorePreviewCard({
   
   // Расчёт штрафов за посещаемость (на примере N занятий)
   const pointsPerLesson = exampleLessonsCount > 0 ? attendanceMax / exampleLessonsCount : 0;
-  const absentPenalty = pointsPerLesson; // За прогул теряется весь балл за занятие
+  // absentCoef: 0 = нет штрафа, -0.5 = -50% от присутствия, -1 = -100%
+  const absentPenalty = pointsPerLesson * (1 - absentCoef); // За прогул: если coef=0 → теряем 1 балл, если coef=-0.5 → теряем 1.5 балла
   const latePenalty = pointsPerLesson * (1 - lateCoef); // За опоздание теряется часть
 
   const rows = [

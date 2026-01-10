@@ -41,6 +41,7 @@ interface FormState {
   grade_4_coef: number;
   grade_3_coef: number;
   late_coef: number;
+  absent_coef: number;
   late_max_grade: number;
   very_late_max_grade: number;
   late_threshold_days: number;
@@ -59,6 +60,7 @@ const DEFAULT_STATE: FormState = {
   labs_count_first: 8, labs_count_second: 10,
   grade_4_coef: 0.7, grade_3_coef: 0.4,
   late_coef: 0.5,
+  absent_coef: 0,
   late_max_grade: 4, very_late_max_grade: 3, late_threshold_days: 7,
   self_works_enabled: false, self_works_weight: 0, self_works_count: 2,
   colloquium_enabled: false, colloquium_weight: 0, colloquium_count: 1,
@@ -102,6 +104,7 @@ export function AttestationSettingsForm() {
           grade_4_coef: s.grade_4_coef ?? 0.7,
           grade_3_coef: s.grade_3_coef ?? 0.4,
           late_coef: s.late_coef ?? 0.5,
+          absent_coef: s.absent_coef ?? 0,
           late_max_grade: s.late_max_grade ?? 4,
           very_late_max_grade: s.very_late_max_grade ?? 3,
           late_threshold_days: s.late_threshold_days ?? 7,
@@ -244,6 +247,7 @@ export function AttestationSettingsForm() {
             grade4Coef={form.grade_4_coef}
             grade3Coef={form.grade_3_coef}
             lateCoef={form.late_coef}
+            absentCoef={form.absent_coef}
             totalWeight={totalWeight}
           />
         </BlurFade>
@@ -316,11 +320,25 @@ export function AttestationSettingsForm() {
                 </div>
               </div>
               <div>
-                <Label>Коэф. опоздания</Label>
+                <Label>Баллы за опоздание (% от присутствия)</Label>
                 <div className="flex items-center gap-2">
-                  <Slider value={[form.late_coef * 100]} onValueChange={([v]) => update('late_coef', v / 100)} max={100} step={1} />
+                  <Slider value={[form.late_coef * 100]} onValueChange={([v]) => update('late_coef', v / 100)} max={100} step={5} />
                   <span className="w-12 text-right font-mono">{(form.late_coef * 100).toFixed(0)}%</span>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Опоздание = {(form.late_coef * 100).toFixed(0)}% от баллов за присутствие
+                </p>
+              </div>
+              <div>
+                <Label>Штраф за прогул (% от присутствия)</Label>
+                <div className="flex items-center gap-2">
+                  <Slider value={[Math.abs(form.absent_coef) * 100]} onValueChange={([v]) => update('absent_coef', -v / 100)} max={100} step={5} />
+                  <span className="w-12 text-right font-mono text-red-500">{form.absent_coef === 0 ? '0%' : `${(form.absent_coef * 100).toFixed(0)}%`}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {form.absent_coef === 0 && 'Прогул = 0 баллов (без штрафа)'}
+                  {form.absent_coef < 0 && `Прогул = ${(form.absent_coef * 100).toFixed(0)}% от присутствия (штраф)`}
+                </p>
               </div>
               <p className="text-xs text-muted-foreground">Кол-во занятий определяется автоматически из расписания</p>
             </CardContent>
@@ -353,33 +371,6 @@ export function AttestationSettingsForm() {
                 <p>• Штрафы без ограничений</p>
                 <p>• Если студент набрал макс — бонусы заблокированы</p>
               </div>
-            </CardContent>
-          </Card>
-        </BlurFade>
-
-        {/* Semester Date */}
-        <BlurFade delay={0.5}>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Calendar className="w-4 h-4 text-blue-500" />
-                <Label>Дата начала семестра</Label>
-              </div>
-              <Input 
-                type="date" 
-                value={form.semester_start_date} 
-                onChange={e => update('semester_start_date', e.target.value)} 
-                disabled={attestationType === 'second'}
-              />
-              {attestationType === 'second' ? (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Настраивается в 1-й аттестации
-                </p>
-              ) : !form.semester_start_date && (
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />Укажите для автовычисления периодов
-                </p>
-              )}
             </CardContent>
           </Card>
         </BlurFade>
