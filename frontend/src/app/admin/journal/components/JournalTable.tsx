@@ -120,6 +120,7 @@ export function JournalTable({
                     >
                       <Icon className="w-3 h-3 mr-0.5" />
                       {typeInfo.shortLabel}{lesson.work_number ? `${lesson.work_number}` : ''}
+                      {lesson.subgroup && ` ${lesson.subgroup}п.г.`}
                     </Badge>
                   </div>
                 </TableHead>
@@ -162,10 +163,15 @@ export function JournalTable({
                 <TableCell className={`sticky left-0 z-10 font-medium border-r ${isEven ? 'bg-background' : 'bg-muted/30'} hover:bg-accent/50`}>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-xs w-5">{idx + 1}.</span>
-                    <span className="truncate max-w-[140px]" title={student.full_name}>
+                    <span title={student.full_name}>
                       {student.full_name}
                     </span>
-                    <div className="flex items-center gap-0.5 ml-auto">
+                    {student.subgroup && (
+                      <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 shrink-0">
+                        {student.subgroup}п.г.
+                      </Badge>
+                    )}
+                    <div className="flex items-center gap-0.5 ml-auto shrink-0">
                       <NoteButton entityType="student" entityId={student.id} size="sm" />
                       {attestationPeriod && (
                         <TooltipProvider>
@@ -198,23 +204,41 @@ export function JournalTable({
                   const showGrade = canHaveGrade(lesson);
                   const gradeData = grades[lesson.id]?.[student.id];
                   const maxWorkNum = getMaxWorkNum(lesson.lesson_type);
+                  
+                  // Блокировка: если занятие для подгруппы, а студент из другой подгруппы
+                  const isDisabled = lesson.subgroup !== null && 
+                    student.subgroup !== null && 
+                    lesson.subgroup !== student.subgroup;
 
                   return (
-                    <TableCell key={lesson.id} className="text-center p-1">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <AttendanceCell
-                          status={status}
-                          onStatusChange={(s) => onAttendanceChange(lesson.id, student.id, s)}
-                        />
-                        {showGrade && (
-                          <GradeCell
-                            gradeData={gradeData}
-                            lesson={lesson}
-                            maxWorkNum={maxWorkNum}
-                            onGradeChange={(g, w) => onGradeChange(lesson.id, student.id, g, w)}
+                    <TableCell 
+                      key={lesson.id} 
+                      className={`text-center p-1 ${
+                        isDisabled 
+                          ? 'bg-muted/70 opacity-40' 
+                          : 'hover:bg-accent/30 cursor-pointer border border-border/50'
+                      }`}
+                    >
+                      {isDisabled ? (
+                        <div className="h-8 flex items-center justify-center">
+                          <span className="text-muted-foreground/50 text-xs">—</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-0.5">
+                          <AttendanceCell
+                            status={status}
+                            onStatusChange={(s) => onAttendanceChange(lesson.id, student.id, s)}
                           />
-                        )}
-                      </div>
+                          {showGrade && (
+                            <GradeCell
+                              gradeData={gradeData}
+                              lesson={lesson}
+                              maxWorkNum={maxWorkNum}
+                              onGradeChange={(g, w) => onGradeChange(lesson.id, student.id, g, w)}
+                            />
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                   );
                 })}

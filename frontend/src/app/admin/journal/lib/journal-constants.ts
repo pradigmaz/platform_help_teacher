@@ -11,6 +11,7 @@ export interface Group {
 export interface Student {
   id: string;
   full_name: string;
+  subgroup: number | null;
 }
 
 export interface Subject {

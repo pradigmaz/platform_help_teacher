@@ -2,9 +2,15 @@
 'use no memo';
 
 import { useState, useEffect } from 'react';
-import { startOfWeek, endOfWeek } from 'date-fns';
+import { startOfWeek, addDays, getDay, addWeeks } from 'date-fns';
 import { SEMESTER_MONTHS } from '@/lib/academic-constants';
 import { useSemesterInfo, getSemesterDates as getSemesterDatesFromHook } from '@/hooks/useSemesterInfo';
+
+// В воскресенье показываем следующую неделю (как в расписании)
+function getInitialWeek(): Date {
+  const today = new Date();
+  return getDay(today) === 0 ? addWeeks(today, 1) : today;
+}
 
 // Attestation period type
 export type AttestationPeriod = 'all' | 'first' | 'second';
@@ -69,7 +75,7 @@ export function useJournalFilters(): UseJournalFiltersReturn {
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
   const [selectedLessonType, setSelectedLessonType] = useState<string>('all');
-  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [currentWeek, setCurrentWeek] = useState(getInitialWeek);
   const [attestationPeriod, setAttestationPeriod] = useState<AttestationPeriod>('all');
   const [selectedSemester, setSelectedSemester] = useState<SemesterInfo>({
     academicYear,
@@ -84,7 +90,8 @@ export function useJournalFilters(): UseJournalFiltersReturn {
   }, [academicYear, semester, semesterLoading]);
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+  // Суббота = Пн + 5 дней (как в расписании, без воскресенья)
+  const weekEnd = addDays(weekStart, 5);
 
   // Обёртка для getSemesterDates с учётом semesterStartDate
   const getSemesterDatesWithApi = (sem: SemesterInfo) => {
@@ -98,12 +105,22 @@ export function useJournalFilters(): UseJournalFiltersReturn {
   };
 
   // Reset week to semester start when semester changes
+  // Но только если текущая неделя реально вне семестра (не при первой загрузке)
   useEffect(() => {
+    if (semesterLoading) return; // Ждём загрузки данных
+    
     const semDates = getSemesterDatesWithApi(selectedSemester);
-    if (currentWeek < semDates.start || currentWeek > semDates.end) {
+    const initialWeek = getInitialWeek();
+    
+    // Если initialWeek в пределах семестра — используем её
+    if (initialWeek >= semDates.start && initialWeek <= semDates.end) {
+      if (currentWeek < semDates.start || currentWeek > semDates.end) {
+        setCurrentWeek(initialWeek);
+      }
+    } else if (currentWeek < semDates.start || currentWeek > semDates.end) {
       setCurrentWeek(semDates.start);
     }
-  }, [selectedSemester, semesterStartDate]);
+  }, [selectedSemester, semesterStartDate, semesterLoading]);
 
   return {
     selectedGroupId,

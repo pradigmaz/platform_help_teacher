@@ -26,7 +26,7 @@ export function useSemesterInfo() {
 
     const fetchInfo = async () => {
       try {
-        const response = await api.get('/semester-info');
+        const response = await api.get('/public/semester-info');
         const data = response.data;
         const semesterInfo: SemesterInfo = {
           semesterStartDate: data.semester_start_date,

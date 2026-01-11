@@ -1,6 +1,6 @@
 'use client';
 
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, addDays, addWeeks, subWeeks } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,8 @@ interface JournalWeekNavProps {
 
 export function JournalWeekNav({ currentWeek, onWeekChange }: JournalWeekNavProps) {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+  // Суббота = Пн + 5 дней (как в расписании)
+  const weekEnd = addDays(weekStart, 5);
 
   return (
     <div className="flex items-center gap-2 ml-auto">
