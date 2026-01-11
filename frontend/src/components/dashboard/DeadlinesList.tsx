@@ -43,8 +43,8 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
   const sortedLabs = [...labs]
     .filter(l => l.submission?.status !== 'ACCEPTED')
     .sort((a, b) => {
-      const aDeadline = (a as any).deadline_5_lessons ?? Infinity;
-      const bDeadline = (b as any).deadline_5_lessons ?? Infinity;
+      const aDeadline = a.deadline_5_lessons ?? Infinity;
+      const bDeadline = b.deadline_5_lessons ?? Infinity;
       return aDeadline - bDeadline;
     })
     .slice(0, maxItems);
@@ -68,10 +68,10 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
         <SectionHeader />
         
         <div className="space-y-2">
-          {sortedLabs.map((lab, idx) => {
+          {sortedLabs.map((lab) => {
             const status = getLabStatus(lab);
             const badge = STATUS_BADGE[status];
-            const deadline5 = (lab as any).deadline_5_lessons;
+            const deadline5 = lab.deadline_5_lessons;
             const isSoon = deadline5 && deadline5 <= 1;
 
             return (

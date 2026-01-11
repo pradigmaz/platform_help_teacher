@@ -16,8 +16,8 @@ export function LabInfoBadges({ lab }: LabInfoBadgesProps) {
     return `Через ${lessons - 1} пар`;
   };
 
-  const deadline5 = (lab as any).deadline_5_lessons;
-  const deadline4 = (lab as any).deadline_4_lessons;
+  const deadline5 = lab.deadline_5_lessons;
+  const deadline4 = lab.deadline_4_lessons;
 
   return (
     <>

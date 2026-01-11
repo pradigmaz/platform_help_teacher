@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { IconArrowLeft, IconCheck, IconClock, IconX, IconCalendar, IconTarget, IconBook, IconCode, IconQuestionMark, IconPlayerPlay, IconHandStop } from '@tabler/icons-react';
-import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -112,10 +111,10 @@ export default function LabDetailPage() {
               {lab.submission?.grade !== undefined && (
                 <p className="text-2xl font-bold text-foreground">{lab.submission.grade}/{lab.max_grade}</p>
               )}
-              {(lab as any).deadline_5_lessons && (
+              {lab.deadline_5_lessons && (
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <IconCalendar className="h-4 w-4" />
-                  На 5: {(lab as any).deadline_5_lessons === 1 ? 'След. пара' : `Через ${(lab as any).deadline_5_lessons - 1} пар`}
+                  На 5: {lab.deadline_5_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_5_lessons - 1} пар`}
                 </p>
               )}
             </div>

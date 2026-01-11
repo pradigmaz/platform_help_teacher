@@ -1,6 +1,5 @@
 'use client';
 
-import { cn } from '@/lib/utils';
 import { MagicCard } from '@/components/ui/magic-card';
 import { Progress } from '@/components/ui/progress';
 import { SlidingNumber } from '@/components/animate-ui/primitives/texts/sliding-number';
@@ -20,11 +19,11 @@ function getLabStats(labs: QuickStatsProps['labs']) {
 /** Get nearest deadline (by lessons count) */
 function getNearestDeadline(labs: QuickStatsProps['labs']): { title: string; lessonsLeft: number } | null {
   const upcoming = labs
-    .filter(l => (l as any).deadline_5_lessons && l.submission?.status !== 'ACCEPTED')
-    .sort((a, b) => ((a as any).deadline_5_lessons ?? Infinity) - ((b as any).deadline_5_lessons ?? Infinity));
+    .filter(l => l.deadline_5_lessons && l.submission?.status !== 'ACCEPTED')
+    .sort((a, b) => (a.deadline_5_lessons ?? Infinity) - (b.deadline_5_lessons ?? Infinity));
   
   if (upcoming.length === 0) return null;
-  return { title: upcoming[0].title, lessonsLeft: (upcoming[0] as any).deadline_5_lessons };
+  return { title: upcoming[0].title, lessonsLeft: upcoming[0].deadline_5_lessons! };
 }
 
 /** Format lessons left */

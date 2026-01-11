@@ -100,8 +100,8 @@ export default function EditLabPage() {
     variants: lab.variants || [],
     questions: lab.questions || [],
     max_grade: 5,
-    deadline_5_lessons: (lab as any).deadline_5_lessons,
-    deadline_4_lessons: (lab as any).deadline_4_lessons,
+    deadline_5_lessons: lab.deadline_5_lessons,
+    deadline_4_lessons: lab.deadline_4_lessons,
     is_sequential: lab.is_sequential,
   } : undefined;
 

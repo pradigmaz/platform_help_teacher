@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { IconCheck, IconClock, IconX, IconLock, IconFlask, IconCalendar, IconStar, IconMessage, IconHandStop, IconPlayerPlay } from '@tabler/icons-react';
+import { IconCheck, IconClock, IconX, IconLock, IconFlask, IconCalendar, IconHandStop, IconPlayerPlay } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -17,7 +17,6 @@ import Link from 'next/link';
 export default function LabsPage() {
   const [loading, setLoading] = useState(true);
   const [labs, setLabs] = useState<StudentLab[]>([]);
-  const [selectedLab, setSelectedLab] = useState<StudentLab | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -126,7 +125,7 @@ export default function LabsPage() {
                 </AnimatePresence>
                 <div className={cn("relative z-10 p-4 rounded-xl border bg-white dark:bg-neutral-950 transition-all",
                   !lab.is_available && "opacity-60",
-                  selectedLab?.id === lab.id ? "border-primary" : "border-neutral-200 dark:border-neutral-800")}>
+                  "border-neutral-200 dark:border-neutral-800")}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className={cn("p-2 rounded-lg", status.bg)}><StatusIcon className={cn("h-5 w-5", status.color)} /></div>
@@ -147,7 +146,7 @@ export default function LabsPage() {
                   )}
 
                   <div className="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-neutral-200 dark:border-neutral-800">
-                    <div className="flex items-center gap-1"><IconCalendar className="h-3 w-3" /><span>{(lab as any).deadline_5_lessons ? ((lab as any).deadline_5_lessons === 1 ? 'След. пара' : `Через ${(lab as any).deadline_5_lessons - 1} пар`) : 'Без дедлайна'}</span></div>
+                    <div className="flex items-center gap-1"><IconCalendar className="h-3 w-3" /><span>{lab.deadline_5_lessons ? (lab.deadline_5_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_5_lessons - 1} пар`) : 'Без дедлайна'}</span></div>
                   </div>
 
                   {/* Actions */}

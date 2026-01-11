@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Plus, FlaskConical, Settings, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/api';

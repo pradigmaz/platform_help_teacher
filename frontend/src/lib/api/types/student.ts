@@ -46,7 +46,8 @@ export interface StudentLab {
   title: string;
   topic?: string;
   description?: string;
-  deadline?: string;
+  deadline_5_lessons?: number | null;
+  deadline_4_lessons?: number | null;
   max_grade: number;
   is_available: boolean;
   variant_number?: number;
@@ -63,7 +64,8 @@ export interface StudentLabDetail {
   theory_content?: Record<string, unknown>;
   practice_content?: Record<string, unknown>;
   questions?: string[];
-  deadline?: string;
+  deadline_5_lessons?: number | null;
+  deadline_4_lessons?: number | null;
   max_grade: number;
   is_available: boolean;
   variant_number?: number;
