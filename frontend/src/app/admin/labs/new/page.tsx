@@ -23,7 +23,8 @@ export default function NewLabPage() {
         variants: data.variants,
         questions: data.questions,
         max_grade: 5,
-        deadline: data.deadline,
+        deadline_5_lessons: data.deadline_5_lessons,
+        deadline_4_lessons: data.deadline_4_lessons,
         is_sequential: data.is_sequential,
       });
       toast.success('Лабораторная создана');

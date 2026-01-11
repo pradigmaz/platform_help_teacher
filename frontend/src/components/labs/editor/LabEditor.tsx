@@ -26,7 +26,8 @@ function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
     variants: initialData?.variants || [{ number: 1, description: '', test_data: '' }],
     questions: initialData?.questions || [''],
     max_grade: 5,
-    deadline: initialData?.deadline,
+    deadline_5_lessons: initialData?.deadline_5_lessons,
+    deadline_4_lessons: initialData?.deadline_4_lessons,
     is_sequential: initialData?.is_sequential ?? true,
     ...initialData,
   });

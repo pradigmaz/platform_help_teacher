@@ -30,7 +30,8 @@ export interface Lab {
   practice_content?: Record<string, unknown>;
   variants?: LabVariant[];
   questions?: string[];
-  deadline?: string;
+  deadline_5_lessons?: number | null;
+  deadline_4_lessons?: number | null;
   max_grade: number;
   is_sequential: boolean;
   is_published?: boolean;
@@ -54,7 +55,8 @@ export interface LabCreate {
   practice_content?: Record<string, unknown>;
   variants?: LabVariant[];
   questions?: string[];
-  deadline?: string;
+  deadline_5_lessons?: number | null;
+  deadline_4_lessons?: number | null;
   max_grade?: number;
   is_sequential?: boolean;
   subject_id?: string;
