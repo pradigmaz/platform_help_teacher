@@ -8,7 +8,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { IconTarget, IconBook, IconCode, IconQuestionMark, IconFlask } from '@tabler/icons-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import api from '@/lib/api';
-import { LexicalViewer } from '@/components/lectures/LexicalViewer';
+import { LectureViewer } from '@/components/lectures';
+
+import { SerializedEditorState } from 'lexical';
 
 interface PublicLab {
   id: string;
@@ -17,8 +19,8 @@ interface PublicLab {
   topic?: string;
   goal?: string;
   formatting_guide?: string;
-  theory_content?: Record<string, unknown>;
-  practice_content?: Record<string, unknown>;
+  theory_content?: SerializedEditorState;
+  practice_content?: SerializedEditorState;
   variants?: { number: number; description: string; test_data?: string }[];
   questions?: string[];
   max_grade: number;
@@ -106,7 +108,7 @@ export default function PublicLabPage() {
           <Card>
             <CardContent className="pt-6">
               {lab.theory_content ? (
-                <LexicalViewer content={lab.theory_content} />
+                <LectureViewer content={lab.theory_content} />
               ) : (
                 <p className="text-muted-foreground text-center py-8">Теоретическая часть не заполнена</p>
               )}
@@ -119,7 +121,7 @@ export default function PublicLabPage() {
             <Card>
               <CardHeader><CardTitle>Задание</CardTitle></CardHeader>
               <CardContent>
-                <LexicalViewer content={lab.practice_content} />
+                <LectureViewer content={lab.practice_content} />
               </CardContent>
             </Card>
           )}
