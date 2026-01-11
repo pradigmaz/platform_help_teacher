@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import api from '@/lib/api';
 import { LabQueueAPI } from '@/lib/api/lab-queue';
 import type { LabQueue, SubmissionDetail } from '@/lib/api/types/lab-queue';
+import type { Lab } from '@/lib/api/types/labs';
 
 import { BlurFade } from '@/components/ui/blur-fade';
 import { Sparkles } from '@/components/ui/sparkles';
@@ -21,15 +22,6 @@ import {
   GradeDialog,
   RejectDialog,
 } from './components';
-
-interface Lab {
-  id: string;
-  title: string;
-  description: string | null;
-  max_grade: number;
-  deadline: string | null;
-  created_at: string;
-}
 
 interface LabSettings {
   labs_count: number;

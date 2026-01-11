@@ -13,16 +13,7 @@ import {
 } from '@/components/ui/table';
 import { FlaskConical, Calendar, Eye, Pencil, Trash2 } from 'lucide-react';
 import { BlurFade } from '@/components/ui/blur-fade';
-
-interface Lab {
-  id: string;
-  title: string;
-  description: string | null;
-  max_grade: number;
-  deadline_5_lessons: number | null;
-  deadline_4_lessons: number | null;
-  created_at: string;
-}
+import type { Lab } from '@/lib/api/types/labs';
 
 interface LabsTableProps {
   labs: Lab[];
@@ -85,7 +76,7 @@ export function LabsTable({ labs, onDelete }: LabsTableProps) {
                       ) : '—'}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(lab.created_at).toLocaleDateString('ru-RU')}
+                      {lab.created_at ? new Date(lab.created_at).toLocaleDateString('ru-RU') : '—'}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="ghost" size="icon" asChild className="opacity-0 group-hover:opacity-100 transition-opacity">
