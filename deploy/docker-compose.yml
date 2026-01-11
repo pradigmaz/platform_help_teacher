@@ -1,3 +1,6 @@
+# Использует .env.prod по умолчанию
+# Запуск: docker compose --env-file .env.prod up -d
+
 services:
   # === DATA LAYER ===
   db:

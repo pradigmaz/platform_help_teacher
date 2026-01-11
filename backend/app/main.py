@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from sqlalchemy import select
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -171,6 +172,10 @@ app.add_middleware(AuditMiddleware)
 
 # CSRF Middleware (защита мутирующих запросов)
 app.add_middleware(CSRFMiddleware)
+
+# Proxy Headers Middleware (для корректной работы за nginx)
+# Доверяем только локальным прокси (Docker network)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["127.0.0.1", "nginx", "edu-proxy-prod"])
 
 app.include_router(api_router, prefix="/api/v1")
 

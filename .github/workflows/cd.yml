@@ -32,10 +32,17 @@ jobs:
             git reset --hard origin/master
             cd deploy
             
-            if [ ! -f ".env" ]; then
-              echo "ERROR: .env not found!"
+            # Используем .env.prod если есть, иначе .env
+            if [ -f ".env.prod" ]; then
+              ENV_FILE=".env.prod"
+            elif [ -f ".env" ]; then
+              ENV_FILE=".env"
+            else
+              echo "ERROR: .env.prod or .env not found!"
               exit 1
             fi
+            echo "Using env file: $ENV_FILE"
+            export $(grep -v '^#' $ENV_FILE | xargs)
             
             # Determine what needs rebuild
             REBUILD_BACKEND=false

@@ -3,16 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, FlaskConical, Settings, Users, Award } from 'lucide-react';
+import { Plus, FlaskConical, Settings, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { LabQueueAPI } from '@/lib/api/lab-queue';
 import type { LabQueue, SubmissionDetail } from '@/lib/api/types/lab-queue';
 
 import { BlurFade } from '@/components/ui/blur-fade';
-import { BorderBeam } from '@/components/ui/border-beam';
 import { Sparkles } from '@/components/ui/sparkles';
 
 import {
@@ -39,12 +37,6 @@ interface LabSettings {
   default_max_grade: number;
   is_configured: boolean;
 }
-
-const GRADING_SCALES = [
-  { value: '5', label: '5-балльная' },
-  { value: '10', label: '10-балльная' },
-  { value: '100', label: '100-балльная' },
-];
 
 export default function AdminLabsPage() {
   // Labs state
@@ -203,25 +195,6 @@ export default function AdminLabsPage() {
         </div>
 
         <StatsCards completedLabs={completedLabs} plannedLabs={labSettings.labs_count} progressPercent={progressPercent} />
-
-        {/* Settings Info */}
-        <BlurFade delay={0.3}>
-          <Card className="relative overflow-hidden bg-gradient-to-r from-background via-background to-primary/5">
-            <BorderBeam size={200} duration={10} />
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-6 text-sm">
-                <span className="font-medium flex items-center gap-2">
-                  <Award className="w-4 h-4 text-yellow-500" /> Текущие настройки:
-                </span>
-                <Badge variant="outline" className="bg-purple-500/10 border-purple-500/30">Лаб: {labSettings.labs_count}</Badge>
-                <Badge variant="outline" className="bg-blue-500/10 border-blue-500/30">
-                  Шкала: {GRADING_SCALES.find(s => s.value === labSettings.grading_scale)?.label}
-                </Badge>
-                <Badge variant="outline" className="bg-green-500/10 border-green-500/30">Макс. балл: {labSettings.default_max_grade}</Badge>
-              </div>
-            </CardContent>
-          </Card>
-        </BlurFade>
 
         <LabsTable labs={labs} onDelete={handleDelete} />
       </div>
