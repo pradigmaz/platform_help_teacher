@@ -12,7 +12,7 @@ export interface StudentProfile {
   };
 }
 
-export interface AttendanceStats {
+export interface StudentAttendanceStats {
   total_classes: number;
   present: number;
   late: number;
@@ -27,7 +27,7 @@ export interface AttendanceRecord {
 }
 
 export interface StudentAttendance {
-  stats: AttendanceStats;
+  stats: StudentAttendanceStats;
   records: AttendanceRecord[];
 }
 

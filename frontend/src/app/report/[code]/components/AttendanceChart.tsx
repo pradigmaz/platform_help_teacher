@@ -143,11 +143,17 @@ export function AttendanceTrend({ stats, hasSubgroups }: AttendanceTrendProps) {
   const [selectedTab, setSelectedTab] = useState<string>('all');
 
   // Фильтруем данные по подгруппе
-  // "all" = только лекции (subgroup === null)
+  // Если hasSubgroups=false: "all" показывает ВСЕ занятия (группа без подгрупп)
+  // Если hasSubgroups=true: "all" = только лекции (subgroup === null)
   // "1" или "2" = лабы соответствующей подгруппы
   const trendData = stats?.trend
     ?.filter(t => {
-      if (selectedTab === 'all') return t.subgroup === null || t.subgroup === undefined;
+      if (selectedTab === 'all') {
+        // Группа без подгрупп - показываем всё
+        if (!hasSubgroups) return true;
+        // Группа с подгруппами - только лекции
+        return t.subgroup === null || t.subgroup === undefined;
+      }
       return t.subgroup?.toString() === selectedTab;
     })
     ?.map(t => ({

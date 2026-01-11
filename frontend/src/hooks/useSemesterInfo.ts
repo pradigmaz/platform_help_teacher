@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { apiClient } from '@/lib/api/client';
+import api from '@/lib/api/client';
 
 export interface SemesterInfo {
   semesterStartDate: string | null;
@@ -26,7 +26,7 @@ export function useSemesterInfo() {
 
     const fetchInfo = async () => {
       try {
-        const response = await apiClient.get('/semester-info');
+        const response = await api.get('/semester-info');
         const data = response.data;
         const semesterInfo: SemesterInfo = {
           semesterStartDate: data.semester_start_date,
