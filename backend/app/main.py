@@ -174,8 +174,8 @@ app.add_middleware(AuditMiddleware)
 app.add_middleware(CSRFMiddleware)
 
 # Proxy Headers Middleware (для корректной работы за nginx)
-# Доверяем только локальным прокси (Docker network)
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["127.0.0.1", "nginx", "edu-proxy-prod"])
+# Доверяем всем хостам, т.к. работаем за nginx в Docker
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 app.include_router(api_router, prefix="/api/v1")
 
