@@ -82,16 +82,22 @@ def _get_client_ip(request: Request) -> str:
 async def get_public_report(
     request: Request,
     code: str,
+    attestation: str = "first",
     db: AsyncSession = Depends(get_db),
 ):
     """
     Получить данные публичного отчёта группы.
     
     - **code**: 8-символьный код отчёта
+    - **attestation**: тип аттестации (first или second)
     
     Если отчёт защищён PIN-кодом, вернёт 401 с has_pin=true.
     Сначала нужно вызвать /verify-pin для получения доступа.
     """
+    # Валидация параметра
+    if attestation not in ("first", "second"):
+        attestation = "first"
+    
     report = await _get_valid_report(db, code, request=request)
     client_ip = _get_client_ip(request)
     
@@ -133,9 +139,9 @@ async def get_public_report(
     await service.log_view(report.id, client_ip, user_agent)
     
     # Собираем данные
-    report_data = await service.get_group_report_data(report)
+    report_data = await service.get_group_report_data(report, attestation_type=attestation)
     
-    logger.info(f"Public report {code} viewed from {client_ip}")
+    logger.info(f"Public report {code} viewed from {client_ip}, attestation={attestation}")
     
     return report_data
 
@@ -216,16 +222,22 @@ async def get_public_student_report(
     request: Request,
     code: str,
     student_id: UUID,
+    attestation: str = "first",
     db: AsyncSession = Depends(get_db),
 ):
     """
     Получить детальные данные студента из публичного отчёта.
     
     - **code**: 8-символьный код отчёта
+    - **attestation**: тип аттестации (first или second)
     - **student_id**: UUID студента
     
     Если отчёт защищён PIN-кодом, требуется предварительная верификация.
     """
+    # Валидация параметра
+    if attestation not in ("first", "second"):
+        attestation = "first"
+    
     report = await _get_valid_report(db, code, request=request)
     client_ip = _get_client_ip(request)
     
@@ -261,7 +273,7 @@ async def get_public_student_report(
     
     # Собираем данные студента
     service = ReportService(db)
-    student_data = await service.get_student_report_data(report, student_id)
+    student_data = await service.get_student_report_data(report, student_id, attestation)
     
     if not student_data:
         raise HTTPException(
@@ -313,4 +325,31 @@ async def check_report_status(
         "has_pin": report.pin_hash is not None,
         "report_type": report.report_type,
         "message": "Report expired" if is_expired else ("Report not available" if not report.is_active else "OK")
+    }
+
+
+@router.get("/semester-info")
+@limiter.limit("100/minute")
+async def get_semester_info(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить информацию о текущем семестре.
+    
+    Публичный эндпоинт для фронтенда.
+    Возвращает semester_start_date и вычисленный семестр.
+    """
+    from app.services.reports.semester_helpers import (
+        get_semester_start_date,
+        get_current_semester_from_settings
+    )
+    
+    semester_start = await get_semester_start_date(db)
+    academic_year, semester = await get_current_semester_from_settings(db)
+    
+    return {
+        "semester_start_date": semester_start.isoformat() if semester_start else None,
+        "academic_year": academic_year,
+        "semester": semester,
     }

@@ -53,17 +53,17 @@ export function LectureCard({ lecture, onClick }: LectureCardProps) {
         !isCancelled && !isEndedEarly && 'bg-blue-500/10 border-l-blue-500'
       )}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-1">
+      {/* Header: группы + заметки */}
+      <div className="flex items-start justify-between gap-1">
         <span className={cn(
-          'font-semibold text-sm truncate',
+          'font-bold text-sm truncate flex-1',
           isCancelled && 'line-through text-red-700 dark:text-red-300',
           isEndedEarly && !isCancelled && 'text-yellow-800 dark:text-yellow-200',
           !isCancelled && !isEndedEarly && 'text-foreground'
         )}>
           {groupsDisplay}
         </span>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-0.5 -mr-1 -mt-0.5">
           {lecture.groups.length > 0 && (
             <NoteButton 
               entityType="lesson" 
@@ -74,28 +74,36 @@ export function LectureCard({ lecture, onClick }: LectureCardProps) {
         </div>
       </div>
 
-      {/* Type badge */}
-      <div className="mb-1">
+      {/* Тип + кол-во групп */}
+      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
         <span className={cn(
-          'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium',
+          'text-[10px] font-semibold px-2 py-0.5 rounded',
           isCancelled && 'bg-red-500 text-white',
           isEndedEarly && !isCancelled && 'bg-yellow-500 text-white',
           !isCancelled && !isEndedEarly && 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
         )}>
           {isCancelled ? 'Отменено' : isEndedEarly ? 'Отпустил' : 'Лекция'}
         </span>
+        <span className={cn(
+          'text-[10px] font-medium flex items-center gap-0.5',
+          isCancelled ? 'text-red-600 dark:text-red-300' : 
+          isEndedEarly ? 'text-yellow-700 dark:text-yellow-300' : 
+          'text-blue-600 dark:text-blue-400'
+        )}>
+          <Users className="h-3 w-3" />
+          {lecture.groups.length} групп
+        </span>
       </div>
 
-      {/* Subject */}
-      <div className="text-xs text-muted-foreground truncate">
+      {/* Предмет */}
+      <p className={cn(
+        'mt-1.5 text-xs font-medium line-clamp-2',
+        isCancelled ? 'text-red-600 dark:text-red-300 line-through' : 
+        isEndedEarly ? 'text-yellow-700 dark:text-yellow-200' :
+        'text-blue-600 dark:text-blue-400'
+      )}>
         {lecture.subject_name || 'Предмет'}
-      </div>
-
-      {/* Groups count */}
-      <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-        <Users className="h-3 w-3" />
-        <span>{lecture.groups.length} групп</span>
-      </div>
+      </p>
     </div>
   );
 }

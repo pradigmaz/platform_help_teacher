@@ -13,13 +13,18 @@ from app.services.schedule_constants import SEMESTER_END_EMPTY_WEEKS_THRESHOLD
 
 
 def get_semester(d: date) -> str:
-    """Определить семестр по дате"""
+    """
+    Определить семестр по дате (FALLBACK версия).
+    
+    DEPRECATED: Для точного определения семестра используйте 
+    get_current_semester_from_settings() из semester_helpers.py
+    """
     year = d.year
-    if d.month >= 9:
+    if d.month >= 9:  # сентябрь-декабрь → 1 семестр
         return f"{year}-1"
-    elif d.month <= 1:
+    elif d.month <= 1:  # январь → ещё 1 семестр прошлого года
         return f"{year-1}-1"
-    else:
+    else:  # февраль-август → 2 семестр
         return f"{year}-2"
 
 

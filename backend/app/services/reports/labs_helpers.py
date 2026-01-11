@@ -1,7 +1,7 @@
 """
 Хелперы для сбора данных лабораторных работ.
 """
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from uuid import UUID
 from collections import defaultdict
 
@@ -11,20 +11,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.submission import Submission
 from app.models.lab import Lab
 from app.models.user import User
+from app.models.attestation_settings import AttestationType
 from app.schemas.report import LabProgress, LabSubmission
+from app.services.attestation.settings import AttestationSettingsManager
 
 
 async def get_group_labs_stats(
     db: AsyncSession,
-    students: List[User]
+    students: List[User],
+    labs_count_override: Optional[int] = None
 ) -> Dict[UUID, Dict]:
-    """Получить статистику лабораторных работ группы."""
+    """Получить статистику лабораторных работ группы.
+    
+    Args:
+        db: Сессия БД
+        students: Список студентов
+        labs_count_override: Переопределить количество лаб (из настроек аттестации)
+    """
     student_ids = [s.id for s in students]
     
-    labs_query = select(Lab)
-    labs_result = await db.execute(labs_query)
-    labs = list(labs_result.scalars().all())
-    total_labs = len(labs)
+    # Если не передано количество лаб - берём из настроек аттестации
+    if labs_count_override is not None:
+        total_labs = labs_count_override
+    else:
+        settings_manager = AttestationSettingsManager(db)
+        settings = await settings_manager.get_settings(AttestationType.FIRST)
+        total_labs = settings.labs_count_first if settings else 8
     
     submissions_query = (
         select(Submission.user_id, func.count(Submission.id).label('count'))
@@ -46,9 +58,14 @@ async def get_group_labs_stats(
 
 async def get_lab_progress(
     db: AsyncSession,
-    students: List[User]
-) -> List[LabProgress]:
-    """Получить прогресс по лабораторным работам."""
+    students: List[User],
+    has_subgroups: bool = False
+) -> tuple[List[LabProgress], Optional[Dict[str, List[LabProgress]]]]:
+    """Получить прогресс по лабораторным работам.
+    
+    Returns:
+        Tuple[all_progress, by_subgroup_dict или None]
+    """
     student_ids = [s.id for s in students]
     total_students = len(students)
     
@@ -64,17 +81,51 @@ async def get_lab_progress(
     submissions_result = await db.execute(submissions_query)
     submissions_map = {row.lab_id: row.count for row in submissions_result.all()}
     
-    progress = []
+    # Прогресс для всех
+    progress_all = []
     for idx, lab in enumerate(labs, 1):
         completed = submissions_map.get(lab.id, 0)
-        progress.append(LabProgress(
+        progress_all.append(LabProgress(
             lab_name=lab.title or f"Лаб. {idx}",
             completed_count=completed,
             total_students=total_students,
             completion_rate=round(completed / total_students * 100, 1) if total_students > 0 else 0
         ))
     
-    return progress
+    if not has_subgroups:
+        return progress_all, None
+    
+    # Прогресс по подгруппам
+    by_subgroup: Dict[str, List[LabProgress]] = {"all": progress_all, "1": [], "2": []}
+    
+    for subgroup_num in [1, 2]:
+        subgroup_students = [s for s in students if s.subgroup == subgroup_num]
+        subgroup_ids = [s.id for s in subgroup_students]
+        subgroup_total = len(subgroup_students)
+        
+        if subgroup_total == 0:
+            by_subgroup[str(subgroup_num)] = []
+            continue
+        
+        sub_query = (
+            select(Submission.lab_id, func.count(func.distinct(Submission.user_id)).label('count'))
+            .where(Submission.user_id.in_(subgroup_ids))
+            .group_by(Submission.lab_id)
+        )
+        sub_result = await db.execute(sub_query)
+        sub_map = {row.lab_id: row.count for row in sub_result.all()}
+        
+        for idx, lab in enumerate(labs, 1):
+            completed = sub_map.get(lab.id, 0)
+            by_subgroup[str(subgroup_num)].append(LabProgress(
+                lab_name=lab.title or f"Лаб. {idx}",
+                completed_count=completed,
+                total_students=subgroup_total,
+                completion_rate=round(completed / subgroup_total * 100, 1) if subgroup_total > 0 else 0,
+                subgroup=subgroup_num
+            ))
+    
+    return progress_all, by_subgroup
 
 
 async def get_student_lab_submissions(

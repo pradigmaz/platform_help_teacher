@@ -121,7 +121,11 @@ export default function StudentDetailPage({ params }: PageProps) {
       {/* Recommendations for failing students */}
       {data.recommendations && data.recommendations.length > 0 && (
         <BlurFade delay={0.25} inView>
-          <Recommendations recommendations={data.recommendations} isPassing={data.is_passing} />
+          <Recommendations 
+            recommendations={data.recommendations} 
+            isPassing={data.is_passing} 
+            isEarlySemester={data.is_early_semester}
+          />
         </BlurFade>
       )}
 

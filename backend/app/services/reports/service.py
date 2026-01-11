@@ -202,17 +202,20 @@ class ReportService:
     
     # ==================== Data Collection (delegated) ====================
     
-    async def get_group_report_data(self, report: GroupReport) -> PublicReportData:
+    async def get_group_report_data(
+        self, report: GroupReport, attestation_type: str = "first"
+    ) -> PublicReportData:
         """Сбор данных для публичного отчёта группы."""
-        return await self._collector.get_group_report_data(report)
+        return await self._collector.get_group_report_data(report, attestation_type)
     
     async def get_student_report_data(
         self,
         report: GroupReport,
-        student_id: UUID
+        student_id: UUID,
+        attestation_type: str = "first"
     ) -> Optional[StudentDetailData]:
         """Сбор детальных данных для отчёта по студенту."""
-        return await self._collector.get_student_report_data(report, student_id)
+        return await self._collector.get_student_report_data(report, student_id, attestation_type)
     
     def apply_visibility_filter(self, data: dict, report: GroupReport) -> dict:
         """Применение фильтра видимости к данным."""

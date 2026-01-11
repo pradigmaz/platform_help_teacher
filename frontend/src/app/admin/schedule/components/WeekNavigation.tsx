@@ -1,6 +1,6 @@
 'use client';
 
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, startOfToday } from 'date-fns';
+import { format, startOfWeek, addDays, addWeeks, subWeeks, startOfToday, getDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,8 @@ interface WeekNavigationProps {
 
 export function WeekNavigation({ currentWeek, onWeekChange }: WeekNavigationProps) {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+  // Показываем Пн-Сб (5 дней от понедельника = суббота)
+  const weekEnd = addDays(weekStart, 5);
 
   return (
     <div className="flex items-center gap-2">
@@ -28,7 +29,15 @@ export function WeekNavigation({ currentWeek, onWeekChange }: WeekNavigationProp
       
       <Button
         variant="outline"
-        onClick={() => onWeekChange(startOfToday())}
+        onClick={() => {
+          const today = startOfToday();
+          // Если воскресенье — показываем следующую неделю
+          if (getDay(today) === 0) {
+            onWeekChange(addWeeks(today, 1));
+          } else {
+            onWeekChange(today);
+          }
+        }}
       >
         Сегодня
       </Button>

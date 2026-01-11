@@ -5,28 +5,24 @@ Facade для агрегации данных из различных источ
 """
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.models.group_report import GroupReport, ReportType
-from app.models.group import Group
-from app.models.user import User
 from app.models.attestation_settings import AttestationType
 from app.services.attestation.service import AttestationService
-from app.schemas.report import (
-    PublicReportData,
-    PublicStudentData,
-    StudentDetailData,
-)
+from app.schemas.report import PublicReportData, StudentDetailData
 
 from .base_helpers import (
     get_group, get_user, get_group_students, get_filtered_teacher_contacts
 )
 from .attendance_helpers import (
     get_group_attendance_stats, get_attendance_distribution,
-    get_student_attendance_history, get_student_attendance_stats
+    get_student_attendance_history, get_student_attendance_stats,
+    get_full_attendance_stats
 )
 from .labs_helpers import (
     get_group_labs_stats, get_lab_progress, 
@@ -34,6 +30,9 @@ from .labs_helpers import (
 )
 from .notes_helpers import get_students_notes, get_student_notes
 from .activity_helpers import get_student_activity, generate_recommendations
+from .semester_helpers import get_semester_info, get_semester_start_date
+from .student_builder import process_students
+from .report_builder import build_empty_report
 
 logger = logging.getLogger(__name__)
 
@@ -44,20 +43,32 @@ class ReportDataCollector:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def get_group_report_data(self, report: GroupReport) -> PublicReportData:
+    async def get_group_report_data(
+        self, report: GroupReport, attestation_type: str = "first"
+    ) -> PublicReportData:
         """Сбор данных для публичного отчёта группы."""
+        att_type = AttestationType.SECOND if attestation_type == "second" else AttestationType.FIRST
+        
         group = await get_group(self.db, report.group_id)
         teacher = await get_user(self.db, report.created_by)
         students = await get_group_students(self.db, report.group_id)
         
+        is_early, max_points, min_passing, is_second_available = await get_semester_info(self.db, att_type)
+        semester_start = await get_semester_start_date(self.db)
+        
+        # Получаем subject_id преподавателя для этой группы
+        subject_id = await self._get_teacher_subject_id(report.created_by, report.group_id)
+        
         if not students:
-            return self._build_empty_report_data(report, group, teacher)
+            return build_empty_report(
+                report, group, teacher, attestation_type, max_points, min_passing, is_second_available
+            )
         
         # Получаем баллы аттестации
         attestation_service = AttestationService(self.db)
         attestation_results, _ = await attestation_service.calculate_group_scores_batch(
             group_id=report.group_id,
-            attestation_type=AttestationType.FIRST,
+            attestation_type=att_type,
             students=students
         )
         
@@ -70,7 +81,7 @@ class ReportDataCollector:
             notes_map = await get_students_notes(self.db, [s.id for s in students], visible_only=True)
         
         # Формируем данные студентов
-        students_data, passing_count, failing_count, total_score_sum = self._process_students(
+        students_data, passing_count, failing_count, total_score_sum = process_students(
             students, results_map, attendance_data, labs_data, notes_map, report
         )
         
@@ -82,13 +93,18 @@ class ReportDataCollector:
         
         # Графики
         attendance_distribution = None
+        attendance_stats = None
+        has_subgroups = group.has_subgroups if group and hasattr(group, 'has_subgroups') else False
+        
         if report.show_attendance:
-            attendance_distribution = await get_attendance_distribution(self.db, report.group_id, students)
+            attendance_distribution = await get_attendance_distribution(self.db, report.group_id, students, semester_start)
+            attendance_stats = await get_full_attendance_stats(self.db, report.group_id, students, has_subgroups, semester_start, subject_id)
         
         lab_progress = None
+        lab_progress_by_subgroup = None
         grade_distribution = None
         if report.show_grades:
-            lab_progress = await get_lab_progress(self.db, students)
+            lab_progress, lab_progress_by_subgroup = await get_lab_progress(self.db, students, has_subgroups)
             grade_distribution = calculate_grade_distribution(attestation_results)
         
         return PublicReportData(
@@ -98,9 +114,11 @@ class ReportDataCollector:
             teacher_name=teacher.full_name if teacher else "Unknown",
             report_type=ReportType(report.report_type),
             generated_at=datetime.now(timezone.utc),
+            semester_start_date=semester_start,
             teacher_contacts=get_filtered_teacher_contacts(teacher, "report") if teacher else None,
             show_names=report.show_names,
             show_grades=report.show_grades,
+            is_early_semester=is_early,
             show_attendance=report.show_attendance,
             show_notes=report.show_notes,
             show_rating=report.show_rating,
@@ -108,21 +126,31 @@ class ReportDataCollector:
             passing_students=passing_count if report.show_grades else None,
             failing_students=failing_count if report.show_grades else None,
             average_score=round(total_score_sum / len(students), 2) if students and report.show_grades else None,
+            max_points=max_points,
+            min_passing_points=min_passing,
+            attestation_type=attestation_type,
+            is_second_available=is_second_available,
+            has_subgroups=has_subgroups,
             students=students_data,
             attendance_distribution=attendance_distribution,
+            attendance_stats=attendance_stats,
             lab_progress=lab_progress,
+            lab_progress_by_subgroup=lab_progress_by_subgroup,
             grade_distribution=grade_distribution,
         )
     
     async def get_student_report_data(
-        self, report: GroupReport, student_id: UUID
+        self, report: GroupReport, student_id: UUID, attestation_type: str = "first"
     ) -> Optional[StudentDetailData]:
         """Сбор детальных данных для отчёта по студенту."""
+        att_type = AttestationType.SECOND if attestation_type == "second" else AttestationType.FIRST
+        
         student = await get_user(self.db, student_id)
         if not student or student.group_id != report.group_id:
             return None
         
         group = await get_group(self.db, report.group_id)
+        is_early, _, _, _ = await get_semester_info(self.db, att_type)
         
         # Баллы аттестации
         attestation_service = AttestationService(self.db)
@@ -130,7 +158,7 @@ class ReportDataCollector:
             result = await attestation_service.calculate_student_score(
                 student_id=student_id,
                 group_id=report.group_id,
-                attestation_type=AttestationType.FIRST
+                attestation_type=att_type
             )
         except Exception as e:
             logger.error(f"Error calculating score for student {student_id}: {e}")
@@ -193,6 +221,7 @@ class ReportDataCollector:
             activity_score=result.breakdown.activity_score if result and report.show_grades else None,
             grade=result.grade if result and report.show_grades else None,
             is_passing=is_passing if report.show_grades else None,
+            is_early_semester=is_early,
             max_points=result.max_points if result else 100,
             min_passing_points=result.min_passing_points if result else 61,
             group_average_score=group_average,
@@ -214,6 +243,29 @@ class ReportDataCollector:
             recommendations=recommendations,
             needs_attention=not is_passing,
         )
+    
+    async def _get_group_comparison_stats(
+        self, group_id: UUID, student_id: UUID, student_score: float
+    ) -> Dict:
+        """Получить статистику сравнения с группой."""
+        students = await get_group_students(self.db, group_id)
+        
+        attestation_service = AttestationService(self.db)
+        results, _ = await attestation_service.calculate_group_scores_batch(
+            group_id=group_id,
+            attestation_type=AttestationType.FIRST,
+            students=students
+        )
+        
+        if not results:
+            return {}
+        
+        scores = [r.total_score for r in results]
+        average = sum(scores) / len(scores)
+        sorted_scores = sorted(scores, reverse=True)
+        rank = sorted_scores.index(student_score) + 1 if student_score in sorted_scores else len(scores)
+        
+        return {'average': round(average, 2), 'rank': rank, 'total': len(students)}
     
     def apply_visibility_filter(self, data: Dict[str, Any], report: GroupReport) -> Dict[str, Any]:
         """Применение фильтра видимости к данным."""
@@ -242,112 +294,24 @@ class ReportDataCollector:
         
         return filtered
 
-    # ==================== Private Methods ====================
-    
-    def _process_students(
-        self, students, results_map, attendance_data, labs_data, notes_map, report
-    ):
-        """Обработка данных студентов."""
-        students_data = []
-        passing_count = 0
-        failing_count = 0
-        total_score_sum = 0.0
+    async def _get_teacher_subject_id(self, teacher_id: UUID, group_id: UUID) -> Optional[UUID]:
+        """Получить subject_id для группы из занятий текущего семестра."""
+        from app.models.lesson import Lesson
         
-        for student in students:
-            result = results_map.get(student.id)
-            att_stats = attendance_data.get(student.id, {})
-            lab_stats = labs_data.get(student.id, {})
-            
-            is_passing = result.is_passing if result else False
-            if is_passing:
-                passing_count += 1
-            else:
-                failing_count += 1
-            
-            if result:
-                total_score_sum += result.total_score
-            
-            student_data = self._build_student_data(
-                student, result, att_stats, lab_stats,
-                notes_map.get(student.id, []), report
+        # Получаем semester_start_date для фильтрации
+        semester_start = await get_semester_start_date(self.db)
+        
+        # Берём subject_id из занятий группы текущего семестра
+        query = (
+            select(Lesson.subject_id)
+            .where(
+                Lesson.group_id == group_id,
+                Lesson.subject_id.isnot(None)
             )
-            students_data.append(student_data)
-        
-        return students_data, passing_count, failing_count, total_score_sum
-    
-    async def _get_group_comparison_stats(
-        self, group_id: UUID, student_id: UUID, student_score: float
-    ) -> Dict:
-        """Получить статистику сравнения с группой."""
-        students = await get_group_students(self.db, group_id)
-        
-        attestation_service = AttestationService(self.db)
-        results, _ = await attestation_service.calculate_group_scores_batch(
-            group_id=group_id,
-            attestation_type=AttestationType.FIRST,
-            students=students
         )
+        if semester_start:
+            query = query.where(Lesson.date >= semester_start)
+        query = query.order_by(Lesson.date.desc()).limit(1)
         
-        if not results:
-            return {}
-        
-        scores = [r.total_score for r in results]
-        average = sum(scores) / len(scores)
-        sorted_scores = sorted(scores, reverse=True)
-        rank = sorted_scores.index(student_score) + 1 if student_score in sorted_scores else len(scores)
-        
-        return {'average': round(average, 2), 'rank': rank, 'total': len(students)}
-    
-    def _build_student_data(
-        self, student: User, result: Any, att_stats: Dict,
-        lab_stats: Dict, notes: List[str], report: GroupReport
-    ) -> PublicStudentData:
-        """Построить данные студента."""
-        is_passing = result.is_passing if result else False
-        
-        return PublicStudentData(
-            id=student.id,
-            name=student.full_name if report.show_names else None,
-            total_score=result.total_score if result and report.show_grades else None,
-            lab_score=result.breakdown.labs_score if result and report.show_grades else None,
-            attendance_score=result.breakdown.attendance_score if result and report.show_grades else None,
-            activity_score=result.breakdown.activity_score if result and report.show_grades else None,
-            grade=result.grade if result and report.show_grades else None,
-            is_passing=is_passing if report.show_grades else None,
-            attendance_rate=att_stats.get('rate') if report.show_attendance else None,
-            present_count=att_stats.get('present') if report.show_attendance else None,
-            absent_count=att_stats.get('absent') if report.show_attendance else None,
-            late_count=att_stats.get('late') if report.show_attendance else None,
-            excused_count=att_stats.get('excused') if report.show_attendance else None,
-            labs_completed=lab_stats.get('completed') if report.show_grades else None,
-            labs_total=lab_stats.get('total') if report.show_grades else None,
-            needs_attention=not is_passing,
-            notes=notes if report.show_notes and notes else None,
-        )
-    
-    def _build_empty_report_data(
-        self, report: GroupReport, group: Optional[Group], teacher: Optional[User]
-    ) -> PublicReportData:
-        """Построить пустой отчёт."""
-        return PublicReportData(
-            group_code=group.code if group else "",
-            group_name=group.name if group else None,
-            subject_name=None,
-            teacher_name=teacher.full_name if teacher else "Unknown",
-            report_type=ReportType(report.report_type),
-            generated_at=datetime.now(timezone.utc),
-            teacher_contacts=get_filtered_teacher_contacts(teacher, "report") if teacher else None,
-            show_names=report.show_names,
-            show_grades=report.show_grades,
-            show_attendance=report.show_attendance,
-            show_notes=report.show_notes,
-            show_rating=report.show_rating,
-            total_students=0,
-            passing_students=0 if report.show_grades else None,
-            failing_students=0 if report.show_grades else None,
-            average_score=None,
-            students=[],
-            attendance_distribution=None,
-            lab_progress=None,
-            grade_distribution=None,
-        )
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()

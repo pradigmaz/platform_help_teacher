@@ -28,9 +28,9 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
     ? Math.round((data.passing_students / data.total_students) * 100)
     : 0;
 
-  // Assume max points is 40 (standard attestation)
-  const maxPoints = 40;
-  const minPassingPoints = 18;
+  // Берём из API или используем дефолты
+  const maxPoints = data.max_points ?? 40;
+  const minPassingPoints = data.min_passing_points ?? 18;
 
   const hasAtRiskStudents = (data.failing_students ?? 0) > 0;
 
@@ -43,6 +43,7 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
             hasRisk={hasAtRiskStudents} 
             failingCount={data.failing_students ?? 0}
             totalCount={data.total_students}
+            isEarlySemester={data.is_early_semester}
           />
         </BlurFade>
       )}
@@ -60,6 +61,7 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
           />
         </BlurFade>
         
+        {/* Зачёт/Незачёт - неактивны в начале семестра */}
         {showGrades && data.passing_students !== undefined && (
           <BlurFade delay={0.2} inView>
             <StatCard
@@ -69,6 +71,7 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
               description={`${passRate}%`}
               color="success"
               borderColor="border-l-green-500"
+              disabled={data.is_early_semester}
             />
           </BlurFade>
         )}
@@ -82,7 +85,8 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
               description={`${100 - passRate}%`}
               color="destructive"
               borderColor="border-l-red-500"
-              highlight={hasAtRiskStudents}
+              highlight={hasAtRiskStudents && !data.is_early_semester}
+              disabled={data.is_early_semester}
             />
           </BlurFade>
         )}
@@ -157,8 +161,8 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
               </div>
             </div>
 
-            {/* Grade Distribution */}
-            {data.grade_distribution && Object.keys(data.grade_distribution).length > 0 && (
+            {/* Grade Distribution - только не в начале семестра */}
+            {data.grade_distribution && Object.keys(data.grade_distribution).length > 0 && !data.is_early_semester && (
               <div className="mt-4 pt-4 border-t">
                 <p className="text-xs text-muted-foreground mb-2">Распределение оценок</p>
                 <div className="flex gap-2">
@@ -192,9 +196,15 @@ interface RiskBannerProps {
   hasRisk: boolean;
   failingCount: number;
   totalCount: number;
+  isEarlySemester?: boolean;
 }
 
-function RiskBanner({ hasRisk, failingCount, totalCount }: RiskBannerProps) {
+function RiskBanner({ hasRisk, failingCount, totalCount, isEarlySemester }: RiskBannerProps) {
+  // В начале семестра не показываем предупреждения о незачёте
+  if (isEarlySemester) {
+    return null;
+  }
+  
   if (hasRisk) {
     return (
       <div className="flex items-center gap-3 p-4 rounded-lg bg-red-500/10 border border-red-500/20">
@@ -239,9 +249,10 @@ interface StatCardProps {
   borderColor: string;
   highlight?: boolean;
   isDecimal?: boolean;
+  disabled?: boolean;
 }
 
-function StatCard({ icon, label, value, description, color, borderColor, highlight, isDecimal }: StatCardProps) {
+function StatCard({ icon, label, value, description, color, borderColor, highlight, isDecimal, disabled }: StatCardProps) {
   const colorClasses = {
     default: 'text-foreground bg-muted',
     success: 'text-green-500 bg-green-500/10',
@@ -253,7 +264,8 @@ function StatCard({ icon, label, value, description, color, borderColor, highlig
     <Card className={cn(
       "relative overflow-hidden transition-all border-l-4",
       borderColor,
-      highlight && "ring-2 ring-red-500/30 bg-red-500/5"
+      highlight && "ring-2 ring-red-500/30 bg-red-500/5",
+      disabled && "opacity-50 grayscale cursor-not-allowed"
     )}>
       <CardContent className="p-4">
         <div className={cn("p-2 rounded-lg w-fit mb-2", colorClasses[color])}>
@@ -269,7 +281,7 @@ function StatCard({ icon, label, value, description, color, borderColor, highlig
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className="text-xs text-muted-foreground/70 mt-1">{description}</p>
       </CardContent>
-      {highlight && (
+      {highlight && !disabled && (
         <BorderBeam 
           size={80} 
           duration={4} 

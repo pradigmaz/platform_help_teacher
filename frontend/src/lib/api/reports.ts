@@ -47,8 +47,10 @@ export const ReportsAPI = {
 };
 
 export const PublicReportAPI = {
-  getReport: async (code: string) => {
-    const { data } = await publicApi.get<PublicReportData>(`/public/report/${code}`);
+  getReport: async (code: string, attestation: 'first' | 'second' = 'first') => {
+    const { data } = await publicApi.get<PublicReportData>(
+      `/public/report/${code}?attestation=${attestation}`
+    );
     return data;
   },
 
@@ -60,9 +62,9 @@ export const PublicReportAPI = {
     return data;
   },
 
-  getStudent: async (code: string, studentId: string) => {
+  getStudent: async (code: string, studentId: string, attestation: 'first' | 'second' = 'first') => {
     const { data } = await publicApi.get<StudentDetailData>(
-      `/public/report/${code}/student/${studentId}`
+      `/public/report/${code}/student/${studentId}?attestation=${attestation}`
     );
     return data;
   },

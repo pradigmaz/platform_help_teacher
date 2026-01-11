@@ -53,6 +53,7 @@ export interface ReportListResponse {
 export interface PublicStudentData {
   id: string;
   name?: string;
+  subgroup?: number;
   total_score?: number;
   lab_score?: number;
   attendance_score?: number;
@@ -77,11 +78,25 @@ export interface AttendanceDistribution {
   absent: number;
 }
 
+export interface DateAttendance {
+  date: string;
+  rate: number;
+  subgroup?: number;
+}
+
+export interface AttendanceStats {
+  distribution: AttendanceDistribution;
+  by_subgroup: Record<string, AttendanceDistribution>;
+  trend: DateAttendance[];
+  average_rate: number;
+}
+
 export interface LabProgress {
   lab_name: string;
   completed_count: number;
   total_students: number;
   completion_rate: number;
+  subgroup?: number;
 }
 
 export interface TeacherContacts {
@@ -102,13 +117,21 @@ export interface PublicReportData {
   show_attendance: boolean;
   show_notes: boolean;
   show_rating: boolean;
+  is_early_semester?: boolean;
   total_students: number;
   passing_students?: number;
   failing_students?: number;
   average_score?: number;
+  max_points?: number;
+  min_passing_points?: number;
+  attestation_type?: 'first' | 'second';
+  is_second_available?: boolean;
+  has_subgroups?: boolean;
   students: PublicStudentData[];
   attendance_distribution?: AttendanceDistribution;
+  attendance_stats?: AttendanceStats;
   lab_progress?: LabProgress[];
+  lab_progress_by_subgroup?: Record<string, LabProgress[]>;
   grade_distribution?: Record<string, number>;
   teacher_contacts?: TeacherContacts;
 }
@@ -146,6 +169,7 @@ export interface StudentDetailData {
   activity_score?: number;
   grade?: string;
   is_passing?: boolean;
+  is_early_semester?: boolean;
   max_points: number;
   min_passing_points: number;
   group_average_score?: number;

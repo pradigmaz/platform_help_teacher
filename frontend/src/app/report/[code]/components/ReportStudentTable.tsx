@@ -52,7 +52,7 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
-  const { show_names, show_grades, show_attendance } = data;
+  const { show_names, show_grades, show_attendance, is_early_semester } = data;
 
   const filteredStudents = useMemo(() => {
     return data.students
@@ -167,19 +167,23 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
                     </Button>
                   </TableHead>
                 )}
-                {show_grades && (
+                {show_grades && !is_early_semester && (
                   <TableHead className="text-center">Оценка</TableHead>
                 )}
                 <TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStudents.map((student, index) => (
+              {filteredStudents.map((student, index) => {
+                // В начале семестра не показываем предупреждения
+                const showWarning = student.needs_attention && !is_early_semester;
+                
+                return (
                 <TableRow 
                   key={student.id}
                   className={cn(
                     "cursor-pointer transition-colors group",
-                    student.needs_attention 
+                    showWarning 
                       ? "bg-red-500/5 hover:bg-red-500/10 dark:bg-red-500/10 dark:hover:bg-red-500/15" 
                       : "hover:bg-muted/50"
                   )}
@@ -192,17 +196,22 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {student.needs_attention && (
+                      {showWarning && (
                         <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 animate-pulse" />
                       )}
                       <span className={cn(
                         "font-medium",
-                        student.needs_attention && "text-amber-700 dark:text-amber-400"
+                        showWarning && "text-amber-700 dark:text-amber-400"
                       )}>
                         {show_names 
                           ? student.name 
                           : `Студент ${student.id.slice(0, 4)}`}
                       </span>
+                      {data.has_subgroups && student.subgroup && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                          {student.subgroup} п/г
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   {show_grades && (
@@ -223,7 +232,7 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
                       <AttendanceCell rate={student.attendance_rate} />
                     </TableCell>
                   )}
-                  {show_grades && (
+                  {show_grades && !is_early_semester && (
                     <TableCell className="text-center">
                       <GradeBadge 
                         grade={student.grade} 
@@ -242,7 +251,8 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              );
+              })}
               {filteredStudents.length === 0 && (
                 <TableRow>
                   <TableCell 

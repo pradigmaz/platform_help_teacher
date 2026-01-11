@@ -21,7 +21,7 @@ export default function ReportLayout({
         <div className="fixed top-4 right-4 z-50">
           <AnimatedThemeToggler />
         </div>
-        <main className="container mx-auto px-4 py-8 max-w-6xl">
+        <main className="container mx-auto px-4 py-8 max-w-7xl">
           {children}
         </main>
       </div>

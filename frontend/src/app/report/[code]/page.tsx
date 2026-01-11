@@ -5,17 +5,20 @@ import { useState, useEffect, use } from 'react';
 import { PublicReportAPI, PublicReportData, ApiError } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, FileX, Clock } from 'lucide-react';
 import { PinDialog } from './components/PinDialog';
 import { ReportHeader } from './components/ReportHeader';
 import { ReportSummaryCards } from './components/ReportSummaryCards';
 import { ReportStudentTable } from './components/ReportStudentTable';
-import { AttendanceChart } from './components/AttendanceChart';
+import { AttendanceChart, AttendanceTrend } from './components/AttendanceChart';
 import { LabProgressChart } from './components/LabProgressChart';
 
 interface PageProps {
   params: Promise<{ code: string }>;
 }
+
+type AttestationType = 'first' | 'second';
 
 type PageState = 
   | { status: 'loading' }
@@ -27,16 +30,16 @@ export default function PublicReportPage({ params }: PageProps) {
   const { code } = use(params);
   const [state, setState] = useState<PageState>({ status: 'loading' });
   const [pinVerified, setPinVerified] = useState(false);
+  const [attestationType, setAttestationType] = useState<AttestationType>('first');
 
-  const loadReport = async () => {
+  const loadReport = async (attType: AttestationType = attestationType) => {
     setState({ status: 'loading' });
     try {
-      const data = await PublicReportAPI.getReport(code);
+      const data = await PublicReportAPI.getReport(code, attType);
       setState({ status: 'loaded', data });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          // PIN required
           setState({ status: 'pin_required' });
         } else if (err.status === 404) {
           setState({ 
@@ -45,7 +48,6 @@ export default function PublicReportPage({ params }: PageProps) {
             errorType: 'not_found' 
           });
         } else if (err.status === 410) {
-          // Gone - expired or deactivated
           const isExpired = err.message.toLowerCase().includes('expired');
           setState({ 
             status: 'error', 
@@ -72,6 +74,12 @@ export default function PublicReportPage({ params }: PageProps) {
   useEffect(() => {
     loadReport();
   }, [code, pinVerified]);
+
+  const handleAttestationChange = (value: string) => {
+    const newType = value as AttestationType;
+    setAttestationType(newType);
+    loadReport(newType);
+  };
 
   const handlePinSuccess = () => {
     setPinVerified(true);
@@ -102,20 +110,47 @@ export default function PublicReportPage({ params }: PageProps) {
 
   // Loaded state
   const { data } = state;
+  const isSecondAvailable = data.is_second_available ?? false;
 
   return (
     <div className="space-y-6">
       <ReportHeader data={data} />
+      
+      {/* Attestation Tabs */}
+      <Tabs value={attestationType} onValueChange={handleAttestationChange}>
+        <TabsList>
+          <TabsTrigger value="first">1 аттестация</TabsTrigger>
+          <TabsTrigger value="second" disabled={!isSecondAvailable}>
+            2 аттестация
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+      
       <ReportSummaryCards data={data} />
       
-      {/* Charts section */}
-      {(data.attendance_distribution || data.lab_progress) && (
-        <div className="grid gap-6 md:grid-cols-2">
-          {data.attendance_distribution && data.show_attendance && (
-            <AttendanceChart distribution={data.attendance_distribution} />
-          )}
-          {data.lab_progress && data.lab_progress.length > 0 && data.show_grades && (
-            <LabProgressChart progress={data.lab_progress} />
+      {/* Charts section - 2 сверху (1+2 колонки), 1 снизу */}
+      {(data.show_attendance || data.show_grades) && (
+        <div className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-3">
+            {data.show_attendance && (
+              <AttendanceChart 
+                distribution={data.attendance_distribution || { present: 0, late: 0, excused: 0, absent: 0 }} 
+                stats={data.attendance_stats}
+                hasSubgroups={data.has_subgroups}
+              />
+            )}
+            {data.show_grades && (
+              <div className="md:col-span-2">
+                <LabProgressChart 
+                  progress={data.lab_progress || []} 
+                  progressBySubgroup={data.lab_progress_by_subgroup}
+                  hasSubgroups={data.has_subgroups} 
+                />
+              </div>
+            )}
+          </div>
+          {data.show_attendance && (
+            <AttendanceTrend stats={data.attendance_stats} hasSubgroups={data.has_subgroups} />
           )}
         </div>
       )}

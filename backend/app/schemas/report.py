@@ -4,7 +4,7 @@ Pydantic схемы для публичных отчётов.
 """
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, date
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 from app.schemas.user import PublicTeacherContacts
@@ -82,6 +82,7 @@ class PublicStudentData(BaseModel):
     """Данные студента для публичного отчёта."""
     id: UUID
     name: Optional[str] = Field(None, description="ФИО (null если show_names=False)")
+    subgroup: Optional[int] = Field(None, description="Подгруппа (1, 2 или null)")
     
     # Аттестация (если show_grades)
     total_score: Optional[float] = None
@@ -117,12 +118,28 @@ class AttendanceDistribution(BaseModel):
     absent: int = 0
 
 
+class DateAttendance(BaseModel):
+    """Посещаемость за дату для графика динамики."""
+    date: str  # ISO date string
+    rate: float  # % посещаемости
+    subgroup: Optional[int] = None
+
+
+class AttendanceStats(BaseModel):
+    """Расширенная статистика посещаемости."""
+    distribution: AttendanceDistribution
+    by_subgroup: Dict[str, AttendanceDistribution] = Field(default_factory=dict)
+    trend: List[DateAttendance] = Field(default_factory=list)
+    average_rate: float = 0.0
+
+
 class LabProgress(BaseModel):
     """Прогресс сдачи лабораторных для графика."""
     lab_name: str
     completed_count: int
     total_students: int
     completion_rate: float
+    subgroup: Optional[int] = None  # None = все, 1 или 2
 
 
 class PublicReportData(BaseModel):
@@ -133,6 +150,7 @@ class PublicReportData(BaseModel):
     teacher_name: str
     report_type: ReportType
     generated_at: datetime
+    semester_start_date: Optional[date] = Field(None, description="Дата начала семестра")
     
     # Контакты преподавателя (отфильтрованные по visibility: report или both)
     teacher_contacts: Optional[PublicTeacherContacts] = None
@@ -144,18 +162,32 @@ class PublicReportData(BaseModel):
     show_notes: bool
     show_rating: bool
     
+    # Флаг раннего семестра (не показывать предупреждения о незачёте)
+    is_early_semester: bool = Field(False, description="Начало семестра - не показывать предупреждения")
+    
     # Статистика (если show_grades)
     total_students: int
     passing_students: Optional[int] = None
     failing_students: Optional[int] = None
     average_score: Optional[float] = None
+    max_points: int = Field(35, description="Максимум баллов за аттестацию")
+    min_passing_points: int = Field(20, description="Минимум для зачёта")
+    
+    # Тип аттестации
+    attestation_type: str = Field("first", description="first или second")
+    is_second_available: bool = Field(False, description="Доступна ли 2-я аттестация")
+    
+    # Подгруппы
+    has_subgroups: bool = Field(False, description="Есть ли подгруппы в группе")
     
     # Данные студентов
     students: List[PublicStudentData]
     
     # Графики (если соответствующие данные включены)
     attendance_distribution: Optional[AttendanceDistribution] = None
+    attendance_stats: Optional[AttendanceStats] = Field(None, description="Расширенная статистика посещаемости")
     lab_progress: Optional[List[LabProgress]] = None
+    lab_progress_by_subgroup: Optional[Dict[str, List[LabProgress]]] = Field(None, description="Прогресс лаб по подгруппам: all, 1, 2")
     
     # Распределение оценок
     grade_distribution: Optional[Dict[str, int]] = None
@@ -204,6 +236,9 @@ class StudentDetailData(BaseModel):
     is_passing: Optional[bool] = None
     max_points: int = 100
     min_passing_points: int = 61
+    
+    # Флаг раннего семестра
+    is_early_semester: bool = Field(False, description="Начало семестра - не показывать предупреждения")
     
     # Сравнение с группой
     group_average_score: Optional[float] = None

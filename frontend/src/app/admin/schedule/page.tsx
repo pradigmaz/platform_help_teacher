@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfWeek, addDays, getDay, addWeeks } from 'date-fns';
 import { Download, Settings, AlertTriangle, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -19,13 +19,19 @@ import {
 } from './components';
 import { ConflictResolver, type ScheduleConflict } from './components/ConflictResolver';
 
+// В воскресенье показываем следующую неделю
+function getInitialWeek(): Date {
+  const today = new Date();
+  return getDay(today) === 0 ? addWeeks(today, 1) : today;
+}
+
 export default function SchedulePage() {
   const [lessons, setLessons] = useState<LessonData[]>([]);
   const [groupedLectures, setGroupedLectures] = useState<GroupedLecture[]>([]);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isParsing, setIsParsing] = useState(false);
-  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [currentWeek, setCurrentWeek] = useState(getInitialWeek);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<LessonSheetData | null>(null);
   const [selectedLecture, setSelectedLecture] = useState<GroupedLecture | null>(null);
@@ -39,7 +45,8 @@ export default function SchedulePage() {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
+  // Суббота = Пн + 5 дней
+  const weekEnd = addDays(weekStart, 5);
 
   // Проверка статуса парсинга
   const checkParseStatus = useCallback(async () => {

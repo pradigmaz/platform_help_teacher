@@ -47,7 +47,7 @@ export function useLectureData({ lecture, isOpen }: UseLectureDataProps): UseLec
 
     try {
       // Load students from admin endpoint
-      const { data: students } = await api.get(`/admin/schedule/groups/${groupId}/students`);
+      const { data: students } = await api.get(`/admin/groups/${groupId}/students`);
 
       // Load attendance
       const { data: attData } = await api.get('/admin/journal/attendance', {

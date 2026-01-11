@@ -58,7 +58,7 @@ async def get_available_semesters(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Получить доступные семестры для студента."""
-    from app.utils.semester import get_current_semester
+    from app.services.reports.semester_helpers import get_current_semester_from_settings
     
     if not current_user.group_id:
         return {"semesters": [], "current": None}
@@ -72,7 +72,8 @@ async def get_available_semesters(
             settings = teacher.teacher_settings or {}
             hide_previous = settings.get("hide_previous_semester", True)
     
-    current_year, current_sem = get_current_semester()
+    # Используем async версию для получения семестра из настроек
+    current_year, current_sem = await get_current_semester_from_settings(db)
     current = {"academic_year": current_year, "semester": current_sem}
     
     semesters = [current]

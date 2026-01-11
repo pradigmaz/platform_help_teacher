@@ -13,10 +13,12 @@ import { cn } from '@/lib/utils';
 interface RecommendationsProps {
   recommendations: string[];
   isPassing?: boolean;
+  isEarlySemester?: boolean;
 }
 
-export function Recommendations({ recommendations, isPassing }: RecommendationsProps) {
-  if (recommendations.length === 0) return null;
+export function Recommendations({ recommendations, isPassing, isEarlySemester }: RecommendationsProps) {
+  // В начале семестра не показываем предупреждения
+  if (recommendations.length === 0 || isEarlySemester) return null;
 
   const isAtRisk = !isPassing;
 

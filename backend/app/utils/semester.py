@@ -3,6 +3,9 @@
 
 Семестр 1: сентябрь - декабрь
 Семестр 2: январь - май
+
+ВАЖНО: Синхронные функции используют хардкод месяцев как fallback.
+Для получения актуальных данных используйте async версии из semester_helpers.py
 """
 from datetime import date
 from typing import Tuple
@@ -10,7 +13,10 @@ from typing import Tuple
 
 def get_current_semester() -> Tuple[int, int]:
     """
-    Определить текущий семестр.
+    Определить текущий семестр (FALLBACK версия с хардкодом).
+    
+    DEPRECATED: Используйте get_current_semester_from_settings() из semester_helpers.py
+    для получения семестра на основе настроек аттестации.
     
     Returns:
         (учебный_год, номер_семестра)

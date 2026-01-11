@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { startOfWeek, endOfWeek } from 'date-fns';
-import { SEMESTER_MONTHS, SEMESTER_DETECTION } from '@/lib/academic-constants';
+import { SEMESTER_MONTHS } from '@/lib/academic-constants';
+import { useSemesterInfo, getSemesterDates as getSemesterDatesFromHook } from '@/hooks/useSemesterInfo';
 
 // Attestation period type
 export type AttestationPeriod = 'all' | 'first' | 'second';
@@ -31,22 +32,23 @@ export interface UseJournalFiltersReturn {
   weekEnd: Date;
   getSemesterDates: (sem: SemesterInfo) => { start: Date; end: Date };
   getSemesterStart: () => Date;
+  semesterLoading: boolean;
 }
 
-// Helper to detect current semester
-function detectCurrentSemester(): SemesterInfo {
-  const now = new Date();
-  if (now.getMonth() >= SEMESTER_DETECTION.fallStartMonth) { // сентябрь-декабрь
-    return { academicYear: now.getFullYear(), semester: 1 };
-  } else if (now.getMonth() <= SEMESTER_DETECTION.springEndMonth) { // январь-май
-    return { academicYear: now.getFullYear() - 1, semester: 2 };
-  } else { // июнь-август
-    return { academicYear: now.getFullYear() - 1, semester: 2 };
+/**
+ * Get semester date range.
+ * Использует semester_start_date если доступен, иначе fallback на константы.
+ */
+export function getSemesterDates(
+  sem: SemesterInfo, 
+  semesterStartDate?: string | null
+): { start: Date; end: Date } {
+  // Если есть semester_start_date из API - используем его
+  if (semesterStartDate) {
+    return getSemesterDatesFromHook(sem.academicYear, sem.semester, semesterStartDate);
   }
-}
-
-// Get semester date range
-export function getSemesterDates(sem: SemesterInfo): { start: Date; end: Date } {
+  
+  // Fallback на константы
   if (sem.semester === 1) {
     return {
       start: new Date(sem.academicYear, SEMESTER_MONTHS.fall.startMonth, SEMESTER_MONTHS.fall.startDay),
@@ -61,29 +63,47 @@ export function getSemesterDates(sem: SemesterInfo): { start: Date; end: Date } 
 }
 
 export function useJournalFilters(): UseJournalFiltersReturn {
+  // Получаем семестр из API (с fallback на хардкод)
+  const { academicYear, semester, semesterStartDate, loading: semesterLoading } = useSemesterInfo();
+  
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
   const [selectedLessonType, setSelectedLessonType] = useState<string>('all');
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [attestationPeriod, setAttestationPeriod] = useState<AttestationPeriod>('all');
-  const [selectedSemester, setSelectedSemester] = useState<SemesterInfo>(detectCurrentSemester);
+  const [selectedSemester, setSelectedSemester] = useState<SemesterInfo>({
+    academicYear,
+    semester,
+  });
+
+  // Обновляем selectedSemester когда данные загрузятся из API
+  useEffect(() => {
+    if (!semesterLoading) {
+      setSelectedSemester({ academicYear, semester });
+    }
+  }, [academicYear, semester, semesterLoading]);
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
 
+  // Обёртка для getSemesterDates с учётом semesterStartDate
+  const getSemesterDatesWithApi = (sem: SemesterInfo) => {
+    return getSemesterDates(sem, semesterStartDate);
+  };
+
   // Semester start for attestation periods
   const getSemesterStart = () => {
-    const dates = getSemesterDates(selectedSemester);
+    const dates = getSemesterDatesWithApi(selectedSemester);
     return dates.start;
   };
 
   // Reset week to semester start when semester changes
   useEffect(() => {
-    const semDates = getSemesterDates(selectedSemester);
+    const semDates = getSemesterDatesWithApi(selectedSemester);
     if (currentWeek < semDates.start || currentWeek > semDates.end) {
       setCurrentWeek(semDates.start);
     }
-  }, [selectedSemester]);
+  }, [selectedSemester, semesterStartDate]);
 
   return {
     selectedGroupId,
@@ -100,7 +120,8 @@ export function useJournalFilters(): UseJournalFiltersReturn {
     setSelectedSemester,
     weekStart,
     weekEnd,
-    getSemesterDates,
+    getSemesterDates: getSemesterDatesWithApi,
     getSemesterStart,
+    semesterLoading,
   };
 }
