@@ -8,9 +8,11 @@ import { CardSpotlight } from '@/components/ui/card-spotlight';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { IconArrowLeft, IconCheck, IconClock, IconX, IconCalendar, IconTarget, IconBook, IconCode, IconQuestionMark, IconPlayerPlay, IconHandStop } from '@tabler/icons-react';
+import { IconArrowLeft, IconCheck, IconClock, IconX, IconTarget, IconBook, IconCode, IconQuestionMark, IconPlayerPlay, IconHandStop, IconAlertCircle, IconNotebook, IconFlask } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { LectureViewer } from '@/components/lectures';
+import { SerializedEditorState } from 'lexical';
 
 export default function LabDetailPage() {
   const params = useParams();
@@ -90,51 +92,26 @@ export default function LabDetailPage() {
           <Button variant="ghost" size="icon"><IconArrowLeft className="h-5 w-5" /></Button>
         </Link>
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant="outline">№{lab.number}</Badge>
-            <Badge className={cn(status.bg, status.color)}>{status.label}</Badge>
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">{lab.title}</h1>
-          {lab.topic && <p className="text-muted-foreground">{lab.topic}</p>}
+          <h1 className="text-2xl font-bold text-foreground">
+            Лабораторная работа №{lab.number}. {lab.title}
+          </h1>
+          {lab.topic && <p className="text-muted-foreground mt-1">{lab.topic}</p>}
         </div>
       </div>
 
-      {/* Status & Actions */}
+      {/* Status */}
       <CardSpotlight className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className={cn("p-3 rounded-xl", status.bg)}>
-              <StatusIcon className={cn("h-8 w-8", status.color)} />
-            </div>
-            <div>
-              <p className="text-lg font-semibold text-foreground">{status.label}</p>
-              {lab.submission?.grade !== undefined && (
-                <p className="text-2xl font-bold text-foreground">{lab.submission.grade}/{lab.max_grade}</p>
-              )}
-              {lab.deadline_5_lessons && (
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <IconCalendar className="h-4 w-4" />
-                  На 5: {lab.deadline_5_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_5_lessons - 1} пар`}
-                </p>
-              )}
-            </div>
+        <div className="flex items-center gap-4">
+          <div className={cn("p-3 rounded-xl", status.bg)}>
+            <StatusIcon className={cn("h-8 w-8", status.color)} />
           </div>
-          <div className="flex gap-2">
-            {!lab.submission && (
-              <Button onClick={handleMarkReady} disabled={actionLoading}>
-                {actionLoading ? '...' : <><IconPlayerPlay className="h-4 w-4 mr-2" />Готов сдать</>}
-              </Button>
-            )}
-            {lab.submission?.status === 'READY' && (
-              <Button variant="destructive" onClick={handleCancelReady} disabled={actionLoading}>
-                {actionLoading ? '...' : <><IconHandStop className="h-4 w-4 mr-2" />Выйти из очереди</>}
-              </Button>
-            )}
-            {lab.submission?.status === 'REJECTED' && (
-              <Button onClick={handleMarkReady} disabled={actionLoading}>
-                {actionLoading ? '...' : 'Пересдать'}
-              </Button>
-            )}
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Badge className={cn(status.bg, status.color)}>{status.label}</Badge>
+              {lab.submission?.grade !== undefined && (
+                <span className="text-xl font-bold text-foreground">{lab.submission.grade}/{lab.max_grade}</span>
+              )}
+            </div>
           </div>
         </div>
         {lab.submission?.feedback && (
@@ -144,28 +121,6 @@ export default function LabDetailPage() {
           </div>
         )}
       </CardSpotlight>
-
-      {/* Variant */}
-      {lab.variant_number && (
-        <CardSpotlight className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <IconCode className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Ваш вариант: {lab.variant_number}</h2>
-          </div>
-          {lab.variant_data && (
-            <div className="space-y-2">
-              {lab.variant_data.description && (
-                <p className="text-foreground">{lab.variant_data.description}</p>
-              )}
-              {lab.variant_data.test_data && (
-                <div className="p-3 rounded-lg bg-neutral-100 dark:bg-neutral-900 font-mono text-sm">
-                  {lab.variant_data.test_data}
-                </div>
-              )}
-            </div>
-          )}
-        </CardSpotlight>
-      )}
 
       {/* Goal */}
       {lab.goal && (
@@ -182,12 +137,62 @@ export default function LabDetailPage() {
       {lab.formatting_guide && (
         <CardSpotlight className="p-6">
           <div className="flex items-center gap-2 mb-4">
-            <IconBook className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Что записать в тетрадь</h2>
+            <IconNotebook className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Оформление в тетрадь</h2>
           </div>
           <p className="text-muted-foreground whitespace-pre-line">{lab.formatting_guide}</p>
         </CardSpotlight>
       )}
+
+      {/* Theory */}
+      {lab.theory_content && (
+        <CardSpotlight className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <IconBook className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Теоретическая часть</h2>
+          </div>
+          <LectureViewer content={lab.theory_content as unknown as SerializedEditorState} />
+        </CardSpotlight>
+      )}
+
+      {/* Practice */}
+      {lab.practice_content && (
+        <CardSpotlight className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <IconFlask className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Практическая часть</h2>
+          </div>
+          <LectureViewer content={lab.practice_content as unknown as SerializedEditorState} />
+        </CardSpotlight>
+      )}
+
+      {/* Variant */}
+      <CardSpotlight className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <IconCode className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">
+            {lab.variant_number ? `Ваш вариант: ${lab.variant_number}` : 'Ваш вариант'}
+          </h2>
+        </div>
+        {lab.variant_number && lab.variant_data ? (
+          <div className="space-y-2">
+            {lab.variant_data.description && (
+              <p className="text-foreground">{lab.variant_data.description}</p>
+            )}
+            {lab.variant_data.test_data && (
+              <div className="p-3 rounded-lg bg-neutral-100 dark:bg-neutral-900 font-mono text-sm">
+                {lab.variant_data.test_data}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center py-6 text-center">
+            <IconAlertCircle className="h-10 w-10 text-rose-500 mb-3" />
+            <p className="text-lg font-medium text-foreground">Вариант не назначен</p>
+            <p className="text-muted-foreground">Обратитесь к преподавателю для назначения варианта.</p>
+          </div>
+        )}
+      </CardSpotlight>
 
       {/* Questions */}
       {lab.questions && lab.questions.length > 0 && (
@@ -203,6 +208,25 @@ export default function LabDetailPage() {
           </ol>
         </CardSpotlight>
       )}
+
+      {/* Action Button */}
+      <div className="flex justify-center pt-4">
+        {!lab.submission && (
+          <Button size="lg" onClick={handleMarkReady} disabled={actionLoading}>
+            {actionLoading ? '...' : <><IconPlayerPlay className="h-5 w-5 mr-2" />Готов сдать</>}
+          </Button>
+        )}
+        {lab.submission?.status === 'READY' && (
+          <Button size="lg" variant="destructive" onClick={handleCancelReady} disabled={actionLoading}>
+            {actionLoading ? '...' : <><IconHandStop className="h-5 w-5 mr-2" />Выйти из очереди</>}
+          </Button>
+        )}
+        {lab.submission?.status === 'REJECTED' && (
+          <Button size="lg" onClick={handleMarkReady} disabled={actionLoading}>
+            {actionLoading ? '...' : <><IconPlayerPlay className="h-5 w-5 mr-2" />Исправил, сдать снова</>}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
