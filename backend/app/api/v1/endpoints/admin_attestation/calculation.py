@@ -90,6 +90,53 @@ async def calculate_group_attestation(
     return _build_group_response(group_id, group.code, attestation_type, results, errors)
 
 
+@router.get("/attestation/scores/all/{attestation_type}", response_model=GroupAttestationResponse)
+@limiter.limit("5/minute")
+async def calculate_all_students_attestation(
+    request: Request,
+    attestation_type: AttestationTypeSchema,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """Рассчитать баллы аттестации для всех студентов."""
+    # Получаем все неархивированные группы
+    groups_result = await db.execute(select(Group).where(Group.is_archived == False))
+    groups = list(groups_result.scalars().all())
+    
+    if not groups:
+        raise HTTPException(status_code=404, detail="Нет активных групп")
+    
+    service = AttestationService(db)
+    all_results = []
+    all_errors = []
+    
+    for group in groups:
+        students_result = await db.execute(
+            select(User).where(
+                User.group_id == group.id,
+                User.role == UserRole.STUDENT,
+                User.is_active == True
+            )
+        )
+        students = list(students_result.scalars().all())
+        
+        if not students:
+            continue
+        
+        results, errors = await service.calculate_group_scores_batch(
+            group_id=group.id,
+            attestation_type=attestation_type,
+            students=students
+        )
+        all_results.extend(results)
+        all_errors.extend(errors)
+    
+    if not all_results:
+        raise HTTPException(status_code=404, detail="Нет активных студентов")
+    
+    return _build_all_students_response(attestation_type, all_results, all_errors)
+
+
 def _build_group_response(group_id, group_code, attestation_type, results, errors):
     """Построить ответ для группы."""
     passing = sum(1 for r in results if r.is_passing)
@@ -104,6 +151,32 @@ def _build_group_response(group_id, group_code, attestation_type, results, error
     return GroupAttestationResponse(
         group_id=group_id,
         group_code=group_code,
+        attestation_type=attestation_type,
+        calculated_at=datetime.now(timezone.utc),
+        total_students=len(results),
+        passing_students=passing,
+        failing_students=len(results) - passing,
+        grade_distribution=grade_dist,
+        average_score=round(avg, 2),
+        students=results,
+        errors=errors
+    )
+
+
+def _build_all_students_response(attestation_type, results, errors):
+    """Построить ответ для всех студентов."""
+    passing = sum(1 for r in results if r.is_passing)
+    
+    grade_dist: Dict[str, int] = {"неуд": 0, "уд": 0, "хор": 0, "отл": 0}
+    for r in results:
+        if r.grade in grade_dist:
+            grade_dist[r.grade] += 1
+    
+    avg = sum(r.total_score for r in results) / len(results) if results else 0.0
+    
+    return GroupAttestationResponse(
+        group_id=None,
+        group_code="all",
         attestation_type=attestation_type,
         calculated_at=datetime.now(timezone.utc),
         total_students=len(results),
