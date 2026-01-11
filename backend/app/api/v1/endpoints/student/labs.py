@@ -26,7 +26,10 @@ async def get_my_labs(
     """Лабораторные работы студента со статусами сдачи."""
     
     labs_result = await db.execute(
-        select(Lab).order_by(Lab.number.asc(), Lab.created_at.desc())
+        select(Lab)
+        .where(Lab.is_published.is_(True))
+        .where(Lab.deleted_at.is_(None))
+        .order_by(Lab.number.asc(), Lab.created_at.desc())
     )
     labs = labs_result.scalars().all()
     
@@ -55,7 +58,8 @@ async def get_my_labs(
             "title": lab.title,
             "topic": lab.topic,
             "description": lab.description,
-            "deadline": lab.deadline.isoformat() if lab.deadline else None,
+            "deadline_5_lessons": lab.deadline_5_lessons,
+            "deadline_4_lessons": lab.deadline_4_lessons,
             "max_grade": lab.max_grade,
             "is_available": is_available,
             "variant_number": variant_number,
@@ -114,7 +118,8 @@ async def get_lab_detail(
         "theory_content": lab.theory_content,
         "practice_content": lab.practice_content,
         "questions": lab.questions,
-        "deadline": lab.deadline.isoformat() if lab.deadline else None,
+        "deadline_5_lessons": lab.deadline_5_lessons,
+        "deadline_4_lessons": lab.deadline_4_lessons,
         "max_grade": lab.max_grade,
         "is_available": is_available,
         "variant_number": variant_number,

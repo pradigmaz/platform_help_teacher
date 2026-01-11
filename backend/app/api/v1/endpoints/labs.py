@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Any
@@ -8,8 +8,28 @@ from app.models.user import User
 from app.models.lab import Lab
 from app.models.submission import Submission
 from app.schemas.lab import LabResponse
+from app.services.lab_service import lab_service
+from app.core.limiter import limiter
+from app.audit import audit_action, ActionType, EntityType
 
 router = APIRouter()
+
+
+@router.get("/view/{code}", response_model=LabResponse)
+@limiter.limit("30/minute")
+@audit_action(ActionType.VIEW, EntityType.LAB)
+async def get_public_lab(
+    request: Request,
+    code: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Получить лабораторную по публичному коду (без авторизации)."""
+    lab = await lab_service.get_by_public_code(db, code)
+    if not lab:
+        raise HTTPException(status_code=404, detail="Лабораторная не найдена")
+    
+    return lab
+
 
 @router.get("/", response_model=List[LabResponse])
 async def get_labs_with_status(

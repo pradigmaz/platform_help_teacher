@@ -1,7 +1,6 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Table,
@@ -43,7 +42,6 @@ export function LabsTable({ labs, onDelete }: LabsTableProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Название</TableHead>
-                  <TableHead>Макс. балл</TableHead>
                   <TableHead>Дедлайн (5)</TableHead>
                   <TableHead>Дедлайн (4)</TableHead>
                   <TableHead>Создано</TableHead>
@@ -54,11 +52,6 @@ export function LabsTable({ labs, onDelete }: LabsTableProps) {
                 {labs.map((lab) => (
                   <TableRow key={lab.id} className="group hover:bg-muted/50">
                     <TableCell className="font-medium">{lab.title}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="bg-gradient-to-r from-purple-500/20 to-blue-500/20">
-                        {lab.max_grade}
-                      </Badge>
-                    </TableCell>
                     <TableCell>
                       {lab.deadline_5_lessons ? (
                         <span className="flex items-center gap-1 text-sm">
