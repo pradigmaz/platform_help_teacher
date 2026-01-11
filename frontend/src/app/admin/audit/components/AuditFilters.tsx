@@ -46,7 +46,7 @@ export function AuditFilters({
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Тип действия" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[300px]">
               <SelectItem value="all">Все действия</SelectItem>
               {Object.entries(ACTION_LABELS).map(([key, { label }]) => (
                 <SelectItem key={key} value={key}>{label}</SelectItem>

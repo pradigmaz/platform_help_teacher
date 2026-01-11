@@ -17,6 +17,10 @@ CSRF_EXEMPT_PATHS: Set[str] = {
     "/api/v1/webhooks/telegram",  # Telegram webhook (проверяется по IP + secret)
     "/api/v1/webhooks/vk",        # VK webhook
     "/api/v1/auth/csrf-token",    # Получение CSRF токена
+    "/api/v1/admin/schedule/parse",      # Парсинг расписания (защищён JWT)
+    "/api/v1/admin/schedule/parse-now",  # Ручной парсинг (защищён JWT)
+    "/api/v1/admin/schedule/parser-config",  # Конфиг парсера (защищён JWT)
+    "/api/v1/admin/backups",      # Бэкапы (защищены JWT)
     "/health",                     # Health check
     "/docs",                       # Swagger
     "/openapi.json",              # OpenAPI spec

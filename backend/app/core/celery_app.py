@@ -22,13 +22,16 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=600,  # 10 min max
     worker_prefetch_multiplier=1,
+    # Redis scheduler вместо файлового (решает проблему Permission denied)
+    beat_scheduler="celery.beat:PersistentScheduler",
+    beat_schedule_filename="/tmp/celerybeat-schedule",
 )
 
 # Beat schedule for periodic tasks
 celery_app.conf.beat_schedule = {
     "check-schedule-updates": {
         "task": "app.tasks.schedule_tasks.check_all_schedules",
-        "schedule": 3600.0,  # Every hour
+        "schedule": 900.0,  # Every 15 minutes (для точного попадания в run_time)
     },
     "create-daily-backup": {
         "task": "app.tasks.backup_tasks.create_scheduled_backup",
