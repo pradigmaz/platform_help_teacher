@@ -1,35 +1,34 @@
 """
-Валидатор дедлайнов для оценок.
-Проверяет максимально допустимую оценку с учётом просрочки.
+Валидатор дедлайнов для оценок лабораторных.
+Проверяет максимально допустимую оценку с учётом количества прошедших пар.
 """
 import logging
-from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.attestation_settings import AttestationSettings, AttestationType
+from app.models.lab import Lab
 from app.models.lesson import Lesson
-from app.models.work import Work
+from app.models.attendance import Attendance, AttendanceStatus
 
 logger = logging.getLogger(__name__)
 
 
-async def get_max_allowed_grade(
+async def get_max_allowed_grade_for_lab(
     db: AsyncSession,
-    lesson: Lesson,
-    submission_date: Optional[date] = None,
+    lab: Lab,
+    current_lesson: Lesson,
     has_excuse: bool = False
 ) -> int:
     """
-    Получить максимально допустимую оценку с учётом дедлайна.
+    Получить максимально допустимую оценку для лабораторной с учётом дедлайна.
     
     Args:
         db: Сессия БД
-        lesson: Занятие, на котором ставится оценка
-        submission_date: Дата сдачи (по умолчанию = дата занятия)
+        lab: Лабораторная работа
+        current_lesson: Занятие на котором ставится оценка
         has_excuse: Есть ли уважительная причина (снимает ограничение)
     
     Returns:
@@ -39,51 +38,76 @@ async def get_max_allowed_grade(
     if has_excuse:
         return 5
     
-    # Если нет связанной работы — нет дедлайна
-    if not lesson.work_id:
+    # Если нет дедлайнов — нет ограничений
+    if lab.deadline_5_lessons is None and lab.deadline_4_lessons is None:
         return 5
     
-    # Получаем работу
-    work_result = await db.execute(select(Work).where(Work.id == lesson.work_id))
-    work = work_result.scalar_one_or_none()
-    
-    if not work or not work.deadline:
+    # Если лаба не привязана к занятию — нет ограничений
+    if not lab.lesson_id:
         return 5
     
-    # Дата сдачи = дата занятия если не указана
-    check_date = submission_date or lesson.date
+    # Получаем занятие на котором создана лаба
+    origin_lesson = await db.get(Lesson, lab.lesson_id)
+    if not origin_lesson:
+        return 5
     
-    # Приводим к date для сравнения
-    deadline_date = work.deadline.date() if isinstance(work.deadline, datetime) else work.deadline
-    
-    if check_date <= deadline_date:
-        return 5  # Вовремя
-    
-    # Получаем настройки аттестации
-    settings = await _get_attestation_settings(db, lesson.date)
-    if not settings:
-        return 5  # Нет настроек — нет ограничений
-    
-    days_late = (check_date - deadline_date).days
-    
-    if days_late <= settings.late_threshold_days:
-        return settings.late_max_grade  # Немного просрочил → макс 4
-    
-    return settings.very_late_max_grade  # Сильно просрочил → макс 3
-
-
-async def _get_attestation_settings(
-    db: AsyncSession,
-    lesson_date: date
-) -> Optional[AttestationSettings]:
-    """Получить настройки аттестации для даты занятия."""
-    # Определяем тип аттестации по дате (упрощённо — берём первую)
-    # TODO: Улучшить логику определения периода
-    result = await db.execute(
-        select(AttestationSettings)
-        .where(AttestationSettings.attestation_type == AttestationType.FIRST)
+    # Считаем номер текущей пары относительно создания лабы
+    lesson_index = await _get_lesson_index(
+        db,
+        origin_lesson=origin_lesson,
+        current_lesson=current_lesson
     )
-    return result.scalar_one_or_none()
+    
+    if lesson_index is None:
+        return 5
+    
+    # Проверяем дедлайны
+    # lesson_index = 0 — это пара создания лабы
+    # deadline_5_lessons = 1 — можно сдать на 5 на паре 0 и 1 (текущая + следующая)
+    
+    if lab.deadline_4_lessons is not None and lesson_index > lab.deadline_4_lessons:
+        return 3  # Сильно просрочил → макс 3
+    
+    if lab.deadline_5_lessons is not None and lesson_index > lab.deadline_5_lessons:
+        return 4  # Немного просрочил → макс 4
+    
+    return 5  # Вовремя
+
+
+async def _get_lesson_index(
+    db: AsyncSession,
+    origin_lesson: Lesson,
+    current_lesson: Lesson
+) -> Optional[int]:
+    """
+    Получить индекс текущего занятия относительно занятия создания лабы.
+    Считаются только LAB-занятия той же группы и предмета.
+    
+    Returns:
+        Индекс (0 = пара создания), None если не найдено
+    """
+    # Получаем все LAB-занятия этой группы/предмета начиная с даты создания
+    query = (
+        select(Lesson.id, Lesson.date, Lesson.lesson_number)
+        .where(and_(
+            Lesson.group_id == origin_lesson.group_id,
+            Lesson.subject_id == origin_lesson.subject_id,
+            Lesson.lesson_type == 'LAB',
+            Lesson.is_cancelled == False,
+            Lesson.date >= origin_lesson.date
+        ))
+        .order_by(Lesson.date, Lesson.lesson_number)
+    )
+    
+    result = await db.execute(query)
+    lessons = result.all()
+    
+    # Ищем индекс текущего занятия
+    for idx, (lesson_id, _, _) in enumerate(lessons):
+        if lesson_id == current_lesson.id:
+            return idx
+    
+    return None
 
 
 def validate_grade_for_max(grade: int, max_allowed: int) -> None:
@@ -97,3 +121,57 @@ def validate_grade_for_max(grade: int, max_allowed: int) -> None:
         raise ValueError(
             f"Максимальная оценка для этой работы: {max_allowed} (просрочка дедлайна)"
         )
+
+
+async def get_max_allowed_grade(
+    db: AsyncSession,
+    lesson: Lesson,
+    student_id: Optional[UUID] = None,
+    work_number: Optional[int] = None
+) -> int:
+    """
+    Получить максимально допустимую оценку для занятия.
+    Обёртка для интеграции с журналом.
+    
+    Args:
+        db: Сессия БД
+        lesson: Занятие на котором ставится оценка
+        student_id: ID студента (для проверки уважительной причины)
+        work_number: Номер работы (если отличается от lesson.work_number)
+    
+    Returns:
+        Максимально допустимая оценка (2-5)
+    """
+    # Только для LAB-занятий проверяем дедлайны
+    if lesson.lesson_type != 'LAB':
+        return 5
+    
+    # Определяем номер работы
+    lab_number = work_number or lesson.work_number
+    if not lab_number:
+        return 5
+    
+    # Ищем лабу по предмету и номеру
+    lab_query = select(Lab).where(and_(
+        Lab.subject_id == lesson.subject_id,
+        Lab.number == lab_number,
+        Lab.deleted_at.is_(None)
+    ))
+    result = await db.execute(lab_query)
+    lab = result.scalar_one_or_none()
+    
+    if not lab:
+        return 5
+    
+    # Проверяем уважительную причину студента
+    has_excuse = False
+    if student_id:
+        excuse_query = select(Attendance).where(and_(
+            Attendance.lesson_id == lesson.id,
+            Attendance.student_id == student_id,
+            Attendance.status == AttendanceStatus.EXCUSED
+        ))
+        excuse_result = await db.execute(excuse_query)
+        has_excuse = excuse_result.scalar_one_or_none() is not None
+    
+    return await get_max_allowed_grade_for_lab(db, lab, lesson, has_excuse)

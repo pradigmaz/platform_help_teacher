@@ -80,11 +80,6 @@ class AttestationSettings(Base, TimestampMixin):
     late_coef: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
     absent_coef: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)  # 0 или отрицательный
     
-    # === ДЕДЛАЙНЫ ===
-    late_max_grade: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
-    very_late_max_grade: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
-    late_threshold_days: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
-    
     # === ОПЦИОНАЛЬНЫЕ КОМПОНЕНТЫ ===
     # Самостоятельные работы
     self_works_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

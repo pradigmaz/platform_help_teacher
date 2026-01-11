@@ -19,7 +19,8 @@ interface Lab {
   title: string;
   description: string | null;
   max_grade: number;
-  deadline: string | null;
+  deadline_5_lessons: number | null;
+  deadline_4_lessons: number | null;
   created_at: string;
 }
 
@@ -52,7 +53,8 @@ export function LabsTable({ labs, onDelete }: LabsTableProps) {
                 <TableRow>
                   <TableHead>Название</TableHead>
                   <TableHead>Макс. балл</TableHead>
-                  <TableHead>Дедлайн</TableHead>
+                  <TableHead>Дедлайн (5)</TableHead>
+                  <TableHead>Дедлайн (4)</TableHead>
                   <TableHead>Создано</TableHead>
                   <TableHead className="text-right">Действия</TableHead>
                 </TableRow>
@@ -67,10 +69,18 @@ export function LabsTable({ labs, onDelete }: LabsTableProps) {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {lab.deadline ? (
-                        <span className="flex items-center gap-1">
+                      {lab.deadline_5_lessons ? (
+                        <span className="flex items-center gap-1 text-sm">
                           <Calendar className="w-3 h-3" />
-                          {new Date(lab.deadline).toLocaleDateString('ru-RU')}
+                          {lab.deadline_5_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_5_lessons - 1} пар`}
+                        </span>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {lab.deadline_4_lessons ? (
+                        <span className="flex items-center gap-1 text-sm">
+                          <Calendar className="w-3 h-3" />
+                          {lab.deadline_4_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_4_lessons - 1} пар`}
                         </span>
                       ) : '—'}
                     </TableCell>

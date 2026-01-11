@@ -118,17 +118,12 @@ class StudentService:
         labs_data = []
         stats = StudentStats()
         stats.labs_total = len(labs)
-        now = dt.now(timezone.utc)
         
         for lab in labs:
             sub = subs_map.get(lab.id)
+            # TODO: is_overdue теперь зависит от количества пар, не от даты
+            # Для корректного расчёта нужен доступ к расписанию
             is_overdue = False
-            
-            if lab.deadline:
-                deadline_aware = lab.deadline if lab.deadline.tzinfo else lab.deadline.replace(tzinfo=timezone.utc)
-                if not sub and deadline_aware < now:
-                    is_overdue = True
-                    stats.labs_overdue += 1
             
             if sub:
                 stats.labs_submitted += 1
@@ -148,7 +143,8 @@ class StudentService:
                 status=sub.status.value if sub else None,
                 grade=sub.grade if sub else None,
                 max_grade=lab.max_grade,
-                deadline=lab.deadline,
+                deadline_5_lessons=lab.deadline_5_lessons,
+                deadline_4_lessons=lab.deadline_4_lessons,
                 submitted_at=sub.created_at if sub else None,
                 feedback=sub.feedback if sub else None,
                 is_overdue=is_overdue,

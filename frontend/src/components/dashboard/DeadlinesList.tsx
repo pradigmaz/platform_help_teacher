@@ -28,31 +28,24 @@ const STATUS_BADGE = {
   not_submitted: { label: 'Не сдано', variant: 'outline' as const, className: '' },
 } as const;
 
-/** Format deadline date */
-function formatDeadline(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-/** Check if deadline is soon (within 3 days) */
-function isDeadlineSoon(dateStr: string): boolean {
-  const deadline = new Date(dateStr);
-  const now = new Date();
-  const diffDays = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays >= 0 && diffDays <= 3;
+/** Format deadline lessons */
+function formatDeadlineLessons(lessons: number | null | undefined): string {
+  if (!lessons) return 'Без дедлайна';
+  if (lessons === 1) return 'След. пара';
+  return `Через ${lessons - 1} пар`;
 }
 
 /**
  * List of upcoming lab deadlines
  */
 export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
-  // Sort by deadline, filter out accepted
+  // Filter out accepted, sort by deadline_5_lessons
   const sortedLabs = [...labs]
     .filter(l => l.submission?.status !== 'ACCEPTED')
     .sort((a, b) => {
-      if (!a.deadline) return 1;
-      if (!b.deadline) return -1;
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      const aDeadline = (a as any).deadline_5_lessons ?? Infinity;
+      const bDeadline = (b as any).deadline_5_lessons ?? Infinity;
+      return aDeadline - bDeadline;
     })
     .slice(0, maxItems);
 
@@ -78,7 +71,8 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
           {sortedLabs.map((lab, idx) => {
             const status = getLabStatus(lab);
             const badge = STATUS_BADGE[status];
-            const isSoon = lab.deadline && isDeadlineSoon(lab.deadline);
+            const deadline5 = (lab as any).deadline_5_lessons;
+            const isSoon = deadline5 && deadline5 <= 1;
 
             return (
               <Link
@@ -98,7 +92,7 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
                     "text-xs",
                     isSoon && status === 'not_submitted' ? "text-orange-500 font-medium" : "text-muted-foreground"
                   )}>
-                    {lab.deadline ? formatDeadline(lab.deadline) : 'Без дедлайна'}
+                    {formatDeadlineLessons(deadline5)}
                   </p>
                 </div>
 

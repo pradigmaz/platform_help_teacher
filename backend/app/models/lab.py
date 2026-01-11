@@ -75,7 +75,10 @@ class Lab(Base, TimestampMixin):
     )
     
     # === Настройки ===
-    deadline: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Дедлайны: через сколько пар (LAB) блокируется оценка
+    # 1 = следующая пара, 2 = через пару, и т.д.
+    deadline_5_lessons: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    deadline_4_lessons: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     max_grade: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
     is_sequential: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False,

@@ -112,10 +112,10 @@ export default function LabDetailPage() {
               {lab.submission?.grade !== undefined && (
                 <p className="text-2xl font-bold text-foreground">{lab.submission.grade}/{lab.max_grade}</p>
               )}
-              {lab.deadline && (
+              {(lab as any).deadline_5_lessons && (
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <IconCalendar className="h-4 w-4" />
-                  Дедлайн: {new Date(lab.deadline).toLocaleDateString('ru-RU')}
+                  На 5: {(lab as any).deadline_5_lessons === 1 ? 'След. пара' : `Через ${(lab as any).deadline_5_lessons - 1} пар`}
                 </p>
               )}
             </div>

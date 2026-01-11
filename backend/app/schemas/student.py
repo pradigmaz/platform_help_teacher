@@ -9,7 +9,8 @@ class StudentLabSubmission(BaseModel):
     status: Optional[str] = None
     grade: Optional[int] = None
     max_grade: int
-    deadline: Optional[datetime] = None
+    deadline_5_lessons: Optional[int] = None
+    deadline_4_lessons: Optional[int] = None
     submitted_at: Optional[datetime] = None
     feedback: Optional[str] = None
     is_overdue: bool = False  # Просрочено

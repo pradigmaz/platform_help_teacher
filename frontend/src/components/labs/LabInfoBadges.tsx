@@ -10,14 +10,29 @@ interface LabInfoBadgesProps {
 }
 
 export function LabInfoBadges({ lab }: LabInfoBadgesProps) {
+  const formatDeadline = (lessons: number | null | undefined) => {
+    if (!lessons) return null;
+    if (lessons === 1) return 'След. пара';
+    return `Через ${lessons - 1} пар`;
+  };
+
+  const deadline5 = (lab as any).deadline_5_lessons;
+  const deadline4 = (lab as any).deadline_4_lessons;
+
   return (
     <>
       {/* Info badges */}
       <div className="flex flex-wrap gap-2">
-        {lab.deadline && (
+        {deadline5 && (
           <Badge variant="outline" className="gap-1">
             <Calendar className="h-3 w-3" />
-            Дедлайн: {new Date(lab.deadline).toLocaleDateString('ru-RU')}
+            На 5: {formatDeadline(deadline5)}
+          </Badge>
+        )}
+        {deadline4 && (
+          <Badge variant="outline" className="gap-1">
+            <Calendar className="h-3 w-3" />
+            На 4: {formatDeadline(deadline4)}
           </Badge>
         )}
         {lab.is_sequential && (

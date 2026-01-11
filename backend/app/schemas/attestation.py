@@ -31,11 +31,6 @@ class AttestationSettingsBase(BaseModel):
     late_coef: float = Field(default=0.5, ge=0, le=1, description="Коэффициент опоздания")
     absent_coef: float = Field(default=0.0, ge=-1, le=0, description="Коэффициент прогула (0 или отрицательный)")
     
-    # === ДЕДЛАЙНЫ ===
-    late_max_grade: int = Field(default=4, ge=2, le=5, description="Макс оценка при небольшой просрочке")
-    very_late_max_grade: int = Field(default=3, ge=2, le=5, description="Макс оценка при сильной просрочке")
-    late_threshold_days: int = Field(default=7, ge=0, description="Граница просрочки (дни)")
-    
     # === ОПЦИОНАЛЬНЫЕ КОМПОНЕНТЫ ===
     # Самостоятельные работы
     self_works_enabled: bool = Field(default=False, description="Включить СР")

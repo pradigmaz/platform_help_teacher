@@ -147,7 +147,7 @@ export default function LabsPage() {
                   )}
 
                   <div className="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-neutral-200 dark:border-neutral-800">
-                    <div className="flex items-center gap-1"><IconCalendar className="h-3 w-3" /><span>{lab.deadline ? new Date(lab.deadline).toLocaleDateString('ru-RU') : 'Без дедлайна'}</span></div>
+                    <div className="flex items-center gap-1"><IconCalendar className="h-3 w-3" /><span>{(lab as any).deadline_5_lessons ? ((lab as any).deadline_5_lessons === 1 ? 'След. пара' : `Через ${(lab as any).deadline_5_lessons - 1} пар`) : 'Без дедлайна'}</span></div>
                   </div>
 
                   {/* Actions */}

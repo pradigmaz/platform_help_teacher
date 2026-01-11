@@ -18,7 +18,8 @@ export interface LabData {
   variants: LabVariant[];
   questions: string[];
   max_grade: number;
-  deadline?: string;
+  deadline_5_lessons?: number | null;
+  deadline_4_lessons?: number | null;
   is_sequential: boolean;
 }
 

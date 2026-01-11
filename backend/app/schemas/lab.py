@@ -52,7 +52,8 @@ class LabCreate(BaseModel):
     variants: Optional[List[Dict[str, Any]]] = None
     questions: Optional[List[str]] = None
     max_grade: int = Field(default=5, ge=1, le=100)
-    deadline: Optional[datetime] = None
+    deadline_5_lessons: Optional[int] = Field(default=None, ge=1, description="Через сколько пар блокируется 5")
+    deadline_4_lessons: Optional[int] = Field(default=None, ge=1, description="Через сколько пар блокируется 4")
     is_sequential: bool = True
     subject_id: Optional[UUID] = None
     lesson_id: Optional[UUID] = None
@@ -96,7 +97,8 @@ class LabUpdate(BaseModel):
     variants: Optional[List[Dict[str, Any]]] = None
     questions: Optional[List[str]] = None
     max_grade: Optional[int] = Field(default=None, ge=1, le=100)
-    deadline: Optional[datetime] = None
+    deadline_5_lessons: Optional[int] = Field(default=None, ge=1)
+    deadline_4_lessons: Optional[int] = Field(default=None, ge=1)
     is_sequential: Optional[bool] = None
     subject_id: Optional[UUID] = None
     lesson_id: Optional[UUID] = None
@@ -135,7 +137,8 @@ class LabOut(BaseModel):
     title: str
     description: Optional[str] = None
     max_grade: int
-    deadline: Optional[datetime] = None
+    deadline_5_lessons: Optional[int] = None
+    deadline_4_lessons: Optional[int] = None
     is_published: bool = False
     created_at: datetime
     updated_at: datetime
@@ -149,7 +152,8 @@ class LabResponse(BaseModel):
     id: UUID
     title: str
     description: Optional[str] = None
-    deadline: Optional[datetime] = None
+    deadline_5_lessons: Optional[int] = None
+    deadline_4_lessons: Optional[int] = None
     max_grade: int
     s3_key: Optional[str] = None
     my_submission: Optional[SubmissionDTO] = None
@@ -171,7 +175,8 @@ class LabDetailResponse(BaseModel):
     practice_content: Optional[Dict[str, Any]] = None
     variants: Optional[List[Dict[str, Any]]] = None
     questions: Optional[List[str]] = None
-    deadline: Optional[datetime] = None
+    deadline_5_lessons: Optional[int] = None
+    deadline_4_lessons: Optional[int] = None
     max_grade: int
     is_sequential: bool
     is_published: bool

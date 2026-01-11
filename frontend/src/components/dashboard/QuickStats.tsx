@@ -17,20 +17,20 @@ function getLabStats(labs: QuickStatsProps['labs']) {
   return { total, accepted, pending, percent };
 }
 
-/** Get nearest deadline */
-function getNearestDeadline(labs: QuickStatsProps['labs']): { title: string; date: Date } | null {
-  const now = new Date();
+/** Get nearest deadline (by lessons count) */
+function getNearestDeadline(labs: QuickStatsProps['labs']): { title: string; lessonsLeft: number } | null {
   const upcoming = labs
-    .filter(l => l.deadline && new Date(l.deadline) > now && l.submission?.status !== 'ACCEPTED')
-    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime());
+    .filter(l => (l as any).deadline_5_lessons && l.submission?.status !== 'ACCEPTED')
+    .sort((a, b) => ((a as any).deadline_5_lessons ?? Infinity) - ((b as any).deadline_5_lessons ?? Infinity));
   
   if (upcoming.length === 0) return null;
-  return { title: upcoming[0].title, date: new Date(upcoming[0].deadline!) };
+  return { title: upcoming[0].title, lessonsLeft: (upcoming[0] as any).deadline_5_lessons };
 }
 
-/** Format date to short string */
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+/** Format lessons left */
+function formatLessonsLeft(lessons: number): string {
+  if (lessons === 1) return 'След. пара';
+  return `Через ${lessons - 1} пар`;
 }
 
 /**
@@ -121,7 +121,7 @@ export function QuickStats({ labs, attendance, isLoading }: QuickStatsProps) {
                 {nearestDeadline.title}
               </p>
               <p className="text-2xl font-bold text-orange-500">
-                {formatShortDate(nearestDeadline.date)}
+                {formatLessonsLeft(nearestDeadline.lessonsLeft)}
               </p>
             </>
           ) : (

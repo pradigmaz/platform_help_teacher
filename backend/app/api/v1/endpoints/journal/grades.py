@@ -199,7 +199,9 @@ async def create_grade(
         raise HTTPException(status_code=404, detail="Lesson not found")
     
     # Проверяем максимально допустимую оценку по дедлайну
-    max_allowed = await get_max_allowed_grade(db, lesson)
+    max_allowed = await get_max_allowed_grade(
+        db, lesson, student_id=data.student_id, work_number=data.work_number
+    )
     try:
         validate_grade_for_max(data.grade, max_allowed)
     except ValueError as e:
@@ -237,7 +239,11 @@ async def update_grade(
     
     # Проверяем дедлайн если меняется оценка
     if data.grade is not None and existing.lesson:
-        max_allowed = await get_max_allowed_grade(db, existing.lesson)
+        max_allowed = await get_max_allowed_grade(
+            db, existing.lesson, 
+            student_id=existing.student_id, 
+            work_number=data.work_number or existing.work_number
+        )
         try:
             validate_grade_for_max(data.grade, max_allowed)
         except ValueError as e:
@@ -307,17 +313,23 @@ async def bulk_update_grades(
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
     
-    # Проверяем максимально допустимую оценку
-    max_allowed = await get_max_allowed_grade(db, lesson)
-    
-    # Валидируем все оценки
+    # Валидируем и создаём оценки
+    updated = []
     for grade_item in data.grades:
+        # Проверяем дедлайн для каждого студента отдельно (уважительная причина)
+        max_allowed = await get_max_allowed_grade(
+            db, lesson, 
+            student_id=grade_item.student_id, 
+            work_number=grade_item.work_number
+        )
         try:
             validate_grade_for_max(grade_item.grade, max_allowed)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Студент {grade_item.student_id}: {str(e)}"
+            )
     
-    updated = []
     for grade_item in data.grades:
         grade = await crud_lesson_grade.upsert_lesson_grade(
             db,
@@ -331,7 +343,7 @@ async def bulk_update_grades(
         updated.append(grade)
     
     logger.info(f"Bulk updated {len(updated)} grades for lesson {data.lesson_id}")
-    return {"updated": len(updated), "max_allowed_grade": max_allowed}
+    return {"updated": len(updated)}
 
 
 

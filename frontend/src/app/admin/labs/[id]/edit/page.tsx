@@ -50,7 +50,8 @@ export default function EditLabPage() {
           variants: data.variants,
           questions: data.questions,
           max_grade: 5,
-          deadline: data.deadline,
+          deadline_5_lessons: data.deadline_5_lessons,
+          deadline_4_lessons: data.deadline_4_lessons,
           is_sequential: data.is_sequential,
         });
         toast.success('Лабораторная создана');
@@ -66,7 +67,8 @@ export default function EditLabPage() {
           variants: data.variants,
           questions: data.questions,
           max_grade: 5,
-          deadline: data.deadline,
+          deadline_5_lessons: data.deadline_5_lessons,
+          deadline_4_lessons: data.deadline_4_lessons,
           is_sequential: data.is_sequential,
         });
         toast.success('Лабораторная сохранена');
@@ -98,7 +100,8 @@ export default function EditLabPage() {
     variants: lab.variants || [],
     questions: lab.questions || [],
     max_grade: 5,
-    deadline: lab.deadline,
+    deadline_5_lessons: (lab as any).deadline_5_lessons,
+    deadline_4_lessons: (lab as any).deadline_4_lessons,
     is_sequential: lab.is_sequential,
   } : undefined;
 

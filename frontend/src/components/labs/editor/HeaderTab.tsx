@@ -50,7 +50,7 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
                 className="mt-1.5"
                 value={data.title}
                 onChange={(e) => updateField('title', e.target.value)}
-                placeholder="Unit-тестирование в C#"
+                placeholder="Введите название темы"
               />
             </div>
           </div>
@@ -61,7 +61,7 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
               className="mt-1.5"
               value={data.goal || ''}
               onChange={(e) => updateField('goal', e.target.value)}
-              placeholder="Научиться писать unit-тесты..."
+              placeholder="Опишите цель лабораторной работы..."
               rows={3}
             />
           </div>
@@ -85,27 +85,49 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
             />
           </div>
           <Separator />
-          <div className="flex gap-6">
-            <div className="flex-1">
-              <Label htmlFor="lab-deadline">Дедлайн</Label>
-              <Input
-                id="lab-deadline"
-                className="mt-1.5"
-                type="datetime-local"
-                value={data.deadline || ''}
-                onChange={(e) => updateField('deadline', e.target.value)}
-              />
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <Label htmlFor="lab-deadline-5">Дедлайн (макс 5)</Label>
+              <select
+                id="lab-deadline-5"
+                className="mt-1.5 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                value={data.deadline_5_lessons ?? ''}
+                onChange={(e) => updateField('deadline_5_lessons', e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Без ограничения</option>
+                <option value="1">Следующая пара</option>
+                <option value="2">Через пару</option>
+                <option value="3">Через 2 пары</option>
+                <option value="4">Через 3 пары</option>
+                <option value="5">Через 4 пары</option>
+              </select>
             </div>
-            <div className="flex items-center gap-3 pt-6">
-              <Switch
-                id="is_sequential"
-                checked={data.is_sequential}
-                onCheckedChange={(checked) => updateField('is_sequential', checked)}
-              />
-              <Label htmlFor="is_sequential" className="cursor-pointer">
-                Последовательная сдача
-              </Label>
+            <div>
+              <Label htmlFor="lab-deadline-4">Дедлайн (макс 4)</Label>
+              <select
+                id="lab-deadline-4"
+                className="mt-1.5 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                value={data.deadline_4_lessons ?? ''}
+                onChange={(e) => updateField('deadline_4_lessons', e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Без ограничения</option>
+                <option value="2">Через пару</option>
+                <option value="3">Через 2 пары</option>
+                <option value="4">Через 3 пары</option>
+                <option value="5">Через 4 пары</option>
+                <option value="6">Через 5 пар</option>
+              </select>
             </div>
+          </div>
+          <div className="flex items-center gap-3 pt-4">
+            <Switch
+              id="is_sequential"
+              checked={data.is_sequential}
+              onCheckedChange={(checked) => updateField('is_sequential', checked)}
+            />
+            <Label htmlFor="is_sequential" className="cursor-pointer">
+              Последовательная сдача
+            </Label>
           </div>
         </CardContent>
       </Card>
