@@ -8,8 +8,10 @@ import {
   $isRangeSelection,
   $createParagraphNode,
   $createTextNode,
+  $createLineBreakNode,
   PASTE_COMMAND,
   COMMAND_PRIORITY_HIGH,
+  TextNode,
 } from 'lexical';
 import { $convertFromMarkdownString } from '@lexical/markdown';
 import { 
@@ -81,6 +83,82 @@ function parseMarkdownTable(tableText: string): { headers: string[]; rows: strin
   return { headers, rows };
 }
 
+// Parse cell text and create formatted nodes (handles <br>, **bold**, *italic*)
+function $createFormattedCellContent(cellText: string): import('lexical').LexicalNode[] {
+  const nodes: import('lexical').LexicalNode[] = [];
+  
+  // Split by <br> or <br/> tags
+  const parts = cellText.split(/<br\s*\/?>/gi);
+  
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    
+    // Parse inline markdown in each part
+    const textNodes = $parseInlineMarkdown(part);
+    nodes.push(...textNodes);
+    
+    // Add line break between parts (not after last)
+    if (i < parts.length - 1) {
+      nodes.push($createLineBreakNode());
+    }
+  }
+  
+  return nodes;
+}
+
+// Parse inline markdown: **bold**, *italic*, ***bold italic***
+function $parseInlineMarkdown(text: string): import('lexical').LexicalNode[] {
+  const nodes: import('lexical').LexicalNode[] = [];
+  
+  // Regex for bold+italic (***text***), bold (**text**), italic (*text*)
+  const regex = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*)/g;
+  
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before match
+    if (match.index > lastIndex) {
+      const beforeText = text.slice(lastIndex, match.index);
+      if (beforeText) {
+        nodes.push($createTextNode(beforeText));
+      }
+    }
+    
+    // Create formatted text node
+    const textNode = $createTextNode(match[2] || match[3] || match[4]);
+    
+    if (match[2]) {
+      // ***bold italic***
+      textNode.setFormat(0b11); // bold + italic
+    } else if (match[3]) {
+      // **bold**
+      textNode.setFormat(0b1); // bold
+    } else if (match[4]) {
+      // *italic*
+      textNode.setFormat(0b10); // italic
+    }
+    
+    nodes.push(textNode);
+    lastIndex = regex.lastIndex;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    const remainingText = text.slice(lastIndex);
+    if (remainingText) {
+      nodes.push($createTextNode(remainingText));
+    }
+  }
+  
+  // If no matches, return original text
+  if (nodes.length === 0 && text) {
+    nodes.push($createTextNode(text));
+  }
+  
+  return nodes;
+}
+
 // Create Lexical table node from parsed data
 function $createTableFromMarkdown(data: { headers: string[]; rows: string[][] }) {
   const tableNode = $createTableNode();
@@ -90,7 +168,10 @@ function $createTableFromMarkdown(data: { headers: string[]; rows: string[][] })
   for (const header of data.headers) {
     const cell = $createTableCellNode(TableCellHeaderStates.ROW);
     const paragraph = $createParagraphNode();
-    paragraph.append($createTextNode(header));
+    const contentNodes = $createFormattedCellContent(header);
+    for (const node of contentNodes) {
+      paragraph.append(node);
+    }
     cell.append(paragraph);
     headerRow.append(cell);
   }
@@ -102,7 +183,10 @@ function $createTableFromMarkdown(data: { headers: string[]; rows: string[][] })
     for (const cellText of row) {
       const cell = $createTableCellNode(TableCellHeaderStates.NO_STATUS);
       const paragraph = $createParagraphNode();
-      paragraph.append($createTextNode(cellText));
+      const contentNodes = $createFormattedCellContent(cellText);
+      for (const node of contentNodes) {
+        paragraph.append(node);
+      }
       cell.append(paragraph);
       tableRow.append(cell);
     }
@@ -214,12 +298,15 @@ export function MarkdownPastePlugin(): null {
                 nodesToInsert.push($createTableFromMarkdown(tableData));
               }
             } else {
-              // Обычный markdown текст — конвертируем построчно
+              // Обычный markdown текст — конвертируем построчно с inline форматированием
               const lines = part.split('\n');
               for (const line of lines) {
                 if (!line.trim()) continue;
                 const paragraph = $createParagraphNode();
-                paragraph.append($createTextNode(line));
+                const formattedNodes = $parseInlineMarkdown(line);
+                for (const node of formattedNodes) {
+                  paragraph.append(node);
+                }
                 nodesToInsert.push(paragraph);
               }
             }

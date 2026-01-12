@@ -50,7 +50,7 @@ class LabCreate(BaseModel):
     theory_content: Optional[Dict[str, Any]] = None
     practice_content: Optional[Dict[str, Any]] = None
     variants: Optional[List[Dict[str, Any]]] = None
-    questions: Optional[List[str]] = None
+    questions: Optional[List[Any]] = None  # str (legacy) или Dict (Lexical JSON)
     max_grade: int = Field(default=5, ge=1, le=100)
     deadline_5_lessons: Optional[int] = Field(default=None, ge=1, description="Через сколько пар блокируется 5")
     deadline_4_lessons: Optional[int] = Field(default=None, ge=1, description="Через сколько пар блокируется 4")
@@ -77,7 +77,7 @@ class LabCreate(BaseModel):
 
     @field_validator('questions')
     @classmethod
-    def validate_questions(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_questions(cls, v: Optional[List[Any]]) -> Optional[List[Any]]:
         if v is not None:
             if len(v) > LAB_MAX_QUESTIONS:
                 raise ValueError(f"Too many questions: {len(v)} (max {LAB_MAX_QUESTIONS})")
@@ -95,7 +95,7 @@ class LabUpdate(BaseModel):
     theory_content: Optional[Dict[str, Any]] = None
     practice_content: Optional[Dict[str, Any]] = None
     variants: Optional[List[Dict[str, Any]]] = None
-    questions: Optional[List[str]] = None
+    questions: Optional[List[Any]] = None  # str (legacy) или Dict (Lexical JSON)
     max_grade: Optional[int] = Field(default=None, ge=1, le=100)
     deadline_5_lessons: Optional[int] = Field(default=None, ge=1)
     deadline_4_lessons: Optional[int] = Field(default=None, ge=1)
@@ -121,7 +121,7 @@ class LabUpdate(BaseModel):
 
     @field_validator('questions')
     @classmethod
-    def validate_questions(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_questions(cls, v: Optional[List[Any]]) -> Optional[List[Any]]:
         if v is not None:
             if len(v) > LAB_MAX_QUESTIONS:
                 raise ValueError(f"Too many questions: {len(v)} (max {LAB_MAX_QUESTIONS})")
@@ -174,7 +174,7 @@ class LabDetailResponse(BaseModel):
     theory_content: Optional[Dict[str, Any]] = None
     practice_content: Optional[Dict[str, Any]] = None
     variants: Optional[List[Dict[str, Any]]] = None
-    questions: Optional[List[str]] = None
+    questions: Optional[List[Any]] = None  # str (legacy) или Dict (Lexical JSON)
     deadline_5_lessons: Optional[int] = None
     deadline_4_lessons: Optional[int] = None
     max_grade: int

@@ -69,9 +69,9 @@ class Lab(Base, TimestampMixin):
     )
     
     # === Секция 4: Контрольные вопросы ===
-    questions: Mapped[Optional[List[str]]] = mapped_column(
+    questions: Mapped[Optional[List[Any]]] = mapped_column(
         JSONB, nullable=True, default=None,
-        comment="Список контрольных вопросов"
+        comment="Список контрольных вопросов (str или Lexical JSON)"
     )
     
     # === Настройки ===

@@ -3,8 +3,8 @@
 import { SerializedEditorState } from 'lexical';
 import { LectureEditor } from '@/components/lectures';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { IconCode, IconPlus } from '@tabler/icons-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { IconCode } from '@tabler/icons-react';
 import { VariantCard, VariantData } from '../VariantCard';
 import { LabVariant } from './types';
 
@@ -12,7 +12,7 @@ interface PracticeTabProps {
   practiceContent?: SerializedEditorState;
   variants: LabVariant[];
   onPracticeChange: (content: SerializedEditorState) => void;
-  onAddVariant: () => void;
+  onSetVariantsCount: (count: number) => void;
   onUpdateVariant: (index: number, field: keyof LabVariant, value: unknown) => void;
   onRemoveVariant: (index: number) => void;
   onMoveVariant: (index: number, direction: 'up' | 'down') => void;
@@ -20,11 +20,13 @@ interface PracticeTabProps {
   externalLineHeight?: string;
 }
 
+const VARIANT_OPTIONS = Array.from({ length: 30 }, (_, i) => i + 1);
+
 export function PracticeTab({
   practiceContent,
   variants,
   onPracticeChange,
-  onAddVariant,
+  onSetVariantsCount,
   onUpdateVariant,
   onRemoveVariant,
   onMoveVariant,
@@ -57,10 +59,22 @@ export function PracticeTab({
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Варианты заданий</span>
-            <Button size="sm" onClick={onAddVariant}>
-              <IconPlus className="h-4 w-4 mr-1" />
-              Добавить вариант
-            </Button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Количество:</span>
+              <Select 
+                value={String(variants.length)} 
+                onValueChange={(v) => onSetVariantsCount(Number(v))}
+              >
+                <SelectTrigger className="w-[80px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VARIANT_OPTIONS.map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">

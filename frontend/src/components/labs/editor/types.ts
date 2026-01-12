@@ -7,6 +7,11 @@ export interface LabVariant {
   test_data?: string;
 }
 
+export interface LabQuestion {
+  content?: SerializedEditorState;
+  text?: string; // legacy fallback
+}
+
 export interface LabData {
   id?: string;
   number: number;
@@ -16,7 +21,7 @@ export interface LabData {
   theory_content?: SerializedEditorState;
   practice_content?: SerializedEditorState;
   variants: LabVariant[];
-  questions: string[];
+  questions: (LabQuestion | string)[]; // string для legacy, LabQuestion для нового формата
   max_grade: number;
   deadline_5_lessons?: number | null;
   deadline_4_lessons?: number | null;

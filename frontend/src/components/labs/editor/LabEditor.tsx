@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { IconTarget, IconBook, IconCode, IconQuestionMark } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
-import { LabData, LabVariant, LabEditorProps } from './types';
+import { LabData, LabVariant, LabEditorProps, LabQuestion } from './types';
 import { HeaderTab } from './HeaderTab';
 import { TheoryTab } from './TheoryTab';
 import { PracticeTab } from './PracticeTab';
@@ -24,7 +24,7 @@ function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
     theory_content: initialData?.theory_content,
     practice_content: initialData?.practice_content,
     variants: initialData?.variants || [{ number: 1, description: '', test_data: '' }],
-    questions: initialData?.questions || [''],
+    questions: initialData?.questions || [{ text: '' }],
     max_grade: 5,
     deadline_5_lessons: initialData?.deadline_5_lessons,
     deadline_4_lessons: initialData?.deadline_4_lessons,
@@ -40,11 +40,23 @@ function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
   };
 
   // Variants
-  const addVariant = () => {
-    setData(prev => ({
-      ...prev,
-      variants: [...prev.variants, { number: prev.variants.length + 1, description: '', test_data: '' }],
-    }));
+  const setVariantsCount = (count: number) => {
+    setData(prev => {
+      const currentCount = prev.variants.length;
+      if (count === currentCount) return prev;
+      
+      if (count > currentCount) {
+        // Добавляем новые варианты
+        const newVariants = [...prev.variants];
+        for (let i = currentCount; i < count; i++) {
+          newVariants.push({ number: i + 1, description: '', test_data: '' });
+        }
+        return { ...prev, variants: newVariants };
+      } else {
+        // Удаляем лишние варианты (с конца)
+        return { ...prev, variants: prev.variants.slice(0, count) };
+      }
+    });
   };
 
   const updateVariant = (index: number, field: keyof LabVariant, value: unknown) => {
@@ -72,12 +84,21 @@ function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
   };
 
   // Questions
-  const addQuestion = () => setData(prev => ({ ...prev, questions: [...prev.questions, ''] }));
-  const updateQuestion = (index: number, value: string) => {
+  const addQuestion = () => setData(prev => ({ ...prev, questions: [...prev.questions, { text: '' }] }));
+  const updateQuestion = (index: number, value: LabQuestion) => {
     setData(prev => ({ ...prev, questions: prev.questions.map((q, i) => i === index ? value : q) }));
   };
   const removeQuestion = (index: number) => {
     setData(prev => ({ ...prev, questions: prev.questions.filter((_, i) => i !== index) }));
+  };
+  const moveQuestion = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= data.questions.length) return;
+    setData(prev => {
+      const newQuestions = [...prev.questions];
+      [newQuestions[index], newQuestions[targetIndex]] = [newQuestions[targetIndex], newQuestions[index]];
+      return { ...prev, questions: newQuestions };
+    });
   };
 
   const handleSave = useCallback(async () => {
@@ -122,7 +143,7 @@ function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
             practiceContent={data.practice_content}
             variants={data.variants}
             onPracticeChange={(c) => updateField('practice_content', c)}
-            onAddVariant={addVariant}
+            onSetVariantsCount={setVariantsCount}
             onUpdateVariant={updateVariant}
             onRemoveVariant={removeVariant}
             onMoveVariant={moveVariant}
@@ -131,7 +152,15 @@ function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
           />
         </TabsContent>
         <TabsContent value="questions">
-          <QuestionsTab questions={data.questions} onAdd={addQuestion} onUpdate={updateQuestion} onRemove={removeQuestion} />
+          <QuestionsTab 
+            questions={data.questions} 
+            onAdd={addQuestion} 
+            onUpdate={updateQuestion} 
+            onRemove={removeQuestion}
+            onMove={moveQuestion}
+            externalFontSize={style.fontSize}
+            externalLineHeight={style.lineHeight}
+          />
         </TabsContent>
       </Tabs>
     </div>

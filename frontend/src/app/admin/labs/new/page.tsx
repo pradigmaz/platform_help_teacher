@@ -21,7 +21,7 @@ export default function NewLabPage() {
         theory_content: data.theory_content as unknown as Record<string, unknown>,
         practice_content: data.practice_content as unknown as Record<string, unknown>,
         variants: data.variants,
-        questions: data.questions,
+        questions: data.questions as unknown as string[],
         max_grade: 5,
         deadline_5_lessons: data.deadline_5_lessons,
         deadline_4_lessons: data.deadline_4_lessons,
