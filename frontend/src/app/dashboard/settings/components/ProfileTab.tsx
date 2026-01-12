@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { StudentProfile } from '@/lib/api';
+import { formatGroupCode } from '@/lib/utils';
 
 interface ProfileTabProps {
   profile: StudentProfile | null;
@@ -38,7 +39,7 @@ export function ProfileTab({ profile }: ProfileTabProps) {
               </div>
               {profile?.group?.code && (
                 <div className="px-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-600 dark:text-neutral-300">
-                  {profile.group.code}
+                  {formatGroupCode(profile.group.code)}
                 </div>
               )}
             </div>
@@ -49,7 +50,7 @@ export function ProfileTab({ profile }: ProfileTabProps) {
           <ProfileField label="ФИО" value={profile?.full_name || ''} icon={<IconUser className="h-4 w-4" />} />
           <div className="grid md:grid-cols-2 gap-4">
             <ProfileField label="Username" value={profile?.username || '—'} icon={<IconBrandTelegram className="h-4 w-4" />} />
-            <ProfileField label="Группа" value={profile?.group?.code || '—'} icon={<IconUser className="h-4 w-4" />} />
+            <ProfileField label="Группа" value={formatGroupCode(profile?.group?.code || '—')} icon={<IconUser className="h-4 w-4" />} />
           </div>
         </div>
       </CardSpotlight>

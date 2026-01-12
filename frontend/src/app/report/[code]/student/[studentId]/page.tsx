@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { PublicReportAPI, StudentDetailData, ApiError } from '@/lib/api';
+import { formatGroupCode } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,15 +15,6 @@ import { ComparisonChart } from './components/ComparisonChart';
 import { AttendanceHistory } from './components/AttendanceHistory';
 import { LabSubmissions } from './components/LabSubmissions';
 import { Recommendations } from './components/Recommendations';
-
-// Format group code: ИС1231ОТ -> ИС1-231-ОТ
-function formatGroupCode(code: string): string {
-  const match = code.match(/^([А-ЯA-Z]{2,3})(\d)(\d{3})([А-ЯA-Z]{2})$/i);
-  if (match) {
-    return `${match[1]}${match[2]}-${match[3]}-${match[4]}`;
-  }
-  return code;
-}
 
 interface PageProps {
   params: Promise<{ code: string; studentId: string }>;

@@ -9,6 +9,7 @@ import {
   StudentLab,
   StudentAttestation,
 } from '@/lib/api';
+import { formatGroupCode } from '@/lib/utils';
 import { Effect } from '@/components/animate-ui/primitives/effects/effect';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusHero, QuickStats, DeadlinesList } from '@/components/dashboard';
@@ -58,7 +59,7 @@ export default function DashboardOverview() {
             Привет, {firstName}! 👋
           </h1>
           <p className="text-sm text-muted-foreground">
-            {groupCode ? `Группа ${groupCode} • Твой прогресс` : 'Краткий обзор успеваемости'}
+            {groupCode ? `Группа ${formatGroupCode(groupCode)} • Твой прогресс` : 'Краткий обзор успеваемости'}
           </p>
         </div>
       </Effect>
