@@ -222,7 +222,7 @@ class LabVisibilityService:
             group_id=group_id,
             subgroup=subgroup,
             labs_deadlines={lab_number: (deadline_5_lessons, deadline_4_lessons)},
-            subject_id=subject_id
+            labs_subjects={lab_number: subject_id}
         )
         return result.get(lab_number, LabVisibilityInfo(lab_number=lab_number, is_visible=False))
     

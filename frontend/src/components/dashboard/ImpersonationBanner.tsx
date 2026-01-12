@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, LogOut } from 'lucide-react';
+import { AlertTriangle, LogOut, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import api from '@/lib/api';
+
+const IMPERSONATE_TTL_MINUTES = 15;
 
 /**
  * Banner shown when admin is impersonating a student.
@@ -15,17 +17,50 @@ export function ImpersonationBanner() {
   const router = useRouter();
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  // Get cookie creation time from localStorage or set it
+  const getSessionStart = useCallback(() => {
+    const stored = localStorage.getItem('impersonate_start');
+    if (stored) return parseInt(stored, 10);
+    const now = Date.now();
+    localStorage.setItem('impersonate_start', now.toString());
+    return now;
+  }, []);
 
   useEffect(() => {
-    // Check if admin_original_token cookie exists
     const hasAdminToken = document.cookie.includes('admin_original_token');
     setIsImpersonating(hasAdminToken);
-  }, []);
+    
+    if (!hasAdminToken) {
+      localStorage.removeItem('impersonate_start');
+      return;
+    }
+
+    const sessionStart = getSessionStart();
+    const expiresAt = sessionStart + IMPERSONATE_TTL_MINUTES * 60 * 1000;
+
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      
+      if (remaining <= 0) {
+        localStorage.removeItem('impersonate_start');
+        toast.info('Сессия истекла');
+        router.push('/auth/login');
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [getSessionStart, router]);
 
   const handleExit = async () => {
     try {
       setExiting(true);
       await api.post('/admin/impersonate/exit');
+      localStorage.removeItem('impersonate_start');
       toast.success('Возврат в админку');
       router.push('/admin');
     } catch {
@@ -36,6 +71,12 @@ export function ImpersonationBanner() {
     }
   };
 
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   if (!isImpersonating) return null;
 
   return (
@@ -44,8 +85,14 @@ export function ImpersonationBanner() {
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-4 w-4" />
           <span className="text-sm font-medium">
-            Вы просматриваете систему от имени студента (сессия 15 мин)
+            Вы просматриваете систему от имени студента
           </span>
+          {timeLeft !== null && (
+            <span className="flex items-center gap-1 text-sm font-mono bg-yellow-600/30 px-2 py-0.5 rounded">
+              <Clock className="h-3 w-3" />
+              {formatTime(timeLeft)}
+            </span>
+          )}
         </div>
         <Button
           size="sm"
