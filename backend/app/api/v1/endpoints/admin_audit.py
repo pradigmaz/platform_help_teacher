@@ -167,6 +167,7 @@ async def get_user_audit_logs(
 ):
     """Получить логи конкретного пользователя."""
     return await get_audit_logs(
+        request=request,
         db=db, _=_, user_id=user_id, skip=skip, limit=limit,
         action_type=None, ip_address=None, date_from=None, 
         date_to=None, path_contains=None
