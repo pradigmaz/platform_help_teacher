@@ -12,6 +12,7 @@ export interface LessonData {
   lesson_number: number;
   lesson_type: string;
   topic: string | null;
+  subject_id?: string | null;
   subject_name: string | null;
   work_number: number | null;
   subgroup: number | null;
