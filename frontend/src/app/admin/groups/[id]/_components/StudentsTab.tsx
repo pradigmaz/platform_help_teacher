@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Trash2 } from 'lucide-react';
+import { IconBrandTelegram, IconBrandVk } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import type { StudentInGroup } from '@/lib/api/types';
 
@@ -23,7 +24,7 @@ export function StudentsTab({ students, searchQuery, onDeleteStudent }: Students
           <tr>
             <th className="px-4 py-3 text-left font-medium text-muted-foreground w-12">#</th>
             <th className="px-4 py-3 text-left font-medium text-muted-foreground">ФИО</th>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Username</th>
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Соцсети</th>
             <th className="px-4 py-3 text-right font-medium text-muted-foreground">Действия</th>
           </tr>
         </thead>
@@ -46,8 +47,28 @@ export function StudentsTab({ students, searchQuery, onDeleteStudent }: Students
                     {student.full_name}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {student.username ? `@${student.username}` : '—'}
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    {student.username ? (
+                      <span className="flex items-center gap-1" title="Telegram">
+                        <IconBrandTelegram className="w-4 h-4 text-blue-500" />
+                        @{student.username}
+                      </span>
+                    ) : null}
+                    {student.vk_id ? (
+                      <a 
+                        href={`https://vk.com/id${student.vk_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 hover:text-blue-600"
+                        title="ВКонтакте"
+                      >
+                        <IconBrandVk className="w-4 h-4 text-blue-600" />
+                        VK
+                      </a>
+                    ) : null}
+                    {!student.username && !student.vk_id && '—'}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Button 

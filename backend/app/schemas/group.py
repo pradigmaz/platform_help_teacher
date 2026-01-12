@@ -17,6 +17,7 @@ class StudentInGroupResponse(BaseModel):
     id: UUID
     full_name: str
     username: Optional[str] = None
+    vk_id: Optional[int] = None
     invite_code: Optional[str] = None
     subgroup: Optional[Literal[1, 2]] = None
     is_active: bool = True

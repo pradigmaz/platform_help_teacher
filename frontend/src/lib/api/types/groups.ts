@@ -8,6 +8,7 @@ export interface StudentInGroup {
   id: string;
   full_name: string;
   username?: string;
+  vk_id?: number;
   invite_code?: string;
   subgroup?: number | null;
   is_active: boolean;
