@@ -34,14 +34,14 @@ export function LessonTopic({ lesson, topic, workNumber, onChange, onWorkNumberC
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Номер лабораторной работы</Label>
           <Select
-            value={currentWorkNumber?.toString() || ''}
-            onValueChange={(v) => onWorkNumberChange(v ? parseInt(v) : null)}
+            value={currentWorkNumber?.toString() || 'none'}
+            onValueChange={(v) => onWorkNumberChange(v === 'none' ? null : parseInt(v))}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Выберите номер лабы..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Не указано</SelectItem>
+              <SelectItem value="none">Не указано</SelectItem>
               {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                 <SelectItem key={n} value={n.toString()}>
                   Лабораторная работа №{n}

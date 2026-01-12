@@ -18,7 +18,8 @@ import {
   Settings,
   BarChart3,
   ChevronDown,
-  Shield
+  Shield,
+  MessageSquare
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -102,6 +103,11 @@ const sidebarItems: SidebarItem[] = [
     title: "Аудит",
     href: "/admin/audit",
     icon: Shield,
+  },
+  {
+    title: "Обращения",
+    href: "/admin/feedback",
+    icon: MessageSquare,
   },
   {
     title: "Настройки",

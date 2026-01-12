@@ -1,6 +1,8 @@
 'use client';
 
-import { User, Users, Award, Trophy, Unlink } from 'lucide-react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { User, Users, Award, Trophy, Unlink, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +21,8 @@ import { BorderBeam } from '@/components/ui/border-beam';
 import { Sparkles } from '@/components/ui/sparkles';
 import { TransferStudentDialog } from '@/components/admin/TransferStudentDialog';
 import { StudentProfile } from './types';
+import { toast } from 'sonner';
+import api from '@/lib/api';
 
 interface Props {
   student: StudentProfile;
@@ -31,6 +35,21 @@ interface Props {
 
 export function StudentProfileCard({ student, onResetTelegram, resettingTelegram, onResetVk, resettingVk, onTransferSuccess }: Props) {
   const { stats } = student;
+  const router = useRouter();
+  const [impersonating, setImpersonating] = useState(false);
+
+  const handleImpersonate = async () => {
+    try {
+      setImpersonating(true);
+      await api.post(`/admin/impersonate/${student.id}`);
+      toast.success(`Вход как ${student.full_name}`);
+      router.push('/dashboard');
+    } catch {
+      toast.error('Не удалось войти');
+    } finally {
+      setImpersonating(false);
+    }
+  };
 
   return (
     <Card className="relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
@@ -78,6 +97,17 @@ export function StudentProfileCard({ student, onResetTelegram, resettingTelegram
             
             <div className="mt-4 pt-4 border-t">
               <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImpersonate}
+                  disabled={impersonating || !student.is_active}
+                  className="text-primary border-primary/30 hover:bg-primary/10"
+                  title={!student.is_active ? 'Пользователь неактивен' : 'Войти как этот пользователь'}
+                >
+                  <UserCheck className="w-4 h-4 mr-2" />
+                  {impersonating ? 'Вход...' : 'Войти как'}
+                </Button>
                 <TransferStudentDialog
                   studentId={student.id}
                   studentName={student.full_name}
