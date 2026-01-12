@@ -22,7 +22,9 @@ import { Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { LinkNode } from '@lexical/link';
+import { TableNode, TableCellNode, TableRowNode } from '@lexical/table';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
+import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { 
   BOLD_ITALIC_STAR, BOLD_ITALIC_UNDERSCORE, BOLD_STAR, BOLD_UNDERSCORE, 
@@ -39,6 +41,7 @@ const LECTURE_TRANSFORMERS = [
 
 const lectureNodes = [
   HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode,
+  TableNode, TableCellNode, TableRowNode,
   CodeBlockNode, ImageNode, SnippetNode,
 ];
 
@@ -216,6 +219,7 @@ export function LectureEditor({
             />
             <HistoryPlugin />
             <ListPlugin />
+            <TablePlugin />
             <OnChangePlugin ignoreSelectionChange={true} onChange={handleChange} />
             {onSave && !readOnly && <AutoSavePlugin onSave={handleAutoSave} interval={autoSaveInterval} />}
             {onSave && !readOnly && <KeyboardShortcutsPlugin onSave={handleSave} />}

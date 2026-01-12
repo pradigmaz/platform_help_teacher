@@ -11,6 +11,7 @@ import type { SerializedEditorState } from 'lexical';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { LinkNode } from '@lexical/link';
+import { TableNode, TableCellNode, TableRowNode } from '@lexical/table';
 import { ContentEditable } from '@/components/editor/editor-ui/content-editable';
 import { editorTheme } from '@/components/editor/themes/editor-theme';
 import { cn } from '@/lib/utils';
@@ -25,6 +26,9 @@ const viewerNodes = [
   ListNode,
   ListItemNode,
   LinkNode,
+  TableNode,
+  TableCellNode,
+  TableRowNode,
   ViewerCodeBlockNode,
   ViewerImageNode,
   ViewerSnippetNode,

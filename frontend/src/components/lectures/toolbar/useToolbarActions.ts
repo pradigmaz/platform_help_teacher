@@ -17,6 +17,7 @@ import {
 import { $setBlocksType, $patchStyleText } from '@lexical/selection';
 import { $createHeadingNode, $createQuoteNode, HeadingTagType } from '@lexical/rich-text';
 import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
+import { INSERT_TABLE_COMMAND } from '@lexical/table';
 import { toast } from 'sonner';
 import { $createCodeBlockNode } from '../nodes/CodeBlockNode';
 import { $createImageNode } from '../nodes/ImageNode';
@@ -112,6 +113,11 @@ export function useToolbarActions(editor: LexicalEditor) {
     toast.success('Разделитель добавлен');
   }, [editor]);
 
+  const insertTable = useCallback((rows: number = 3, columns: number = 3) => {
+    editor.dispatchCommand(INSERT_TABLE_COMMAND, { rows: String(rows), columns: String(columns) });
+    toast.success('Таблица добавлена');
+  }, [editor]);
+
   const insertSnippet = useCallback(() => {
     editor.update(() => {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -189,6 +195,7 @@ export function useToolbarActions(editor: LexicalEditor) {
     insertCodeBlock,
     insertImage,
     insertHorizontalRule,
+    insertTable,
     insertSnippet,
     undo,
     redo,

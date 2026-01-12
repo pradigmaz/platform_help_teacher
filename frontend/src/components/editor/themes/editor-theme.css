@@ -187,3 +187,28 @@
   border-left: 3px solid hsl(var(--border));
   font-style: italic;
 }
+
+/* Table styles for viewer */
+.ContentEditable__root table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 0.9em;
+}
+
+.ContentEditable__root th,
+.ContentEditable__root td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.5em 0.75em;
+  text-align: left;
+  text-indent: 0;
+}
+
+.ContentEditable__root th {
+  background-color: hsl(var(--muted));
+  font-weight: 600;
+}
+
+.ContentEditable__root tr:nth-child(even) {
+  background-color: hsl(var(--muted) / 0.3);
+}
