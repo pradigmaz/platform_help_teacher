@@ -53,10 +53,11 @@ async def impersonate_user(
         response.set_cookie(
             key=ADMIN_TOKEN_COOKIE,
             value=original_token,
-            httponly=True,
+            httponly=False,  # Allow JS to detect impersonation
             secure=is_production,
             samesite="lax",
             max_age=IMPERSONATE_TOKEN_TTL_MINUTES * 60,
+            path="/",
         )
     
     # Create short-lived token with impersonation tracking

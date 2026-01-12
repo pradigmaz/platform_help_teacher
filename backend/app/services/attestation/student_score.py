@@ -82,6 +82,7 @@ class StudentScoreCalculator:
         breakdown = ComponentBreakdown(
             labs_score=lab_result.score,
             labs_count=lab_result.labs_count,
+            labs_required=lab_result.labs_required,
             labs_max=lab_result.max_score,
             attendance_score=attendance_result.score,
             attendance_ratio=attendance_result.ratio,

@@ -59,6 +59,7 @@ async def get_my_attestation(
                     "score": b.labs_score,
                     "max": b.labs_max,
                     "count": b.labs_count,
+                    "required": b.labs_required,
                 },
                 "attendance": {
                     "score": b.attendance_score,

@@ -118,6 +118,7 @@ class ComponentBreakdown(BaseModel):
     # Лабораторные
     labs_score: float = Field(description="Баллы за лабы")
     labs_count: int = Field(description="Сдано лаб")
+    labs_required: int = Field(default=0, description="Требуется лаб для аттестации")
     labs_max: float = Field(description="Макс баллов за лабы")
     
     # Посещаемость
