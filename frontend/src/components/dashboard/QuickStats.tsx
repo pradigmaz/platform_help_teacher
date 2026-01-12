@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { MagicCard } from '@/components/ui/magic-card';
 import { Progress } from '@/components/ui/progress';
 import { SlidingNumber } from '@/components/animate-ui/primitives/texts/sliding-number';
@@ -47,65 +48,69 @@ export function QuickStats({ labs, attendance, isLoading }: QuickStatsProps) {
   return (
     <Effects fade slide={{ direction: 'up', offset: 30 }} holdDelay={100} inView inViewOnce>
       {/* Labs Card */}
-      <MagicCard gradientColor="#8b5cf620" className="cursor-pointer">
-        <div className="p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 rounded-lg bg-purple-500/10">
-              <IconFlask className="h-5 w-5 text-purple-500" />
+      <Link href="/dashboard/labs">
+        <MagicCard gradientColor="#8b5cf620" className="cursor-pointer hover:scale-[1.02] transition-transform">
+          <div className="p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <IconFlask className="h-5 w-5 text-purple-500" />
+              </div>
+              <span className="text-sm font-medium text-muted-foreground">Лабораторные</span>
             </div>
-            <span className="text-sm font-medium text-muted-foreground">Лабораторные</span>
+            
+            <div className="flex items-baseline gap-1 mb-2">
+              <span className="text-3xl font-bold text-purple-500">
+                <SlidingNumber number={labStats.accepted} />
+              </span>
+              <span className="text-lg text-muted-foreground">/{labStats.total}</span>
+            </div>
+            
+            <Progress value={labStats.percent} className="h-1.5 [&>div]:bg-purple-500" />
+            
+            {labStats.pending > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                На проверке: {labStats.pending}
+              </p>
+            )}
           </div>
-          
-          <div className="flex items-baseline gap-1 mb-2">
-            <span className="text-3xl font-bold text-purple-500">
-              <SlidingNumber number={labStats.accepted} />
-            </span>
-            <span className="text-lg text-muted-foreground">/{labStats.total}</span>
-          </div>
-          
-          <Progress value={labStats.percent} className="h-1.5 [&>div]:bg-purple-500" />
-          
-          {labStats.pending > 0 && (
-            <p className="text-xs text-muted-foreground mt-2">
-              На проверке: {labStats.pending}
-            </p>
-          )}
-        </div>
-      </MagicCard>
+        </MagicCard>
+      </Link>
 
       {/* Attendance Card */}
-      <MagicCard gradientColor="#3b82f620" className="cursor-pointer">
-        <div className="p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 rounded-lg bg-blue-500/10">
-              <IconCalendar className="h-5 w-5 text-blue-500" />
+      <Link href="/dashboard/attendance">
+        <MagicCard gradientColor="#3b82f620" className="cursor-pointer hover:scale-[1.02] transition-transform">
+          <div className="p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <IconCalendar className="h-5 w-5 text-blue-500" />
+              </div>
+              <span className="text-sm font-medium text-muted-foreground">Посещаемость</span>
             </div>
-            <span className="text-sm font-medium text-muted-foreground">Посещаемость</span>
+            
+            {attendance && attendance.stats.total_classes > 0 ? (
+              <>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-3xl font-bold text-blue-500">
+                    <SlidingNumber number={Math.round(attendanceRate)} />
+                  </span>
+                  <span className="text-lg text-muted-foreground">%</span>
+                </div>
+                
+                <div className="flex gap-3 text-xs text-muted-foreground">
+                  <span className="text-green-500">✓ {attendance.stats.present}</span>
+                  <span className="text-yellow-500">⏰ {attendance.stats.late}</span>
+                  <span className="text-red-500">✗ {attendance.stats.absent}</span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Нет данных</p>
+            )}
           </div>
-          
-          {attendance && attendance.stats.total_classes > 0 ? (
-            <>
-              <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-3xl font-bold text-blue-500">
-                  <SlidingNumber number={Math.round(attendanceRate)} />
-                </span>
-                <span className="text-lg text-muted-foreground">%</span>
-              </div>
-              
-              <div className="flex gap-3 text-xs text-muted-foreground">
-                <span className="text-green-500">✓ {attendance.stats.present}</span>
-                <span className="text-yellow-500">⏰ {attendance.stats.late}</span>
-                <span className="text-red-500">✗ {attendance.stats.absent}</span>
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">Нет данных</p>
-          )}
-        </div>
-      </MagicCard>
+        </MagicCard>
+      </Link>
 
       {/* Deadline Card */}
-      <MagicCard gradientColor="#f9731620" className="cursor-pointer">
+      <MagicCard gradientColor="#f9731620" className="cursor-pointer hover:scale-[1.02] transition-transform">
         <div className="p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 rounded-lg bg-orange-500/10">

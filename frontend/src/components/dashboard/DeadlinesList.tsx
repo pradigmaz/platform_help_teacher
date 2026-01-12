@@ -79,11 +79,20 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
                 key={lab.id}
                 href={`/dashboard/labs/${lab.id}`}
                 className={cn(
-                  "flex items-center justify-between p-3 rounded-lg",
-                  "border border-border bg-card hover:bg-accent/50 transition-colors",
+                  "flex items-center gap-3 p-3 rounded-lg",
+                  "border border-border bg-card hover:bg-accent/50 transition-all hover:translate-x-1",
                   isSoon && status === 'not_submitted' && "border-orange-500/50 bg-orange-500/5"
                 )}
               >
+                {/* Urgency indicator */}
+                <div className={cn(
+                  "w-1 h-12 rounded-full shrink-0",
+                  isSoon && status === 'not_submitted' ? "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" :
+                  status === 'rejected' ? "bg-red-500" :
+                  status === 'pending' ? "bg-yellow-500" :
+                  "bg-muted"
+                )} />
+                
                 <div className="flex-1 min-w-0 mr-3">
                   <p className="font-medium text-sm text-foreground truncate">
                     {lab.title}

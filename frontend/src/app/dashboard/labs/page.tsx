@@ -1,22 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { StudentAPI, StudentLab } from '@/lib/api';
 import { CardSpotlight } from '@/components/ui/card-spotlight';
-import { TextGenerateEffect } from '@/components/ui/text-generate-effect';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { IconCheck, IconClock, IconX, IconLock, IconFlask, IconCalendar, IconHandStop, IconPlayerPlay } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
+type FilterStatus = 'all' | 'not_submitted' | 'in_queue' | 'accepted' | 'rejected';
+
 export default function LabsPage() {
   const [loading, setLoading] = useState(true);
   const [labs, setLabs] = useState<StudentLab[]>([]);
+  const [filter, setFilter] = useState<FilterStatus>('all');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -62,60 +63,105 @@ export default function LabsPage() {
     }
   };
 
+  // Counts for filters
+  const counts = useMemo(() => {
+    const accepted = labs.filter((l) => l.submission?.status === 'ACCEPTED').length;
+    const inQueue = labs.filter((l) => l.submission?.status === 'READY').length;
+    const rejected = labs.filter((l) => l.submission?.status === 'REJECTED').length;
+    const notSubmitted = labs.filter((l) => l.is_available && !l.submission).length;
+    return { all: labs.length, accepted, in_queue: inQueue, rejected, not_submitted: notSubmitted };
+  }, [labs]);
+
+  // Filtered labs
+  const filteredLabs = useMemo(() => {
+    if (filter === 'all') return labs;
+    if (filter === 'accepted') return labs.filter((l) => l.submission?.status === 'ACCEPTED');
+    if (filter === 'in_queue') return labs.filter((l) => l.submission?.status === 'READY');
+    if (filter === 'rejected') return labs.filter((l) => l.submission?.status === 'REJECTED');
+    if (filter === 'not_submitted') return labs.filter((l) => l.is_available && !l.submission);
+    return labs;
+  }, [labs, filter]);
+
+  const progress = labs.length > 0 ? Math.round((counts.accepted / labs.length) * 100) : 0;
+
   if (loading) return <LabsSkeleton />;
 
-  const accepted = labs.filter((l) => l.submission?.status === 'ACCEPTED').length;
-  const ready = labs.filter((l) => l.submission?.status === 'READY').length;
-  const rejected = labs.filter((l) => l.submission?.status === 'REJECTED').length;
-  const available = labs.filter((l) => l.is_available && !l.submission).length;
-  const locked = labs.filter((l) => !l.is_available).length;
-  const progress = labs.length > 0 ? Math.round((accepted / labs.length) * 100) : 0;
-
   const getStatusConfig = (lab: StudentLab) => {
-    if (!lab.is_available) return { icon: IconLock, color: 'text-neutral-400', bg: 'bg-neutral-400/10', label: 'Заблокировано' };
+    if (!lab.is_available) return { icon: IconLock, color: 'text-neutral-400', bg: 'bg-neutral-400/10', label: 'Заблокировано', border: 'border-neutral-500/20' };
     const status = lab.submission?.status;
     switch (status) {
-      case 'ACCEPTED': return { icon: IconCheck, color: 'text-green-500', bg: 'bg-green-500/10', label: 'Принято' };
-      case 'READY': return { icon: IconClock, color: 'text-yellow-500', bg: 'bg-yellow-500/10', label: 'В очереди' };
-      case 'REJECTED': return { icon: IconX, color: 'text-red-500', bg: 'bg-red-500/10', label: 'Отклонено' };
-      default: return { icon: IconFlask, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'Доступно' };
+      case 'ACCEPTED': return { icon: IconCheck, color: 'text-green-500', bg: 'bg-green-500/10', label: 'Принято', border: 'border-green-500/30' };
+      case 'READY': return { icon: IconClock, color: 'text-yellow-500', bg: 'bg-yellow-500/10', label: 'В очереди', border: 'border-yellow-500/30' };
+      case 'REJECTED': return { icon: IconX, color: 'text-red-500', bg: 'bg-red-500/10', label: 'Отклонено', border: 'border-red-500/30' };
+      default: return { icon: IconFlask, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'Доступно', border: 'border-blue-500/20' };
     }
   };
 
+  const filters: { value: FilterStatus; label: string }[] = [
+    { value: 'all', label: 'Все' },
+    { value: 'not_submitted', label: 'Не сдано' },
+    { value: 'in_queue', label: 'В очереди' },
+    { value: 'accepted', label: 'Принято' },
+    { value: 'rejected', label: 'Отклонено' },
+  ];
+
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      {/* Header */}
       <div className="space-y-2">
-        <TextGenerateEffect words="Лабораторные работы" className="text-2xl font-bold" duration={0.3} />
+        <h1 className="text-2xl font-bold text-foreground">Лабораторные работы</h1>
         <p className="text-muted-foreground">Выполняй в тетради, сдавай преподавателю</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard icon={<IconCheck className="h-5 w-5" />} label="Сдано" value={accepted} color="green" />
-        <StatCard icon={<IconClock className="h-5 w-5" />} label="В очереди" value={ready} color="yellow" />
-        <StatCard icon={<IconX className="h-5 w-5" />} label="Отклонено" value={rejected} color="red" />
-        <StatCard icon={<IconFlask className="h-5 w-5" />} label="Доступно" value={available} color="blue" />
-        <StatCard icon={<IconLock className="h-5 w-5" />} label="Заблокировано" value={locked} color="neutral" />
-      </div>
-
+      {/* Progress Card */}
       <CardSpotlight className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-foreground">Общий прогресс</h3>
-            <p className="text-sm text-muted-foreground">Сдано {accepted} из {labs.length} работ</p>
+            <p className="text-sm text-muted-foreground">Сдано {counts.accepted} из {labs.length} работ</p>
           </div>
-          <div className="text-3xl font-bold text-foreground">{progress}%</div>
+          <div className="text-3xl font-bold text-green-500">{progress}%</div>
         </div>
-        <Progress value={progress} className="h-3" />
+        <div className="relative h-3 bg-muted/50 rounded-full overflow-hidden">
+          <div 
+            className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
       </CardSpotlight>
 
-      {labs.length > 0 ? (
+      {/* Filter Buttons */}
+      <div className="flex flex-wrap gap-2">
+        {filters.map((f) => (
+          <Button
+            key={f.value}
+            variant={filter === f.value ? 'default' : 'secondary'}
+            size="sm"
+            onClick={() => setFilter(f.value)}
+            className={cn("gap-2", filter !== f.value && "bg-card hover:bg-card/80")}
+          >
+            {f.label}
+            <span className={cn(
+              "rounded-full px-1.5 py-0.5 text-xs",
+              filter === f.value ? "bg-background/20" : "bg-muted"
+            )}>
+              {counts[f.value]}
+            </span>
+          </Button>
+        ))}
+      </div>
+
+      {/* Labs Grid */}
+      {filteredLabs.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {labs.map((lab, idx) => {
+          {filteredLabs.map((lab, idx) => {
             const status = getStatusConfig(lab);
             const StatusIcon = status.icon;
             const isLoading = actionLoading === lab.id;
+
+            
             return (
-              <motion.div key={lab.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="relative group"
+              <motion.div key={lab.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }} className="relative group"
                 onMouseEnter={() => setHoveredIndex(idx)} onMouseLeave={() => setHoveredIndex(null)}>
                 <AnimatePresence>
                   {hoveredIndex === idx && (
@@ -123,9 +169,9 @@ export default function LabsPage() {
                       initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.15 } }} exit={{ opacity: 0, transition: { duration: 0.15, delay: 0.2 } }} />
                   )}
                 </AnimatePresence>
-                <div className={cn("relative z-10 p-4 rounded-xl border bg-white dark:bg-neutral-950 transition-all",
+                <div className={cn("relative z-10 p-4 rounded-xl border bg-card transition-all",
                   !lab.is_available && "opacity-60",
-                  "border-neutral-200 dark:border-neutral-800")}>
+                  status.border)}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className={cn("p-2 rounded-lg", status.bg)}><StatusIcon className={cn("h-5 w-5", status.color)} /></div>
@@ -139,13 +185,15 @@ export default function LabsPage() {
                   {lab.topic && <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{lab.topic}</p>}
                   <p className={cn("text-sm mb-3", status.color)}>{status.label}</p>
                   
+
+                  
                   {lab.variant_number && (
                     <div className="text-xs text-muted-foreground mb-3">
                       Ваш вариант: <span className="font-semibold text-foreground">{lab.variant_number}</span>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-neutral-200 dark:border-neutral-800">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border">
                     <div className="flex items-center gap-1"><IconCalendar className="h-3 w-3" /><span>{lab.deadline_5_lessons ? (lab.deadline_5_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_5_lessons - 1} пар`) : 'Без дедлайна'}</span></div>
                   </div>
 
@@ -182,31 +230,24 @@ export default function LabsPage() {
       ) : (
         <CardSpotlight className="p-12 text-center">
           <IconFlask className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">Нет лабораторных работ</h3>
-          <p className="text-muted-foreground">Лабораторные работы появятся здесь, когда преподаватель их добавит</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            {filter === 'all' ? 'Нет лабораторных работ' : 'Нет работ с таким статусом'}
+          </h3>
+          <p className="text-muted-foreground">
+            {filter === 'all' ? 'Лабораторные работы появятся здесь, когда преподаватель их добавит' : 'Попробуйте выбрать другой фильтр'}
+          </p>
         </CardSpotlight>
       )}
     </div>
   );
 }
 
-function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: 'green' | 'yellow' | 'red' | 'blue' | 'neutral' }) {
-  const colorClasses = { green: 'text-green-500 bg-green-500/10', yellow: 'text-yellow-500 bg-yellow-500/10', red: 'text-red-500 bg-red-500/10', blue: 'text-blue-500 bg-blue-500/10', neutral: 'text-neutral-500 bg-neutral-500/10' };
-  return (
-    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-      <div className={cn("p-2 rounded-lg w-fit mb-2", colorClasses[color])}>{icon}</div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
-    </motion.div>
-  );
-}
-
 function LabsSkeleton() {
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="space-y-2"><Skeleton className="h-8 w-64" /><Skeleton className="h-4 w-48" /></div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">{[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
       <Skeleton className="h-24 rounded-xl" />
+      <div className="flex gap-2">{[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-9 w-24 rounded-md" />)}</div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-48 rounded-xl" />)}</div>
     </div>
   );

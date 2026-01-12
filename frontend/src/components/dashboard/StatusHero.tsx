@@ -2,7 +2,6 @@
 
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { MagicCard } from '@/components/ui/magic-card';
 import { SlidingNumber } from '@/components/animate-ui/primitives/texts/sliding-number';
 import { Effect } from '@/components/animate-ui/primitives/effects/effect';
@@ -23,35 +22,43 @@ function getAttestationStatus(attestation: StatusHeroProps['attestation']): Atte
 const STATUS_CONFIG = {
   passing: {
     icon: IconCheck,
-    label: 'Зачёт',
+    label: 'Зачёт получен',
+    sublabel: 'Отличная работа!',
     gradient: '#22c55e20',
     color: 'text-green-500',
     border: 'border-green-500/30',
     bg: 'bg-green-500/5',
+    progressGradient: 'from-green-500 to-emerald-400',
   },
   failing: {
-    icon: IconX,
-    label: 'Незачёт',
-    gradient: '#ef444420',
-    color: 'text-red-500',
-    border: 'border-red-500/30',
-    bg: 'bg-red-500/5',
+    icon: IconAlertTriangle,
+    label: 'На пути к зачёту',
+    sublabel: 'Продолжай в том же духе',
+    gradient: '#6366f120',
+    color: 'text-indigo-500',
+    border: 'border-indigo-500/30',
+    bg: 'bg-indigo-500/5',
+    progressGradient: 'from-indigo-500 to-purple-400',
   },
   borderline: {
     icon: IconAlertTriangle,
-    label: 'Почти зачёт',
+    label: 'Зачёт близко',
+    sublabel: 'Ещё немного!',
     gradient: '#eab30820',
     color: 'text-yellow-500',
     border: 'border-yellow-500/30',
     bg: 'bg-yellow-500/5',
+    progressGradient: 'from-yellow-500 to-amber-400',
   },
   unavailable: {
     icon: IconX,
     label: 'Нет данных',
+    sublabel: '',
     gradient: '#71717a20',
     color: 'text-muted-foreground',
     border: 'border-border',
     bg: 'bg-muted/30',
+    progressGradient: 'from-gray-500 to-gray-400',
   },
 } as const;
 
@@ -81,6 +88,9 @@ export function StatusHero({ attestation, isLoading }: StatusHeroProps) {
 
   const maxPoints = attestation!.max_points || 40;
   const progressPercent = (attestation!.total_score / maxPoints) * 100;
+  const labsBreakdown = attestation!.breakdown?.labs;
+  const labsCount = labsBreakdown?.count || 0;
+  const labsRequired = labsBreakdown?.required || 0;
 
   return (
     <Effect fade slide={{ direction: 'up', offset: 20 }} inView inViewOnce>
@@ -96,13 +106,16 @@ export function StatusHero({ attestation, isLoading }: StatusHeroProps) {
                 <Badge variant="outline" className={cn("text-sm font-semibold", config.color)}>
                   {config.label}
                 </Badge>
-                {attestation!.grade && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    Оценка: {attestation!.grade}
-                  </span>
-                )}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {config.sublabel}
+                </p>
               </div>
             </div>
+            {attestation!.grade && (
+              <span className="text-sm text-muted-foreground">
+                Оценка: <span className="font-semibold text-foreground">{attestation!.grade}</span>
+              </span>
+            )}
           </div>
 
           {/* Score Display */}
@@ -118,18 +131,30 @@ export function StatusHero({ attestation, isLoading }: StatusHeroProps) {
             </p>
           </div>
 
-          {/* Progress Bar */}
-          <Progress 
-            value={progressPercent}
-            className={cn("h-2", `[&>div]:${config.color.replace('text-', 'bg-')}`)}
-          />
+          {/* Progress Bar with gradient */}
+          <div className="relative h-3 bg-muted/50 rounded-full overflow-hidden mb-4">
+            <div 
+              className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-500", config.progressGradient)}
+              style={{ width: `${Math.min(progressPercent, 100)}%` }}
+            />
+          </div>
 
-          {/* Points to pass hint */}
-          {status !== 'passing' && (
-            <p className="text-xs text-center text-muted-foreground mt-3">
-              До зачёта: {((attestation!.min_passing_points || 18) - attestation!.total_score).toFixed(1)} баллов
-            </p>
-          )}
+          {/* Labs info and points to pass */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            {labsRequired > 0 && (
+              <span>
+                Сдано лаб: <span className={cn("font-semibold", labsCount >= labsRequired ? "text-green-500" : "text-foreground")}>{labsCount}/{labsRequired}</span>
+              </span>
+            )}
+            {status !== 'passing' && (
+              <span>
+                До зачёта: <span className="font-semibold text-foreground">{((attestation!.min_passing_points || 18) - attestation!.total_score).toFixed(1)} баллов</span>
+              </span>
+            )}
+            {status === 'passing' && !labsRequired && (
+              <span className="text-green-500">✓ Все требования выполнены</span>
+            )}
+          </div>
         </div>
       </MagicCard>
     </Effect>

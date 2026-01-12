@@ -50,15 +50,15 @@ export default function DashboardOverview() {
   const groupCode = profile?.group?.code;
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <Effect fade slide={{ direction: 'down', offset: 10 }} inView inViewOnce>
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-foreground">
-            Привет, {firstName}!
+            Привет, {firstName}! 👋
           </h1>
           <p className="text-sm text-muted-foreground">
-            {groupCode ? `Группа ${groupCode}` : 'Краткий обзор успеваемости'}
+            {groupCode ? `Группа ${groupCode} • Твой прогресс` : 'Краткий обзор успеваемости'}
           </p>
         </div>
       </Effect>
@@ -79,7 +79,7 @@ export default function DashboardOverview() {
 
 function DashboardSkeleton() {
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="space-y-2">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-32" />
