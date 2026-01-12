@@ -19,6 +19,44 @@ IMPERSONATE_TOKEN_TTL_MINUTES = 15
 ADMIN_TOKEN_COOKIE = "admin_original_token"
 
 
+@router.post("/impersonate/exit")
+async def exit_impersonation(
+    request: Request,
+    response: Response,
+):
+    """
+    Return to admin's original session.
+    Restores the saved admin token.
+    No auth required - uses saved admin token from cookie.
+    """
+    original_token = request.cookies.get(ADMIN_TOKEN_COOKIE)
+    
+    if not original_token:
+        raise HTTPException(
+            status_code=400, 
+            detail="No admin session to restore. Please login again."
+        )
+    
+    is_production = settings.ENVIRONMENT == "production"
+    
+    # Restore admin's original token
+    response.set_cookie(
+        key="access_token",
+        value=original_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    
+    # Clear the backup cookie
+    response.delete_cookie(key=ADMIN_TOKEN_COOKIE)
+    
+    logger.info("Admin exited impersonation mode")
+    
+    return {"message": "Returned to admin session"}
+
+
 @router.post("/impersonate/{user_id}")
 async def impersonate_user(
     user_id: UUID,
@@ -90,40 +128,3 @@ async def impersonate_user(
             "role": target_user.role.value,
         }
     }
-
-
-@router.post("/impersonate/exit")
-async def exit_impersonation(
-    request: Request,
-    response: Response,
-):
-    """
-    Return to admin's original session.
-    Restores the saved admin token.
-    """
-    original_token = request.cookies.get(ADMIN_TOKEN_COOKIE)
-    
-    if not original_token:
-        raise HTTPException(
-            status_code=400, 
-            detail="No admin session to restore. Please login again."
-        )
-    
-    is_production = settings.ENVIRONMENT == "production"
-    
-    # Restore admin's original token
-    response.set_cookie(
-        key="access_token",
-        value=original_token,
-        httponly=True,
-        secure=is_production,
-        samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
-    
-    # Clear the backup cookie
-    response.delete_cookie(key=ADMIN_TOKEN_COOKIE)
-    
-    logger.info("Admin exited impersonation mode")
-    
-    return {"message": "Returned to admin session"}
