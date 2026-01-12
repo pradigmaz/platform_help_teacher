@@ -17,12 +17,13 @@ interface VkCardProps {
   vkDialogOpen: boolean;
   vkLoading: boolean;
   onLink: () => void;
+  onRefreshCode?: () => void;
   onDialogChange: (open: boolean) => void;
 }
 
 export function VkCard({
   profile, vkData, vkDialogOpen, vkLoading,
-  onLink, onDialogChange
+  onLink, onRefreshCode, onDialogChange
 }: VkCardProps) {
   const copyCode = () => {
     if (vkData?.code) {
@@ -92,9 +93,17 @@ export function VkCard({
                 <p>3. Аккаунт будет привязан</p>
               </div>
 
-              <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
-                <Clock className="h-4 w-4" />
-                <span>Код действует {Math.floor(vkData.expires_in / 60)} минут</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+                  <Clock className="h-4 w-4" />
+                  <span>Код действует {Math.floor(vkData.expires_in / 60)} минут</span>
+                </div>
+                {onRefreshCode && (
+                  <Button variant="ghost" size="sm" onClick={onRefreshCode} disabled={vkLoading} className="gap-1.5 text-xs">
+                    <RefreshCw className={cn("h-3.5 w-3.5", vkLoading && "animate-spin")} />
+                    Обновить
+                  </Button>
+                )}
               </div>
 
               {process.env.NEXT_PUBLIC_VK_BOT_URL && (

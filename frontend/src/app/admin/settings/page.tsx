@@ -176,6 +176,7 @@ export default function AdminSettingsPage() {
             vkDialogOpen={vkDialogOpen}
             vkLoading={vkLoading}
             onLink={handleLinkVk}
+            onRefreshCode={handleLinkVk}
             onDialogChange={setVkDialogOpen}
           />
         </TabsContent>

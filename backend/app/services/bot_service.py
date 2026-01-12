@@ -131,9 +131,11 @@ async def process_start_command(
     # Логируем /start
     await log_bot_start(db, social_id, platform, username, args)
     
-    # СЦЕНАРИЙ: ПРИВЯЗКА/ПЕРЕПРИВЯЗКА (relink код)
+    # СЦЕНАРИЙ: КОД (relink, персональный или групповой)
     if args:
         code = args.strip().upper()
+        
+        # 1. Проверяем relink код (привязка/перепривязка)
         relink_data = await redis.get(f"relink:{code}")
         if relink_data:
             try:
@@ -166,12 +168,8 @@ async def process_start_command(
             
             platform_name = "Telegram" if target_platform == "telegram" else "VK"
             return f"✅ {platform_name} привязан!\nПользователь: {user.full_name}"
-    
-    # СЦЕНАРИЙ: КОД (персональный или групповой)
-    if args:
-        code = args.strip().upper()
         
-        # Персональный invite_code
+        # 2. Персональный invite_code
         result = await db.execute(select(User).where(User.invite_code == code))
         existing_student = result.scalar_one_or_none()
         if existing_student:

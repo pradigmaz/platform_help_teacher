@@ -186,40 +186,58 @@ export function MarkdownPastePlugin(): null {
           const root = $getRoot();
           const selection = $getSelection();
           
-          // Clear if pasting at root level
-          if ($isRangeSelection(selection)) {
-            root.clear();
+          // Создаём ноды из markdown
+          const tempRoot = $getRoot();
+          const insertionPoint = $isRangeSelection(selection) ? selection.anchor.getNode() : null;
+          
+          // Парсим markdown во временные ноды
+          const nodesToInsert: import('lexical').LexicalNode[] = [];
+          
+          // Разбиваем текст на части по плейсхолдерам и обычный текст
+          const parts = processedText.split(/(__(?:CODE_BLOCK|TABLE|IMAGE)_\d+__)/);
+          
+          for (const part of parts) {
+            if (!part.trim()) continue;
+            
+            // Проверяем, это плейсхолдер или обычный текст
+            const block = customBlocks.find(b => b.placeholder === part);
+            
+            if (block) {
+              if (block.type === 'code') {
+                const { language, code } = block.data as { language: string; code: string };
+                nodesToInsert.push($createCodeBlockNode(code, language as CodeLanguage, 'code'));
+              } else if (block.type === 'image') {
+                const { alt, src } = block.data as { alt: string; src: string };
+                nodesToInsert.push($createImageNode(src, alt, '', 'auto', 'auto'));
+              } else if (block.type === 'table') {
+                const tableData = block.data as { headers: string[]; rows: string[][] };
+                nodesToInsert.push($createTableFromMarkdown(tableData));
+              }
+            } else {
+              // Обычный markdown текст — конвертируем построчно
+              const lines = part.split('\n');
+              for (const line of lines) {
+                if (!line.trim()) continue;
+                const paragraph = $createParagraphNode();
+                paragraph.append($createTextNode(line));
+                nodesToInsert.push(paragraph);
+              }
+            }
           }
           
-          // Use Lexical's markdown converter for text formatting
-          $convertFromMarkdownString(processedText, LECTURE_TRANSFORMERS);
-          
-          // Now replace placeholders with custom nodes
-          const children = root.getChildren();
-          for (const child of children) {
-            const textContent = child.getTextContent();
+          // Вставляем ноды в позицию курсора
+          if ($isRangeSelection(selection) && nodesToInsert.length > 0) {
+            // Удаляем выделенный текст если есть
+            selection.removeText();
             
-            for (const block of customBlocks) {
-              if (textContent.includes(block.placeholder)) {
-                // Create custom node
-                if (block.type === 'code') {
-                  const { language, code } = block.data as { language: string; code: string };
-                  const codeNode = $createCodeBlockNode(code, language as CodeLanguage, 'code');
-                  child.insertBefore(codeNode);
-                  child.remove();
-                } else if (block.type === 'image') {
-                  const { alt, src } = block.data as { alt: string; src: string };
-                  const imageNode = $createImageNode(src, alt, '', 'auto', 'auto');
-                  child.insertBefore(imageNode);
-                  child.remove();
-                } else if (block.type === 'table') {
-                  const tableData = block.data as { headers: string[]; rows: string[][] };
-                  const tableNode = $createTableFromMarkdown(tableData);
-                  child.insertBefore(tableNode);
-                  child.remove();
-                }
-                break;
-              }
+            // Вставляем все ноды
+            for (const node of nodesToInsert) {
+              selection.insertNodes([node]);
+            }
+          } else {
+            // Если нет selection, добавляем в конец
+            for (const node of nodesToInsert) {
+              root.append(node);
             }
           }
           
