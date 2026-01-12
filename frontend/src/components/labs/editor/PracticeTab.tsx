@@ -46,6 +46,7 @@ export function PracticeTab({
             onChange={onPracticeChange}
             className="min-h-[300px]"
             preset="practice"
+            stickyToolbar={true}
             externalFontSize={externalFontSize}
             externalLineHeight={externalLineHeight}
           />

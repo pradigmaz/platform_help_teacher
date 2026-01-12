@@ -135,7 +135,7 @@ export function MarkdownPastePlugin(): null {
         const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
         const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
         // Table: lines starting and ending with |, at least 2 lines with separator
-        const tableRegex = /(?:^\|.+\|\s*\n)+/gm;
+        const tableRegex = /(?:^\|.+\|[ \t]*\n?)+/gm;
         
         // Store custom blocks with placeholders
         const customBlocks: Array<{ type: 'code' | 'image' | 'table'; data: unknown; placeholder: string }> = [];

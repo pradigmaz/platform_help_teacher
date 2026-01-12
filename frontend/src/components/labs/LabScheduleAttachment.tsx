@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Calendar, Check, AlertTriangle, Loader2 } from 'lucide-react';
+import { Calendar, Check, AlertTriangle, Loader2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import api from '@/lib/api';
 
 interface ScheduleSlot {
@@ -43,6 +48,7 @@ interface Props {
 export function LabScheduleAttachment({ labId, labNumber }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [data, setData] = useState<ScheduleSlotsResponse | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [initialSelected, setInitialSelected] = useState<Set<string>>(new Set());
@@ -75,7 +81,6 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
   };
 
   const toggleSlot = (lessonId: string, slot: ScheduleSlot) => {
-    // Can't select if occupied by another lab
     if (slot.current_work_number && slot.current_work_number !== labNumber) {
       return;
     }
@@ -94,7 +99,6 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Find what to attach and detach
       const toAttach = [...selected].filter(id => !initialSelected.has(id));
       const toDetach = [...initialSelected].filter(id => !selected.has(id));
       
@@ -128,12 +132,17 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
     return `${sg} п/г`;
   };
 
+  // Count total attached
+  const attachedCount = selected.size;
+  const totalSlots = data?.groups.reduce((sum, g) => sum + g.slots.length, 0) || 0;
+
   if (loading) {
     return (
       <Card>
-        <CardContent className="py-8 flex justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </CardContent>
+        <div className="p-4 flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Загрузка расписания...</span>
+        </div>
       </Card>
     );
   }
@@ -141,93 +150,104 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
   if (!data || data.groups.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Привязка к расписанию
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-sm">
-            Нет лабораторных занятий в расписании на ближайшие 2 недели
-          </p>
-        </CardContent>
+        <div className="p-4 flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            Нет лабораторных занятий на ближайшие 2 недели
+          </span>
+        </div>
       </Card>
     );
   }
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Привязка к расписанию
-          </CardTitle>
-          <Button 
-            onClick={handleSave} 
-            disabled={!hasChanges || saving}
-            size="sm"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Check className="h-4 w-4 mr-2" />
-            )}
-            Применить
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Accordion type="multiple" defaultValue={data.groups.map(g => g.group_id)}>
-          {data.groups.map(group => (
-            <AccordionItem key={group.group_id} value={group.group_id}>
-              <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{group.group_name}</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {group.slots.filter(s => selected.has(s.lesson_id)).length} / {group.slots.length}
-                  </Badge>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-2 pl-2">
-                  {group.slots.map(slot => {
-                    const isOccupied = slot.current_work_number && slot.current_work_number !== labNumber;
-                    const isChecked = selected.has(slot.lesson_id);
-                    
-                    return (
-                      <label
-                        key={slot.lesson_id}
-                        className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
-                          isOccupied 
-                            ? 'opacity-50 cursor-not-allowed bg-muted' 
-                            : 'hover:bg-muted/50'
-                        }`}
-                      >
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={() => toggleSlot(slot.lesson_id, slot)}
-                          disabled={!!isOccupied}
-                        />
-                        <span className="text-sm">
-                          {formatSubgroup(slot.subgroup)} — {formatDate(slot.date)}, пара {slot.lesson_number}
-                        </span>
-                        {isOccupied && (
-                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            ЛР №{slot.current_work_number}
-                          </Badge>
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </CardContent>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <button className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors rounded-t-lg">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium text-sm">Привязка к расписанию</span>
+              <Badge variant="secondary" className="text-xs">
+                {attachedCount} / {totalSlots}
+              </Badge>
+              {hasChanges && (
+                <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+                  не сохранено
+                </Badge>
+              )}
+            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="pt-0 pb-4">
+            <Accordion type="multiple" defaultValue={data.groups.map(g => g.group_id)}>
+              {data.groups.map(group => (
+                <AccordionItem key={group.group_id} value={group.group_id}>
+                  <AccordionTrigger className="hover:no-underline py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{group.group_name}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {group.slots.filter(s => selected.has(s.lesson_id)).length} / {group.slots.length}
+                      </Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-1 pl-2">
+                      {group.slots.map(slot => {
+                        const isOccupied = slot.current_work_number && slot.current_work_number !== labNumber;
+                        const isChecked = selected.has(slot.lesson_id);
+                        
+                        return (
+                          <label
+                            key={slot.lesson_id}
+                            className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
+                              isOccupied 
+                                ? 'opacity-50 cursor-not-allowed bg-muted' 
+                                : 'hover:bg-muted/50'
+                            }`}
+                          >
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={() => toggleSlot(slot.lesson_id, slot)}
+                              disabled={!!isOccupied}
+                            />
+                            <span className="text-sm">
+                              {formatSubgroup(slot.subgroup)} — {formatDate(slot.date)}, пара {slot.lesson_number}
+                            </span>
+                            {isOccupied && (
+                              <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                ЛР №{slot.current_work_number}
+                              </Badge>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+            
+            <div className="mt-4 flex justify-end">
+              <Button 
+                onClick={handleSave} 
+                disabled={!hasChanges || saving}
+                size="sm"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Check className="h-4 w-4 mr-2" />
+                )}
+                Применить
+              </Button>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 }
