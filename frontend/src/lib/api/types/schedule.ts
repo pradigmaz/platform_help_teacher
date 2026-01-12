@@ -59,6 +59,7 @@ export interface LessonCreate {
 export interface LessonUpdate {
   topic?: string;
   work_id?: string;
+  work_number?: number | null;
   is_cancelled?: boolean;
   cancellation_reason?: string;
 }

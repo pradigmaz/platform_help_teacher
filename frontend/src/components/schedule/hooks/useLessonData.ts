@@ -15,10 +15,12 @@ interface UseLessonDataReturn {
   attendance: Record<string, AttendanceStatus | null>;
   grades: Record<string, number | null>;
   topic: string;
+  workNumber: number | null;
   status: LessonStatus;
   isLoading: boolean;
   hasChanges: boolean;
   setTopic: (topic: string) => void;
+  setWorkNumber: (workNumber: number | null) => void;
   setStatus: (status: LessonStatus) => void;
   cycleAttendance: (studentId: string) => void;
   setGrade: (studentId: string, grade: number) => void;
@@ -31,6 +33,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus | null>>({});
   const [grades, setGrades] = useState<Record<string, number | null>>({});
   const [topic, setTopicState] = useState('');
+  const [workNumber, setWorkNumberState] = useState<number | null>(null);
   const [status, setStatusState] = useState<LessonStatus>('normal');
   const [isLoading, setIsLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -82,6 +85,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
 
       // Set initial values
       setTopicState(lesson.topic || '');
+      setWorkNumberState(lesson.work_number ?? null);
       setStatusState(lesson.is_cancelled ? 'cancelled' : lesson.ended_early ? 'early' : 'normal');
       setHasChanges(false);
     } catch (err) {
@@ -99,6 +103,11 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
 
   const setTopic = (value: string) => {
     setTopicState(value);
+    setHasChanges(true);
+  };
+
+  const setWorkNumber = (value: number | null) => {
+    setWorkNumberState(value);
     setHasChanges(true);
   };
 
@@ -153,22 +162,25 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
             lesson_id: lesson.id,
             student_id,
             grade,
-            work_number: lesson.work_number
+            work_number: workNumber ?? lesson.work_number
           });
         }
       }
 
-      // Save status
+      // Save lesson (status, topic, work_number)
+      const lessonUpdate: Record<string, unknown> = {};
       if (status !== 'normal' || lesson.is_cancelled || lesson.ended_early) {
-        await api.patch(`/admin/lessons/${lesson.id}`, {
-          is_cancelled: status === 'cancelled',
-          ended_early: status === 'early'
-        });
+        lessonUpdate.is_cancelled = status === 'cancelled';
+        lessonUpdate.ended_early = status === 'early';
       }
-
-      // Save topic
       if (topic !== (lesson.topic || '')) {
-        await api.patch(`/admin/lessons/${lesson.id}`, { topic });
+        lessonUpdate.topic = topic;
+      }
+      if (workNumber !== lesson.work_number) {
+        lessonUpdate.work_number = workNumber;
+      }
+      if (Object.keys(lessonUpdate).length > 0) {
+        await api.patch(`/admin/lessons/${lesson.id}`, lessonUpdate);
       }
 
       setHasChanges(false);
@@ -183,6 +195,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
   const resetChanges = () => {
     if (lesson) {
       setTopicState(lesson.topic || '');
+      setWorkNumberState(lesson.work_number ?? null);
       setStatusState(lesson.is_cancelled ? 'cancelled' : lesson.ended_early ? 'early' : 'normal');
     }
     setHasChanges(false);
@@ -193,10 +206,12 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
     attendance,
     grades,
     topic,
+    workNumber,
     status,
     isLoading,
     hasChanges,
     setTopic,
+    setWorkNumber,
     setStatus,
     cycleAttendance,
     setGrade,

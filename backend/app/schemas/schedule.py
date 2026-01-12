@@ -70,6 +70,7 @@ class LessonCreate(LessonBase):
 class LessonUpdate(BaseModel):
     topic: Optional[str] = None
     work_id: Optional[UUID] = None
+    work_number: Optional[int] = Field(None, ge=1, le=20, description="Номер лабы/практики")
     is_cancelled: Optional[bool] = None
     cancellation_reason: Optional[str] = None
     ended_early: Optional[bool] = None

@@ -64,10 +64,12 @@ export function LessonSheet({ lesson, isOpen, onClose, onSave }: LessonSheetProp
     attendance,
     grades,
     topic,
+    workNumber,
     status,
     isLoading,
     hasChanges,
     setTopic,
+    setWorkNumber,
     setStatus,
     cycleAttendance,
     setGrade,
@@ -123,7 +125,7 @@ export function LessonSheet({ lesson, isOpen, onClose, onSave }: LessonSheetProp
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6 min-h-0">
           <LessonStatus status={status} onChange={setStatus} />
-          <LessonTopic lesson={lesson} topic={topic} onChange={setTopic} />
+          <LessonTopic lesson={lesson} topic={topic} workNumber={workNumber} onChange={setTopic} onWorkNumberChange={setWorkNumber} />
           <StudentsTable
             students={students}
             attendance={attendance}
