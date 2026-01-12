@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { StudentAPI, StudentProfile } from '@/lib/api';
 import { AceternitySidebarLayout } from '@/components/dashboard/AceternitySidebar';
+import { ImpersonationBanner } from '@/components/dashboard/ImpersonationBanner';
+import { FeedbackFab } from '@/components/feedback/FeedbackFab';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardLayout({
@@ -40,14 +42,18 @@ export default function DashboardLayout({
   }
 
   return (
-    <AceternitySidebarLayout
-      user={{
-        name: profile?.full_name || 'Студент',
-        username: profile?.username,
-        group: profile?.group?.code,
-      }}
-    >
-      {children}
-    </AceternitySidebarLayout>
+    <>
+      <ImpersonationBanner />
+      <AceternitySidebarLayout
+        user={{
+          name: profile?.full_name || 'Студент',
+          username: profile?.username,
+          group: profile?.group?.code,
+        }}
+      >
+        {children}
+      </AceternitySidebarLayout>
+      <FeedbackFab />
+    </>
   );
 }

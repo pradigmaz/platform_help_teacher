@@ -13,7 +13,6 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname } from "next/navigation";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
-import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 import api from "@/lib/api";
 
 interface AceternitySidebarProps {
@@ -105,10 +104,10 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
           
           {/* Logout */}
           <div className="border-t border-border pt-4 mt-4">
-            <div className="flex items-center justify-between px-2 mb-2">
-              <FeedbackDialog />
+            <div className="flex items-center justify-center px-2 mb-2">
               <AnimatedThemeToggler />
             </div>
+            
             <button
               onClick={handleLogout}
               className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-destructive/10 transition-colors w-full text-left"
