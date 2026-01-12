@@ -69,7 +69,7 @@ export default function DashboardOverview() {
 
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <QuickStats labs={labs} attendance={attendance} />
+        <QuickStats labs={labs} attendance={attendance} attestation={attestation} />
       </div>
 
       {/* Deadlines List */}

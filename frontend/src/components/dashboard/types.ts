@@ -14,6 +14,7 @@ export interface StatusHeroProps {
 export interface QuickStatsProps {
   labs: StudentLab[];
   attendance: StudentAttendance | null;
+  attestation?: StudentAttestation | null;
   isLoading?: boolean;
 }
 

@@ -10,7 +10,6 @@ import { BlurFade } from "@/components/ui/blur-fade";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
-import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 import { toast } from "@/components/ui/sonner";
 import { ApiErrorBoundary } from "@/components/ui/api-error-boundary";
 
@@ -123,7 +122,6 @@ export default function AdminLayout({
       <AdminSidebar />
       <div className="flex-1 flex flex-col relative z-10 transition-all duration-300 min-h-screen">
         <header className="h-16 border-b border-border flex items-center justify-end px-8 gap-4 bg-background/40 backdrop-blur-xl sticky top-0 z-30">
-          <FeedbackDialog />
           <AnimatedThemeToggler />
         </header>
         <main className="flex-1 transition-all duration-300 overflow-y-auto">

@@ -40,7 +40,7 @@ export function LessonTopic({ lesson, topic, workNumber, onChange, onWorkNumberC
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Выберите номер лабы..." />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[10000]">
               <SelectItem value="none">Не указано</SelectItem>
               {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                 <SelectItem key={n} value={n.toString()}>

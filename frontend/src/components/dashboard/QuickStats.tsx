@@ -9,12 +9,15 @@ import { IconFlask, IconCalendar, IconClock } from '@tabler/icons-react';
 import type { QuickStatsProps } from './types';
 
 /** Calculate lab statistics */
-function getLabStats(labs: QuickStatsProps['labs']) {
-  const total = labs.length;
+function getLabStats(labs: QuickStatsProps['labs'], attestation?: QuickStatsProps['attestation']) {
+  // visible = labs available to student (attached to lessons)
+  const visible = labs.length;
   const accepted = labs.filter(l => l.submission?.status === 'ACCEPTED').length;
   const pending = labs.filter(l => l.submission?.status === 'IN_REVIEW' || l.submission?.status === 'READY').length;
-  const percent = total > 0 ? Math.round((accepted / total) * 100) : 0;
-  return { total, accepted, pending, percent };
+  // required = total labs needed for attestation
+  const required = attestation?.breakdown?.labs?.required ?? visible;
+  const percent = required > 0 ? Math.round((visible / required) * 100) : 0;
+  return { visible, accepted, pending, required, percent };
 }
 
 /** Get nearest deadline (by lessons count) */
@@ -36,12 +39,12 @@ function formatLessonsLeft(lessons: number): string {
 /**
  * Quick stats cards: Labs, Attendance, Deadline
  */
-export function QuickStats({ labs, attendance, isLoading }: QuickStatsProps) {
+export function QuickStats({ labs, attendance, attestation, isLoading }: QuickStatsProps) {
   if (isLoading) {
     return <QuickStatsSkeleton />;
   }
 
-  const labStats = getLabStats(labs);
+  const labStats = getLabStats(labs, attestation);
   const attendanceRate = attendance?.stats.attendance_rate || 0;
   const nearestDeadline = getNearestDeadline(labs);
 
@@ -60,16 +63,16 @@ export function QuickStats({ labs, attendance, isLoading }: QuickStatsProps) {
             
             <div className="flex items-baseline gap-1 mb-2">
               <span className="text-3xl font-bold text-purple-500">
-                <SlidingNumber number={labStats.accepted} />
+                <SlidingNumber number={labStats.visible} />
               </span>
-              <span className="text-lg text-muted-foreground">/{labStats.total}</span>
+              <span className="text-lg text-muted-foreground">/{labStats.required}</span>
             </div>
             
             <Progress value={labStats.percent} className="h-1.5 [&>div]:bg-purple-500" />
             
-            {labStats.pending > 0 && (
+            {labStats.accepted > 0 && (
               <p className="text-xs text-muted-foreground mt-2">
-                На проверке: {labStats.pending}
+                Сдано: {labStats.accepted}
               </p>
             )}
           </div>
