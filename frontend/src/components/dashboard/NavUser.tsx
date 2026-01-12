@@ -22,6 +22,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { ChevronsUpDown } from 'lucide-react';
+import api from '@/lib/api';
 
 interface NavUserProps {
   user: {
@@ -44,10 +45,7 @@ export function NavUser({ user }: NavUserProps) {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
+      await api.post('/auth/logout');
     } catch {
       // ignore
     }

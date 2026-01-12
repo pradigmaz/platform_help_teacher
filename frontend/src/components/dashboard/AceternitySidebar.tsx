@@ -13,6 +13,7 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname } from "next/navigation";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import api from "@/lib/api";
 
 interface AceternitySidebarProps {
   children: React.ReactNode;
@@ -73,10 +74,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
 
   const handleLogout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
+      await api.post('/auth/logout');
     } catch {
       // ignore
     }
