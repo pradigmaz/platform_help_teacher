@@ -9,6 +9,7 @@ import { IconTarget, IconBook, IconCode, IconQuestionMark, IconFlask } from '@ta
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import api from '@/lib/api';
 import { LectureViewer } from '@/components/lectures';
+import { getQuestionText } from '@/lib/utils/question-utils';
 
 import { SerializedEditorState } from 'lexical';
 
@@ -22,7 +23,7 @@ interface PublicLab {
   theory_content?: SerializedEditorState;
   practice_content?: SerializedEditorState;
   variants?: { number: number; description: string; test_data?: string }[];
-  questions?: string[];
+  questions?: (string | { text?: string; content?: SerializedEditorState })[];
   max_grade: number;
 }
 
@@ -152,7 +153,7 @@ export default function PublicLabPage() {
               {lab.questions && lab.questions.length > 0 ? (
                 <ol className="list-decimal list-inside space-y-2">
                   {lab.questions.map((q, i) => (
-                    <li key={i} className="text-sm">{q}</li>
+                    <li key={i} className="text-sm">{getQuestionText(q)}</li>
                   ))}
                 </ol>
               ) : (

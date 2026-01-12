@@ -3,7 +3,7 @@
 import { SerializedEditorState } from 'lexical';
 import { LectureEditor } from '@/components/lectures';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { IconCode } from '@tabler/icons-react';
 import { VariantCard, VariantData } from '../VariantCard';
 import { LabVariant } from './types';
@@ -20,8 +20,6 @@ interface PracticeTabProps {
   externalLineHeight?: string;
 }
 
-const VARIANT_OPTIONS = Array.from({ length: 30 }, (_, i) => i + 1);
-
 export function PracticeTab({
   practiceContent,
   variants,
@@ -33,6 +31,13 @@ export function PracticeTab({
   externalFontSize,
   externalLineHeight,
 }: PracticeTabProps) {
+  const handleCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    if (!isNaN(value) && value >= 1 && value <= 100) {
+      onSetVariantsCount(value);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -61,19 +66,14 @@ export function PracticeTab({
             <span>Варианты заданий</span>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Количество:</span>
-              <Select 
-                value={String(variants.length)} 
-                onValueChange={(v) => onSetVariantsCount(Number(v))}
-              >
-                <SelectTrigger className="w-[80px] h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {VARIANT_OPTIONS.map((n) => (
-                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={variants.length}
+                onChange={handleCountChange}
+                className="w-[70px] h-8 text-center"
+              />
             </div>
           </CardTitle>
         </CardHeader>

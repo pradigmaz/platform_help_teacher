@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Users, FlaskConical, Clock, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import type { LabQueue, SubmissionDetail } from '@/lib/api/types/lab-queue';
+import { getQuestionText } from '@/lib/utils/question-utils';
 
 interface QueueDialogProps {
   open: boolean;
@@ -151,7 +152,7 @@ export function QueueDialog({
                 <div className="text-sm font-medium mb-2">Контрольные вопросы:</div>
                 <ol className="text-sm space-y-1 list-decimal list-inside">
                   {selectedSubmission.questions.map((q, i) => (
-                    <li key={i}>{q}</li>
+                    <li key={i}>{getQuestionText(q)}</li>
                   ))}
                 </ol>
               </div>

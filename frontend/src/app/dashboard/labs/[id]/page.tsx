@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { LectureViewer } from '@/components/lectures';
 import { SerializedEditorState } from 'lexical';
+import { getQuestionText } from '@/lib/utils/question-utils';
 
 export default function LabDetailPage() {
   const params = useParams();
@@ -201,7 +202,7 @@ export default function LabDetailPage() {
           </div>
           <ol className="list-decimal list-inside space-y-2">
             {lab.questions.map((q, i) => (
-              <li key={i} className="text-muted-foreground">{q}</li>
+              <li key={i} className="text-muted-foreground">{getQuestionText(q)}</li>
             ))}
           </ol>
         </CardSpotlight>

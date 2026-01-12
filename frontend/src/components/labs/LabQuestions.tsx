@@ -3,6 +3,7 @@
 import { Lab } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HelpCircle } from 'lucide-react';
+import { getQuestionText } from '@/lib/utils/question-utils';
 
 interface LabQuestionsProps {
   lab: Lab;
@@ -21,8 +22,8 @@ export function LabQuestions({ lab }: LabQuestionsProps) {
       </CardHeader>
       <CardContent className="py-3">
         <ol className="space-y-2 list-decimal list-inside">
-          {lab.questions.map((q: string, i: number) => (
-            <li key={i} className="text-sm">{q}</li>
+          {lab.questions.map((q, i) => (
+            <li key={i} className="text-sm">{getQuestionText(q)}</li>
           ))}
         </ol>
       </CardContent>
