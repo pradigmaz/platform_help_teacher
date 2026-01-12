@@ -1,0 +1,174 @@
+"""Lab schedule attachment endpoints."""
+import logging
+from datetime import date, timedelta
+from typing import List
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select, and_, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
+
+from app.api.deps import get_db, get_current_active_superuser
+from app.models import User
+from app.models.lab import Lab
+from app.models.lesson import Lesson
+from app.models.group import Group
+from app.models.schedule import LessonType
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+SCHEDULE_LOOKAHEAD_DAYS = 14
+
+
+class ScheduleSlot(BaseModel):
+    lesson_id: str
+    date: date
+    lesson_number: int
+    subgroup: int | None
+    current_work_number: int | None
+    is_attached: bool  # True if attached to THIS lab
+
+
+class GroupSlots(BaseModel):
+    group_id: str
+    group_name: str
+    slots: List[ScheduleSlot]
+
+
+class ScheduleSlotsResponse(BaseModel):
+    lab_number: int
+    groups: List[GroupSlots]
+
+
+class AttachRequest(BaseModel):
+    lesson_ids: List[str]
+
+
+class AttachResponse(BaseModel):
+    attached_count: int
+
+
+@router.get("/{lab_id}/schedule-slots", response_model=ScheduleSlotsResponse)
+async def get_schedule_slots(
+    lab_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_active_superuser),
+):
+    """Get available schedule slots for lab attachment."""
+    lab = await db.get(Lab, lab_id)
+    if not lab:
+        raise HTTPException(status_code=404, detail="Lab not found")
+    
+    today = date.today()
+    end_date = today + timedelta(days=SCHEDULE_LOOKAHEAD_DAYS)
+    
+    # Build filter
+    filters = [
+        Lesson.lesson_type == LessonType.LAB,
+        Lesson.date >= today,
+        Lesson.date <= end_date,
+        Lesson.is_cancelled == False,
+    ]
+    if lab.subject_id:
+        filters.append(Lesson.subject_id == lab.subject_id)
+    
+    # Load lessons with groups
+    query = (
+        select(Lesson)
+        .options(joinedload(Lesson.group))
+        .where(and_(*filters))
+        .order_by(Lesson.date, Lesson.lesson_number)
+    )
+    result = await db.execute(query)
+    lessons = result.scalars().unique().all()
+    
+    # Group by group_id
+    groups_map: dict[UUID, GroupSlots] = {}
+    for lesson in lessons:
+        if lesson.group_id not in groups_map:
+            groups_map[lesson.group_id] = GroupSlots(
+                group_id=str(lesson.group_id),
+                group_name=lesson.group.name if lesson.group else "???",
+                slots=[]
+            )
+        
+        groups_map[lesson.group_id].slots.append(ScheduleSlot(
+            lesson_id=str(lesson.id),
+            date=lesson.date,
+            lesson_number=lesson.lesson_number,
+            subgroup=lesson.subgroup,
+            current_work_number=lesson.work_number,
+            is_attached=lesson.work_number == lab.number,
+        ))
+    
+    return ScheduleSlotsResponse(
+        lab_number=lab.number,
+        groups=list(groups_map.values())
+    )
+
+
+@router.post("/{lab_id}/attach", response_model=AttachResponse)
+async def attach_to_lessons(
+    lab_id: UUID,
+    data: AttachRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_active_superuser),
+):
+    """Attach lab to schedule lessons."""
+    lab = await db.get(Lab, lab_id)
+    if not lab:
+        raise HTTPException(status_code=404, detail="Lab not found")
+    
+    if not data.lesson_ids:
+        return AttachResponse(attached_count=0)
+    
+    lesson_uuids = [UUID(lid) for lid in data.lesson_ids]
+    
+    # Update work_number for selected lessons
+    stmt = (
+        update(Lesson)
+        .where(Lesson.id.in_(lesson_uuids))
+        .where(Lesson.lesson_type == LessonType.LAB)
+        .values(work_number=lab.number)
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+    
+    logger.info(f"Admin {admin.id} attached lab {lab.number} to {result.rowcount} lessons")
+    
+    return AttachResponse(attached_count=result.rowcount)
+
+
+@router.post("/{lab_id}/detach", response_model=AttachResponse)
+async def detach_from_lessons(
+    lab_id: UUID,
+    data: AttachRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_active_superuser),
+):
+    """Detach lab from schedule lessons."""
+    lab = await db.get(Lab, lab_id)
+    if not lab:
+        raise HTTPException(status_code=404, detail="Lab not found")
+    
+    if not data.lesson_ids:
+        return AttachResponse(attached_count=0)
+    
+    lesson_uuids = [UUID(lid) for lid in data.lesson_ids]
+    
+    # Clear work_number only for lessons attached to THIS lab
+    stmt = (
+        update(Lesson)
+        .where(Lesson.id.in_(lesson_uuids))
+        .where(Lesson.work_number == lab.number)
+        .values(work_number=None)
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+    
+    logger.info(f"Admin {admin.id} detached lab {lab.number} from {result.rowcount} lessons")
+    
+    return AttachResponse(attached_count=result.rowcount)

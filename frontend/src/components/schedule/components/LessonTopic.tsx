@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { NoteButton } from '@/components/notes';
 import type { LessonData } from '../types';
 import { canHaveGrade } from '../constants';
+import api from '@/lib/api';
+
+interface Lab {
+  id: string;
+  number: number;
+  title: string;
+  subject_id?: string;
+}
 
 interface LessonTopicProps {
   lesson: LessonData;
@@ -17,8 +26,32 @@ interface LessonTopicProps {
 }
 
 export function LessonTopic({ lesson, topic, workNumber, onChange, onWorkNumberChange }: LessonTopicProps) {
+  const [labs, setLabs] = useState<Lab[]>([]);
   const showWorkNumberSelect = canHaveGrade(lesson.lesson_type) && lesson.lesson_type.toLowerCase() === 'lab';
   const currentWorkNumber = workNumber ?? lesson.work_number;
+
+  // Load labs for this subject
+  useEffect(() => {
+    if (!showWorkNumberSelect) return;
+    
+    const loadLabs = async () => {
+      try {
+        const params: Record<string, string> = {};
+        if (lesson.subject_id) {
+          params.subject_id = lesson.subject_id;
+        }
+        const { data } = await api.get<Lab[]>('/admin/labs', { params });
+        // Filter by subject if needed and sort by number
+        const filtered = lesson.subject_id 
+          ? data.filter(l => !l.subject_id || l.subject_id === lesson.subject_id)
+          : data;
+        setLabs(filtered.sort((a, b) => a.number - b.number));
+      } catch {
+        setLabs([]);
+      }
+    };
+    loadLabs();
+  }, [showWorkNumberSelect, lesson.subject_id]);
 
   return (
     <div className="space-y-3">
@@ -32,21 +65,26 @@ export function LessonTopic({ lesson, topic, workNumber, onChange, onWorkNumberC
       
       {showWorkNumberSelect && onWorkNumberChange && (
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Номер лабораторной работы</Label>
+          <Label className="text-xs text-muted-foreground">Лабораторная работа</Label>
           <Select
             value={currentWorkNumber?.toString() || 'none'}
             onValueChange={(v) => onWorkNumberChange(v === 'none' ? null : parseInt(v))}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Выберите номер лабы..." />
+              <SelectValue placeholder="Выберите лабораторную..." />
             </SelectTrigger>
             <SelectContent className="z-[10000]">
               <SelectItem value="none">Не указано</SelectItem>
-              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                <SelectItem key={n} value={n.toString()}>
-                  Лабораторная работа №{n}
+              {labs.map((lab) => (
+                <SelectItem key={lab.id} value={lab.number.toString()}>
+                  №{lab.number}: {lab.title}
                 </SelectItem>
               ))}
+              {labs.length === 0 && (
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                  Нет созданных лабораторных
+                </div>
+              )}
             </SelectContent>
           </Select>
         </div>
