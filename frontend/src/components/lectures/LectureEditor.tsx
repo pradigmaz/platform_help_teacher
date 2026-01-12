@@ -17,6 +17,7 @@ import { CodeBlockNode } from './nodes/CodeBlockNode';
 import { ImageNode } from './nodes/ImageNode';
 import { SnippetNode } from './nodes/SnippetNode';
 import { MarkdownPastePlugin } from './plugins/MarkdownPastePlugin';
+import { TableActionMenuPlugin } from './plugins/TableActionMenuPlugin';
 import { Badge } from '@/components/ui/badge';
 import { Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
@@ -231,6 +232,7 @@ export function LectureEditor({
             <HistoryPlugin />
             <ListPlugin />
             <TablePlugin />
+            {!readOnly && <TableActionMenuPlugin />}
             <OnChangePlugin ignoreSelectionChange={true} onChange={handleChange} />
             {onSave && !readOnly && <AutoSavePlugin onSave={handleAutoSave} interval={autoSaveInterval} />}
             {onSave && !readOnly && <KeyboardShortcutsPlugin onSave={handleSave} />}

@@ -43,7 +43,7 @@ export const PRESETS: Record<ToolbarPreset, PresetConfig> = {
     minHeight: '300px',
     padding: 'px-4 py-3',
   },
-  // Минимальный для вариантов — текст + списки + история, без вставки
+  // Минимальный для вариантов — текст + списки + история + таблицы
   minimal: {
     showHistory: true,
     showTextFormat: true,
@@ -52,7 +52,7 @@ export const PRESETS: Record<ToolbarPreset, PresetConfig> = {
     showAlign: false,
     showIndent: false,
     showFontSize: false,
-    showInsert: false,
+    showInsert: true,
     showSave: false,
     minHeight: '120px',
     padding: 'px-3 py-2',

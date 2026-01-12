@@ -42,6 +42,13 @@ export interface Lab {
   my_submission?: Submission;
   created_at?: string;
   updated_at?: string;
+  // Поля видимости и дедлайнов по расписанию
+  visible_from?: string | null;
+  deadline_active_from?: string | null;
+  deadline_5_status?: 'active' | 'expired' | null;
+  deadline_4_status?: 'active' | 'expired' | null;
+  lessons_until_deadline_5?: number | null;
+  lessons_until_deadline_4?: number | null;
 }
 
 export interface LabCreate {

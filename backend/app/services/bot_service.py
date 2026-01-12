@@ -32,6 +32,7 @@ async def generate_relink_code(user_id: UUID, platform: Platform) -> str:
     redis = await get_redis()
     data = json.dumps({"user_id": str(user_id), "platform": platform})
     await redis.setex(f"relink:{code}", RELINK_TTL, data)
+    logger.info(f"Generated relink code {code} for user {user_id}, platform {platform}")
     return code
 
 
@@ -134,9 +135,11 @@ async def process_start_command(
     # СЦЕНАРИЙ: КОД (relink, персональный или групповой)
     if args:
         code = args.strip().upper()
+        logger.info(f"Processing code {code} from {platform} user {social_id}")
         
         # 1. Проверяем relink код (привязка/перепривязка)
         relink_data = await redis.get(f"relink:{code}")
+        logger.info(f"Relink data for {code}: {relink_data}")
         if relink_data:
             try:
                 data = json.loads(relink_data)

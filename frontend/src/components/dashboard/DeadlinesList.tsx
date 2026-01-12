@@ -28,23 +28,47 @@ const STATUS_BADGE = {
   not_submitted: { label: 'Не сдано', variant: 'outline' as const, className: '' },
 } as const;
 
-/** Format deadline lessons */
-function formatDeadlineLessons(lessons: number | null | undefined): string {
-  if (!lessons) return 'Без дедлайна';
-  if (lessons === 1) return 'След. пара';
-  return `Через ${lessons - 1} пар`;
+/** Format deadline based on new visibility system */
+function formatDeadlineStatus(lab: DeadlinesListProps['labs'][0]): string {
+  // Новая система: используем lessons_until_deadline_5
+  if (lab.lessons_until_deadline_5 !== undefined && lab.lessons_until_deadline_5 !== null) {
+    if (lab.deadline_5_status === 'expired') {
+      return 'На 5 уже нельзя';
+    }
+    if (lab.lessons_until_deadline_5 === 0) {
+      return 'Последняя пара на 5';
+    }
+    if (lab.lessons_until_deadline_5 === 1) {
+      return 'Ещё 1 пара на 5';
+    }
+    return `Ещё ${lab.lessons_until_deadline_5} пар на 5`;
+  }
+  
+  // Fallback на старую систему
+  if (!lab.deadline_5_lessons) return 'Без дедлайна';
+  if (lab.deadline_5_lessons === 1) return 'След. пара';
+  return `Через ${lab.deadline_5_lessons - 1} пар`;
+}
+
+/** Check if deadline is urgent */
+function isDeadlineUrgent(lab: DeadlinesListProps['labs'][0]): boolean {
+  if (lab.lessons_until_deadline_5 !== undefined && lab.lessons_until_deadline_5 !== null) {
+    return lab.lessons_until_deadline_5 <= 1 && lab.deadline_5_status !== 'expired';
+  }
+  return (lab.deadline_5_lessons ?? Infinity) <= 1;
 }
 
 /**
  * List of upcoming lab deadlines
  */
 export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
-  // Filter out accepted, sort by deadline_5_lessons
+  // Filter out accepted, sort by urgency (lessons_until_deadline_5 or deadline_5_lessons)
   const sortedLabs = [...labs]
     .filter(l => l.submission?.status !== 'ACCEPTED')
     .sort((a, b) => {
-      const aDeadline = a.deadline_5_lessons ?? Infinity;
-      const bDeadline = b.deadline_5_lessons ?? Infinity;
+      // Приоритет: lessons_until_deadline_5 (новая система), затем deadline_5_lessons
+      const aDeadline = a.lessons_until_deadline_5 ?? a.deadline_5_lessons ?? Infinity;
+      const bDeadline = b.lessons_until_deadline_5 ?? b.deadline_5_lessons ?? Infinity;
       return aDeadline - bDeadline;
     })
     .slice(0, maxItems);
@@ -73,8 +97,8 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
           {sortedLabs.map((lab) => {
             const status = getLabStatus(lab);
             const badge = STATUS_BADGE[status];
-            const deadline5 = lab.deadline_5_lessons;
-            const isSoon = deadline5 && deadline5 <= 1;
+            const isSoon = isDeadlineUrgent(lab);
+            const isExpired = lab.deadline_5_status === 'expired';
 
             return (
               <Link
@@ -83,12 +107,14 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-lg",
                   "border border-border bg-card hover:bg-accent/50 transition-all hover:translate-x-1",
-                  isSoon && status === 'not_submitted' && "border-orange-500/50 bg-orange-500/5"
+                  isSoon && status === 'not_submitted' && "border-orange-500/50 bg-orange-500/5",
+                  isExpired && status === 'not_submitted' && "border-red-500/50 bg-red-500/5"
                 )}
               >
                 {/* Urgency indicator */}
                 <div className={cn(
                   "w-1 h-12 rounded-full shrink-0",
+                  isExpired && status === 'not_submitted' ? "bg-red-500" :
                   isSoon && status === 'not_submitted' ? "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" :
                   status === 'rejected' ? "bg-red-500" :
                   status === 'pending' ? "bg-yellow-500" :
@@ -101,9 +127,11 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
                   </p>
                   <p className={cn(
                     "text-xs",
-                    isSoon && status === 'not_submitted' ? "text-orange-500 font-medium" : "text-muted-foreground"
+                    isExpired && status === 'not_submitted' ? "text-red-500 font-medium" :
+                    isSoon && status === 'not_submitted' ? "text-orange-500 font-medium" : 
+                    "text-muted-foreground"
                   )}>
-                    {formatDeadlineLessons(deadline5)}
+                    {formatDeadlineStatus(lab)}
                   </p>
                 </div>
 

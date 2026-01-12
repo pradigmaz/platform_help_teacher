@@ -54,6 +54,13 @@ export interface StudentLab {
   is_available: boolean;
   variant_number?: number;
   submission?: StudentLabSubmission;
+  // Поля видимости и дедлайнов по расписанию
+  visible_from?: string | null;
+  deadline_active_from?: string | null;
+  deadline_5_status?: 'active' | 'expired' | null;
+  deadline_4_status?: 'active' | 'expired' | null;
+  lessons_until_deadline_5?: number | null;
+  lessons_until_deadline_4?: number | null;
 }
 
 export interface StudentLabDetail {
@@ -77,6 +84,13 @@ export interface StudentLabDetail {
     test_data?: string;
   };
   submission?: StudentLabSubmission;
+  // Поля видимости и дедлайнов по расписанию
+  visible_from?: string | null;
+  deadline_active_from?: string | null;
+  deadline_5_status?: 'active' | 'expired' | null;
+  deadline_4_status?: 'active' | 'expired' | null;
+  lessons_until_deadline_5?: number | null;
+  lessons_until_deadline_4?: number | null;
 }
 
 export interface StudentAttestation {
