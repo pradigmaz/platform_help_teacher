@@ -85,7 +85,7 @@ export default function LabDetailPage() {
   const StatusIcon = status.icon;
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/dashboard/labs">
@@ -171,14 +171,12 @@ export default function LabDetailPage() {
         <div className="flex items-center gap-2 mb-4">
           <IconCode className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold text-foreground">
-            {lab.variant_number ? `Ваш вариант: ${lab.variant_number}` : 'Ваш вариант'}
+            {lab.variant_number && lab.variant_data?.description ? `Ваш вариант: ${lab.variant_number}` : 'Ваш вариант'}
           </h2>
         </div>
-        {lab.variant_number && lab.variant_data ? (
+        {lab.variant_number && lab.variant_data?.description ? (
           <div className="space-y-2">
-            {lab.variant_data.description && (
-              <p className="text-foreground">{lab.variant_data.description}</p>
-            )}
+            <p className="text-foreground">{lab.variant_data.description}</p>
             {lab.variant_data.test_data && (
               <div className="p-3 rounded-lg bg-neutral-100 dark:bg-neutral-900 font-mono text-sm">
                 {lab.variant_data.test_data}
@@ -233,7 +231,7 @@ export default function LabDetailPage() {
 
 function LabDetailSkeleton() {
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-4">
         <Skeleton className="h-10 w-10 rounded-lg" />
         <div className="flex-1 space-y-2">
