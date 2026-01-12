@@ -16,20 +16,17 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create enums
-    feedback_type = postgresql.ENUM('bug', 'suggestion', name='feedbacktype', create_type=False)
-    feedback_type.create(op.get_bind(), checkfirst=True)
-    
-    feedback_status = postgresql.ENUM('new', 'in_progress', 'resolved', 'closed', name='feedbackstatus', create_type=False)
-    feedback_status.create(op.get_bind(), checkfirst=True)
+    # Create enums first using raw SQL with IF NOT EXISTS
+    op.execute("CREATE TYPE feedbacktype AS ENUM ('bug', 'suggestion')")
+    op.execute("CREATE TYPE feedbackstatus AS ENUM ('new', 'in_progress', 'resolved', 'closed')")
     
     op.create_table(
         'feedback',
         sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('type', sa.Enum('bug', 'suggestion', name='feedbacktype', create_type=False), nullable=False),
+        sa.Column('type', postgresql.ENUM('bug', 'suggestion', name='feedbacktype', create_type=False), nullable=False),
         sa.Column('title', sa.String(200), nullable=False),
         sa.Column('description', sa.Text(), nullable=False),
-        sa.Column('status', sa.Enum('new', 'in_progress', 'resolved', 'closed', name='feedbackstatus', create_type=False), nullable=False, server_default='new'),
+        sa.Column('status', postgresql.ENUM('new', 'in_progress', 'resolved', 'closed', name='feedbackstatus', create_type=False), nullable=False, server_default='new'),
         sa.Column('user_id', sa.UUID(), nullable=False),
         sa.Column('admin_response', sa.Text(), nullable=True),
         sa.Column('resolved_at', sa.DateTime(timezone=True), nullable=True),
