@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
   $getSelection,
@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Plus, Trash2, MoreHorizontal, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 
-export function TableActionMenuPlugin(): JSX.Element | null {
+export function TableActionMenuPlugin(): React.ReactElement | null {
   const [editor] = useLexicalComposerContext();
   const [tableCellNode, setTableCellNode] = useState<TableCellNode | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
