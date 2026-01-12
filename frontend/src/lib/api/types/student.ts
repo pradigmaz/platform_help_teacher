@@ -72,7 +72,7 @@ export interface StudentLabDetail {
   formatting_guide?: string;
   theory_content?: Record<string, unknown>;
   practice_content?: Record<string, unknown>;
-  questions?: string[];
+  questions?: (string | { text?: string; content?: Record<string, unknown> })[];
   deadline_5_lessons?: number | null;
   deadline_4_lessons?: number | null;
   max_grade: number;
@@ -81,6 +81,7 @@ export interface StudentLabDetail {
   variant_data?: {
     number: number;
     description?: string;
+    content?: Record<string, unknown>;
     test_data?: string;
   };
   submission?: StudentLabSubmission;

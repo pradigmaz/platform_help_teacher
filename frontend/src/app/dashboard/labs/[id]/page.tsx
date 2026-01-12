@@ -86,7 +86,7 @@ export default function LabDetailPage() {
   const StatusIcon = status.icon;
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/dashboard/labs">
@@ -172,14 +172,19 @@ export default function LabDetailPage() {
         <div className="flex items-center gap-2 mb-4">
           <IconCode className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold text-foreground">
-            {lab.variant_number && lab.variant_data?.description ? `Ваш вариант: ${lab.variant_number}` : 'Ваш вариант'}
+            {lab.variant_number ? `Ваш вариант: ${lab.variant_number}` : 'Ваш вариант'}
           </h2>
         </div>
-        {lab.variant_number && lab.variant_data?.description ? (
-          <div className="space-y-2">
-            <p className="text-foreground">{lab.variant_data.description}</p>
+        {lab.variant_number && lab.variant_data ? (
+          <div className="space-y-4">
+            {/* Lexical content если есть */}
+            {lab.variant_data.content ? (
+              <LectureViewer content={lab.variant_data.content as unknown as SerializedEditorState} />
+            ) : lab.variant_data.description ? (
+              <p className="text-foreground">{lab.variant_data.description}</p>
+            ) : null}
             {lab.variant_data.test_data && (
-              <div className="p-3 rounded-lg bg-neutral-100 dark:bg-neutral-900 font-mono text-sm">
+              <div className="p-3 rounded-lg bg-neutral-100 dark:bg-neutral-900 font-mono text-sm whitespace-pre-wrap">
                 {lab.variant_data.test_data}
               </div>
             )}
@@ -200,11 +205,25 @@ export default function LabDetailPage() {
             <IconQuestionMark className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold text-foreground">Контрольные вопросы</h2>
           </div>
-          <ol className="list-decimal list-inside space-y-2">
-            {lab.questions.map((q, i) => (
-              <li key={i} className="text-muted-foreground">{getQuestionText(q)}</li>
-            ))}
-          </ol>
+          <div className="space-y-4">
+            {lab.questions.map((q, i) => {
+              const questionObj = typeof q === 'string' ? { text: q } : q;
+              return (
+                <div key={i} className="flex gap-3 p-4 rounded-lg bg-muted/50">
+                  <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-sm font-medium shrink-0">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1">
+                    {questionObj.content ? (
+                      <LectureViewer content={questionObj.content as unknown as SerializedEditorState} />
+                    ) : (
+                      <p className="text-foreground">{questionObj.text || getQuestionText(q)}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </CardSpotlight>
       )}
 

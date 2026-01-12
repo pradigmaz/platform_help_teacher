@@ -30,9 +30,10 @@ export interface SubmissionDetail {
   variant_data?: {
     number: number;
     description?: string;
+    content?: Record<string, unknown>;
     test_data?: string;
   };
-  questions?: string[];
+  questions?: (string | { text?: string; content?: Record<string, unknown> })[];
   ready_at: string;
   status: string;
 }

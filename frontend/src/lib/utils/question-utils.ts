@@ -2,7 +2,7 @@ import { SerializedEditorState } from 'lexical';
 
 export interface QuestionData {
   text?: string;
-  content?: SerializedEditorState;
+  content?: SerializedEditorState | Record<string, unknown>;
 }
 
 /**
@@ -19,7 +19,7 @@ export function getQuestionText(question: string | QuestionData): string {
   }
   
   if (question.content) {
-    return extractTextFromLexical(question.content);
+    return extractTextFromLexical(question.content as SerializedEditorState);
   }
   
   return '';
