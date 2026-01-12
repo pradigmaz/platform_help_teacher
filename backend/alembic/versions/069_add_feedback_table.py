@@ -52,3 +52,4 @@ def downgrade() -> None:
     
     op.execute('DROP TYPE IF EXISTS feedbackstatus')
     op.execute('DROP TYPE IF EXISTS feedbacktype')
+    

@@ -25,10 +25,10 @@ class Feedback(Base, TimestampMixin):
     __tablename__ = "feedback"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    type = Column(Enum(FeedbackType), nullable=False)
+    type = Column(Enum(FeedbackType, name='feedbacktype', create_type=False), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=False)
-    status = Column(Enum(FeedbackStatus), default=FeedbackStatus.NEW, nullable=False)
+    status = Column(Enum(FeedbackStatus, name='feedbackstatus', create_type=False), default=FeedbackStatus.NEW, nullable=False)
     
     # User who submitted
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
