@@ -7,6 +7,7 @@ import {
   $getSelection,
   $isRangeSelection,
   $createParagraphNode,
+  $createTextNode,
   PASTE_COMMAND,
   COMMAND_PRIORITY_HIGH,
 } from 'lexical';
@@ -24,6 +25,12 @@ import {
   UNORDERED_LIST,
   ORDERED_LIST,
 } from '@lexical/markdown';
+import { 
+  $createTableNode, 
+  $createTableRowNode, 
+  $createTableCellNode,
+  TableCellHeaderStates,
+} from '@lexical/table';
 import { $createCodeBlockNode, type CodeLanguage } from '../nodes/CodeBlockNode';
 import { $createImageNode } from '../nodes/ImageNode';
 
@@ -42,6 +49,69 @@ const LECTURE_TRANSFORMERS = [
   STRIKETHROUGH,
 ];
 
+// Parse markdown table into structured data
+function parseMarkdownTable(tableText: string): { headers: string[]; rows: string[][] } | null {
+  const lines = tableText.trim().split('\n').filter(line => line.trim());
+  if (lines.length < 2) return null;
+  
+  const parseRow = (line: string): string[] => {
+    return line
+      .split('|')
+      .map(cell => cell.trim())
+      .filter((_, i, arr) => i > 0 && i < arr.length - 1 || (arr.length === 1 && arr[0]));
+  };
+  
+  const headers = parseRow(lines[0]);
+  if (headers.length === 0) return null;
+  
+  // Check if second line is separator (---|---|---)
+  const separatorLine = lines[1];
+  if (!/^[\s|:-]+$/.test(separatorLine)) return null;
+  
+  const rows: string[][] = [];
+  for (let i = 2; i < lines.length; i++) {
+    const row = parseRow(lines[i]);
+    if (row.length > 0) {
+      // Pad row to match header length
+      while (row.length < headers.length) row.push('');
+      rows.push(row.slice(0, headers.length));
+    }
+  }
+  
+  return { headers, rows };
+}
+
+// Create Lexical table node from parsed data
+function $createTableFromMarkdown(data: { headers: string[]; rows: string[][] }) {
+  const tableNode = $createTableNode();
+  
+  // Header row
+  const headerRow = $createTableRowNode();
+  for (const header of data.headers) {
+    const cell = $createTableCellNode(TableCellHeaderStates.ROW);
+    const paragraph = $createParagraphNode();
+    paragraph.append($createTextNode(header));
+    cell.append(paragraph);
+    headerRow.append(cell);
+  }
+  tableNode.append(headerRow);
+  
+  // Data rows
+  for (const row of data.rows) {
+    const tableRow = $createTableRowNode();
+    for (const cellText of row) {
+      const cell = $createTableCellNode(TableCellHeaderStates.NO_STATUS);
+      const paragraph = $createParagraphNode();
+      paragraph.append($createTextNode(cellText));
+      cell.append(paragraph);
+      tableRow.append(cell);
+    }
+    tableNode.append(tableRow);
+  }
+  
+  return tableNode;
+}
+
 export function MarkdownPastePlugin(): null {
   const [editor] = useLexicalComposerContext();
 
@@ -52,8 +122,8 @@ export function MarkdownPastePlugin(): null {
         const text = event.clipboardData?.getData('text/plain');
         if (!text) return false;
         
-        // Check if it looks like markdown
-        const hasMarkdown = /^#\s|^```|^!\[|^>\s|^[-*]\s|^\d+\.\s|\*\*|__|\*[^*]|_[^_]/m.test(text);
+        // Check if it looks like markdown (including tables with |)
+        const hasMarkdown = /^#\s|^```|^!\[|^>\s|^[-*]\s|^\d+\.\s|\*\*|__|\*[^*]|_[^_]|^\|.+\|$/m.test(text);
         if (!hasMarkdown) return false;
         
         event.preventDefault();
@@ -61,12 +131,14 @@ export function MarkdownPastePlugin(): null {
         // Normalize line endings
         const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         
-        // Extract code blocks and images first (custom nodes)
+        // Extract code blocks, images, and tables first (custom nodes)
         const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
         const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+        // Table: lines starting and ending with |, at least 2 lines with separator
+        const tableRegex = /(?:^\|.+\|\s*\n)+/gm;
         
         // Store custom blocks with placeholders
-        const customBlocks: Array<{ type: 'code' | 'image'; data: unknown; placeholder: string }> = [];
+        const customBlocks: Array<{ type: 'code' | 'image' | 'table'; data: unknown; placeholder: string }> = [];
         let processedText = normalizedText;
         let placeholderIndex = 0;
         
@@ -80,6 +152,22 @@ export function MarkdownPastePlugin(): null {
           });
           placeholderIndex++;
           return placeholder;
+        });
+        
+        // Replace tables with placeholders
+        processedText = processedText.replace(tableRegex, (match) => {
+          const tableData = parseMarkdownTable(match);
+          if (tableData) {
+            const placeholder = `__TABLE_${placeholderIndex}__`;
+            customBlocks.push({
+              type: 'table',
+              data: tableData,
+              placeholder,
+            });
+            placeholderIndex++;
+            return placeholder;
+          }
+          return match; // Keep original if not valid table
         });
         
         // Replace images with placeholders
@@ -123,6 +211,11 @@ export function MarkdownPastePlugin(): null {
                   const { alt, src } = block.data as { alt: string; src: string };
                   const imageNode = $createImageNode(src, alt, '', 'auto', 'auto');
                   child.insertBefore(imageNode);
+                  child.remove();
+                } else if (block.type === 'table') {
+                  const tableData = block.data as { headers: string[]; rows: string[][] };
+                  const tableNode = $createTableFromMarkdown(tableData);
+                  child.insertBefore(tableNode);
                   child.remove();
                 }
                 break;

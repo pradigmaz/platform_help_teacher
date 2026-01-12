@@ -59,6 +59,8 @@ interface LectureEditorProps {
   externalLineHeight?: string;
   onFontSizeChange?: (size: string) => void;
   onLineHeightChange?: (height: string) => void;
+  // Sticky toolbar с ограничением высоты (по умолчанию true для full preset)
+  stickyToolbar?: boolean;
 }
 
 function AutoSavePlugin({ onSave, interval = 30000 }: { onSave: (content: SerializedEditorState) => Promise<void>; interval?: number }) {
@@ -106,6 +108,7 @@ export function LectureEditor({
   externalLineHeight,
   onFontSizeChange,
   onLineHeightChange,
+  stickyToolbar,
 }: LectureEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'idle'>('idle');
@@ -114,6 +117,8 @@ export function LectureEditor({
 
   const config = getPresetConfig(preset);
   const showStatusBar = preset === 'full';
+  // По умолчанию sticky только для full preset
+  const enableSticky = stickyToolbar ?? (preset === 'full');
 
   const defaultEditorState = {
     root: {
@@ -175,21 +180,27 @@ export function LectureEditor({
   const showToolbar = !readOnly && preset !== 'none';
 
   return (
-    <div className={cn("bg-background text-foreground overflow-hidden rounded-lg border shadow", className)}>
+    <div className={cn(
+      "bg-background text-foreground rounded-lg border shadow flex flex-col",
+      enableSticky && "max-h-[calc(100vh-180px)]",
+      className
+    )}>
       <LexicalComposer initialConfig={editorConfig}>
         <TooltipProvider>
           {showToolbar && (
-            <EditorToolbar 
-              onSave={config.showSave && onSave ? handleSave : undefined} 
-              isSaving={isSaving} 
-              config={config}
-              onFontSizeChange={onFontSizeChange}
-              onLineHeightChange={onLineHeightChange}
-            />
+            <div className={cn("bg-background shrink-0", enableSticky && "sticky top-0 z-10")}>
+              <EditorToolbar 
+                onSave={config.showSave && onSave ? handleSave : undefined} 
+                isSaving={isSaving} 
+                config={config}
+                onFontSizeChange={onFontSizeChange}
+                onLineHeightChange={onLineHeightChange}
+              />
+            </div>
           )}
 
           {showStatusBar && (
-            <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/30 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/30 text-xs text-muted-foreground shrink-0">
               <div className="flex items-center gap-2">
                 {saveStatus === 'saving' && <Badge variant="secondary" className="gap-1 text-xs"><Loader2 className="h-3 w-3 animate-spin" />Сохранение...</Badge>}
                 {saveStatus === 'saved' && <Badge variant="secondary" className="gap-1 text-xs text-green-600 dark:text-green-400"><Cloud className="h-3 w-3" />Сохранено</Badge>}
@@ -200,7 +211,7 @@ export function LectureEditor({
           )}
 
           <div 
-            className="relative bg-background" 
+            className={cn("relative bg-background flex-1", enableSticky && "overflow-auto")}
             style={{ 
               minHeight: config.minHeight,
               fontSize: externalFontSize ? `${externalFontSize}px` : undefined,
