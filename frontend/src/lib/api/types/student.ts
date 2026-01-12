@@ -23,7 +23,9 @@ export interface StudentAttendanceStats {
 
 export interface AttendanceRecord {
   date: string;
-  status: string;
+  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
+  lesson_number?: number | null;
+  lesson_type?: 'lecture' | 'practice' | 'lab' | null;
 }
 
 export interface StudentAttendance {

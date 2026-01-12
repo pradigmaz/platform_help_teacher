@@ -50,13 +50,15 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
     .slice(0, maxItems);
 
   if (sortedLabs.length === 0) {
+    // Различаем "нет лаб вообще" vs "все сданы"
+    const hasAnyLabs = labs.length > 0;
     return (
       <div className="space-y-3">
         <SectionHeader />
         <EmptyState
           icon={<IconFlask className="h-8 w-8" />}
-          title="Все работы сданы!"
-          description="Отличная работа, так держать"
+          title={hasAnyLabs ? "Все работы сданы!" : "Нет лабораторных работ"}
+          description={hasAnyLabs ? "Отличная работа, так держать" : "Работы появятся здесь, когда преподаватель их добавит"}
         />
       </div>
     );

@@ -1,8 +1,8 @@
 """Student attendance endpoint."""
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, get_current_user
@@ -20,11 +20,23 @@ async def get_my_attendance(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Посещаемость студента со статистикой."""
+    """Посещаемость студента со статистикой и деталями занятий."""
     
+    # Фильтр по подгруппе: показываем записи без подгруппы (лекции) + записи подгруппы студента
     query = select(Attendance).where(
         Attendance.student_id == current_user.id
-    ).order_by(Attendance.date.desc())
+    )
+    
+    # Если у студента есть подгруппа — фильтруем
+    if current_user.subgroup:
+        query = query.where(
+            or_(
+                Attendance.subgroup.is_(None),  # Лекции (без подгруппы)
+                Attendance.subgroup == current_user.subgroup  # Его подгруппа
+            )
+        )
+    
+    query = query.order_by(Attendance.date.desc(), Attendance.lesson_number.asc())
     
     result = await db.execute(query)
     records = result.scalars().all()
@@ -51,6 +63,8 @@ async def get_my_attendance(
             {
                 "date": r.date.isoformat(),
                 "status": r.status.value,
+                "lesson_number": r.lesson_number,
+                "lesson_type": r.lesson_type.value if r.lesson_type else None,
             }
             for r in records
         ],
