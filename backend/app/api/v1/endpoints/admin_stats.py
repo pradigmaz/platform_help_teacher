@@ -82,11 +82,17 @@ async def reset_student_social(
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Сбросить привязку социальных сетей у студента."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     result = await db.execute(select(User).where(User.id == student_id))
     student = result.scalar_one_or_none()
     
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
+    
+    logger.info(f"Resetting social for student {student_id}, platform={platform}")
+    logger.info(f"Before: telegram_id={student.telegram_id}, vk_id={student.vk_id}")
     
     if platform in ("telegram", "all"):
         student.telegram_id = None
@@ -94,6 +100,9 @@ async def reset_student_social(
         student.vk_id = None
     
     await db.commit()
+    await db.refresh(student)
+    
+    logger.info(f"After: telegram_id={student.telegram_id}, vk_id={student.vk_id}")
     
     msg = "Все привязки сброшены" if platform == "all" else f"{platform.upper()} отвязан"
     return {"status": "success", "message": msg}
