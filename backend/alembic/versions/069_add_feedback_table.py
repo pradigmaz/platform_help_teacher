@@ -26,10 +26,10 @@ def upgrade() -> None:
     op.create_table(
         'feedback',
         sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('type', sa.Enum('bug', 'suggestion', name='feedbacktype'), nullable=False),
+        sa.Column('type', sa.Enum('bug', 'suggestion', name='feedbacktype', create_type=False), nullable=False),
         sa.Column('title', sa.String(200), nullable=False),
         sa.Column('description', sa.Text(), nullable=False),
-        sa.Column('status', sa.Enum('new', 'in_progress', 'resolved', 'closed', name='feedbackstatus'), nullable=False, server_default='new'),
+        sa.Column('status', sa.Enum('new', 'in_progress', 'resolved', 'closed', name='feedbackstatus', create_type=False), nullable=False, server_default='new'),
         sa.Column('user_id', sa.UUID(), nullable=False),
         sa.Column('admin_response', sa.Text(), nullable=True),
         sa.Column('resolved_at', sa.DateTime(timezone=True), nullable=True),
