@@ -42,7 +42,15 @@ export function NavUser({ user }: NavUserProps) {
     .slice(0, 2)
     .toUpperCase();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // ignore
+    }
     localStorage.removeItem('token');
     router.push('/');
   };

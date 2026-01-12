@@ -71,7 +71,15 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
     },
   ];
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // ignore
+    }
     localStorage.removeItem("token");
     router.push("/");
   };

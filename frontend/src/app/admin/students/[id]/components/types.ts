@@ -31,6 +31,7 @@ export interface StudentProfile {
   full_name: string;
   username: string | null;
   telegram_id: string | null;
+  vk_id: string | null;
   group_name: string | null;
   group_id: string | null;
   is_active: boolean;

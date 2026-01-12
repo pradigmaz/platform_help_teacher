@@ -34,6 +34,7 @@ export default function StudentProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resettingTelegram, setResettingTelegram] = useState(false);
+  const [resettingVk, setResettingVk] = useState(false);
 
   const handleResetTelegram = async () => {
     try {
@@ -46,6 +47,20 @@ export default function StudentProfilePage() {
       toast.error('Ошибка при сбросе Telegram');
     } finally {
       setResettingTelegram(false);
+    }
+  };
+
+  const handleResetVk = async () => {
+    try {
+      setResettingVk(true);
+      await api.post(`/admin/students/${studentId}/reset-social?platform=vk`);
+      toast.success('VK отвязан');
+      const { data } = await api.get<StudentProfile>(`/admin/students/${studentId}`);
+      setStudent(data);
+    } catch {
+      toast.error('Ошибка при сбросе VK');
+    } finally {
+      setResettingVk(false);
     }
   };
 
@@ -118,6 +133,8 @@ export default function StudentProfilePage() {
           student={student}
           onResetTelegram={handleResetTelegram}
           resettingTelegram={resettingTelegram}
+          onResetVk={handleResetVk}
+          resettingVk={resettingVk}
           onTransferSuccess={refreshStudent}
         />
       </BlurFade>

@@ -24,10 +24,12 @@ interface Props {
   student: StudentProfile;
   onResetTelegram: () => void;
   resettingTelegram: boolean;
+  onResetVk?: () => void;
+  resettingVk?: boolean;
   onTransferSuccess: () => void;
 }
 
-export function StudentProfileCard({ student, onResetTelegram, resettingTelegram, onTransferSuccess }: Props) {
+export function StudentProfileCard({ student, onResetTelegram, resettingTelegram, onResetVk, resettingVk, onTransferSuccess }: Props) {
   const { stats } = student;
 
   return (
@@ -107,6 +109,35 @@ export function StudentProfileCard({ student, onResetTelegram, resettingTelegram
                           className="bg-orange-600 hover:bg-orange-700"
                         >
                           {resettingTelegram ? 'Отвязываю...' : 'Да, отвязать'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+                {student.vk_id && onResetVk && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="text-blue-600 border-blue-300 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-700 dark:hover:bg-blue-900/20">
+                        <Unlink className="w-4 h-4 mr-2" />
+                        Отвязать VK
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Отвязать VK?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Студент <strong>{student.full_name}</strong> потеряет доступ к системе через текущий VK-аккаунт. 
+                          Ему нужно будет заново ввести инвайт-код в боте.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={onResetVk}
+                          disabled={resettingVk}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          {resettingVk ? 'Отвязываю...' : 'Да, отвязать'}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
