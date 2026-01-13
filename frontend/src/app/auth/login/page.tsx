@@ -1,108 +1,11 @@
 'use client'
 
-import { useState, useEffect, Suspense, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner' // Убедись, что импорт правильный для твоего проекта (shadcn/sonner)
-import { AuthAPI, ApiError } from '@/lib/api'
-import { ZodError } from 'zod';
-import { AxiosError } from 'axios';
+import { useAutoLogin } from '@/hooks/useAutoLogin'
 
 function LoginForm() {
-  const [otp, setOtp] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [checkingAuth, setCheckingAuth] = useState(true)
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const loginAttemptedRef = useRef(false)
-
-  // Проверка авторизации при загрузке
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/v1/users/me', { credentials: 'include' })
-        if (res.ok) {
-          const user = await res.json()
-          if (user.role === 'admin' || user.role === 'teacher') {
-            router.replace('/admin')
-            return
-          } else if (user.role === 'student') {
-            router.replace('/dashboard')
-            return
-          }
-        }
-      } catch {
-        // Не залогинен - показываем форму
-      }
-      setCheckingAuth(false)
-    }
-    checkAuth()
-  }, [router])
-
-  // Авто-вход, если код передан в URL (?code=123456)
-  useEffect(() => {
-    if (checkingAuth) return
-    const codeFromUrl = searchParams.get('code')
-    if (codeFromUrl && codeFromUrl.length === 6 && !loginAttemptedRef.current) {
-      setOtp(codeFromUrl)
-      loginAttemptedRef.current = true
-      // Используем setTimeout, чтобы избежать конфликта рендеринга
-      const timer = setTimeout(() => handleLogin(codeFromUrl), 100)
-      return () => clearTimeout(timer)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, checkingAuth])
-
-  const handleLogin = async (code: string) => {
-    if (code.length !== 6) return
-    
-    setLoading(true)
-
-    try {
-      // 1. Вызываем API через стандартизированный клиент
-      const data = await AuthAPI.login(code)
-
-      // 2. Определяем куда редиректить
-      const redirectParam = searchParams.get('redirect')
-      let targetPath = '/'
-
-      if (redirectParam) {
-        targetPath = redirectParam
-      } else if (data.user?.role === 'admin' || data.user?.role === 'teacher') {
-        targetPath = '/admin'
-      } else if (data.user?.role === 'student') {
-        targetPath = '/dashboard'
-      }
-
-      toast.success('Вход выполнен успешно')
-      
-      // 3. SPA навигация (без перезагрузки)
-      router.push(targetPath)
-      router.refresh() // Обновляем Server Components, чтобы они увидели новую куку
-      
-    } catch (err: unknown) {
-      let message = 'Ошибка входа';
-      
-      if (err instanceof ApiError) {
-        message = err.message;
-        // Specific API error handling can go here
-      } else if (err instanceof ZodError) {
-        message = 'Ошибка валидации данных';
-        console.error('Validation error:', err.issues);
-      } else if (err instanceof AxiosError) {
-         message = err.response?.data?.detail || err.message;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
-
-      if (message === 'Invalid or expired code') {
-        message = 'Неверный или истёкший код';
-      }
-      
-      toast.error(message);
-      setLoading(false);
-    }
-  }
+  const { otp, setOtp, rememberDevice, setRememberDevice, loading, checkingAuth, login } = useAutoLogin()
 
   if (checkingAuth) {
     return (
@@ -126,14 +29,25 @@ function LoginForm() {
           type="text"
           maxLength={6}
           value={otp}
-          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+          onChange={(e) => setOtp(e.target.value)}
           placeholder="000000"
           className="w-full text-center text-4xl tracking-[0.5em] font-mono bg-transparent border-b-2 border-gray-700 focus:border-blue-500 outline-none py-4 transition-colors text-white placeholder-gray-800"
           disabled={loading}
         />
 
+        <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={rememberDevice}
+            onChange={(e) => setRememberDevice(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-600 bg-transparent text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+            disabled={loading}
+          />
+          Запомнить устройство
+        </label>
+
         <button
-          onClick={() => handleLogin(otp)}
+          onClick={() => login()}
           disabled={otp.length !== 6 || loading}
           className="w-full py-3 px-4 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
@@ -152,7 +66,6 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-black text-white relative overflow-hidden">
-      {/* Фоновый шум/сетка */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
       
       <Suspense fallback={<div className="text-white">Загрузка...</div>}>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { IconTarget, IconBook, IconCode, IconQuestionMark } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
-import { LabData, LabVariant, LabEditorProps, LabQuestion } from './types';
+import { LabData, LabVariant, LabEditorProps, LabQuestion, createVariant, createQuestion, normalizeVariant, normalizeQuestion } from './types';
 import { HeaderTab } from './HeaderTab';
 import { TheoryTab } from './TheoryTab';
 import { PracticeTab } from './PracticeTab';
@@ -16,21 +16,28 @@ const DEFAULT_FORMATTING = '1. Тема и цель работы\n2. Кратк�
 
 function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
   const { style, setFontSize, setLineHeight } = useLabStyle();
-  const [data, setData] = useState<LabData>({
+  
+  // Нормализуем начальные данные с ID
+  const normalizedVariants = (initialData?.variants || []).map((v, i) => 
+    normalizeVariant({ ...v, number: v.number || i + 1 })
+  );
+  const normalizedQuestions = (initialData?.questions || []).map(normalizeQuestion);
+  
+  const [data, setData] = useState<LabData>(() => ({
+    id: initialData?.id,
     number: initialData?.number || 1,
     title: initialData?.title || '',
     goal: initialData?.goal || '',
     formatting_guide: initialData?.formatting_guide || DEFAULT_FORMATTING,
     theory_content: initialData?.theory_content,
     practice_content: initialData?.practice_content,
-    variants: initialData?.variants || [{ number: 1, description: '', test_data: '' }],
-    questions: initialData?.questions || [{ text: '' }],
+    variants: normalizedVariants.length > 0 ? normalizedVariants : [createVariant(1)],
+    questions: normalizedQuestions.length > 0 ? normalizedQuestions : [createQuestion()],
     max_grade: 5,
     deadline_5_lessons: initialData?.deadline_5_lessons,
     deadline_4_lessons: initialData?.deadline_4_lessons,
     is_sequential: initialData?.is_sequential ?? true,
-    ...initialData,
-  });
+  }));
 
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('header');
@@ -46,14 +53,12 @@ function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
       if (count === currentCount) return prev;
       
       if (count > currentCount) {
-        // Добавляем новые варианты
         const newVariants = [...prev.variants];
         for (let i = currentCount; i < count; i++) {
-          newVariants.push({ number: i + 1, description: '', test_data: '' });
+          newVariants.push(createVariant(i + 1));
         }
         return { ...prev, variants: newVariants };
       } else {
-        // Удаляем лишние варианты (с конца)
         return { ...prev, variants: prev.variants.slice(0, count) };
       }
     });
@@ -84,7 +89,7 @@ function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
   };
 
   // Questions
-  const addQuestion = () => setData(prev => ({ ...prev, questions: [...prev.questions, { text: '' }] }));
+  const addQuestion = () => setData(prev => ({ ...prev, questions: [...prev.questions, createQuestion()] }));
   const updateQuestion = (index: number, value: LabQuestion) => {
     setData(prev => ({ ...prev, questions: prev.questions.map((q, i) => i === index ? value : q) }));
   };

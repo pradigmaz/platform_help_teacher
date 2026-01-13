@@ -10,9 +10,9 @@ from app.services import bot_service
 RELINK_TTL = bot_service.RELINK_TTL
 
 
-async def generate_relink_code(user_id: UUID) -> str:
+async def generate_relink_code(db: AsyncSession, user_id: UUID) -> str:
     """Генерирует код для перепривязки Telegram."""
-    return await bot_service.generate_relink_code(user_id, "telegram")
+    return await bot_service.generate_relink_code(db, user_id, "telegram")
 
 
 async def generate_otp(telegram_id: int) -> str:
@@ -23,17 +23,31 @@ async def generate_otp(telegram_id: int) -> str:
 async def process_start_command(
     db: AsyncSession,
     social_id: int,
+    username: str | None
+) -> str:
+    """Обработка команды /start для Telegram (только приветствие/OTP)."""
+    return await bot_service.process_start_command(
+        db=db,
+        social_id=social_id,
+        username=username,
+        platform="telegram"
+    )
+
+
+async def process_code_command(
+    db: AsyncSession,
+    social_id: int,
     full_name: str,
     username: str | None,
-    args: str | None
+    code: str
 ) -> str:
-    """Обработка команды /start для Telegram."""
-    return await bot_service.process_start_command(
+    """Обработка команды /code для Telegram (ввод кодов)."""
+    return await bot_service.process_code_command(
         db=db,
         social_id=social_id,
         full_name=full_name,
         username=username,
-        args=args,
+        code=code,
         platform="telegram"
     )
 

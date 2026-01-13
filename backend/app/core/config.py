@@ -43,7 +43,9 @@ class Settings(BaseSettings):
     # SECURITY
     SECRET_KEY: str = Field(..., repr=False)
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 1 week
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 4  # 4 hours (reduced from 7 days)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    MAX_ACTIVE_SESSIONS: int = 5  # Per user
 
     @field_validator("SECRET_KEY")
     @classmethod

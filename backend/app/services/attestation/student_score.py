@@ -57,12 +57,17 @@ class StudentScoreCalculator:
         transfer_lab_grades = self._merge_transfer_lab_grades(transfers)
         transfer_activity = self._sum_transfer_activity(transfers)
         
+        # Считаем ожидаемое количество занятий
+        expected_lessons = await self._get_expected_lessons(
+            group_id, student.subgroup, settings
+        )
+        
         # Расчёт компонентов с учётом переводов
         lab_result = self.calculator.calculate_labs(
             lesson_grades, settings, transfer_lab_grades
         )
         attendance_result = self.calculator.calculate_attendance(
-            attendance_records, settings, transfer_attendance
+            attendance_records, settings, expected_lessons, transfer_attendance
         )
         
         # Текущий балл (без активности)
@@ -88,6 +93,7 @@ class StudentScoreCalculator:
             attendance_ratio=attendance_result.ratio,
             attendance_max=attendance_result.max_score,
             total_classes=attendance_result.total_classes,
+            expected_lessons=attendance_result.expected_lessons,
             present_count=attendance_result.present_count,
             late_count=attendance_result.late_count,
             excused_count=attendance_result.excused_count,
@@ -165,6 +171,45 @@ class StudentScoreCalculator:
         )
         result = await self.db.execute(query)
         return result.scalar() or 0.0
+
+    async def _get_expected_lessons(
+        self,
+        group_id: UUID,
+        subgroup: int | None,
+        settings: AttestationSettings
+    ) -> int:
+        """
+        Получить ожидаемое количество занятий.
+        
+        Логика: max(lessons_in_db, min_expected_from_settings)
+        - Если занятий в БД больше (доп. пары) — используем их
+        - Если меньше (праздники, начало семестра) — используем минимум из настроек
+        """
+        # Считаем занятия в БД (не отменённые)
+        query = select(func.count(Lesson.id)).where(
+            Lesson.group_id == group_id,
+            Lesson.is_cancelled == False
+        )
+        
+        # Фильтр по периоду
+        if settings.period_start_date:
+            query = query.where(Lesson.date >= settings.period_start_date)
+        if settings.period_end_date:
+            query = query.where(Lesson.date <= settings.period_end_date)
+        
+        # Фильтр по подгруппе: занятия для всей группы (subgroup IS NULL) или для конкретной подгруппы
+        if subgroup:
+            query = query.where(
+                (Lesson.subgroup == None) | (Lesson.subgroup == subgroup)
+            )
+        
+        result = await self.db.execute(query)
+        lessons_in_db = result.scalar() or 0
+        
+        # Минимум из настроек
+        min_expected = settings.get_min_expected_lessons()
+        
+        return max(lessons_in_db, min_expected)
 
     async def _get_transfers_in_period(
         self,

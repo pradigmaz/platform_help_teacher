@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import axiosRetry from 'axios-retry';
+import qs from 'qs';
 import { getFingerprint } from '../fingerprint';
 
 // --- Custom Error Class ---
@@ -34,6 +35,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  paramsSerializer: (params) => qs.stringify(params, { arrayFormat: 'repeat' }),
 });
 
 // Защита от SSRF + автоматическое добавление CSRF токена

@@ -64,13 +64,26 @@ def parse_command(text: str) -> tuple[str | None, str | None]:
     if not text:
         return None, None
     text = text.strip()
+    text_lower = text.lower()
+    
+    # Команды с /
     if text.startswith("/"):
         parts = text.split(maxsplit=1)
         command = parts[0].lower()
         args = parts[1] if len(parts) > 1 else None
         return command, args
-    if text.lower() in ("начать", "start"):
+    
+    # Русские команды для VK
+    if text_lower in ("начать", "start", "старт"):
         return "/start", None
+    
+    # Команда "код" с аргументом
+    if text_lower.startswith("код "):
+        code = text[4:].strip()
+        return "/code", code if code else None
+    if text_lower == "код":
+        return "/code", None
+    
     return None, text
 
 
@@ -82,14 +95,26 @@ async def handle_message(user_id: int, text: str):
     try:
         async with AsyncSessionLocal() as db:
             if command == "/start":
+                # /start без аргументов — только приветствие/OTP
                 response = await bot_service.process_start_command(
                     db=db,
                     social_id=user_id,
-                    full_name="",
                     username=None,
-                    args=args,
                     platform="vk"
                 )
+            elif command == "/code":
+                # /code или "код" — обработка кодов
+                if not args:
+                    response = "❌ Укажите код после команды.\n\nПример: код ABC123"
+                else:
+                    response = await bot_service.process_code_command(
+                        db=db,
+                        social_id=user_id,
+                        full_name="",
+                        username=None,
+                        code=args,
+                        platform="vk"
+                    )
             elif command == "/status":
                 response = "✅ Бот работает в штатном режиме."
             elif command == "/cancel":

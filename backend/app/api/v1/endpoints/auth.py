@@ -12,9 +12,11 @@ from app.core.limiter import limiter
 from app.db.session import get_db
 from app.core.redis import get_redis
 from app.models import User
+from app.models.user import UserRole
 from app.audit import audit_action, ActionType, EntityType
 from app.audit.middleware import SESSION_COOKIE_NAME
 from app.audit.deps import set_audit_extra
+from app.services import session_service
 
 router = APIRouter()
 
@@ -34,7 +36,8 @@ async def get_csrf_token(csrf_protect: CsrfProtect = Depends()):
 async def login_with_otp(
     request: Request,
     response: Response,
-    otp: str = Body(..., embed=True),
+    otp: str = Body(...),
+    remember_device: bool = Body(False),
     db: AsyncSession = Depends(get_db),
     redis = Depends(get_redis),
     csrf_protect: CsrfProtect = Depends()
@@ -50,19 +53,15 @@ async def login_with_otp(
     if not auth_data:
         raise HTTPException(status_code=400, detail="Invalid or expired code")
     
-    # Парсим данные (новый формат: JSON с social_id и platform)
+    # Парсим данные (JSON с social_id и platform)
     import json
     try:
         data = json.loads(auth_data)
         social_id = data.get("social_id")
         platform = data.get("platform", "telegram")
     except (json.JSONDecodeError, TypeError):
-        # Старый формат: просто telegram_id
-        if not auth_data.isdigit():
-            await redis.delete(f"auth:{otp}")
-            raise HTTPException(status_code=400, detail="Invalid data format")
-        social_id = int(auth_data)
-        platform = "telegram"
+        await redis.delete(f"auth:{otp}")
+        raise HTTPException(status_code=400, detail="Invalid data format")
 
     await redis.delete(f"auth:{otp}")
     
@@ -88,24 +87,43 @@ async def login_with_otp(
     
     is_production = settings.ENVIRONMENT == "production"
     
+    # Для студентов: session cookie по умолчанию (умирает при закрытии браузера)
+    # Для admin/teacher: всегда persistent cookie
+    # remember_device=True: persistent cookie для всех
+    use_persistent_cookie = (
+        user.role in (UserRole.ADMIN, UserRole.TEACHER) or remember_device
+    )
+    cookie_max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60 if use_persistent_cookie else None
+    
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
         secure=is_production,
         samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        max_age=cookie_max_age
     )
     
-    # Generate session_id for audit tracking
+    # Generate session_id for audit tracking and session management
     session_id = str(uuid4())
+    
+    # Create session in Redis with limit enforcement
+    device_fingerprint = request.headers.get("X-Device-Fingerprint")
+    client_ip = request.client.host if request.client else None
+    await session_service.create_session(
+        user_id=user.id,
+        session_id=session_id,
+        device_fingerprint=device_fingerprint,
+        ip_address=client_ip,
+    )
+    
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=session_id,
         httponly=True,
         secure=is_production,
         samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        max_age=cookie_max_age
     )
     
     return {"message": "Logged in successfully", "user": {"full_name": user.full_name, "role": user.role}}
@@ -113,6 +131,26 @@ async def login_with_otp(
 @router.post("/logout")
 @audit_action(ActionType.AUTH_LOGOUT, EntityType.AUTH)
 async def logout(request: Request, response: Response):
-    response.delete_cookie(key="access_token", httponly=True, samesite="lax")
-    response.delete_cookie(key=SESSION_COOKIE_NAME, httponly=True, samesite="lax")
+    # Revoke session in Redis
+    session_id = request.cookies.get(SESSION_COOKIE_NAME)
+    if session_id:
+        await session_service.revoke_session(session_id)
+    
+    is_production = settings.ENVIRONMENT == "production"
+    
+    # Удаляем cookies с теми же параметрами, что и при создании
+    response.delete_cookie(
+        key="access_token", 
+        httponly=True, 
+        samesite="lax",
+        secure=is_production,
+        path="/"
+    )
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME, 
+        httponly=True, 
+        samesite="lax",
+        secure=is_production,
+        path="/"
+    )
     return {"message": "Logged out"}

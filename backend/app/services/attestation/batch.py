@@ -109,14 +109,22 @@ class BatchScoreCalculator:
         transfers_map: dict
     ) -> AttestationResult:
         """Расчёт для одного студента (sync)."""
-        # Релевантные занятия для подгруппы
+        # Релевантные занятия для подгруппы (не отменённые)
         subgroup = student.subgroup
         if subgroup is not None:
-            relevant_lessons = lessons_by_subgroup.get(None, []) + lessons_by_subgroup.get(subgroup, [])
+            relevant_lessons = [
+                l for l in lessons_by_subgroup.get(None, []) + lessons_by_subgroup.get(subgroup, [])
+                if not l.is_cancelled
+            ]
         else:
-            relevant_lessons = lessons_by_subgroup.get(None, [])
+            relevant_lessons = [l for l in lessons_by_subgroup.get(None, []) if not l.is_cancelled]
         
         relevant_dates = {l.date for l in relevant_lessons}
+        
+        # Expected lessons: max(lessons_in_db, min_expected)
+        lessons_in_db = len(relevant_lessons)
+        min_expected = settings.get_min_expected_lessons()
+        expected_lessons = max(lessons_in_db, min_expected)
         
         # Данные студента
         lesson_grades = lesson_grades_map.get(student.id, [])
@@ -132,7 +140,9 @@ class BatchScoreCalculator:
         
         # Расчёт с учётом переводов
         lab_result = self.calculator.calculate_labs(lesson_grades, settings, transfer_lab_grades)
-        attendance_result = self.calculator.calculate_attendance(attendance, settings, transfer_attendance)
+        attendance_result = self.calculator.calculate_attendance(
+            attendance, settings, expected_lessons, transfer_attendance
+        )
         
         current_score = lab_result.score + attendance_result.score
         total_activity = activity_points + transfer_activity
@@ -153,6 +163,7 @@ class BatchScoreCalculator:
             attendance_ratio=attendance_result.ratio,
             attendance_max=attendance_result.max_score,
             total_classes=attendance_result.total_classes,
+            expected_lessons=attendance_result.expected_lessons,
             present_count=attendance_result.present_count,
             late_count=attendance_result.late_count,
             excused_count=attendance_result.excused_count,

@@ -1,6 +1,8 @@
 import { SerializedEditorState } from 'lexical';
+import { nanoid } from 'nanoid';
 
 export interface LabVariant {
+  id: string;
   number: number;
   description: string;
   content?: SerializedEditorState;
@@ -8,8 +10,42 @@ export interface LabVariant {
 }
 
 export interface LabQuestion {
+  id: string;
   content?: SerializedEditorState;
   text?: string; // legacy fallback
+}
+
+/** Создаёт новый вариант с уникальным ID */
+export function createVariant(number: number): LabVariant {
+  return { id: nanoid(), number, description: '', test_data: '' };
+}
+
+/** Создаёт новый вопрос с уникальным ID */
+export function createQuestion(): LabQuestion {
+  return { id: nanoid(), text: '' };
+}
+
+/** Нормализует legacy вопрос (string) в LabQuestion с ID */
+export function normalizeQuestion(q: LabQuestion | string): LabQuestion {
+  if (typeof q === 'string') {
+    return { id: nanoid(), text: q };
+  }
+  // Добавляем ID если отсутствует (legacy данные)
+  if (!q.id) {
+    return { ...q, id: nanoid() };
+  }
+  return q;
+}
+
+/** Нормализует legacy вариант без ID */
+export function normalizeVariant(v: Partial<LabVariant> & { number: number }): LabVariant {
+  return {
+    id: v.id || nanoid(),
+    number: v.number,
+    description: v.description || '',
+    content: v.content,
+    test_data: v.test_data || '',
+  };
 }
 
 export interface LabData {

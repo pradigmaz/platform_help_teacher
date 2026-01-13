@@ -45,6 +45,9 @@ class AttestationSettingsBase(BaseModel):
     # === АКТИВНОСТЬ ===
     activity_enabled: bool = Field(default=True, description="Включить активность")
     
+    # === ОЖИДАЕМОЕ КОЛИЧЕСТВО ЗАНЯТИЙ ===
+    expected_lessons_per_week: int = Field(default=2, ge=1, le=10, description="Занятий в неделю на студента")
+    
     # === ПЕРИОДЫ ===
     period_start_date: Optional[date] = Field(default=None, description="Начало периода")
     period_end_date: Optional[date] = Field(default=None, description="Конец периода")
@@ -126,6 +129,7 @@ class ComponentBreakdown(BaseModel):
     attendance_ratio: float = Field(description="Процент посещаемости")
     attendance_max: float = Field(description="Макс баллов за посещаемость")
     total_classes: int = Field(description="Всего занятий")
+    expected_lessons: int = Field(default=0, description="Ожидаемое количество занятий")
     present_count: int = Field(default=0)
     late_count: int = Field(default=0)
     excused_count: int = Field(default=0)

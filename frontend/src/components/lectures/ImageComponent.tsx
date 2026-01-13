@@ -7,8 +7,6 @@ import { motion } from 'motion/react';
 import { 
   ImageIcon, 
   Trash2, 
-  Maximize2, 
-  GripVertical,
   AlignLeft,
   AlignCenter,
   AlignRight
@@ -95,30 +93,56 @@ export function ImageComponent({
     });
   }, [editor, nodeKey]);
 
+  // Разрешённые MIME-типы изображений (без SVG для безопасности)
+  const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+
   const handleFileDrop = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) {
+    // Валидация MIME-типа
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Unsupported image type:', file.type);
+      }
+      return;
+    }
+    
+    // Валидация размера
+    if (file.size > MAX_IMAGE_SIZE) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Image too large:', file.size);
+      }
       return;
     }
     
     setIsUploading(true);
     
-    // Create local preview first
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
       updateSrc(dataUrl);
       setIsUploading(false);
     };
+    reader.onerror = () => {
+      setIsUploading(false);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to read image file');
+      }
+    };
     reader.readAsDataURL(file);
-    
-    // TODO: Upload to server and replace with real URL
-    // const formData = new FormData();
-    // formData.append('file', file);
-    // const response = await api.post('/lectures/images', formData);
-    // updateSrc(response.data.url);
   }, [updateSrc]);
 
-  // Resize handling
+  // Resize handling with cleanup ref to prevent memory leaks
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+  
+  useEffect(() => {
+    // Cleanup on unmount
+    return () => {
+      if (resizeCleanupRef.current) {
+        resizeCleanupRef.current();
+      }
+    };
+  }, []);
+
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -135,6 +159,13 @@ export function ImageComponent({
     
     const handleMouseUp = () => {
       setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      resizeCleanupRef.current = null;
+    };
+    
+    // Store cleanup function
+    resizeCleanupRef.current = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };

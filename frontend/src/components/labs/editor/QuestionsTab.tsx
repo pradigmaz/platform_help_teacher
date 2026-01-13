@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { IconQuestionMark, IconPlus, IconTrash, IconChevronDown, IconChevronRight, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 import { LectureEditor } from '@/components/lectures';
-import { LabQuestion } from './types';
+import { LabQuestion, normalizeQuestion } from './types';
 import { cn } from '@/lib/utils';
+import { extractTextFromLexical, truncateText } from '@/lib/utils/lexical-utils';
 
 interface QuestionsTabProps {
   questions: (LabQuestion | string)[];
@@ -19,31 +20,6 @@ interface QuestionsTabProps {
   onMove?: (index: number, direction: 'up' | 'down') => void;
   externalFontSize?: string;
   externalLineHeight?: string;
-}
-
-// Конвертация legacy string в LabQuestion
-function normalizeQuestion(q: LabQuestion | string): LabQuestion {
-  if (typeof q === 'string') {
-    return { text: q };
-  }
-  return q;
-}
-
-// Извлечение текста из Lexical state для превью
-function extractTextFromLexical(state?: SerializedEditorState): string {
-  try {
-    const root = state?.root;
-    if (!root?.children) return '';
-    let text = '';
-    const extractFromNode = (node: Record<string, unknown>) => {
-      if (node.text && typeof node.text === 'string') text += node.text;
-      if (node.children && Array.isArray(node.children)) node.children.forEach(extractFromNode);
-    };
-    root.children.forEach(extractFromNode);
-    return text.trim();
-  } catch {
-    return '';
-  }
 }
 
 interface QuestionCardProps {
@@ -64,18 +40,18 @@ function QuestionCard({ question, index, totalQuestions, onUpdate, onRemove, onM
   const getPreview = useCallback(() => {
     if (question.content) {
       const text = extractTextFromLexical(question.content);
-      return text.length > 80 ? text.substring(0, 80) + '...' : text || 'Пустой вопрос';
+      return truncateText(text, 80) || 'Пустой вопрос';
     }
     if (question.text) {
-      return question.text.length > 80 ? question.text.substring(0, 80) + '...' : question.text;
+      return truncateText(question.text, 80);
     }
     return 'Пустой вопрос';
   }, [question]);
 
   const handleContentChange = useCallback((content: SerializedEditorState) => {
     const text = extractTextFromLexical(content);
-    onUpdate(index, { content, text });
-  }, [index, onUpdate]);
+    onUpdate(index, { ...question, content, text });
+  }, [index, onUpdate, question]);
 
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
@@ -135,6 +111,9 @@ function QuestionCard({ question, index, totalQuestions, onUpdate, onRemove, onM
 }
 
 export function QuestionsTab({ questions, onAdd, onUpdate, onRemove, onMove, externalFontSize, externalLineHeight }: QuestionsTabProps) {
+  // Нормализуем вопросы один раз при рендере
+  const normalizedQuestions = questions.map(normalizeQuestion);
+  
   return (
     <Card>
       <CardHeader>
@@ -150,10 +129,10 @@ export function QuestionsTab({ questions, onAdd, onUpdate, onRemove, onMove, ext
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {questions.map((question, index) => (
+        {normalizedQuestions.map((question, index) => (
           <QuestionCard
-            key={index}
-            question={normalizeQuestion(question)}
+            key={question.id}
+            question={question}
             index={index}
             totalQuestions={questions.length}
             onUpdate={onUpdate}

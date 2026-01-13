@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { 
   BookOpen, 
   FlaskConical, 
-  ArrowLeft, 
   Menu,
   LayoutDashboard,
   ChevronLeft,
@@ -37,6 +36,30 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
+import api from "@/lib/api";
+
+// Hook для получения количества новых фидбэков
+function useNewFeedbackCount() {
+  const [count, setCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const { data } = await api.get('/feedback/count/new');
+        setCount(data.count);
+      } catch {
+        // Ignore - user might not be admin
+      }
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return count;
+}
 
 interface SidebarSubItem {
   title: string;
@@ -49,83 +72,39 @@ interface SidebarItem {
   href: string;
   icon: React.ElementType;
   subItems?: SidebarSubItem[];
+  badge?: 'feedback';
 }
 
 const sidebarItems: SidebarItem[] = [
-  {
-    title: "Дашборд",
-    href: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Группы",
-    href: "/admin/groups",
-    icon: GraduationCap,
-  },
-  {
-    title: "Лекции",
-    href: "/admin/lectures",
-    icon: BookOpen,
-  },
-  {
-    title: "Лабораторные",
-    href: "/admin/labs",
-    icon: FlaskConical,
-  },
+  { title: "Дашборд", href: "/admin", icon: LayoutDashboard },
+  { title: "Группы", href: "/admin/groups", icon: GraduationCap },
+  { title: "Лекции", href: "/admin/lectures", icon: BookOpen },
+  { title: "Лабораторные", href: "/admin/labs", icon: FlaskConical },
   {
     title: "Аттестация",
     href: "/admin/attestation",
     icon: Award,
     subItems: [
-      {
-        title: "Баллы",
-        href: "/admin/attestation/scores",
-        icon: BarChart3,
-      },
-      {
-        title: "Настройки",
-        href: "/admin/attestation",
-        icon: Settings,
-      },
+      { title: "Баллы", href: "/admin/attestation/scores", icon: BarChart3 },
+      { title: "Настройки", href: "/admin/attestation", icon: Settings },
     ],
   },
-  {
-    title: "Расписание",
-    href: "/admin/schedule",
-    icon: Calendar,
-  },
-  {
-    title: "Журнал",
-    href: "/admin/journal",
-    icon: ClipboardList,
-  },
-  {
-    title: "Аудит",
-    href: "/admin/audit",
-    icon: Shield,
-  },
-  {
-    title: "Обращения",
-    href: "/admin/feedback",
-    icon: MessageSquare,
-  },
-  {
-    title: "Настройки",
-    href: "/admin/settings",
-    icon: Settings,
-  },
+  { title: "Расписание", href: "/admin/schedule", icon: Calendar },
+  { title: "Журнал", href: "/admin/journal", icon: ClipboardList },
+  { title: "Аудит", href: "/admin/audit", icon: Shield },
+  { title: "Обращения", href: "/admin/feedback", icon: MessageSquare, badge: 'feedback' },
+  { title: "Настройки", href: "/admin/settings", icon: Settings },
 ];
 
 interface NavContentProps {
   pathname: string;
   onClose?: () => void;
   isCollapsed?: boolean;
+  feedbackCount: number;
 }
 
-function NavContent({ pathname, onClose, isCollapsed }: NavContentProps) {
-  // Track which submenus are open
+function NavContent({ pathname, onClose, isCollapsed, feedbackCount }: NavContentProps) {
   const [openSubmenus, setOpenSubmenus] = React.useState<string[]>(() => {
-    // Auto-open submenu if current path matches a subitem
     const openItems: string[] = [];
     sidebarItems.forEach(item => {
       if (item.subItems?.some(sub => pathname === sub.href || pathname.startsWith(sub.href + '/'))) {
@@ -137,10 +116,13 @@ function NavContent({ pathname, onClose, isCollapsed }: NavContentProps) {
 
   const toggleSubmenu = (href: string) => {
     setOpenSubmenus(prev => 
-      prev.includes(href) 
-        ? prev.filter(h => h !== href)
-        : [...prev, href]
+      prev.includes(href) ? prev.filter(h => h !== href) : [...prev, href]
     );
+  };
+
+  const getBadgeCount = (badge?: string) => {
+    if (badge === 'feedback') return feedbackCount;
+    return 0;
   };
 
   return (
@@ -155,48 +137,30 @@ function NavContent({ pathname, onClose, isCollapsed }: NavContentProps) {
             const hasSubItems = item.subItems && item.subItems.length > 0;
             const isSubItemActive = item.subItems?.some(sub => pathname === sub.href || pathname.startsWith(sub.href + '/'));
             const isSubmenuOpen = openSubmenus.includes(item.href);
+            const badgeCount = getBadgeCount(item.badge);
 
-            // Item with subitems
             if (hasSubItems && !isCollapsed) {
               return (
-                <Collapsible
-                  key={item.href}
-                  open={isSubmenuOpen}
-                  onOpenChange={() => toggleSubmenu(item.href)}
-                >
+                <Collapsible key={item.href} open={isSubmenuOpen} onOpenChange={() => toggleSubmenu(item.href)}>
                   <CollapsibleTrigger asChild>
-                    <button
-                      className={cn(
-                        "w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent",
-                        isSubItemActive ? "text-foreground bg-accent/50" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
+                    <button className={cn(
+                      "w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent",
+                      isSubItemActive ? "text-foreground bg-accent/50" : "text-muted-foreground hover:text-foreground"
+                    )}>
                       <div className="flex items-center gap-3">
                         <item.icon className="h-4 w-4 shrink-0" />
                         <span>{item.title}</span>
                       </div>
-                      <ChevronDown className={cn(
-                        "h-4 w-4 shrink-0 transition-transform duration-200",
-                        isSubmenuOpen && "rotate-180"
-                      )} />
+                      <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform duration-200", isSubmenuOpen && "rotate-180")} />
                     </button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pl-4 mt-1 space-y-1">
                     {item.subItems?.map((subItem) => {
                       const isSubActive = pathname === subItem.href;
                       return (
-                        <Link
-                          key={subItem.href}
-                          href={subItem.href}
-                          onClick={onClose}
-                          className="block"
-                        >
+                        <Link key={subItem.href} href={subItem.href} onClick={onClose} className="block">
                           {isSubActive ? (
-                            <HoverBorderGradient
-                              containerClassName="w-full rounded-lg"
-                              className="w-full flex items-center gap-3 bg-background text-foreground px-3 py-2 text-sm font-medium"
-                              duration={1}
-                            >
+                            <HoverBorderGradient containerClassName="w-full rounded-lg" className="w-full flex items-center gap-3 bg-background text-foreground px-3 py-2 text-sm font-medium" duration={1}>
                               <subItem.icon className="h-4 w-4 shrink-0" />
                               <span>{subItem.title}</span>
                             </HoverBorderGradient>
@@ -214,32 +178,31 @@ function NavContent({ pathname, onClose, isCollapsed }: NavContentProps) {
               );
             }
 
-            // Regular item (no subitems or collapsed)
             return (
-              <Link
-                key={item.href}
-                href={hasSubItems ? (item.subItems?.[0]?.href || item.href) : item.href}
-                onClick={onClose}
-                className="block"
-              >
+              <Link key={item.href} href={hasSubItems ? (item.subItems?.[0]?.href || item.href) : item.href} onClick={onClose} className="block">
                 {(isActive || (hasSubItems && isSubItemActive)) ? (
-                  <HoverBorderGradient
-                    containerClassName="w-full rounded-lg"
-                    className="w-full flex items-center gap-3 bg-background text-foreground px-3 py-2 text-sm font-medium"
-                    duration={1}
-                  >
+                  <HoverBorderGradient containerClassName="w-full rounded-lg" className="w-full flex items-center gap-3 bg-background text-foreground px-3 py-2 text-sm font-medium" duration={1}>
                     <item.icon className="h-4 w-4 shrink-0" />
-                    {!isCollapsed && <span>{item.title}</span>}
+                    {!isCollapsed && <span className="flex-1">{item.title}</span>}
+                    {!isCollapsed && badgeCount > 0 && (
+                      <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs">{badgeCount}</Badge>
+                    )}
                   </HoverBorderGradient>
                 ) : (
-                  <div
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent text-muted-foreground hover:text-foreground",
-                      isCollapsed && "justify-center px-0"
+                  <div className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent text-muted-foreground hover:text-foreground",
+                    isCollapsed && "justify-center px-0"
+                  )}>
+                    <div className="relative">
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      {isCollapsed && badgeCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 h-2 w-2 bg-destructive rounded-full" />
+                      )}
+                    </div>
+                    {!isCollapsed && <span className="flex-1">{item.title}</span>}
+                    {!isCollapsed && badgeCount > 0 && (
+                      <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs">{badgeCount}</Badge>
                     )}
-                  >
-                    <item.icon className="h-4 w-4 shrink-0" />
-                    {!isCollapsed && <span>{item.title}</span>}
                   </div>
                 )}
               </Link>
@@ -255,15 +218,16 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = React.useState(false);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const feedbackCount = useNewFeedbackCount();
 
   return (
     <>
-      {/* Mobile Sidebar */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="backdrop-blur-xl bg-background/40 border-border text-foreground">
+            <Button variant="outline" size="icon" className="backdrop-blur-xl bg-background/40 border-border text-foreground relative">
               <Menu className="h-5 w-5" />
+              {feedbackCount > 0 && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-destructive rounded-full" />}
               <span className="sr-only">Открыть меню</span>
             </Button>
           </SheetTrigger>
@@ -271,19 +235,16 @@ export function AdminSidebar() {
             <SheetHeader className="sr-only">
               <SheetTitle>Навигация администратора</SheetTitle>
             </SheetHeader>
-            <NavContent pathname={pathname} onClose={() => setIsOpen(false)} />
+            <NavContent pathname={pathname} onClose={() => setIsOpen(false)} feedbackCount={feedbackCount} />
           </SheetContent>
         </Sheet>
       </div>
 
-      {/* Desktop Sidebar */}
-      <aside
-        className={cn(
-          "hidden lg:flex h-screen flex-col sticky left-0 top-0 z-40 border-r border-border backdrop-blur-xl bg-background/40 transition-all duration-300",
-          isCollapsed ? "w-16" : "w-72"
-        )}
-      >
-        <NavContent pathname={pathname} isCollapsed={isCollapsed} />
+      <aside className={cn(
+        "hidden lg:flex h-screen flex-col sticky left-0 top-0 z-40 border-r border-border backdrop-blur-xl bg-background/40 transition-all duration-300",
+        isCollapsed ? "w-16" : "w-72"
+      )}>
+        <NavContent pathname={pathname} isCollapsed={isCollapsed} feedbackCount={feedbackCount} />
         <Button
           variant="ghost"
           size="icon"

@@ -29,6 +29,7 @@ from .student_transfer import StudentTransfer
 from .settings_audit import SettingsAuditLog
 from .backup_settings import BackupSettings
 from .feedback import Feedback, FeedbackType, FeedbackStatus
+from .feedback_attachment import FeedbackAttachment
 from app.audit.models import StudentAuditLog
 
 __all__ = [
@@ -68,5 +69,6 @@ __all__ = [
     "Feedback",
     "FeedbackType",
     "FeedbackStatus",
+    "FeedbackAttachment",
     "StudentAuditLog",
 ]

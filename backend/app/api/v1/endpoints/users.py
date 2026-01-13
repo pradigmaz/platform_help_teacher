@@ -106,6 +106,7 @@ async def update_user_me(
 
 @router.post("/me/relink-telegram", response_model=RelinkTelegramResponse)
 async def relink_telegram(
+    db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(deps.get_current_user),
 ) -> RelinkTelegramResponse:
     """
@@ -113,7 +114,7 @@ async def relink_telegram(
     Работает для всех ролей: студент, преподаватель, админ.
     """
     from app.services import bot_service
-    code = await bot_service.generate_relink_code(current_user.id, "telegram")
+    code = await bot_service.generate_relink_code(db, current_user.id, "telegram")
     
     return RelinkTelegramResponse(
         code=code,
@@ -123,6 +124,7 @@ async def relink_telegram(
 
 @router.post("/me/link-vk", response_model=RelinkTelegramResponse)
 async def link_vk(
+    db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(deps.get_current_user),
 ) -> RelinkTelegramResponse:
     """
@@ -130,7 +132,7 @@ async def link_vk(
     Работает для всех ролей: студент, преподаватель, админ.
     """
     from app.services import bot_service
-    code = await bot_service.generate_relink_code(current_user.id, "vk")
+    code = await bot_service.generate_relink_code(db, current_user.id, "vk")
     
     return RelinkTelegramResponse(
         code=code,

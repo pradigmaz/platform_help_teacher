@@ -20,7 +20,7 @@ async def get_max_allowed_grade_for_lab(
     db: AsyncSession,
     lab: Lab,
     current_lesson: Lesson,
-    has_excuse: bool = False
+    student_id: Optional[UUID] = None
 ) -> int:
     """
     Получить максимально допустимую оценку для лабораторной с учётом дедлайна.
@@ -29,21 +29,29 @@ async def get_max_allowed_grade_for_lab(
         db: Сессия БД
         lab: Лабораторная работа
         current_lesson: Занятие на котором ставится оценка
-        has_excuse: Есть ли уважительная причина (снимает ограничение)
+        student_id: ID студента (для проверки EXCUSED на origin_lesson)
     
     Returns:
         Максимально допустимая оценка (2-5)
     """
-    # Уважительная причина снимает ограничение
-    if has_excuse:
+    # Если лаба не привязана к занятию — нет ограничений
+    if not lab.lesson_id:
         return 5
+    
+    # Проверяем EXCUSED на занятии создания лабы (origin_lesson)
+    # Если студент был EXCUSED когда лаба создана — дедлайн не применяется
+    if student_id:
+        excused_query = select(Attendance).where(and_(
+            Attendance.lesson_id == lab.lesson_id,
+            Attendance.student_id == student_id,
+            Attendance.status == AttendanceStatus.EXCUSED
+        ))
+        excused_result = await db.execute(excused_query)
+        if excused_result.scalar_one_or_none() is not None:
+            return 5  # EXCUSED-лаба — без дедлайна
     
     # Если нет дедлайнов — нет ограничений
     if lab.deadline_5_lessons is None and lab.deadline_4_lessons is None:
-        return 5
-    
-    # Если лаба не привязана к занятию — нет ограничений
-    if not lab.lesson_id:
         return 5
     
     # Получаем занятие на котором создана лаба
@@ -86,7 +94,6 @@ async def _get_lesson_index(
     Returns:
         Индекс (0 = пара создания), None если не найдено
     """
-    # Получаем все LAB-занятия этой группы/предмета начиная с даты создания
     query = (
         select(Lesson.id, Lesson.date, Lesson.lesson_number)
         .where(and_(
@@ -102,7 +109,6 @@ async def _get_lesson_index(
     result = await db.execute(query)
     lessons = result.all()
     
-    # Ищем индекс текущего занятия
     for idx, (lesson_id, _, _) in enumerate(lessons):
         if lesson_id == current_lesson.id:
             return idx
@@ -131,27 +137,23 @@ async def get_max_allowed_grade(
 ) -> int:
     """
     Получить максимально допустимую оценку для занятия.
-    Обёртка для интеграции с журналом.
     
     Args:
         db: Сессия БД
         lesson: Занятие на котором ставится оценка
-        student_id: ID студента (для проверки уважительной причины)
+        student_id: ID студента (для проверки EXCUSED на origin_lesson)
         work_number: Номер работы (если отличается от lesson.work_number)
     
     Returns:
         Максимально допустимая оценка (2-5)
     """
-    # Только для LAB-занятий проверяем дедлайны
     if lesson.lesson_type != 'LAB':
         return 5
     
-    # Определяем номер работы
     lab_number = work_number or lesson.work_number
     if not lab_number:
         return 5
     
-    # Ищем лабу по предмету и номеру
     lab_query = select(Lab).where(and_(
         Lab.subject_id == lesson.subject_id,
         Lab.number == lab_number,
@@ -163,15 +165,4 @@ async def get_max_allowed_grade(
     if not lab:
         return 5
     
-    # Проверяем уважительную причину студента
-    has_excuse = False
-    if student_id:
-        excuse_query = select(Attendance).where(and_(
-            Attendance.lesson_id == lesson.id,
-            Attendance.student_id == student_id,
-            Attendance.status == AttendanceStatus.EXCUSED
-        ))
-        excuse_result = await db.execute(excuse_query)
-        has_excuse = excuse_result.scalar_one_or_none() is not None
-    
-    return await get_max_allowed_grade_for_lab(db, lab, lesson, has_excuse)
+    return await get_max_allowed_grade_for_lab(db, lab, lesson, student_id)

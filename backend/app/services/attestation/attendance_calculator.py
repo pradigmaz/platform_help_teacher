@@ -1,9 +1,6 @@
 """
 Калькулятор баллов за посещаемость.
-Автобалансировка: баллы = attendance_ratio * max_attendance_points
-
-Посещаемость = процент от фактически прошедших занятий.
-EXCUSED не учитывается (занятие как будто не было).
+Фиксированные баллы за занятие: points_per_lesson = max_attendance / expected_lessons
 """
 from typing import List
 from dataclasses import dataclass
@@ -19,7 +16,7 @@ class AttendanceScoreResult:
     max_score: float       # Максимум возможных баллов
     ratio: float           # Процент посещаемости (0-1)
     total_classes: int     # Всего занятий
-    counted_classes: int   # Учтённых занятий (без EXCUSED)
+    expected_lessons: int  # Ожидаемое количество занятий
     present_count: int
     late_count: int
     excused_count: int
@@ -27,27 +24,25 @@ class AttendanceScoreResult:
 
 
 class AttendanceScoreCalculator:
-    """Калькулятор баллов за посещаемость (автобалансировка)"""
+    """Калькулятор баллов за посещаемость (фиксированные баллы за занятие)"""
     
     def calculate(
         self,
         attendance_records: List[Attendance],
         settings: AttestationSettings,
+        expected_lessons: int,
         transfer_attendance: dict = None
     ) -> AttendanceScoreResult:
         """
         Расчёт баллов за посещаемость.
         
         Формула:
-        - max_attendance = attestation_max * (attendance_weight / 100)
-        - attendance_ratio = (present + late * late_coef) / counted_classes
-        - score = attendance_ratio * max_attendance
-        
-        EXCUSED не учитывается — занятие как будто не было.
+        - points_per_lesson = max_attendance / expected_lessons
+        - score = (present + late * late_coef) * points_per_lesson
         
         Args:
+            expected_lessons: Ожидаемое количество занятий (из Lesson или настроек)
             transfer_attendance: Снапшот посещаемости из переводов
-                {total_lessons, present, late, excused, absent}
         """
         max_score = settings.get_max_component_points(settings.attendance_weight)
         
@@ -75,25 +70,34 @@ class AttendanceScoreCalculator:
             absent_count += transfer_attendance.get("absent", 0)
         
         total_classes = present_count + late_count + excused_count + absent_count
-        counted_classes = present_count + late_count + absent_count  # Без EXCUSED
         
-        if counted_classes == 0:
+        # Фиксированные баллы за занятие
+        if expected_lessons <= 0:
+            points_per_lesson = 0.0
             ratio = 0.0
+            score = 0.0
         else:
-            # present = 1.0, late = late_coef, absent = absent_coef (0 или отрицательный)
-            effective_attendance = present_count + (late_count * settings.late_coef) + (absent_count * settings.absent_coef)
-            ratio = effective_attendance / counted_classes
-            # Ratio может быть отрицательным при штрафах за прогулы
-            ratio = max(ratio, -1.0)  # Ограничиваем снизу
+            points_per_lesson = max_score / expected_lessons
+            # Эффективная посещаемость с коэффициентами
+            effective_attendance = (
+                present_count * 1.0 +
+                late_count * settings.late_coef +
+                absent_count * settings.absent_coef
+            )
+            score = effective_attendance * points_per_lesson
+            # Ratio для отображения (от ожидаемых занятий)
+            counted = present_count + late_count + absent_count
+            ratio = counted / expected_lessons if expected_lessons > 0 else 0.0
         
-        score = ratio * max_score
+        # Cap: минимум 0, максимум max_score
+        score = max(0, min(score, max_score))
         
         return AttendanceScoreResult(
             score=round(score, 2),
             max_score=max_score,
-            ratio=round(ratio, 4),
+            ratio=round(min(ratio, 1.0), 4),
             total_classes=total_classes,
-            counted_classes=counted_classes,
+            expected_lessons=expected_lessons,
             present_count=present_count,
             late_count=late_count,
             excused_count=excused_count,

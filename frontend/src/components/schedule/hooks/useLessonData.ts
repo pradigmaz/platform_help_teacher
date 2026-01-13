@@ -155,16 +155,20 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
         });
       }
 
-      // Save grades
-      for (const [student_id, grade] of Object.entries(grades)) {
-        if (grade) {
-          await api.post('/admin/journal/grades', {
-            lesson_id: lesson.id,
-            student_id,
-            grade,
-            work_number: workNumber ?? lesson.work_number
-          });
-        }
+      // Save grades (bulk instead of one-by-one)
+      const gradeRecords = Object.entries(grades)
+        .filter(([_, grade]) => grade !== null)
+        .map(([student_id, grade]) => ({
+          student_id,
+          grade,
+          work_number: workNumber ?? lesson.work_number
+        }));
+      
+      if (gradeRecords.length > 0) {
+        await api.post('/admin/journal/grades/bulk', {
+          lesson_id: lesson.id,
+          grades: gradeRecords
+        });
       }
 
       // Save lesson (status, topic, work_number)

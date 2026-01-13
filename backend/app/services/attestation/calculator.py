@@ -35,10 +35,13 @@ class AttestationCalculator:
         self,
         attendance_records: List[Attendance],
         settings: AttestationSettings,
+        expected_lessons: int,
         transfer_attendance: dict = None
     ) -> AttendanceScoreResult:
-        """Расчёт баллов за посещаемость (с учётом снапшотов переводов)"""
-        return self._attendance_calc.calculate(attendance_records, settings, transfer_attendance)
+        """Расчёт баллов за посещаемость (фиксированные баллы за занятие)"""
+        return self._attendance_calc.calculate(
+            attendance_records, settings, expected_lessons, transfer_attendance
+        )
     
     def calculate_activity(
         self,

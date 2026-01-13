@@ -139,7 +139,12 @@ export function LectureEditor({
     theme: { ...editorTheme, code: 'code-block-container', image: 'lecture-image-container' },
     nodes: lectureNodes,
     editable: !readOnly,
-    onError: (error: Error) => console.error('Lecture Editor Error:', error),
+    onError: (error: Error) => {
+      // Ошибки Lexical логируются только в dev
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Lecture Editor Error:', error);
+      }
+    },
     editorState: JSON.stringify(editorState),
   };
 
@@ -152,7 +157,9 @@ export function LectureEditor({
       setSaveStatus('saved');
       setLastSaved(new Date());
     } catch (error) {
-      console.error('Save error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Save error:', error);
+      }
       setSaveStatus('error');
     } finally {
       setIsSaving(false);
@@ -167,7 +174,9 @@ export function LectureEditor({
       setSaveStatus('saved');
       setLastSaved(new Date());
     } catch (error) {
-      console.error('Auto-save error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Auto-save error:', error);
+      }
       setSaveStatus('error');
     }
   }, [onSave]);

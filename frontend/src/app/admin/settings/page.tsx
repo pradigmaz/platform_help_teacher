@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Settings2, User, Database } from 'lucide-react';
+import { Loader2, Settings2, User, Database, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
-import { AdminAPI, ContactVisibility, RelinkTelegramResponse, LinkVkResponse } from '@/lib/api';
+import api, { AdminAPI, ContactVisibility, RelinkTelegramResponse, LinkVkResponse } from '@/lib/api';
 import type { AdminProfile } from '@/lib/api/admin';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ContactsCard,
   TelegramCard,
@@ -35,6 +37,9 @@ export default function AdminSettingsPage() {
   const [vkDialogOpen, setVkDialogOpen] = useState(false);
   const [vkData, setVkData] = useState<LinkVkResponse | null>(null);
   const [vkLoading, setVkLoading] = useState(false);
+
+  // Revoke sessions state
+  const [revokeLoading, setRevokeLoading] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -87,6 +92,21 @@ export default function AdminSettingsPage() {
       toast.error('Ошибка получения кода привязки ВК');
     } finally {
       setVkLoading(false);
+    }
+  };
+
+  const handleRevokeAllStudentSessions = async () => {
+    if (!confirm('Выкинуть ВСЕХ студентов из всех сессий? Им придётся заново авторизоваться.')) {
+      return;
+    }
+    setRevokeLoading(true);
+    try {
+      const { data } = await api.post('/admin/impersonate/sessions/revoke-all-students');
+      toast.success(`Выкинуто ${data.sessions_revoked} сессий у ${data.students_count} студентов`);
+    } catch {
+      toast.error('Ошибка при выкидывании сессий');
+    } finally {
+      setRevokeLoading(false);
     }
   };
 
@@ -183,6 +203,38 @@ export default function AdminSettingsPage() {
 
         <TabsContent value="backup">
           <BackupTab />
+          
+          {/* Временная кнопка для выкидывания студентов */}
+          <Card className="mt-6 border-destructive/50">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center gap-2">
+                <LogOut className="h-5 w-5" />
+                Сброс сессий студентов
+              </CardTitle>
+              <CardDescription>
+                Выкинуть всех студентов из всех сессий. Используйте для очистки сессий на общих компьютерах.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                variant="destructive" 
+                onClick={handleRevokeAllStudentSessions}
+                disabled={revokeLoading}
+              >
+                {revokeLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Выкидываем...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Выкинуть всех студентов
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

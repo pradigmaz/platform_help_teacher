@@ -1,16 +1,25 @@
 """Pydantic schemas for feedback."""
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.feedback import FeedbackType, FeedbackStatus
 
 
+class FeedbackAttachmentResponse(BaseModel):
+    id: UUID
+    filename: str
+    content_type: str
+    size: int
+
+    model_config = {"from_attributes": True}
+
+
 class FeedbackCreate(BaseModel):
     type: FeedbackType
     title: str = Field(..., min_length=5, max_length=200)
-    description: str = Field(..., min_length=10, max_length=5000)
+    description: str = Field(..., min_length=20, max_length=10000)
 
 
 class FeedbackResponse(BaseModel):
@@ -21,7 +30,9 @@ class FeedbackResponse(BaseModel):
     status: FeedbackStatus
     user_id: UUID
     user_name: Optional[str] = None
+    group_name: Optional[str] = None
     admin_response: Optional[str] = None
+    attachments: List[FeedbackAttachmentResponse] = []
     created_at: datetime
     resolved_at: Optional[datetime] = None
 
@@ -31,3 +42,9 @@ class FeedbackResponse(BaseModel):
 class FeedbackUpdate(BaseModel):
     status: Optional[FeedbackStatus] = None
     admin_response: Optional[str] = Field(None, max_length=2000)
+
+
+class UploadUrlResponse(BaseModel):
+    upload_url: str
+    attachment_id: UUID
+    storage_path: str

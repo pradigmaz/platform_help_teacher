@@ -25,16 +25,6 @@ export type SerializedCodeBlockNode = Spread<
   SerializedLexicalNode
 >;
 
-// Lazy import для избежания циклических зависимостей
-let CodeBlockComponentModule: typeof import('../CodeBlockComponent') | null = null;
-
-async function getCodeBlockComponent() {
-  if (!CodeBlockComponentModule) {
-    CodeBlockComponentModule = await import('../CodeBlockComponent');
-  }
-  return CodeBlockComponentModule.CodeBlockComponent;
-}
-
 export class CodeBlockNode extends DecoratorNode<JSX.Element> {
   __code: string;
   __language: CodeLanguage;

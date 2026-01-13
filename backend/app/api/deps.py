@@ -39,6 +39,13 @@ async def get_current_user(
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
+        
+        # Track impersonation for audit
+        impersonated_by = payload.get("impersonated_by")
+        if impersonated_by:
+            logger.info(f"Impersonated request: admin={impersonated_by}, acting_as={user_id}, path={request.url.path}")
+            request.state.impersonated_by = impersonated_by
+            
     except InvalidTokenError:
         raise credentials_exception
         

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { SerializedEditorState } from 'lexical';
 import { LectureEditor } from '@/components/lectures';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { IconChevronDown, IconChevronRight, IconTrash, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
+import { extractTextFromLexical, truncateText } from '@/lib/utils/lexical-utils';
 
 export interface VariantData {
+  id: string;
   number: number;
   content?: SerializedEditorState;
   description: string;
@@ -32,9 +34,7 @@ export function VariantCard({ variant, index, totalVariants, onUpdate, onRemove,
 
   const getPreview = useCallback(() => {
     if (variant.description) {
-      return variant.description.length > 60 
-        ? variant.description.substring(0, 60) + '...' 
-        : variant.description;
+      return truncateText(variant.description, 60);
     }
     return 'Пустой вариант';
   }, [variant.description]);
@@ -96,20 +96,4 @@ export function VariantCard({ variant, index, totalVariants, onUpdate, onRemove,
       </div>
     </Collapsible>
   );
-}
-
-function extractTextFromLexical(state: SerializedEditorState): string {
-  try {
-    const root = state?.root;
-    if (!root?.children) return '';
-    let text = '';
-    const extractFromNode = (node: Record<string, unknown>) => {
-      if (node.text && typeof node.text === 'string') text += node.text;
-      if (node.children && Array.isArray(node.children)) node.children.forEach(extractFromNode);
-    };
-    root.children.forEach(extractFromNode);
-    return text.trim();
-  } catch {
-    return '';
-  }
 }

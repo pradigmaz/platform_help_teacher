@@ -99,7 +99,9 @@ export function LectureViewer({
     nodes: viewerNodes,
     editable: false,
     onError: (error: Error) => {
-      console.error('Lecture Viewer Error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Lecture Viewer Error:', error);
+      }
     },
     editorState: JSON.stringify(validContent),
   };

@@ -44,3 +44,6 @@ class Feedback(Base, TimestampMixin):
     # Admin response
     admin_response = Column(Text, nullable=True)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Attachments
+    attachments = relationship("FeedbackAttachment", back_populates="feedback", cascade="all, delete-orphan")

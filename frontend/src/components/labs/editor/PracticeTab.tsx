@@ -80,7 +80,7 @@ export function PracticeTab({
         <CardContent className="space-y-3">
           {variants.map((variant, index) => (
             <VariantCard
-              key={index}
+              key={variant.id}
               variant={variant as VariantData}
               index={index}
               totalVariants={variants.length}

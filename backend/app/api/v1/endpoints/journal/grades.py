@@ -19,6 +19,7 @@ from app.schemas.lesson_grade import (
 from app.crud import crud_lesson_grade
 from app.core.limiter import limiter
 from app.services.attestation.deadline_validator import get_max_allowed_grade, validate_grade_for_max
+from app.services.attestation.lab_slot_validator import validate_lab_submission
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -191,14 +192,22 @@ async def create_grade(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_teacher)
 ):
-    """Создать оценку с проверкой дедлайна."""
-    # Получаем занятие для проверки дедлайна
+    """Создать оценку с проверкой дедлайна и слотов."""
     lesson_result = await db.execute(select(Lesson).where(Lesson.id == data.lesson_id))
     lesson = lesson_result.scalar_one_or_none()
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
     
-    # Проверяем максимально допустимую оценку по дедлайну
+    # Проверяем слоты (1 лаба = 1 пара, +1 для EXCUSED)
+    if lesson.lesson_type == 'LAB':
+        try:
+            await validate_lab_submission(
+                db, data.student_id, data.lesson_id, lesson.subject_id, data.work_number
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    # Проверяем дедлайн
     max_allowed = await get_max_allowed_grade(
         db, lesson, student_id=data.student_id, work_number=data.work_number
     )
@@ -306,17 +315,36 @@ async def bulk_update_grades(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_teacher)
 ):
-    """Массовое создание/обновление оценок с проверкой дедлайна."""
-    # Получаем занятие для проверки дедлайна
+    """Массовое создание/обновление оценок с проверкой дедлайна и слотов."""
     lesson_result = await db.execute(select(Lesson).where(Lesson.id == data.lesson_id))
     lesson = lesson_result.scalar_one_or_none()
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
     
-    # Валидируем и создаём оценки
-    updated = []
+    # Группируем оценки по студентам для проверки слотов
+    grades_by_student: dict[UUID, list] = {}
     for grade_item in data.grades:
-        # Проверяем дедлайн для каждого студента отдельно (уважительная причина)
+        if grade_item.student_id not in grades_by_student:
+            grades_by_student[grade_item.student_id] = []
+        grades_by_student[grade_item.student_id].append(grade_item)
+    
+    # Валидируем слоты и дедлайны
+    if lesson.lesson_type == 'LAB':
+        from app.services.attestation.lab_slot_validator import (
+            get_grades_count_on_lesson, get_max_labs_per_lesson
+        )
+        for student_id, student_grades in grades_by_student.items():
+            current_count = await get_grades_count_on_lesson(db, student_id, data.lesson_id)
+            max_allowed_labs = await get_max_labs_per_lesson(db, student_id, lesson.subject_id)
+            new_grades_count = len(student_grades)
+            
+            if current_count + new_grades_count > max_allowed_labs:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Лимит лаб за занятие: {max_allowed_labs} (уже сдано: {current_count})"
+                )
+    
+    for grade_item in data.grades:
         max_allowed = await get_max_allowed_grade(
             db, lesson, 
             student_id=grade_item.student_id, 
@@ -330,6 +358,7 @@ async def bulk_update_grades(
                 detail=f"Студент {grade_item.student_id}: {str(e)}"
             )
     
+    updated = []
     for grade_item in data.grades:
         grade = await crud_lesson_grade.upsert_lesson_grade(
             db,

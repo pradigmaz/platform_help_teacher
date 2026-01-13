@@ -94,6 +94,9 @@ class AttestationSettings(Base, TimestampMixin):
     # === АКТИВНОСТЬ ===
     activity_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     
+    # === ОЖИДАЕМОЕ КОЛИЧЕСТВО ЗАНЯТИЙ ===
+    expected_lessons_per_week: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+    
     # === ПЕРИОДЫ ===
     period_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
     period_end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, default=None)
@@ -115,6 +118,11 @@ class AttestationSettings(Base, TimestampMixin):
         if self.attestation_type == AttestationType.FIRST:
             return self.labs_count_first
         return self.labs_count_first + self.labs_count_second
+    
+    def get_min_expected_lessons(self) -> int:
+        """Минимальное ожидаемое количество занятий для аттестации"""
+        weeks = FIRST_ATTESTATION_WEEK if self.attestation_type == AttestationType.FIRST else SECOND_ATTESTATION_WEEK
+        return self.expected_lessons_per_week * weeks
     
     def get_max_component_points(self, weight: float) -> float:
         """Максимум баллов для компонента = max_attestation * (weight / 100)"""
