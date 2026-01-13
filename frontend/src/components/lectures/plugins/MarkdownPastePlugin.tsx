@@ -14,6 +14,8 @@ import {
   TextNode,
 } from 'lexical';
 import { $convertFromMarkdownString } from '@lexical/markdown';
+import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
+import { $createListNode, $createListItemNode } from '@lexical/list';
 import { 
   BOLD_ITALIC_STAR, 
   BOLD_ITALIC_UNDERSCORE, 
@@ -298,10 +300,65 @@ export function MarkdownPastePlugin(): null {
                 nodesToInsert.push($createTableFromMarkdown(tableData));
               }
             } else {
-              // Обычный markdown текст — конвертируем построчно с inline форматированием
+              // Обычный markdown текст — парсим построчно с поддержкой block-level элементов
               const lines = part.split('\n');
               for (const line of lines) {
                 if (!line.trim()) continue;
+                
+                // Заголовки
+                const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+                if (headingMatch) {
+                  const level = headingMatch[1].length as 1 | 2 | 3 | 4 | 5 | 6;
+                  const heading = $createHeadingNode(`h${level}`);
+                  const formattedNodes = $parseInlineMarkdown(headingMatch[2]);
+                  for (const node of formattedNodes) {
+                    heading.append(node);
+                  }
+                  nodesToInsert.push(heading);
+                  continue;
+                }
+                
+                // Цитаты
+                const quoteMatch = line.match(/^>\s*(.*)$/);
+                if (quoteMatch) {
+                  const quote = $createQuoteNode();
+                  const formattedNodes = $parseInlineMarkdown(quoteMatch[1]);
+                  for (const node of formattedNodes) {
+                    quote.append(node);
+                  }
+                  nodesToInsert.push(quote);
+                  continue;
+                }
+                
+                // Маркированный список
+                const ulMatch = line.match(/^[-*]\s+(.+)$/);
+                if (ulMatch) {
+                  const list = $createListNode('bullet');
+                  const item = $createListItemNode();
+                  const formattedNodes = $parseInlineMarkdown(ulMatch[1]);
+                  for (const node of formattedNodes) {
+                    item.append(node);
+                  }
+                  list.append(item);
+                  nodesToInsert.push(list);
+                  continue;
+                }
+                
+                // Нумерованный список
+                const olMatch = line.match(/^\d+\.\s+(.+)$/);
+                if (olMatch) {
+                  const list = $createListNode('number');
+                  const item = $createListItemNode();
+                  const formattedNodes = $parseInlineMarkdown(olMatch[1]);
+                  for (const node of formattedNodes) {
+                    item.append(node);
+                  }
+                  list.append(item);
+                  nodesToInsert.push(list);
+                  continue;
+                }
+                
+                // Обычный параграф
                 const paragraph = $createParagraphNode();
                 const formattedNodes = $parseInlineMarkdown(line);
                 for (const node of formattedNodes) {
