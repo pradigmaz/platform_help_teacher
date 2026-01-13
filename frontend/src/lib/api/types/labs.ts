@@ -13,6 +13,7 @@ export interface Submission {
 }
 
 export interface LabVariant {
+  id?: string;  // Optional for API responses, required in editor
   number: number;
   description: string;
   test_data?: string;

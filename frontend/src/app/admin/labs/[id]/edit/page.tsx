@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { LabsAPI, Lab } from '@/lib/api';
-import { LabEditor, LabData } from '@/components/labs';
+import { LabEditor, LabData, normalizeVariant } from '@/components/labs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { IconArrowLeft } from '@tabler/icons-react';
@@ -97,7 +97,7 @@ export default function EditLabPage() {
     formatting_guide: lab.formatting_guide || undefined,
     theory_content: lab.theory_content as LabData['theory_content'],
     practice_content: lab.practice_content as LabData['practice_content'],
-    variants: lab.variants || [],
+    variants: (lab.variants || []).map(v => normalizeVariant(v)),
     questions: lab.questions || [],
     max_grade: 5,
     deadline_5_lessons: lab.deadline_5_lessons,
