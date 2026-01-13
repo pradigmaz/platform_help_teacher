@@ -26,11 +26,11 @@ def upgrade() -> None:
         sa.Column("size", sa.Integer, nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
-    op.create_index("ix_feedback_attachments_feedback_id", "feedback_attachments", ["feedback_id"])
-    op.create_index("ix_feedback_status", "feedback", ["status"])
+    op.create_index("ix_feedback_attachments_feedback_id", "feedback_attachments", ["feedback_id"], if_not_exists=True)
+    op.create_index("ix_feedback_status", "feedback", ["status"], if_not_exists=True)
 
 
 def downgrade() -> None:
-    op.drop_index("ix_feedback_status", "feedback")
-    op.drop_index("ix_feedback_attachments_feedback_id")
+    op.drop_index("ix_feedback_status", "feedback", if_exists=True)
+    op.drop_index("ix_feedback_attachments_feedback_id", if_exists=True)
     op.drop_table("feedback_attachments")
