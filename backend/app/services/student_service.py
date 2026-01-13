@@ -132,8 +132,9 @@ class StudentService:
                     stats.points_earned += sub.grade or 0
                 elif sub.status.value == "REJECTED":
                     stats.labs_rejected += 1
-                else:
+                elif sub.status.value in ("READY", "IN_REVIEW"):
                     stats.labs_pending += 1
+                # NEW и REQ_CHANGES не считаются как pending
             
             stats.points_max += lab.max_grade
             
