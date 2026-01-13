@@ -3,6 +3,7 @@ Celery configuration
 """
 import os
 from celery import Celery
+from celery.schedules import crontab
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -28,21 +29,22 @@ celery_app.conf.update(
 )
 
 # Beat schedule for periodic tasks
+# Время в Europe/Moscow (см. timezone выше)
 celery_app.conf.beat_schedule = {
     "check-schedule-updates": {
         "task": "app.tasks.schedule_tasks.check_all_schedules",
-        "schedule": 900.0,  # Every 15 minutes (для точного попадания в run_time)
+        "schedule": 900.0,  # Every 15 minutes
     },
     "create-daily-backup": {
         "task": "app.tasks.backup_tasks.create_scheduled_backup",
-        "schedule": 86400.0,  # Every 24 hours
+        "schedule": crontab(hour=20, minute=0),  # 20:00 МСК (17:00 UTC)
     },
     "cleanup-old-audit-logs": {
         "task": "app.tasks.audit_tasks.cleanup_old_audit_logs",
-        "schedule": 86400.0,  # Every 24 hours
+        "schedule": crontab(hour=4, minute=0),  # 04:00 МСК
     },
     "create-audit-partition": {
         "task": "app.tasks.audit_tasks.create_audit_partition",
-        "schedule": 86400.0,  # Every 24 hours
+        "schedule": crontab(hour=0, minute=5),  # 00:05 МСК
     },
 }

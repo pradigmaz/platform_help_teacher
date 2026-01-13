@@ -81,6 +81,7 @@ def create_scheduled_backup():
     """
     Create scheduled backup with dynamic settings from DB.
     Checks if backup is enabled and applies max_backups limit.
+    Called by celery beat at scheduled time (crontab).
     """
     # Get settings from DB
     db_settings = _run_async(_get_backup_settings())
@@ -89,12 +90,6 @@ def create_scheduled_backup():
     if not db_settings["enabled"]:
         logger.info("Scheduled backup skipped: backups disabled in settings")
         return {"success": False, "reason": "disabled"}
-    
-    # Check schedule (hour/minute) - skip if not the right time
-    now = datetime.now()
-    if now.hour != db_settings["schedule_hour"]:
-        logger.debug(f"Scheduled backup skipped: wrong hour ({now.hour} != {db_settings['schedule_hour']})")
-        return {"success": False, "reason": "wrong_hour"}
     
     logger.info("Starting scheduled backup...")
     
