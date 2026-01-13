@@ -18,6 +18,14 @@ function getAttestationStatus(attestation: StatusHeroProps['attestation']): Atte
   return 'failing';
 }
 
+/** Grade color config with subtle shine */
+const GRADE_COLORS: Record<string, string> = {
+  'отл': 'text-green-600 bg-gradient-to-r from-green-500/10 via-green-400/25 to-green-500/10 bg-[length:200%_100%] animate-shine [--duration:3s]',
+  'хор': 'text-blue-600 bg-gradient-to-r from-blue-500/10 via-blue-400/25 to-blue-500/10 bg-[length:200%_100%] animate-shine [--duration:3s]',
+  'уд': 'text-yellow-600 bg-gradient-to-r from-yellow-500/10 via-yellow-400/25 to-yellow-500/10 bg-[length:200%_100%] animate-shine [--duration:3s]',
+  'неуд': 'text-red-600 bg-gradient-to-r from-red-500/10 via-red-400/25 to-red-500/10 bg-[length:200%_100%] animate-shine [--duration:3s]',
+};
+
 /** Status config for styling */
 const STATUS_CONFIG = {
   passing: {
@@ -112,8 +120,11 @@ export function StatusHero({ attestation, isLoading }: StatusHeroProps) {
               </div>
             </div>
             {attestation!.grade && (
-              <span className="text-sm text-muted-foreground">
-                Оценка: <span className="font-semibold text-foreground">{attestation!.grade}</span>
+              <span className={cn(
+                "text-sm font-semibold px-2 py-1 rounded-md",
+                GRADE_COLORS[attestation!.grade] || "text-foreground"
+              )}>
+                Оценка: {attestation!.grade}
               </span>
             )}
           </div>
