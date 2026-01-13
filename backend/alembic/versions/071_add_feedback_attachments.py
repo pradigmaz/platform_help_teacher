@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 
 revision = "071_feedback_attachments"
-down_revision = "070"
+down_revision = "070_add_expected_lessons_per_week"
 branch_labels = None
 depends_on = None
 
