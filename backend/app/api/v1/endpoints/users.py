@@ -92,10 +92,18 @@ async def update_user_me(
     current_user: models.User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Update current user (full_name, onboarding_completed).
+    Update current user (onboarding_completed only).
+    SECURITY: full_name change is forbidden for students.
     """
+    # Students cannot change their full_name
     if user_in.full_name is not None:
+        if current_user.role == models.UserRole.STUDENT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Students cannot change their name"
+            )
         current_user.full_name = user_in.full_name
+    
     if user_in.onboarding_completed is not None:
         current_user.onboarding_completed = user_in.onboarding_completed
     
