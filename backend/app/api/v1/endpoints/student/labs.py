@@ -179,7 +179,7 @@ async def get_lab_detail(
         select(Submission).where(
             Submission.user_id == current_user.id,
             Submission.lab_id == lab_id,
-        )
+        ).order_by(Submission.created_at.desc()).limit(1)
     )
     sub = sub_result.scalar_one_or_none()
     
@@ -253,7 +253,7 @@ async def mark_lab_ready(
         select(Submission).where(
             Submission.user_id == current_user.id,
             Submission.lab_id == lab_id,
-        )
+        ).order_by(Submission.created_at.desc()).limit(1)
     )
     sub = sub_result.scalar_one_or_none()
     
@@ -308,7 +308,7 @@ async def cancel_lab_ready(
         select(Submission).where(
             Submission.user_id == current_user.id,
             Submission.lab_id == lab_id,
-        )
+        ).order_by(Submission.created_at.desc()).limit(1)
     )
     sub = sub_result.scalar_one_or_none()
     

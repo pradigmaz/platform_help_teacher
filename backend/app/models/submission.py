@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, ForeignKey, Text, Boolean, CheckConstraint, Date, DateTime, Index
+from sqlalchemy import String, Integer, ForeignKey, Text, Boolean, CheckConstraint, Date, DateTime, Index, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
@@ -83,6 +83,8 @@ class Submission(Base, TimestampMixin):
         CheckConstraint('(is_manual IS TRUE) OR (s3_key IS NOT NULL)', name='check_file_required_if_not_manual'),
         # Constraint: Оценка от 0 до 100
         CheckConstraint('(grade IS NULL) OR (grade >= 0 AND grade <= 100)', name='check_grade_range'),
+        # Unique: один студент = одна сдача на лабу
+        UniqueConstraint('user_id', 'lab_id', name='uq_submission_user_lab'),
         # Index для быстрой фильтрации по статусу (очередь)
         Index('idx_submission_status', 'status'),
         # Composite index для запросов очереди
