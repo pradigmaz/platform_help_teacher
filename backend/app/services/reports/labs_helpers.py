@@ -38,11 +38,12 @@ async def get_group_labs_stats(
         settings = await settings_manager.get_settings(AttestationType.FIRST)
         total_labs = settings.labs_count_first if settings else 8
     
+    # Считаем только принятые лабы (ACCEPTED)
     submissions_query = (
         select(Submission.user_id, func.count(Submission.id).label('count'))
         .where(
             Submission.user_id.in_(student_ids),
-            Submission.status.in_([SubmissionStatus.ACCEPTED, SubmissionStatus.READY, SubmissionStatus.IN_REVIEW])
+            Submission.status == SubmissionStatus.ACCEPTED
         )
         .group_by(Submission.user_id)
     )
@@ -76,11 +77,12 @@ async def get_lab_progress(
     labs_result = await db.execute(labs_query)
     labs = list(labs_result.scalars().all())
     
+    # Считаем только принятые лабы (ACCEPTED)
     submissions_query = (
         select(Submission.lab_id, func.count(func.distinct(Submission.user_id)).label('count'))
         .where(
             Submission.user_id.in_(student_ids),
-            Submission.status.in_([SubmissionStatus.ACCEPTED, SubmissionStatus.READY, SubmissionStatus.IN_REVIEW])
+            Submission.status == SubmissionStatus.ACCEPTED
         )
         .group_by(Submission.lab_id)
     )
@@ -117,7 +119,7 @@ async def get_lab_progress(
             select(Submission.lab_id, func.count(func.distinct(Submission.user_id)).label('count'))
             .where(
                 Submission.user_id.in_(subgroup_ids),
-                Submission.status.in_([SubmissionStatus.ACCEPTED, SubmissionStatus.READY, SubmissionStatus.IN_REVIEW])
+                Submission.status == SubmissionStatus.ACCEPTED
             )
             .group_by(Submission.lab_id)
         )
@@ -153,8 +155,8 @@ async def get_student_lab_submissions(
     result = []
     for idx, lab in enumerate(labs, 1):
         submission = submissions.get(lab.id)
-        # Считаем сданной только если статус ACCEPTED, READY или IN_REVIEW
-        is_submitted = submission is not None and submission.status.value in ("ACCEPTED", "READY", "IN_REVIEW")
+        # Считаем сданной только если статус ACCEPTED
+        is_submitted = submission is not None and submission.status == SubmissionStatus.ACCEPTED
         result.append(LabSubmission(
             lab_id=lab.id,
             lab_name=lab.title or f"Лабораторная {idx}",

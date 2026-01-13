@@ -115,7 +115,7 @@ export default function StudentProfilePage() {
     { name: 'Отклонено', value: stats.labs_rejected, color: COLORS.rejected },
     { name: 'Не сдано', value: notSubmitted - stats.labs_overdue, color: COLORS.notSubmitted },
     { name: 'Долги', value: stats.labs_overdue, color: COLORS.overdue },
-  ].filter(d => d.value > 0);
+  ];
 
   return (
     <div className="max-w-6xl mx-auto p-8 space-y-6">
