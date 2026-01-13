@@ -111,3 +111,21 @@ export interface StudentAttestation {
     activity: { raw: number; weighted: number };
   };
 }
+
+export interface StudentActivity {
+  id: string;
+  points: number;
+  description: string;
+  created_at: string;
+}
+
+export interface StudentActivities {
+  attestation_type: string;
+  stats: {
+    total_bonus: number;
+    total_penalty: number;
+    net_total: number;
+    count: number;
+  };
+  activities: StudentActivity[];
+}

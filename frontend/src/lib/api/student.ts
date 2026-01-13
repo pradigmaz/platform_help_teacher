@@ -7,6 +7,7 @@ import type {
   StudentAttestation,
   StudentTeacherContacts,
   RelinkTelegramResponse,
+  StudentActivities,
 } from './types';
 
 export const StudentAPI = {
@@ -57,6 +58,11 @@ export const StudentAPI = {
 
   linkVk: async (): Promise<RelinkTelegramResponse> => {
     const { data } = await api.post<RelinkTelegramResponse>('/users/me/link-vk');
+    return data;
+  },
+
+  getActivities: async (attestationType: 'first' | 'second' = 'first') => {
+    const { data } = await api.get<StudentActivities>(`/student/activities?attestation_type=${attestationType}`);
     return data;
   },
 };

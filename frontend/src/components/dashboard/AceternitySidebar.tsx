@@ -8,6 +8,7 @@ import {
   IconSettings,
   IconLogout,
   IconSchool,
+  IconStar,
 } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,16 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
         <IconCalendar className={cn(
           "h-6 w-6 shrink-0",
           pathname === "/dashboard/attendance" ? "text-primary" : "text-neutral-700 dark:text-neutral-200"
+        )} />
+      ),
+    },
+    {
+      label: "Баллы",
+      href: "/dashboard/activities",
+      icon: (
+        <IconStar className={cn(
+          "h-6 w-6 shrink-0",
+          pathname === "/dashboard/activities" ? "text-primary" : "text-neutral-700 dark:text-neutral-200"
         )} />
       ),
     },
