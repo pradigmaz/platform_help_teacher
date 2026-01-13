@@ -8,8 +8,10 @@ from .constants import (
 from .user_agent import parse_user_agent
 
 
-def extract_webgl_key(fp: Dict[str, Any]) -> Optional[str]:
+def extract_webgl_key(fp: Optional[Dict[str, Any]]) -> Optional[str]:
     """Извлечь ключ WebGL."""
+    if not fp:
+        return None
     webgl = fp.get("webgl")
     if webgl and isinstance(webgl, dict):
         vendor = webgl.get("vendor", "")
@@ -19,8 +21,10 @@ def extract_webgl_key(fp: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def extract_screen_key(fp: Dict[str, Any]) -> Optional[str]:
+def extract_screen_key(fp: Optional[Dict[str, Any]]) -> Optional[str]:
     """Извлечь ключ screen."""
+    if not fp:
+        return None
     screen = fp.get("screen")
     if screen and isinstance(screen, dict):
         w = screen.get("width")
@@ -31,8 +35,10 @@ def extract_screen_key(fp: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def extract_platform_key(fp: Dict[str, Any]) -> Optional[str]:
+def extract_platform_key(fp: Optional[Dict[str, Any]]) -> Optional[str]:
     """Извлечь ключ platform."""
+    if not fp:
+        return None
     platform = fp.get("platform", "")
     cores = fp.get("hardwareConcurrency", 0)
     if platform:
@@ -40,10 +46,13 @@ def extract_platform_key(fp: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def detect_inconsistencies(fp: Dict[str, Any]) -> List[str]:
+def detect_inconsistencies(fp: Optional[Dict[str, Any]]) -> List[str]:
     """
     Детектит нереалистичные комбинации (признак антидетект браузера).
     """
+    if not fp:
+        return []
+    
     issues = []
     
     webgl = fp.get("webgl", {})
@@ -75,12 +84,15 @@ def detect_inconsistencies(fp: Dict[str, Any]) -> List[str]:
 
 
 def calculate_fingerprint_score(
-    fp1: Dict[str, Any],
-    fp2: Dict[str, Any],
+    fp1: Optional[Dict[str, Any]],
+    fp2: Optional[Dict[str, Any]],
     ua1: Optional[str] = None,
     ua2: Optional[str] = None,
 ) -> Tuple[int, List[str]]:
     """Рассчитать score совпадения двух fingerprints."""
+    if not fp1 or not fp2:
+        return 0, []
+    
     score = 0
     matches = []
     
