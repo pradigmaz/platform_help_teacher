@@ -1,5 +1,5 @@
 """Student activities endpoint — история начислений/штрафов."""
-from typing import Any, List
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
@@ -8,13 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.models.activity import Activity
-from app.audit import audit_action, ActionType, EntityType
 
 router = APIRouter()
 
 
 @router.get("/activities")
-@audit_action(ActionType.VIEW, EntityType.ACTIVITY)
 async def get_my_activities(
     request: Request,
     attestation_type: str = "first",
