@@ -3,9 +3,13 @@
  */
 import type { AudioContextInfo } from './types';
 
+interface WindowWithWebkit extends Window {
+  webkitAudioContext?: typeof AudioContext;
+}
+
 export function getAudioFingerprint(): { hash?: string; context?: AudioContextInfo } {
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioCtx = window.AudioContext || (window as WindowWithWebkit).webkitAudioContext;
     if (!AudioCtx) return {};
     
     const ctx = new AudioCtx();

@@ -32,10 +32,22 @@ export async function getStorageInfo(): Promise<StorageInfo | undefined> {
   }
 }
 
+interface BatteryManager {
+  charging: boolean;
+  level: number;
+  chargingTime: number;
+  dischargingTime: number;
+}
+
+interface NavigatorWithBattery extends Navigator {
+  getBattery?: () => Promise<BatteryManager>;
+}
+
 export async function getBatteryInfo(): Promise<BatteryInfo | undefined> {
   try {
-    if (!(navigator as any).getBattery) return undefined;
-    const battery = await (navigator as any).getBattery();
+    const nav = navigator as NavigatorWithBattery;
+    if (!nav.getBattery) return undefined;
+    const battery = await nav.getBattery();
     return {
       charging: battery.charging,
       level: battery.level,

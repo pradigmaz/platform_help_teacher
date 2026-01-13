@@ -3,11 +3,25 @@
  */
 import type { ConnectionInfo } from './types';
 
+interface NetworkInformation {
+  type?: string;
+  effectiveType?: string;
+  downlink?: number;
+  downlinkMax?: number;
+  rtt?: number;
+  saveData?: boolean;
+}
+
+interface NavigatorWithConnection extends Navigator {
+  connection?: NetworkInformation;
+  mozConnection?: NetworkInformation;
+  webkitConnection?: NetworkInformation;
+}
+
 export function getConnectionInfo(): ConnectionInfo | undefined {
   try {
-    const conn = (navigator as any).connection || 
-                 (navigator as any).mozConnection || 
-                 (navigator as any).webkitConnection;
+    const nav = navigator as NavigatorWithConnection;
+    const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
     if (!conn) return undefined;
     return {
       type: conn.type,

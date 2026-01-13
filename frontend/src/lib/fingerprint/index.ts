@@ -15,13 +15,23 @@ import { getMathFingerprint } from './math';
 import { checkStorage, isIndexedDBAvailable } from './storage';
 import { enrichWithAsyncData } from './async-collectors';
 
+interface NavigatorExtended extends Navigator {
+  oscpu?: string;
+  deviceMemory?: number;
+  vendorSub?: string;
+  buildID?: string;
+  pdfViewerEnabled?: boolean;
+  webdriver?: boolean;
+  globalPrivacyControl?: boolean;
+}
+
 let cachedFingerprint: string | null = null;
 
 /**
  * Собирает fingerprint устройства (sync версия).
  */
 export function collectFingerprint(): DeviceFingerprint {
-  const nav = navigator as any;
+  const nav = navigator as NavigatorExtended;
   const audioData = getAudioFingerprint();
   const mediaFeatures = getMediaFeatures();
   
