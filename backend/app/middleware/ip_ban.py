@@ -75,7 +75,10 @@ class IPBanMiddleware(BaseHTTPMiddleware):
             return response
             
         except Exception as e:
-            logger.error(f"IPBanMiddleware error: {e}")
+            # Не блокируем запрос из-за ошибок в rate limit логике
+            # greenlet_spawn ошибки — известный edge case с SQLAlchemy async
+            if "greenlet_spawn" not in str(e):
+                logger.error(f"IPBanMiddleware error: {e}")
             return await call_next(request)
     
     def _get_client_ip(self, request: Request) -> Optional[str]:

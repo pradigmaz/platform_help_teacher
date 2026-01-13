@@ -1,10 +1,30 @@
 from typing import Optional, Literal
 from uuid import UUID
-from pydantic import BaseModel, Field
+import unicodedata
+from pydantic import BaseModel, Field, field_validator
 from app.models import UserRole # Импортируем Enum из моделей
 
 # Teacher contacts types
 ContactVisibility = Literal["student", "report", "both", "none"]
+
+
+def validate_full_name(name: str) -> str:
+    """Валидация ФИО — только буквы, пробелы, дефисы, апострофы."""
+    name = " ".join(name.split())  # Нормализуем пробелы
+    if len(name) < 2:
+        raise ValueError("ФИО должно содержать минимум 2 символа")
+    if len(name) > 200:
+        raise ValueError("ФИО не должно превышать 200 символов")
+    
+    # Проверяем каждый символ
+    for char in name:
+        if char in " -'":
+            continue
+        category = unicodedata.category(char)
+        if category not in ("Lu", "Ll", "Lt", "Lm", "Lo"):  # Letter categories
+            raise ValueError("ФИО может содержать только буквы, пробелы и дефисы")
+    
+    return name
 
 class UserCreate(BaseModel):
     telegram_id: Optional[int] = None
@@ -30,8 +50,15 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 class UserUpdate(BaseModel):
-    full_name: Optional[str] = None
+    full_name: Optional[str] = Field(None, min_length=2, max_length=200)
     onboarding_completed: Optional[bool] = None
+    
+    @field_validator("full_name")
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        return validate_full_name(v)
 
 class StudentInGroup(BaseModel):
     """Студент в контексте группы"""

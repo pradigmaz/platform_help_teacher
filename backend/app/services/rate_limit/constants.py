@@ -24,10 +24,10 @@ class Threshold(NamedTuple):
 
 # Пороги (429 ошибок за COUNT_WINDOW)
 THRESHOLDS = [
-    Threshold(count=10, level=WarningLevel.SOFT_WARNING, ban_duration=0, notify_admin=False),
-    Threshold(count=30, level=WarningLevel.RECORDED_WARNING, ban_duration=0, notify_admin=False),
-    Threshold(count=50, level=WarningLevel.SOFT_BAN, ban_duration=600, notify_admin=True),  # 10 мин
-    Threshold(count=100, level=WarningLevel.HARD_BAN, ban_duration=3600, notify_admin=True),  # 1 час
+    Threshold(count=5, level=WarningLevel.SOFT_WARNING, ban_duration=0, notify_admin=False),
+    Threshold(count=15, level=WarningLevel.RECORDED_WARNING, ban_duration=0, notify_admin=False),
+    Threshold(count=20, level=WarningLevel.SOFT_BAN, ban_duration=600, notify_admin=True),  # 10 мин
+    Threshold(count=40, level=WarningLevel.HARD_BAN, ban_duration=3600, notify_admin=True),  # 1 час
 ]
 
 # Окно подсчёта 429 ошибок
