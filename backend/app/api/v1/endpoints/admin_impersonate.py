@@ -188,7 +188,7 @@ async def impersonate_user(
     }
 
 
-@router.post("/sessions/revoke-all-students")
+@router.post("/impersonate/sessions/revoke-all-students")
 async def revoke_all_student_sessions(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_active_superuser),

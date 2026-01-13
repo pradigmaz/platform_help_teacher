@@ -11,7 +11,7 @@ const IMPERSONATE_TTL_MINUTES = 15;
 
 /**
  * Banner shown when admin is impersonating a student.
- * Checks for admin_original_token cookie presence.
+ * Checks for 'impersonating' cookie presence (set by backend).
  */
 export function ImpersonationBanner() {
   const router = useRouter();
@@ -29,10 +29,10 @@ export function ImpersonationBanner() {
   }, []);
 
   useEffect(() => {
-    const hasAdminToken = document.cookie.includes('admin_original_token');
-    setIsImpersonating(hasAdminToken);
+    const hasImpersonatingFlag = document.cookie.includes('impersonating=true');
+    setIsImpersonating(hasImpersonatingFlag);
     
-    if (!hasAdminToken) {
+    if (!hasImpersonatingFlag) {
       localStorage.removeItem('impersonate_start');
       return;
     }

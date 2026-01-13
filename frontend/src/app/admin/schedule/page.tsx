@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/sonner';
 import { LessonSheet, LectureSheet, type LessonSheetData, type GroupedLecture } from '@/components/schedule';
+import { NotesProvider, useNotesContext } from '@/components/notes';
 import { 
   WeekNavigation, 
   ScheduleGrid, 
@@ -25,7 +26,9 @@ function getInitialWeek(): Date {
   return getDay(today) === 0 ? addWeeks(today, 1) : today;
 }
 
-export default function SchedulePage() {
+// Внутренний компонент с логикой
+function SchedulePageContent() {
+  const { loadNotesBatch } = useNotesContext();
   const [lessons, setLessons] = useState<LessonData[]>([]);
   const [groupedLectures, setGroupedLectures] = useState<GroupedLecture[]>([]);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
@@ -123,13 +126,23 @@ export default function SchedulePage() {
       });
       setGroupedLectures(lectures);
       
+      // Batch-загрузка заметок для всех уроков одним запросом
+      const allLessonIds = [
+        ...nonLectures.map((l: LessonData) => l.id),
+        ...lectures.flatMap((lec: GroupedLecture) => lec.groups?.map(g => g.lesson_id) || [])
+      ].filter(Boolean);
+      
+      if (allLessonIds.length > 0) {
+        loadNotesBatch('lesson', allLessonIds);
+      }
+      
       setLastUpdated(format(new Date(), 'HH:mm'));
     } catch {
       console.error('Ошибка загрузки занятий');
     } finally {
       setIsLoading(false);
     }
-  }, [weekStart, weekEnd]);
+  }, [weekStart, weekEnd, loadNotesBatch]);
 
   const handleLessonClick = (lesson: LessonData) => {
     setSelectedLesson(lesson as LessonSheetData);
@@ -282,5 +295,14 @@ export default function SchedulePage() {
         }}
       />
     </div>
+  );
+}
+
+// Обёртка с NotesProvider для batch-загрузки заметок
+export default function SchedulePage() {
+  return (
+    <NotesProvider>
+      <SchedulePageContent />
+    </NotesProvider>
   );
 }

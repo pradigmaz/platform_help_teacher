@@ -2,12 +2,14 @@
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.db.session import get_db
 from app.crud.crud_note import crud_note
+from app.models.note import Note
 from app.models.user import User
 from app.schemas.note import (
     NoteCreate, 
@@ -30,6 +32,50 @@ async def get_notes(
     """Получить заметки для сущности."""
     notes = await crud_note.get_by_entity(db, entity_type.value, entity_id)
     return NotesListResponse(notes=notes, count=len(notes))
+
+
+@router.post("/batch")
+async def get_notes_batch(
+    entity_type: EntityType = Query(...),
+    entity_ids: List[UUID] = Body(..., embed=True),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """
+    Получить заметки для нескольких сущностей одним запросом.
+    Возвращает dict: {entity_id: [notes]}
+    """
+    if len(entity_ids) > 100:
+        raise HTTPException(status_code=400, detail="Максимум 100 сущностей за раз")
+    
+    result = await db.execute(
+        select(Note)
+        .where(and_(
+            Note.entity_type == entity_type.value,
+            Note.entity_id.in_(entity_ids)
+        ))
+        .order_by(Note.is_pinned.desc(), Note.created_at.desc())
+    )
+    notes = list(result.scalars().all())
+    
+    # Группируем по entity_id
+    grouped: dict[str, list] = {str(eid): [] for eid in entity_ids}
+    for note in notes:
+        eid = str(note.entity_id)
+        if eid in grouped:
+            grouped[eid].append({
+                "id": str(note.id),
+                "entity_type": note.entity_type,
+                "entity_id": str(note.entity_id),
+                "content": note.content,
+                "color": note.color,
+                "is_pinned": note.is_pinned,
+                "author_id": str(note.author_id) if note.author_id else None,
+                "created_at": note.created_at.isoformat(),
+                "updated_at": note.updated_at.isoformat() if note.updated_at else note.created_at.isoformat(),
+            })
+    
+    return grouped
 
 
 @router.post("/", response_model=NoteResponse)

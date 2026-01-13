@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { StickyNote, Plus, Trash2, Pin, PinOff, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNotes, type EntityType, type NoteColor, type Note } from '@/hooks/useNotes';
+import { useNotesContextOptional } from './NotesContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -38,7 +39,39 @@ interface NoteButtonProps {
 }
 
 export function NoteButton({ entityType, entityId, size = 'sm', className }: NoteButtonProps) {
-  const { notes, createNote, updateNote, deleteNote } = useNotes(entityType, entityId);
+  // Пробуем использовать контекст (batch-загрузка), иначе fallback на отдельные запросы
+  const notesContext = useNotesContextOptional();
+  const fallbackHook = useNotes(entityType, notesContext ? '' : entityId); // Отключаем если есть контекст
+  
+  // Выбираем источник данных
+  const notes = useMemo(() => {
+    if (notesContext) {
+      return notesContext.getNotes(entityType, entityId);
+    }
+    return fallbackHook.notes;
+  }, [notesContext, entityType, entityId, fallbackHook.notes]);
+  
+  const createNote = async (content: string, color: NoteColor = 'default', isPinned = false) => {
+    if (notesContext) {
+      return notesContext.createNote(entityType, entityId, content, color, isPinned);
+    }
+    return fallbackHook.createNote(content, color, isPinned);
+  };
+  
+  const updateNote = async (noteId: string, data: { content?: string; color?: NoteColor; is_pinned?: boolean }) => {
+    if (notesContext) {
+      return notesContext.updateNote(noteId, data);
+    }
+    return fallbackHook.updateNote(noteId, data);
+  };
+  
+  const deleteNote = async (noteId: string) => {
+    if (notesContext) {
+      return notesContext.deleteNote(noteId, entityType, entityId);
+    }
+    return fallbackHook.deleteNote(noteId);
+  };
+
   const [isOpen, setIsOpen] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
   const [newNoteColor, setNewNoteColor] = useState<NoteColor>('default');

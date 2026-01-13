@@ -161,3 +161,68 @@ async def upsert_lesson_grade(
     return await create_lesson_grade(
         db, lesson_id, student_id, grade, work_number, comment, created_by
     )
+
+
+async def bulk_upsert_lesson_grades(
+    db: AsyncSession,
+    lesson_id: UUID,
+    grades_data: List[dict],
+    created_by: Optional[UUID] = None
+) -> List[LessonGrade]:
+    """
+    Bulk upsert оценок за занятие.
+    Один запрос на загрузку существующих + один commit.
+    
+    Args:
+        grades_data: [{"student_id": UUID, "grade": int, "work_number": int|None, "comment": str|None}, ...]
+    """
+    if not grades_data:
+        return []
+    
+    # Собираем ключи для поиска существующих
+    student_ids = [g["student_id"] for g in grades_data]
+    
+    # Загружаем все существующие оценки одним запросом
+    existing_query = select(LessonGrade).where(and_(
+        LessonGrade.lesson_id == lesson_id,
+        LessonGrade.student_id.in_(student_ids)
+    ))
+    result = await db.execute(existing_query)
+    existing_grades = list(result.scalars().all())
+    
+    # Индексируем: (student_id, work_number) -> grade
+    existing_map = {}
+    for g in existing_grades:
+        key = (g.student_id, g.work_number)
+        existing_map[key] = g
+    
+    updated = []
+    for data in grades_data:
+        key = (data["student_id"], data.get("work_number"))
+        existing = existing_map.get(key)
+        
+        if existing:
+            existing.grade = data["grade"]
+            if data.get("comment") is not None:
+                existing.comment = data["comment"]
+            updated.append(existing)
+        else:
+            new_grade = LessonGrade(
+                lesson_id=lesson_id,
+                student_id=data["student_id"],
+                grade=data["grade"],
+                work_number=data.get("work_number"),
+                comment=data.get("comment"),
+                created_by=created_by
+            )
+            db.add(new_grade)
+            updated.append(new_grade)
+    
+    await db.commit()
+    
+    # Refresh all
+    for g in updated:
+        await db.refresh(g)
+    
+    logger.info(f"Bulk upserted {len(updated)} grades for lesson {lesson_id}")
+    return updated
