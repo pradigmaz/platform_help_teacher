@@ -5,11 +5,17 @@ import api from './client';
 
 export interface SuspicionMatch {
   has_suspicion: boolean;
+  score?: number;
+  confidence?: 'none' | 'low' | 'probable' | 'high';
+  matched_components?: string[];
   fingerprint_match?: {
     user_id: string;
     user_name: string;
-    match_count: number;
-    match_type: string;
+    score?: number;
+    confidence?: string;
+    matched_components?: string[];
+    match_count?: number;
+    match_type?: string;
   };
   ip_match?: {
     user_id: string;
@@ -17,13 +23,14 @@ export interface SuspicionMatch {
     match_count: number;
     match_type: string;
   };
-  vpn_detected?: {
-    detected: boolean;
-    reason: string;
-    timezone: string;
-    language: string;
-    expected_countries: string[];
+  timing_match?: {
+    user_id: string;
+    user_name: string;
+    time_diff_seconds: number;
+    auth_path: string;
+    match_type: string;
   };
+  inconsistencies?: string[];
 }
 
 export interface AuditLog {

@@ -1,229 +1,24 @@
-"""
-Сервис определения подозрительных анонимных запросов.
-Компонентный fingerprint matching, timing correlation, антидетект detection.
-"""
+"""Основной сервис suspicion detection."""
 import logging
 from typing import Optional, Dict, Any, List, Tuple
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from sqlalchemy import select, and_, func, or_
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import StudentAuditLog
+from app.audit.models import StudentAuditLog
 from app.models.user import User
 
+from .models import SuspicionMatch
+from .constants import SCORE_IP, SCORE_TIMING, TIMING_WINDOW_MINUTES
+from .fingerprint import (
+    extract_webgl_key, extract_screen_key,
+    calculate_fingerprint_score, detect_inconsistencies,
+)
+from .scoring import get_confidence_level
+
 logger = logging.getLogger(__name__)
-
-# Веса для scoring
-SCORE_WEBGL = 40        # WebGL vendor+renderer — очень стабильный
-SCORE_SCREEN = 25       # Screen resolution — стабильный  
-SCORE_PLATFORM = 20     # Platform + cores — стабильный
-SCORE_CANVAS = 15       # Canvas — может меняться
-SCORE_IP = 30           # IP match
-SCORE_UA_BROWSER = 15   # User-Agent browser match
-SCORE_UA_OS = 10        # User-Agent OS match
-SCORE_TIMING = 50       # Timing correlation (очень сильный сигнал)
-
-THRESHOLD_PROBABLE = 50
-THRESHOLD_HIGH = 70
-
-# Timing window для correlation (минуты)
-TIMING_WINDOW_MINUTES = 5
-
-
-class SuspicionMatch:
-    """Результат анализа подозрения."""
-    def __init__(self):
-        self.fingerprint_match: Optional[Dict[str, Any]] = None
-        self.ip_match: Optional[Dict[str, Any]] = None
-        self.timing_match: Optional[Dict[str, Any]] = None
-        self.inconsistencies: List[str] = []
-        self.component_matches: List[str] = []
-        self.total_score: int = 0
-        self.confidence: str = "none"
-        self.has_suspicion: bool = False
-    
-    def to_dict(self) -> Dict[str, Any]:
-        result = {
-            "has_suspicion": self.has_suspicion,
-            "score": self.total_score,
-            "confidence": self.confidence,
-        }
-        if self.fingerprint_match:
-            result["fingerprint_match"] = self.fingerprint_match
-        if self.ip_match:
-            result["ip_match"] = self.ip_match
-        if self.timing_match:
-            result["timing_match"] = self.timing_match
-        if self.inconsistencies:
-            result["inconsistencies"] = self.inconsistencies
-        if self.component_matches:
-            result["matched_components"] = self.component_matches
-        return result
-
-
-def _extract_webgl_key(fp: Dict[str, Any]) -> Optional[str]:
-    """Извлечь ключ WebGL."""
-    webgl = fp.get("webgl")
-    if webgl and isinstance(webgl, dict):
-        vendor = webgl.get("vendor", "")
-        renderer = webgl.get("renderer", "")
-        if vendor and renderer:
-            return f"{vendor}|{renderer}"
-    return None
-
-
-def _extract_screen_key(fp: Dict[str, Any]) -> Optional[str]:
-    """Извлечь ключ screen."""
-    screen = fp.get("screen")
-    if screen and isinstance(screen, dict):
-        w = screen.get("width")
-        h = screen.get("height")
-        depth = screen.get("colorDepth")
-        if w and h:
-            return f"{w}x{h}x{depth or 24}"
-    return None
-
-
-def _extract_platform_key(fp: Dict[str, Any]) -> Optional[str]:
-    """Извлечь ключ platform."""
-    platform = fp.get("platform", "")
-    cores = fp.get("hardwareConcurrency", 0)
-    if platform:
-        return f"{platform}|{cores}"
-    return None
-
-
-def _parse_user_agent(ua: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
-    """Извлечь browser и OS из User-Agent."""
-    if not ua:
-        return None, None
-    
-    ua_lower = ua.lower()
-    
-    browser = None
-    if "edg/" in ua_lower:
-        browser = "edge"
-    elif "chrome/" in ua_lower and "safari/" in ua_lower:
-        browser = "chrome"
-    elif "firefox/" in ua_lower:
-        browser = "firefox"
-    elif "safari/" in ua_lower and "chrome/" not in ua_lower:
-        browser = "safari"
-    elif "opera" in ua_lower or "opr/" in ua_lower:
-        browser = "opera"
-    
-    os_name = None
-    if "windows" in ua_lower:
-        os_name = "windows"
-    elif "mac os" in ua_lower or "macos" in ua_lower:
-        os_name = "macos"
-    elif "android" in ua_lower:
-        os_name = "android"
-    elif "iphone" in ua_lower or "ipad" in ua_lower:
-        os_name = "ios"
-    elif "linux" in ua_lower:
-        os_name = "linux"
-    
-    return browser, os_name
-
-
-def detect_inconsistencies(fp: Dict[str, Any]) -> List[str]:
-    """
-    Детектит нереалистичные комбинации (признак антидетект браузера).
-    """
-    issues = []
-    
-    webgl = fp.get("webgl", {})
-    renderer = webgl.get("renderer", "").lower() if webgl else ""
-    cores = fp.get("hardwareConcurrency", 0)
-    platform = fp.get("platform", "").lower()
-    
-    # Мощный GPU но мало ядер — подозрительно
-    powerful_gpu_keywords = ["rtx", "gtx", "radeon rx", "nvidia", "geforce"]
-    has_powerful_gpu = any(kw in renderer for kw in powerful_gpu_keywords)
-    if has_powerful_gpu and cores and cores < 4:
-        issues.append("powerful_gpu_low_cores")
-    
-    # Mac platform но Windows в renderer
-    if "mac" in platform and "windows" in renderer:
-        issues.append("platform_renderer_mismatch")
-    
-    # Linux platform но DirectX в renderer
-    if "linux" in platform and ("d3d" in renderer or "direct" in renderer):
-        issues.append("linux_directx_mismatch")
-    
-    # Очень старый GPU с новым браузером — может быть спуфинг
-    old_gpu_keywords = ["intel hd 3000", "intel hd 4000", "geforce 8", "geforce 9"]
-    has_old_gpu = any(kw in renderer for kw in old_gpu_keywords)
-    if has_old_gpu and cores and cores >= 8:
-        issues.append("old_gpu_many_cores")
-    
-    return issues
-
-
-def calculate_fingerprint_score(
-    fp1: Dict[str, Any],
-    fp2: Dict[str, Any],
-    ua1: Optional[str] = None,
-    ua2: Optional[str] = None,
-) -> Tuple[int, List[str]]:
-    """Рассчитать score совпадения двух fingerprints."""
-    score = 0
-    matches = []
-    
-    # WebGL
-    webgl1 = _extract_webgl_key(fp1)
-    webgl2 = _extract_webgl_key(fp2)
-    if webgl1 and webgl2 and webgl1 == webgl2:
-        score += SCORE_WEBGL
-        matches.append("webgl")
-    
-    # Screen
-    screen1 = _extract_screen_key(fp1)
-    screen2 = _extract_screen_key(fp2)
-    if screen1 and screen2 and screen1 == screen2:
-        score += SCORE_SCREEN
-        matches.append("screen")
-    
-    # Platform
-    platform1 = _extract_platform_key(fp1)
-    platform2 = _extract_platform_key(fp2)
-    if platform1 and platform2 and platform1 == platform2:
-        score += SCORE_PLATFORM
-        matches.append("platform")
-    
-    # Canvas
-    canvas1 = fp1.get("canvas")
-    canvas2 = fp2.get("canvas")
-    if canvas1 and canvas2 and canvas1 == canvas2:
-        score += SCORE_CANVAS
-        matches.append("canvas")
-    
-    # User-Agent
-    if ua1 and ua2:
-        browser1, os1 = _parse_user_agent(ua1)
-        browser2, os2 = _parse_user_agent(ua2)
-        if browser1 and browser2 and browser1 == browser2:
-            score += SCORE_UA_BROWSER
-            matches.append("browser")
-        if os1 and os2 and os1 == os2:
-            score += SCORE_UA_OS
-            matches.append("os")
-    
-    return score, matches
-
-
-def get_confidence_level(score: int) -> str:
-    if score >= THRESHOLD_HIGH:
-        return "high"
-    elif score >= THRESHOLD_PROBABLE:
-        return "probable"
-    elif score > 0:
-        return "low"
-    return "none"
-
 
 
 async def find_timing_correlation(
@@ -329,8 +124,8 @@ async def find_suspicion_for_anonymous(
     
     # 3. Fingerprint component matching
     if log.fingerprint:
-        webgl_key = _extract_webgl_key(log.fingerprint)
-        screen_key = _extract_screen_key(log.fingerprint)
+        webgl_key = extract_webgl_key(log.fingerprint)
+        screen_key = extract_screen_key(log.fingerprint)
         
         if webgl_key or screen_key:
             fp_query = (
@@ -409,13 +204,12 @@ async def find_suspicion_for_anonymous(
     return result
 
 
+
 async def enrich_logs_with_suspicion(
     db: AsyncSession,
     logs: List[StudentAuditLog],
 ) -> Dict[UUID, SuspicionMatch]:
-    """
-    Batch обогащение логов информацией о подозрениях.
-    """
+    """Batch обогащение логов информацией о подозрениях."""
     results: Dict[UUID, SuspicionMatch] = {}
     
     anonymous_logs = [log for log in logs if log.user_id is None]
