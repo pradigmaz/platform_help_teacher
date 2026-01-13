@@ -221,7 +221,7 @@ export default function LabsPage() {
                         <Link href={`/dashboard/labs/${lab.id}`} className="flex-1">
                           <Button variant="outline" size="sm" className="w-full">Открыть</Button>
                         </Link>
-                        {!lab.submission && (
+                        {(!lab.submission || lab.submission.status === 'NEW') && (
                           <Button size="sm" onClick={() => handleMarkReady(lab.id)} disabled={isLoading}>
                             {isLoading ? '...' : <><IconPlayerPlay className="h-4 w-4 mr-1" />Сдать</>}
                           </Button>

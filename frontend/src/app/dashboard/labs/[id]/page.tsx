@@ -229,7 +229,7 @@ export default function LabDetailPage() {
 
       {/* Action Button */}
       <div className="flex justify-center pt-4">
-        {!lab.submission && (
+        {(!lab.submission || lab.submission.status === 'NEW') && (
           <Button size="lg" onClick={handleMarkReady} disabled={actionLoading}>
             {actionLoading ? '...' : <><IconPlayerPlay className="h-5 w-5 mr-2" />Готов сдать</>}
           </Button>
