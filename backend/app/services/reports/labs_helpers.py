@@ -8,7 +8,7 @@ from collections import defaultdict
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.submission import Submission
+from app.models.submission import Submission, SubmissionStatus
 from app.models.lab import Lab
 from app.models.user import User
 from app.models.attestation_settings import AttestationType
@@ -40,7 +40,10 @@ async def get_group_labs_stats(
     
     submissions_query = (
         select(Submission.user_id, func.count(Submission.id).label('count'))
-        .where(Submission.user_id.in_(student_ids))
+        .where(
+            Submission.user_id.in_(student_ids),
+            Submission.status.in_([SubmissionStatus.ACCEPTED, SubmissionStatus.READY, SubmissionStatus.IN_REVIEW])
+        )
         .group_by(Submission.user_id)
     )
     submissions_result = await db.execute(submissions_query)
@@ -75,7 +78,10 @@ async def get_lab_progress(
     
     submissions_query = (
         select(Submission.lab_id, func.count(func.distinct(Submission.user_id)).label('count'))
-        .where(Submission.user_id.in_(student_ids))
+        .where(
+            Submission.user_id.in_(student_ids),
+            Submission.status.in_([SubmissionStatus.ACCEPTED, SubmissionStatus.READY, SubmissionStatus.IN_REVIEW])
+        )
         .group_by(Submission.lab_id)
     )
     submissions_result = await db.execute(submissions_query)
@@ -109,7 +115,10 @@ async def get_lab_progress(
         
         sub_query = (
             select(Submission.lab_id, func.count(func.distinct(Submission.user_id)).label('count'))
-            .where(Submission.user_id.in_(subgroup_ids))
+            .where(
+                Submission.user_id.in_(subgroup_ids),
+                Submission.status.in_([SubmissionStatus.ACCEPTED, SubmissionStatus.READY, SubmissionStatus.IN_REVIEW])
+            )
             .group_by(Submission.lab_id)
         )
         sub_result = await db.execute(sub_query)
@@ -144,6 +153,8 @@ async def get_student_lab_submissions(
     result = []
     for idx, lab in enumerate(labs, 1):
         submission = submissions.get(lab.id)
+        # Считаем сданной только если статус ACCEPTED, READY или IN_REVIEW
+        is_submitted = submission is not None and submission.status.value in ("ACCEPTED", "READY", "IN_REVIEW")
         result.append(LabSubmission(
             lab_id=lab.id,
             lab_name=lab.title or f"Лабораторная {idx}",
@@ -151,7 +162,7 @@ async def get_student_lab_submissions(
             grade=submission.grade if submission else None,
             max_grade=lab.max_grade or 10,
             submitted_at=submission.submitted_at if submission and hasattr(submission, 'submitted_at') else None,
-            is_submitted=submission is not None,
+            is_submitted=is_submitted,
             is_late=False
         ))
     
