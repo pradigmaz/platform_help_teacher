@@ -23,10 +23,10 @@ def _run_async(coro):
 async def _get_backup_settings():
     """Fetch backup settings from database."""
     from sqlalchemy import select
-    from app.db.session import async_session_maker
+    from app.db.session import AsyncSessionLocal
     from app.models import BackupSettings
     
-    async with async_session_maker() as session:
+    async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(BackupSettings).where(BackupSettings.id == 1)
         )
