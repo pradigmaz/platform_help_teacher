@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Globe, Monitor, User, FileCode, Fingerprint } from "lucide-react";
+import { Clock, Globe, Monitor, User, FileCode, Fingerprint, Cpu, Wifi, Battery, Camera, HardDrive, Bot } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,16 +17,42 @@ interface Props {
   onClose: () => void;
 }
 
+interface FingerprintData {
+  canvas?: string;
+  webgl?: { vendor: string; renderer: string; extensions?: string[] };
+  screen?: { width: number; height: number; colorDepth: number; pixelRatio: number; orientation?: string };
+  timezone?: string;
+  timezoneOffset?: number;
+  language?: string;
+  languages?: string[];
+  platform?: string;
+  hardwareConcurrency?: number;
+  deviceMemory?: number;
+  touchSupport?: boolean;
+  maxTouchPoints?: number;
+  cookieEnabled?: boolean;
+  doNotTrack?: string | null;
+  plugins?: string[];
+  audio?: string;
+  connection?: { type?: string; downlink?: number; rtt?: number; saveData?: boolean };
+  mediaDevices?: { cameras: number; microphones: number; speakers: number };
+  storage?: { quota?: number; usage?: number };
+  pdfViewer?: boolean;
+  webdriver?: boolean;
+  vendor?: string;
+  product?: string;
+  oscpu?: string;
+}
+
 export function AuditDetailDialog({ log, onClose }: Props) {
   if (!log) return null;
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString("ru-RU");
-  };
+  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleString("ru-RU");
+  const fp = log.fingerprint as FingerprintData | undefined;
 
   return (
     <Dialog open={!!log} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileCode className="h-5 w-5" />
@@ -34,7 +60,7 @@ export function AuditDetailDialog({ log, onClose }: Props) {
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh] pr-4">
+        <ScrollArea className="max-h-[75vh] pr-4">
           <div className="space-y-6">
             {/* Основная информация */}
             <div className="grid grid-cols-2 gap-4">
@@ -57,7 +83,7 @@ export function AuditDetailDialog({ log, onClose }: Props) {
             {/* HTTP */}
             <div className="space-y-3">
               <h4 className="font-semibold">HTTP запрос</h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Метод</p>
                   <Badge variant="outline">{log.method}</Badge>
@@ -68,19 +94,17 @@ export function AuditDetailDialog({ log, onClose }: Props) {
                     {log.response_status || "—"}
                   </Badge>
                 </div>
+                {log.duration_ms && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Время</p>
+                    <p>{log.duration_ms} мс</p>
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Путь</p>
-                <code className="text-sm bg-muted px-2 py-1 rounded block mt-1">
-                  {log.path}
-                </code>
+                <code className="text-sm bg-muted px-2 py-1 rounded block mt-1">{log.path}</code>
               </div>
-              {log.duration_ms && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Время выполнения</p>
-                  <p>{log.duration_ms} мс</p>
-                </div>
-              )}
             </div>
 
             <Separator />
@@ -88,7 +112,7 @@ export function AuditDetailDialog({ log, onClose }: Props) {
             {/* Клиент */}
             <div className="space-y-3">
               <h4 className="font-semibold flex items-center gap-2">
-                <Globe className="h-4 w-4" /> Клиент
+                <Globe className="h-4 w-4" /> Сеть
               </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -98,7 +122,7 @@ export function AuditDetailDialog({ log, onClose }: Props) {
                 {log.ip_forwarded && (
                   <div>
                     <p className="text-sm text-muted-foreground">Forwarded</p>
-                    <code className="text-sm text-xs">{log.ip_forwarded}</code>
+                    <code className="text-xs">{log.ip_forwarded}</code>
                   </div>
                 )}
               </div>
@@ -107,24 +131,134 @@ export function AuditDetailDialog({ log, onClose }: Props) {
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
                     <Monitor className="h-4 w-4" /> User-Agent
                   </p>
-                  <code className="text-xs bg-muted px-2 py-1 rounded block mt-1 break-all">
-                    {log.user_agent}
-                  </code>
+                  <code className="text-xs bg-muted px-2 py-1 rounded block mt-1 break-all">{log.user_agent}</code>
                 </div>
               )}
             </div>
 
-            {/* Fingerprint */}
-            {log.fingerprint && Object.keys(log.fingerprint).length > 0 && (
+            {/* Fingerprint - красивое отображение */}
+            {fp && Object.keys(fp).length > 0 && (
               <>
                 <Separator />
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <h4 className="font-semibold flex items-center gap-2">
-                    <Fingerprint className="h-4 w-4" /> Fingerprint
+                    <Fingerprint className="h-4 w-4" /> Устройство
                   </h4>
-                  <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-40">
-                    {JSON.stringify(log.fingerprint, null, 2)}
-                  </pre>
+                  
+                  {/* Экран и GPU */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {fp.screen && (
+                      <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          <Monitor className="h-4 w-4" /> Экран
+                        </p>
+                        <div className="text-xs space-y-1">
+                          <p>Разрешение: {fp.screen.width}×{fp.screen.height}</p>
+                          <p>Глубина цвета: {fp.screen.colorDepth} бит</p>
+                          <p>Pixel ratio: {fp.screen.pixelRatio}</p>
+                          {fp.screen.orientation && <p>Ориентация: {fp.screen.orientation}</p>}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {fp.webgl && (
+                      <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          <Cpu className="h-4 w-4" /> GPU
+                        </p>
+                        <div className="text-xs space-y-1">
+                          <p>Vendor: {fp.webgl.vendor}</p>
+                          <p className="break-all">Renderer: {fp.webgl.renderer}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Система */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <p className="text-sm font-medium">Платформа</p>
+                      <p className="text-xs mt-1">{fp.platform || '—'}</p>
+                      {fp.oscpu && <p className="text-xs text-muted-foreground">{fp.oscpu}</p>}
+                    </div>
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <p className="text-sm font-medium">CPU</p>
+                      <p className="text-xs mt-1">{fp.hardwareConcurrency || '?'} ядер</p>
+                      {fp.deviceMemory && <p className="text-xs text-muted-foreground">{fp.deviceMemory} GB RAM</p>}
+                    </div>
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <p className="text-sm font-medium">Локаль</p>
+                      <p className="text-xs mt-1">{fp.language}</p>
+                      <p className="text-xs text-muted-foreground">{fp.timezone}</p>
+                    </div>
+                  </div>
+
+                  {/* Соединение */}
+                  {fp.connection && (
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <Wifi className="h-4 w-4" /> Соединение
+                      </p>
+                      <div className="text-xs mt-1 flex gap-4">
+                        {fp.connection.type && <span>Тип: {fp.connection.type}</span>}
+                        {fp.connection.downlink && <span>Скорость: {fp.connection.downlink} Mbps</span>}
+                        {fp.connection.rtt && <span>RTT: {fp.connection.rtt} ms</span>}
+                        {fp.connection.saveData && <Badge variant="outline" className="text-xs">Save Data</Badge>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Медиа устройства */}
+                  {fp.mediaDevices && (
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <Camera className="h-4 w-4" /> Медиа устройства
+                      </p>
+                      <div className="text-xs mt-1 flex gap-4">
+                        <span>Камеры: {fp.mediaDevices.cameras}</span>
+                        <span>Микрофоны: {fp.mediaDevices.microphones}</span>
+                        <span>Динамики: {fp.mediaDevices.speakers}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Флаги */}
+                  <div className="flex flex-wrap gap-2">
+                    {fp.touchSupport && <Badge variant="secondary">Touch</Badge>}
+                    {(fp.maxTouchPoints ?? 0) > 0 && <Badge variant="secondary">{fp.maxTouchPoints} touch points</Badge>}
+                    {fp.cookieEnabled && <Badge variant="secondary">Cookies</Badge>}
+                    {fp.pdfViewer && <Badge variant="secondary">PDF Viewer</Badge>}
+                    {fp.webdriver && <Badge variant="destructive" className="flex items-center gap-1"><Bot className="h-3 w-3" />WebDriver</Badge>}
+                    {fp.doNotTrack === "1" && <Badge variant="outline">DNT</Badge>}
+                  </div>
+
+                  {/* Плагины */}
+                  {fp.plugins && fp.plugins.length > 0 && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Плагины</p>
+                      <div className="flex flex-wrap gap-1">
+                        {fp.plugins.map((p, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">{p}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Хеши */}
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    {fp.canvas && (
+                      <div>
+                        <p className="text-muted-foreground">Canvas hash</p>
+                        <code className="text-xs">{fp.canvas}</code>
+                      </div>
+                    )}
+                    {fp.audio && (
+                      <div>
+                        <p className="text-muted-foreground">Audio hash</p>
+                        <code className="text-xs">{fp.audio}</code>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}

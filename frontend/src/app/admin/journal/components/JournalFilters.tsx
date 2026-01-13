@@ -1,5 +1,7 @@
 'use client';
 
+import { Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -15,9 +17,11 @@ interface JournalFiltersProps {
   selectedGroupId: string;
   selectedSubjectId: string;
   selectedLessonType: string;
+  studentSearch: string;
   onGroupChange: (id: string) => void;
   onSubjectChange: (id: string) => void;
   onLessonTypeChange: (type: string) => void;
+  onStudentSearchChange: (query: string) => void;
 }
 
 export function JournalFilters({
@@ -26,9 +30,11 @@ export function JournalFilters({
   selectedGroupId,
   selectedSubjectId,
   selectedLessonType,
+  studentSearch,
   onGroupChange,
   onSubjectChange,
   onLessonTypeChange,
+  onStudentSearchChange,
 }: JournalFiltersProps) {
   return (
     <>
@@ -66,6 +72,16 @@ export function JournalFilters({
           <SelectItem value="practice">Практики</SelectItem>
         </SelectContent>
       </Select>
+
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Поиск студента..."
+          value={studentSearch}
+          onChange={(e) => onStudentSearchChange(e.target.value)}
+          className="pl-8 w-[180px] h-9"
+        />
+      </div>
     </>
   );
 }

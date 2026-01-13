@@ -28,6 +28,7 @@ export default function JournalPage() {
   const searchParams = useSearchParams();
   const lessonIdParam = searchParams.get('lesson_id');
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [studentSearch, setStudentSearch] = useState('');
 
   const {
     groups,
@@ -88,9 +89,11 @@ export default function JournalPage() {
           selectedGroupId={selectedGroupId}
           selectedSubjectId={selectedSubjectId}
           selectedLessonType={selectedLessonType}
+          studentSearch={studentSearch}
           onGroupChange={setSelectedGroupId}
           onSubjectChange={setSelectedSubjectId}
           onLessonTypeChange={setSelectedLessonType}
+          onStudentSearchChange={setStudentSearch}
         />
         
         {/* Semester Selector */}
@@ -160,7 +163,9 @@ export default function JournalPage() {
           <CardContent className="p-0">
             <JournalTable
               lessons={lessons}
-              students={students}
+              students={students.filter(s => 
+                !studentSearch || s.full_name.toLowerCase().includes(studentSearch.toLowerCase())
+              )}
               attendance={attendance}
               grades={grades}
               attestationScores={attestationPeriod !== 'all' ? attestationScores : undefined}
