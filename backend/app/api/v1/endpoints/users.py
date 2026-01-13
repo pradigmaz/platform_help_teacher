@@ -113,7 +113,9 @@ async def update_user_me(
 
 
 @router.post("/me/relink-telegram", response_model=RelinkTelegramResponse)
+@limiter.limit("5/hour")
 async def relink_telegram(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(deps.get_current_user),
 ) -> RelinkTelegramResponse:
@@ -131,7 +133,9 @@ async def relink_telegram(
 
 
 @router.post("/me/link-vk", response_model=RelinkTelegramResponse)
+@limiter.limit("5/hour")
 async def link_vk(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(deps.get_current_user),
 ) -> RelinkTelegramResponse:

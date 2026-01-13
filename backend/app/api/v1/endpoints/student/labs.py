@@ -13,6 +13,7 @@ from app.models.lab import Lab
 from app.models.submission import Submission, SubmissionStatus
 from app.audit import audit_action, audit_user, ActionType, EntityType
 from app.services.lab_visibility import LabVisibilityService
+from app.core.limiter import limiter
 
 router = APIRouter()
 
@@ -216,6 +217,7 @@ async def get_lab_detail(
 
 
 @router.post("/labs/{lab_id}/ready")
+@limiter.limit("10/hour")
 @audit_action(ActionType.SUBMIT, EntityType.SUBMISSION, "lab_id")
 async def mark_lab_ready(
     lab_id: UUID,
@@ -223,7 +225,7 @@ async def mark_lab_ready(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(audit_user),
 ) -> dict[str, Any]:
-    """Отметить лабу как готовую к сдаче."""
+    """Отметить лабу как готовую к сдаче. Rate limit: 10/hour."""
     lab = await db.get(Lab, lab_id)
     if not lab:
         raise HTTPException(status_code=404, detail="Lab not found")
