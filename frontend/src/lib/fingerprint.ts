@@ -14,13 +14,23 @@ interface DeviceFingerprint {
     height: number;
     colorDepth: number;
     pixelRatio: number;
+    availWidth?: number;
+    availHeight?: number;
   };
   timezone: string;
+  timezoneOffset: number;
   language: string;
+  languages: string[];
   platform: string;
   hardwareConcurrency: number;
+  deviceMemory?: number;
   touchSupport: boolean;
+  maxTouchPoints: number;
   cookieEnabled: boolean;
+  doNotTrack: string | null;
+  plugins: string[];
+  fonts?: string[];
+  audio?: string;
 }
 
 let cachedFingerprint: string | null = null;
@@ -74,6 +84,63 @@ function getWebGLInfo(): { vendor: string; renderer: string } | undefined {
 }
 
 /**
+ * Получает audio fingerprint.
+ */
+function getAudioFingerprint(): string | undefined {
+  try {
+    const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext;
+    if (!AudioContext) return undefined;
+    
+    const ctx = new AudioContext();
+    const oscillator = ctx.createOscillator();
+    const analyser = ctx.createAnalyser();
+    const gain = ctx.createGain();
+    const processor = ctx.createScriptProcessor(4096, 1, 1);
+    
+    gain.gain.value = 0;
+    oscillator.type = 'triangle';
+    oscillator.connect(analyser);
+    analyser.connect(processor);
+    processor.connect(gain);
+    gain.connect(ctx.destination);
+    
+    oscillator.start(0);
+    
+    const bins = new Float32Array(analyser.frequencyBinCount);
+    analyser.getFloatFrequencyData(bins);
+    
+    oscillator.stop();
+    ctx.close();
+    
+    // Hash первых 10 значений
+    let hash = 0;
+    for (let i = 0; i < Math.min(10, bins.length); i++) {
+      hash = ((hash << 5) - hash) + Math.floor(bins[i] * 1000);
+      hash = hash & hash;
+    }
+    
+    return Math.abs(hash).toString(36);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Получает список плагинов браузера.
+ */
+function getPlugins(): string[] {
+  try {
+    const plugins: string[] = [];
+    for (let i = 0; i < navigator.plugins.length && i < 10; i++) {
+      plugins.push(navigator.plugins[i].name);
+    }
+    return plugins;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Собирает fingerprint устройства.
  */
 export function collectFingerprint(): DeviceFingerprint {
@@ -85,13 +152,22 @@ export function collectFingerprint(): DeviceFingerprint {
       height: window.screen.height,
       colorDepth: window.screen.colorDepth,
       pixelRatio: window.devicePixelRatio || 1,
+      availWidth: window.screen.availWidth,
+      availHeight: window.screen.availHeight,
     },
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezoneOffset: new Date().getTimezoneOffset(),
     language: navigator.language,
+    languages: [...(navigator.languages || [navigator.language])],
     platform: navigator.platform,
     hardwareConcurrency: navigator.hardwareConcurrency || 0,
+    deviceMemory: (navigator as unknown as { deviceMemory?: number }).deviceMemory,
     touchSupport: 'ontouchstart' in window,
+    maxTouchPoints: navigator.maxTouchPoints || 0,
     cookieEnabled: navigator.cookieEnabled,
+    doNotTrack: navigator.doNotTrack,
+    plugins: getPlugins(),
+    audio: getAudioFingerprint(),
   };
 }
 
