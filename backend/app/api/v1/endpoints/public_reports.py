@@ -23,10 +23,53 @@ from app.schemas.report import (
 )
 from app.services.reports import ReportService
 from app.services.pin_service import report_pin_service, PIN_LOCKOUT_SECONDS
+from app.services.security_monitor import get_security_detector, AttackType
+from app.services.security_monitor.constants import (
+    AttackPattern, REDIS_SECURITY_BAN, BAN_DURATION, MAX_STRIKES
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Honeypot коды — обращение к ним = мгновенный бан
+HONEYPOT_CODES = {
+    "AAAAAAAA", "BBBBBBBB", "CCCCCCCC", "ZZZZZZZZ",
+    "12345678", "87654321", "11111111", "22222222",
+    "ABCD1234", "1234ABCD", "TESTTEST", "TESTCODE",
+    "ADMIN123", "PASSWORD", "QWERTY12", "ASDFGHJK",
+}
+
+
+async def _check_honeypot(code: str, request: Request) -> None:
+    """Проверка honeypot кодов — мгновенный бан при совпадении."""
+    if code.upper() in HONEYPOT_CODES:
+        ip = _get_client_ip(request)
+        logger.warning(f"🍯 REPORT HONEYPOT: {ip} tried code {code}")
+        
+        redis = await get_redis()
+        if redis:
+            import json
+            identifier = f"ip:{ip}"
+            ban_key = REDIS_SECURITY_BAN.format(identifier=identifier)
+            await redis.setex(ban_key, BAN_DURATION, AttackType.HONEYPOT.value)
+            
+            details_key = f"sec:strike_details:{identifier}"
+            detail = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "url": f"/public/report/{code}",
+                "attack_type": AttackType.HONEYPOT.value,
+                "description": "Report honeypot code triggered",
+                "severity": 10,
+            }
+            await redis.rpush(details_key, json.dumps(detail))
+            await redis.expire(details_key, BAN_DURATION)
+        
+        # Возвращаем 404 чтобы не палить что это ловушка
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found"
+        )
 
 
 async def _get_valid_report(
@@ -39,10 +82,15 @@ async def _get_valid_report(
     Получить валидный отчёт по коду.
     
     Проверяет:
+    - Honeypot коды
     - Существование отчёта
     - Активность отчёта
     - Срок действия
     """
+    # Проверка honeypot
+    if request:
+        await _check_honeypot(code, request)
+    
     service = ReportService(db)
     report = await service.get_report_by_code(code, check_active=False, check_expiry=False)
     
