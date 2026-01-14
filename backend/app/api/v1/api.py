@@ -1,8 +1,34 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import users, auth, webhooks, groups, labs, admin_labs, admin_attestation, admin_attendance, admin_stats, admin_activities, admin_works, admin_work_submissions, admin_schedule, admin_journal, student, admin_subjects, admin_schedule_parser, admin_notes, admin_lectures, lectures, admin_reports, public_reports, admin_lab_queue, admin_audit, admin_audit_export, admin_rate_limit, admin_impersonate, feedback, admin_lab_schedule, admin_security
+from app.api.v1.endpoints import users, auth, webhooks, groups, labs, admin_labs, admin_attestation, admin_attendance, admin_stats, admin_activities, admin_works, admin_work_submissions, admin_schedule, admin_journal, student, admin_subjects, admin_schedule_parser, admin_notes, admin_lectures, lectures, admin_reports, public_reports, admin_lab_queue, admin_audit, admin_audit_export, admin_rate_limit, admin_impersonate, feedback, admin_lab_schedule, admin_security, honeypot
 from app.api.v1.endpoints.backup import router as backup_router
 
 api_router = APIRouter()
+
+# === HONEYPOT TRAPS (первыми, чтобы перехватывать до реальных роутов) ===
+# Популярные пути для сканеров
+api_router.include_router(honeypot.router, prefix="/phpMyAdmin", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/phpmyadmin", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/pma", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/mysql", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/wp-admin", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/administrator", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/debug", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/actuator", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/graphql", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/console", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/shell", tags=["honeypot"], include_in_schema=False)
+# Фейковые админские эндпоинты (ловушки)
+api_router.include_router(honeypot.router, prefix="/admin/config", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/admin/database", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/admin/dump", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/admin/sql", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/admin/shell", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/admin/console", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/admin/debug", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/admin/export", tags=["honeypot"], include_in_schema=False)
+api_router.include_router(honeypot.router, prefix="/admin/backup/download", tags=["honeypot"], include_in_schema=False)
+
+# === REAL ENDPOINTS ===
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])

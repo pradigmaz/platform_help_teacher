@@ -213,8 +213,10 @@ async def _handle_personal_invite(db, social_id, username, platform, existing_st
 async def _handle_group_invite(db, redis, social_id, full_name, username, platform, group) -> str:
     """Обработка группового invite_code.
     
-    SECURITY: Не меняем full_name существующего пользователя — 
-    это позволило бы сменить ФИО через изменение имени в Telegram.
+    SECURITY: 
+    1. Не меняем full_name существующего пользователя — 
+       это позволило бы сменить ФИО через изменение имени в Telegram.
+    2. Код одноразовый для каждого social_id — нельзя передать другу.
     """
     await reset_code_attempts(social_id, platform)
     
@@ -232,6 +234,19 @@ async def _handle_group_invite(db, redis, social_id, full_name, username, platfo
             f"from group_id={old_group_id}"
         )
         return f"✅ Вы переведены в группу {group.name}!"
+    
+    # SECURITY: Проверяем, не использовал ли этот social_id уже групповой код
+    used_key = f"group_code_used:{platform}:{social_id}"
+    already_used = await redis.get(used_key)
+    if already_used:
+        logger.warning(
+            f"SECURITY: Repeated group code usage attempt | "
+            f"social_id={social_id} | platform={platform} | group={group.name}"
+        )
+        return "❌ Вы уже использовали код группы ранее.\n\nЕсли нужна помощь — обратитесь к преподавателю."
+    
+    # Помечаем код как использованный для этого social_id (30 дней)
+    await redis.setex(used_key, 86400 * 30, group.invite_code)
     
     fsm_data = json.dumps({
         "state": "waiting_fio",

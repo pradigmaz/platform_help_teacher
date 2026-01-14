@@ -12,6 +12,7 @@ class AttackType(str, Enum):
     PATH_TRAVERSAL = "path_traversal"
     XSS = "xss"
     IDOR = "idor"  # Insecure Direct Object Reference
+    HONEYPOT = "honeypot"  # Обращение к ловушке
     UNKNOWN = "unknown"
 
 
