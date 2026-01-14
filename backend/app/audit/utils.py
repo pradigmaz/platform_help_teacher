@@ -145,11 +145,15 @@ def should_audit(path: str) -> bool:
 def extract_fingerprint(request: Request) -> Optional[Dict[str, Any]]:
     """Извлечь fingerprint из заголовков."""
     fp_header = request.headers.get("X-Device-Fingerprint")
-    if not fp_header:
+    if not fp_header or fp_header == '{}':
         return None
     
     try:
-        return json.loads(fp_header)
+        fp = json.loads(fp_header)
+        # Проверяем что есть хоть какие-то данные
+        if not fp or len(fp) < 2:
+            return None
+        return fp
     except json.JSONDecodeError:
         # Если не JSON — сохраняем как hash
         return {"hash": fp_header}

@@ -33,12 +33,18 @@ let cachedFingerprint: string | null = null;
  */
 export function collectFingerprint(): DeviceFingerprint {
   const nav = navigator as NavigatorWithExtensions;
-  const audioData = getAudioFingerprint();
-  const mediaFeatures = getMediaFeatures();
+  
+  // Безопасно получаем данные с fallback
+  const safeGet = <T>(fn: () => T, fallback: T): T => {
+    try { return fn(); } catch { return fallback; }
+  };
+  
+  const audioData = safeGet(() => getAudioFingerprint(), { hash: undefined, context: undefined });
+  const mediaFeatures = safeGet(() => getMediaFeatures(), {});
   
   return {
     // Screen
-    screen: {
+    screen: safeGet(() => ({
       width: window.screen.width,
       height: window.screen.height,
       availWidth: window.screen.availWidth,
@@ -48,79 +54,79 @@ export function collectFingerprint(): DeviceFingerprint {
       pixelRatio: window.devicePixelRatio || 1,
       orientation: screen.orientation?.type,
       orientationAngle: screen.orientation?.angle,
-    },
+    }), { width: 0, height: 0, colorDepth: 0, pixelDepth: 0, pixelRatio: 1 }),
     
     // GPU
-    webgl: getWebGLInfo(),
-    webgl2Available: isWebGL2Available(),
+    webgl: safeGet(() => getWebGLInfo(), undefined),
+    webgl2Available: safeGet(() => isWebGL2Available(), false),
     
     // Canvas
-    canvas: getCanvasFingerprint(),
-    canvasGeometry: getCanvasGeometry(),
+    canvas: safeGet(() => getCanvasFingerprint(), undefined),
+    canvasGeometry: safeGet(() => getCanvasGeometry(), undefined),
     
     // Audio
     audio: audioData.hash,
     audioContext: audioData.context,
     
     // System
-    platform: navigator.platform,
+    platform: nav.platform || '',
     oscpu: nav.oscpu,
-    hardwareConcurrency: navigator.hardwareConcurrency || 0,
+    hardwareConcurrency: nav.hardwareConcurrency || 0,
     deviceMemory: nav.deviceMemory,
     
     // Browser
-    userAgent: navigator.userAgent,
-    vendor: navigator.vendor,
+    userAgent: nav.userAgent || '',
+    vendor: nav.vendor || '',
     vendorSub: nav.vendorSub || '',
-    product: navigator.product,
-    productSub: navigator.productSub,
+    product: nav.product || '',
+    productSub: nav.productSub || '',
     buildID: nav.buildID,
-    appName: navigator.appName,
-    appVersion: navigator.appVersion,
-    appCodeName: navigator.appCodeName,
+    appName: nav.appName || '',
+    appVersion: nav.appVersion || '',
+    appCodeName: nav.appCodeName || '',
     
     // Locale
-    language: navigator.language,
-    languages: [...(navigator.languages || [navigator.language])],
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    timezoneOffset: new Date().getTimezoneOffset(),
+    language: nav.language || '',
+    languages: safeGet(() => [...(nav.languages || [nav.language])], []),
+    timezone: safeGet(() => Intl.DateTimeFormat().resolvedOptions().timeZone, ''),
+    timezoneOffset: safeGet(() => new Date().getTimezoneOffset(), 0),
     
     // Network
-    connection: getConnectionInfo(),
-    onLine: navigator.onLine,
+    connection: safeGet(() => getConnectionInfo(), undefined),
+    onLine: nav.onLine ?? true,
     
     // Input
-    touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
-    maxTouchPoints: navigator.maxTouchPoints || 0,
+    touchSupport: safeGet(() => 'ontouchstart' in window || nav.maxTouchPoints > 0, false),
+    maxTouchPoints: nav.maxTouchPoints || 0,
     pointerEnabled: !!window.PointerEvent,
     
     // Storage
-    cookieEnabled: navigator.cookieEnabled,
-    localStorageAvailable: checkStorage('localStorage'),
-    sessionStorageAvailable: checkStorage('sessionStorage'),
-    indexedDBAvailable: isIndexedDBAvailable(),
+    cookieEnabled: nav.cookieEnabled ?? false,
+    localStorageAvailable: safeGet(() => checkStorage('localStorage'), false),
+    sessionStorageAvailable: safeGet(() => checkStorage('sessionStorage'), false),
+    indexedDBAvailable: safeGet(() => isIndexedDBAvailable(), false),
     
     // Fonts
-    fonts: detectFonts(),
+    fonts: safeGet(() => detectFonts(), []),
     
     // Plugins
-    plugins: getPlugins(),
-    mimeTypes: getMimeTypes(),
+    plugins: safeGet(() => getPlugins(), []),
+    mimeTypes: safeGet(() => getMimeTypes(), []),
     
     // Flags
-    pdfViewerEnabled: nav.pdfViewerEnabled ?? navigator.plugins.namedItem('PDF Viewer') !== null,
+    pdfViewerEnabled: nav.pdfViewerEnabled ?? safeGet(() => nav.plugins?.namedItem('PDF Viewer') !== null, false),
     webdriver: nav.webdriver ?? false,
-    doNotTrack: navigator.doNotTrack,
+    doNotTrack: nav.doNotTrack,
     globalPrivacyControl: nav.globalPrivacyControl,
     
     // Media features
     ...mediaFeatures,
     
     // Math
-    math: getMathFingerprint(),
+    math: safeGet(() => getMathFingerprint(), undefined),
     
     // Date format
-    dateFormat: new Intl.DateTimeFormat().resolvedOptions().locale,
+    dateFormat: safeGet(() => new Intl.DateTimeFormat().resolvedOptions().locale, ''),
   };
 }
 
@@ -137,10 +143,33 @@ export async function collectFingerprintAsync(): Promise<DeviceFingerprint> {
 export function getFingerprint(): string {
   if (cachedFingerprint) return cachedFingerprint;
   try {
-    cachedFingerprint = JSON.stringify(collectFingerprint());
+    const fp = collectFingerprint();
+    // Проверяем что собрали хоть что-то
+    if (!fp || Object.keys(fp).length === 0) {
+      console.warn('[Fingerprint] Empty fingerprint collected');
+      return '{}';
+    }
+    cachedFingerprint = JSON.stringify(fp);
     return cachedFingerprint;
-  } catch {
-    return '{}';
+  } catch (e) {
+    console.error('[Fingerprint] Collection failed:', e);
+    // Fallback — минимальный fingerprint
+    try {
+      const fallback = {
+        screen: {
+          width: window.screen?.width,
+          height: window.screen?.height,
+          colorDepth: window.screen?.colorDepth,
+        },
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        platform: navigator.platform,
+      };
+      return JSON.stringify(fallback);
+    } catch {
+      return '{}';
+    }
   }
 }
 
