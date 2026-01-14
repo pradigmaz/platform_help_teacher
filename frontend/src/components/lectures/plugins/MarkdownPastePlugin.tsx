@@ -22,6 +22,7 @@ export function MarkdownPastePlugin(): null {
         
         // Check if it looks like markdown
         const hasMarkdown = /^#{1,6}\s|^```|^!\[|^>\s|^[-*]\s|^\d+\.\s|\*\*|__|\*[^*]|_[^_]|^\|.+\|$/m.test(text);
+        console.log('[MarkdownPaste] hasMarkdown:', hasMarkdown, 'text preview:', text.slice(0, 100));
         if (!hasMarkdown) return false;
         
         event.preventDefault();
@@ -47,6 +48,7 @@ export function MarkdownPastePlugin(): null {
             const block = blocks.find(b => b.placeholder === part);
             
             if (block) {
+              console.log('[MarkdownPaste] Found block:', block.type);
               if (block.type === 'code') {
                 const { language, code } = block.data as CodeBlockData;
                 nodesToInsert.push($createCodeBlockNode(code, language as CodeLanguage, 'code'));
@@ -60,14 +62,19 @@ export function MarkdownPastePlugin(): null {
             } else {
               // Parse markdown lines
               const lines = part.split('\n');
+              console.log('[MarkdownPaste] Parsing', lines.length, 'lines, first 3:', lines.slice(0, 3));
               for (const line of lines) {
                 const node = $parseMarkdownLine(line);
-                if (node) nodesToInsert.push(node);
+                if (node) {
+                  console.log('[MarkdownPaste] Created node type:', node.getType(), 'for line:', line.slice(0, 50));
+                  nodesToInsert.push(node);
+                }
               }
             }
           }
           
           // Insert nodes
+          console.log('[MarkdownPaste] Total nodes to insert:', nodesToInsert.length);
           if ($isRangeSelection(selection) && nodesToInsert.length > 0) {
             selection.removeText();
             for (const node of nodesToInsert) {
