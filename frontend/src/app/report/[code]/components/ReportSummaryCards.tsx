@@ -33,11 +33,14 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
   const minPassingPoints = data.min_passing_points ?? 18;
 
   const hasAtRiskStudents = (data.failing_students ?? 0) > 0;
+  
+  // Показывать зачёт/незачёт только для 2-й аттестации и не в начале семестра
+  const showPassFail = data.attestation_type === 'second' && !data.is_early_semester;
 
   return (
     <div className="space-y-4">
-      {/* Risk Banner */}
-      {showGrades && (
+      {/* Risk Banner - только для 2-й аттестации */}
+      {showGrades && showPassFail && (
         <BlurFade delay={0.1} inView>
           <RiskBanner 
             hasRisk={hasAtRiskStudents} 
@@ -49,7 +52,10 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
       )}
 
       {/* Main Stats Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className={cn(
+        "grid gap-4 grid-cols-2",
+        showPassFail ? "lg:grid-cols-4" : "lg:grid-cols-2"
+      )}>
         <BlurFade delay={0.15} inView>
           <StatCard
             icon={<Users className="h-5 w-5" />}
@@ -61,8 +67,8 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
           />
         </BlurFade>
         
-        {/* Зачёт/Незачёт - неактивны в начале семестра */}
-        {showGrades && data.passing_students !== undefined && (
+        {/* Зачёт/Незачёт - только для 2-й аттестации и не в начале семестра */}
+        {showGrades && showPassFail && data.passing_students !== undefined && (
           <BlurFade delay={0.2} inView>
             <StatCard
               icon={<CheckCircle2 className="h-5 w-5" />}
@@ -71,12 +77,11 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
               description={`${passRate}%`}
               color="success"
               borderColor="border-l-green-500"
-              disabled={data.is_early_semester}
             />
           </BlurFade>
         )}
         
-        {showGrades && data.failing_students !== undefined && (
+        {showGrades && showPassFail && data.failing_students !== undefined && (
           <BlurFade delay={0.25} inView>
             <StatCard
               icon={<XCircle className="h-5 w-5" />}
@@ -85,8 +90,7 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
               description={`${100 - passRate}%`}
               color="destructive"
               borderColor="border-l-red-500"
-              highlight={hasAtRiskStudents && !data.is_early_semester}
-              disabled={data.is_early_semester}
+              highlight={hasAtRiskStudents}
             />
           </BlurFade>
         )}
@@ -177,7 +181,7 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
                         grade === 'неуд' && "bg-red-500/10 text-red-600 dark:text-red-400",
                       )}
                     >
-                      <div className="text-lg font-bold">{count}</div>
+                      <div className="text-lg font-bold">{count as number}</div>
                       <div className="text-xs opacity-80">{grade}</div>
                     </div>
                   ))}
@@ -186,6 +190,17 @@ export function ReportSummaryCards({ data }: ReportSummaryCardsProps) {
             )}
           </CardContent>
         </Card>
+        </BlurFade>
+      )}
+
+      {/* Grade Scale Card - шкала оценок */}
+      {showGrades && data.grade_scale && (
+        <BlurFade delay={0.4} inView>
+          <GradeScaleCard 
+            gradeScale={data.grade_scale} 
+            attestationType={data.attestation_type}
+            maxPoints={maxPoints}
+          />
         </BlurFade>
       )}
     </div>
@@ -240,6 +255,69 @@ function RiskBanner({ hasRisk, failingCount, totalCount, isEarlySemester }: Risk
   );
 }
 
+interface GradeScaleCardProps {
+  gradeScale: Record<string, number[]>;
+  attestationType: string;
+  maxPoints: number;
+}
+
+function GradeScaleCard({ gradeScale, attestationType, maxPoints }: GradeScaleCardProps) {
+  // Порядок оценок для отображения
+  const gradeOrder = ['неуд', 'уд', 'хор', 'отл'];
+  const gradeLabels: Record<string, string> = {
+    'неуд': '2',
+    'уд': '3',
+    'хор': '4',
+    'отл': '5'
+  };
+  const gradeColors: Record<string, string> = {
+    'неуд': 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+    'уд': 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
+    'хор': 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    'отл': 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="p-1.5 rounded-lg bg-purple-500/10">
+            <TrendingUp className="h-4 w-4 text-purple-500" />
+          </div>
+          <div>
+            <p className="text-sm font-medium">Шкала оценок</p>
+            <p className="text-xs text-muted-foreground">
+              {attestationType === 'first' ? '1-я аттестация' : '2-я аттестация'} • макс. {maxPoints} баллов
+            </p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {gradeOrder.map((grade) => {
+            const range = gradeScale[grade];
+            if (!range) return null;
+            
+            return (
+              <div 
+                key={grade}
+                className={cn(
+                  "p-3 rounded-lg border text-center",
+                  gradeColors[grade]
+                )}
+              >
+                <div className="text-2xl font-bold">{gradeLabels[grade]}</div>
+                <div className="text-xs opacity-80 mt-1">
+                  {range[0]}–{range[1]} б.
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 interface StatCardProps {
   icon: React.ReactNode;
   label: string;
@@ -249,10 +327,9 @@ interface StatCardProps {
   borderColor: string;
   highlight?: boolean;
   isDecimal?: boolean;
-  disabled?: boolean;
 }
 
-function StatCard({ icon, label, value, description, color, borderColor, highlight, isDecimal, disabled }: StatCardProps) {
+function StatCard({ icon, label, value, description, color, borderColor, highlight, isDecimal }: StatCardProps) {
   const colorClasses = {
     default: 'text-foreground bg-muted',
     success: 'text-green-500 bg-green-500/10',
@@ -264,8 +341,7 @@ function StatCard({ icon, label, value, description, color, borderColor, highlig
     <Card className={cn(
       "relative overflow-hidden transition-all border-l-4",
       borderColor,
-      highlight && "ring-2 ring-red-500/30 bg-red-500/5",
-      disabled && "opacity-50 grayscale cursor-not-allowed"
+      highlight && "ring-2 ring-red-500/30 bg-red-500/5"
     )}>
       <CardContent className="p-4">
         <div className={cn("p-2 rounded-lg w-fit mb-2", colorClasses[color])}>
@@ -281,7 +357,7 @@ function StatCard({ icon, label, value, description, color, borderColor, highlig
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className="text-xs text-muted-foreground/70 mt-1">{description}</p>
       </CardContent>
-      {highlight && !disabled && (
+      {highlight && (
         <BorderBeam 
           size={80} 
           duration={4} 

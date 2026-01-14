@@ -92,6 +92,8 @@ export interface StudentLabDetail {
   deadline_4_status?: 'active' | 'expired' | null;
   lessons_until_deadline_5?: number | null;
   lessons_until_deadline_4?: number | null;
+  // Можно ли сейчас сдать (идёт ли пара)
+  can_submit_now?: boolean;
 }
 
 export interface StudentAttestation {

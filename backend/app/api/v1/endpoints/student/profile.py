@@ -35,8 +35,9 @@ async def get_my_profile(
         "id": str(current_user.id),
         "full_name": current_user.full_name,
         "username": current_user.username,
-        "telegram_id": current_user.telegram_id,
-        "vk_id": current_user.vk_id,
+        # SECURITY: telegram_id и vk_id убраны из ответа
+        "has_telegram": current_user.telegram_id is not None,
+        "has_vk": current_user.vk_id is not None,
         "role": current_user.role.value,
         "group": group_info,
     }

@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { ScoreBreakdown } from './components/ScoreBreakdown';
 import { ComparisonChart } from './components/ComparisonChart';
-import { AttendanceHistory } from './components/AttendanceHistory';
+import { AttendanceHeatmap } from './components/AttendanceHeatmap';
 import { LabSubmissions } from './components/LabSubmissions';
 import { Recommendations } from './components/Recommendations';
 
@@ -121,10 +121,10 @@ export default function StudentDetailPage({ params }: PageProps) {
         </BlurFade>
       )}
 
-      {/* Attendance History */}
+      {/* Attendance Heatmap */}
       {data.attendance_history && data.attendance_history.length > 0 && (
         <BlurFade delay={0.3} inView>
-          <AttendanceHistory 
+          <AttendanceHeatmap 
             history={data.attendance_history}
             stats={{
               present: data.present_count || 0,
@@ -145,6 +145,7 @@ export default function StudentDetailPage({ params }: PageProps) {
             submissions={data.lab_submissions}
             completed={data.labs_completed || 0}
             total={data.labs_total || 0}
+            isEarlySemester={data.is_early_semester}
           />
         </BlurFade>
       )}

@@ -109,9 +109,8 @@ export interface PublicReportData {
   group_code: string;
   group_name?: string;
   subject_name?: string;
-  teacher_name: string;
   report_type: ReportType;
-  generated_at: string;
+  semester_start_date?: string;
   show_names: boolean;
   show_grades: boolean;
   show_attendance: boolean;
@@ -124,6 +123,7 @@ export interface PublicReportData {
   average_score?: number;
   max_points?: number;
   min_passing_points?: number;
+  grade_scale?: Record<string, number[]>;
   attestation_type?: 'first' | 'second';
   is_second_available?: boolean;
   has_subgroups?: boolean;

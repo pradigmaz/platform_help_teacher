@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Users, Key, BarChart3, Plus, Sparkles, Upload, ClipboardPaste, FileText, Users2 } from 'lucide-react';
+import { ArrowLeft, Users, Key, BarChart3, Plus, Sparkles, ClipboardPaste, FileText, Users2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { GroupsAPI, GroupDetailResponse } from '@/lib/api';
@@ -55,7 +55,6 @@ export default function GroupDetailPage() {
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Subgroup State
   const [subgroupModal, setSubgroupModal] = useState<{ open: boolean; subgroup: number | null }>({ open: false, subgroup: null });
@@ -129,6 +128,16 @@ export default function GroupDetailPage() {
     }
   };
 
+  const handleDeleteStudentsBulk = async (ids: string[]) => {
+    try {
+      const result = await GroupsAPI.removeStudentsBulk(groupId, ids);
+      toast.success(`Удалено студентов: ${result.deleted}`);
+      await loadGroup();
+    } catch {
+      toast.error('Ошибка при удалении');
+    }
+  };
+
   const handleAddStudent = async () => {
     if (!newStudentName.trim()) {
       toast.error('Введите ФИО студента');
@@ -148,31 +157,16 @@ export default function GroupDetailPage() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsImporting(true);
-    try {
-      const parsedData = await GroupsAPI.parseFile(file);
-      for (const student of parsedData) {
-        await GroupsAPI.addStudent(groupId, { full_name: student.full_name });
-      }
-      toast.success(`Добавлено студентов: ${parsedData.length}`);
-      await loadGroup();
-    } catch {
-      toast.error('Ошибка при импорте файла');
-    } finally {
-      setIsImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
   const parseNames = (text: string): string[] => {
-    const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+    // Убираем пустые строки и trim каждую строку
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     const names: string[] = [];
     for (const line of lines) {
+      // Убираем нумерацию в начале (1. или 1) или 1 )
       const cleaned = line.replace(/^\d+[\.\)\s]+/, '').trim();
+      // Оставляем только буквы, пробелы и дефисы
       const name = cleaned.replace(/[^\p{L}\s-]/gu, ' ').replace(/\s+/g, ' ').trim();
+      // Имя должно содержать минимум 2 слова (Фамилия Имя)
       if (name && name.split(' ').length >= 2) {
         names.push(name);
       }
@@ -188,10 +182,8 @@ export default function GroupDetailPage() {
     }
     setIsImporting(true);
     try {
-      for (const name of names) {
-        await GroupsAPI.addStudent(groupId, { full_name: name });
-      }
-      toast.success(`Добавлено студентов: ${names.length}`);
+      const result = await GroupsAPI.addStudentsBulk(groupId, names);
+      toast.success(`Добавлено студентов: ${result.added}`);
       setPasteText('');
       setShowPasteModal(false);
       await loadGroup();
@@ -271,10 +263,6 @@ export default function GroupDetailPage() {
         </div>
         
         <div className="flex gap-2">
-          <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx,.xls,.docx,.txt,.csv" onChange={handleFileUpload} />
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
-            <Upload className="w-4 h-4 mr-2" /> {isImporting ? 'Импорт...' : 'Импорт'}
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowPasteModal(true)}>
             <ClipboardPaste className="w-4 h-4 mr-2" /> Вставить
           </Button>
@@ -332,6 +320,7 @@ export default function GroupDetailPage() {
               students={group.students}
               searchQuery={searchQuery}
               onDeleteStudent={(id, name) => setStudentToDelete({ id, name })}
+              onDeleteStudentsBulk={handleDeleteStudentsBulk}
             />
           )}
           {activeTab === 'subgroups' && group.has_subgroups && (

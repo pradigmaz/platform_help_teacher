@@ -17,9 +17,10 @@ interface LabSubmissionsProps {
   submissions: LabSubmissionPublic[];
   completed: number;
   total: number;
+  isEarlySemester?: boolean;
 }
 
-export function LabSubmissions({ submissions, completed, total }: LabSubmissionsProps) {
+export function LabSubmissions({ submissions, completed, total, isEarlySemester }: LabSubmissionsProps) {
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
   
   // Sort by lab number
@@ -56,7 +57,7 @@ export function LabSubmissions({ submissions, completed, total }: LabSubmissions
       <CardContent>
         <div className="space-y-3">
           {sortedSubmissions.map((lab) => (
-            <LabRow key={lab.lab_id} lab={lab} />
+            <LabRow key={lab.lab_id} lab={lab} isEarlySemester={isEarlySemester} />
           ))}
         </div>
       </CardContent>
@@ -64,13 +65,23 @@ export function LabSubmissions({ submissions, completed, total }: LabSubmissions
   );
 }
 
-function LabRow({ lab }: { lab: LabSubmissionPublic }) {
+function LabRow({ lab, isEarlySemester }: { lab: LabSubmissionPublic; isEarlySemester?: boolean }) {
   const isSubmitted = lab.is_submitted;
   const isLate = lab.is_late;
   const hasGrade = lab.grade !== undefined && lab.grade !== null;
   
   const getStatusConfig = () => {
     if (!isSubmitted) {
+      // В начале семестра "Не сдано" показываем нейтрально
+      if (isEarlySemester) {
+        return {
+          icon: Clock,
+          color: 'text-slate-500',
+          bgColor: 'bg-slate-500/10',
+          label: 'Ожидается',
+          badgeClass: 'bg-slate-500/10 text-slate-600 border-slate-200',
+        };
+      }
       return {
         icon: XCircle,
         color: 'text-red-500',
@@ -105,7 +116,7 @@ function LabRow({ lab }: { lab: LabSubmissionPublic }) {
   return (
     <div className={cn(
       "flex items-center gap-3 p-3 rounded-lg transition-colors",
-      isSubmitted ? "bg-muted/50 hover:bg-muted" : "bg-red-500/5 hover:bg-red-500/10"
+      isSubmitted ? "bg-muted/50 hover:bg-muted" : (isEarlySemester ? "bg-slate-500/5 hover:bg-slate-500/10" : "bg-red-500/5 hover:bg-red-500/10")
     )}>
       {/* Status Icon */}
       <div className={cn("p-2 rounded-lg flex-shrink-0", config.bgColor)}>

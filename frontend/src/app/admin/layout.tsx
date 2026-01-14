@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { AdminSidebar, MobileSidebarTrigger } from "@/components/admin/AdminSidebar";
 import { OnboardingDialog } from "@/components/admin/OnboardingDialog";
 import { DotPattern } from "@/components/ui/dot-pattern";
 import { BlurFade } from "@/components/ui/blur-fade";
@@ -121,12 +121,16 @@ export default function AdminLayout({
       />
       <AdminSidebar />
       <div className="flex-1 flex flex-col relative z-10 transition-all duration-300 min-h-screen">
-        <header className="h-16 border-b border-border flex items-center justify-end px-8 gap-4 bg-background/40 backdrop-blur-xl sticky top-0 z-30">
+        <header className="h-14 lg:h-16 border-b border-border flex items-center justify-between px-4 lg:px-8 gap-4 bg-background/40 backdrop-blur-xl sticky top-0 z-30">
+          <div className="lg:hidden">
+            <AdminSidebar />
+          </div>
+          <div className="flex-1" />
           <AnimatedThemeToggler />
         </header>
         <main className="flex-1 transition-all duration-300 overflow-y-auto">
           <BlurFade delay={0.1} duration={0.5}>
-            <div className="container mx-auto p-6 lg:p-8">
+            <div className="container mx-auto p-4 lg:p-8">
               <ApiErrorBoundary>
                 {children}
               </ApiErrorBoundary>

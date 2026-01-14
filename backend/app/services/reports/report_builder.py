@@ -1,12 +1,12 @@
 """
 Построение отчётов группы.
 """
-from datetime import datetime, timezone
 from typing import Optional
 
 from app.models.group_report import GroupReport, ReportType
 from app.models.group import Group
 from app.models.user import User
+from app.models.attestation_settings import AttestationType, AttestationSettings
 from app.schemas.report import PublicReportData
 
 from .base_helpers import get_filtered_teacher_contacts
@@ -22,13 +22,15 @@ def build_empty_report(
     is_second_available: bool = False
 ) -> PublicReportData:
     """Построить пустой отчёт."""
+    att_type = AttestationType.SECOND if attestation_type == "second" else AttestationType.FIRST
+    grade_scale = AttestationSettings.get_grade_scale(att_type)
+    grade_scale_json = {k: list(v) for k, v in grade_scale.items()}
+    
     return PublicReportData(
         group_code=group.code if group else "",
         group_name=group.name if group else None,
         subject_name=None,
-        teacher_name=teacher.full_name if teacher else "Unknown",
         report_type=ReportType(report.report_type),
-        generated_at=datetime.now(timezone.utc),
         teacher_contacts=get_filtered_teacher_contacts(teacher, "report") if teacher else None,
         show_names=report.show_names,
         show_grades=report.show_grades,
@@ -41,6 +43,7 @@ def build_empty_report(
         average_score=None,
         max_points=max_points,
         min_passing_points=min_passing_points,
+        grade_scale=grade_scale_json if report.show_grades else None,
         attestation_type=attestation_type,
         is_second_available=is_second_available,
         has_subgroups=False,

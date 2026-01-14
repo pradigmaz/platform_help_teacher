@@ -222,24 +222,15 @@ export function AdminSidebar() {
 
   return (
     <>
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="backdrop-blur-xl bg-background/40 border-border text-foreground relative">
-              <Menu className="h-5 w-5" />
-              {feedbackCount > 0 && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-destructive rounded-full" />}
-              <span className="sr-only">Открыть меню</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-72 p-0 backdrop-blur-xl bg-background/60 border-r border-border">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Навигация администратора</SheetTitle>
-            </SheetHeader>
-            <NavContent pathname={pathname} onClose={() => setIsOpen(false)} feedbackCount={feedbackCount} />
-          </SheetContent>
-        </Sheet>
-      </div>
+      {/* Mobile: кнопка в хедере (рендерится через портал в layout) */}
+      <MobileSidebarTrigger 
+        isOpen={isOpen} 
+        setIsOpen={setIsOpen} 
+        feedbackCount={feedbackCount}
+        pathname={pathname}
+      />
 
+      {/* Desktop: боковая панель */}
       <aside className={cn(
         "hidden lg:flex h-screen flex-col sticky left-0 top-0 z-40 border-r border-border backdrop-blur-xl bg-background/40 transition-all duration-300",
         isCollapsed ? "w-16" : "w-72"
@@ -257,3 +248,34 @@ export function AdminSidebar() {
     </>
   );
 }
+
+interface MobileSidebarTriggerProps {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  feedbackCount: number;
+  pathname: string;
+}
+
+function MobileSidebarTrigger({ isOpen, setIsOpen, feedbackCount, pathname }: MobileSidebarTriggerProps) {
+  return (
+    <div className="lg:hidden">
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="relative">
+            <Menu className="h-5 w-5" />
+            {feedbackCount > 0 && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-destructive rounded-full" />}
+            <span className="sr-only">Открыть меню</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-72 p-0 backdrop-blur-xl bg-background/95 border-r border-border">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Навигация администратора</SheetTitle>
+          </SheetHeader>
+          <NavContent pathname={pathname} onClose={() => setIsOpen(false)} feedbackCount={feedbackCount} />
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+export { MobileSidebarTrigger };

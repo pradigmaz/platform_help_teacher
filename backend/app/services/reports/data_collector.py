@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.group_report import GroupReport, ReportType
-from app.models.attestation_settings import AttestationType
+from app.models.attestation_settings import AttestationType, AttestationSettings
 from app.services.attestation.service import AttestationService
 from app.schemas.report import PublicReportData, StudentDetailData
 
@@ -55,6 +55,11 @@ class ReportDataCollector:
         
         is_early, max_points, min_passing, is_second_available = await get_semester_info(self.db, att_type)
         semester_start = await get_semester_start_date(self.db)
+        
+        # Получаем шкалу оценок
+        grade_scale = AttestationSettings.get_grade_scale(att_type)
+        # Преобразуем tuple в list для JSON сериализации
+        grade_scale_json = {k: list(v) for k, v in grade_scale.items()}
         
         # Получаем subject_id преподавателя для этой группы
         subject_id = await self._get_teacher_subject_id(report.created_by, report.group_id)
@@ -111,9 +116,7 @@ class ReportDataCollector:
             group_code=group.code if group else "",
             group_name=group.name if group else None,
             subject_name=None,
-            teacher_name=teacher.full_name if teacher else "Unknown",
             report_type=ReportType(report.report_type),
-            generated_at=datetime.now(timezone.utc),
             semester_start_date=semester_start,
             teacher_contacts=get_filtered_teacher_contacts(teacher, "report") if teacher else None,
             show_names=report.show_names,
@@ -128,6 +131,7 @@ class ReportDataCollector:
             average_score=round(total_score_sum / len(students), 2) if students and report.show_grades else None,
             max_points=max_points,
             min_passing_points=min_passing,
+            grade_scale=grade_scale_json if report.show_grades else None,
             attestation_type=attestation_type,
             is_second_available=is_second_available,
             has_subgroups=has_subgroups,

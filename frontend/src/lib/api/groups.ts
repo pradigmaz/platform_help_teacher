@@ -34,8 +34,24 @@ export const GroupsAPI = {
     await api.delete(`/groups/${groupId}/students/${studentId}`);
   },
 
+  removeStudentsBulk: async (groupId: string, studentIds: string[]) => {
+    const { data } = await api.post<{ deleted: number }>(
+      `/groups/${groupId}/students/bulk-delete`,
+      { student_ids: studentIds }
+    );
+    return data;
+  },
+
   addStudent: async (groupId: string, student: { full_name: string; username?: string }) => {
     const { data } = await api.post(`/groups/${groupId}/students`, student);
+    return data;
+  },
+
+  addStudentsBulk: async (groupId: string, names: string[]) => {
+    const { data } = await api.post<{ added: number; students: any[] }>(
+      `/groups/${groupId}/students/bulk`,
+      { names }
+    );
     return data;
   },
 

@@ -147,9 +147,7 @@ class PublicReportData(BaseModel):
     group_code: str
     group_name: Optional[str] = None
     subject_name: Optional[str] = None
-    teacher_name: str
     report_type: ReportType
-    generated_at: datetime
     semester_start_date: Optional[date] = Field(None, description="Дата начала семестра")
     
     # Контакты преподавателя (отфильтрованные по visibility: report или both)
@@ -172,6 +170,12 @@ class PublicReportData(BaseModel):
     average_score: Optional[float] = None
     max_points: int = Field(35, description="Максимум баллов за аттестацию")
     min_passing_points: int = Field(20, description="Минимум для зачёта")
+    
+    # Шкала оценок (диапазоны баллов)
+    grade_scale: Optional[Dict[str, List[float]]] = Field(
+        None, 
+        description="Шкала оценок: {'неуд': [0, 19.99], 'уд': [20, 25], ...}"
+    )
     
     # Тип аттестации
     attestation_type: str = Field("first", description="first или second")

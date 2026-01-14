@@ -228,11 +228,16 @@ export default function LabDetailPage() {
       )}
 
       {/* Action Button */}
-      <div className="flex justify-center pt-4">
+      <div className="flex flex-col items-center gap-2 pt-4">
         {(!lab.submission || lab.submission.status === 'NEW') && (
-          <Button size="lg" onClick={handleMarkReady} disabled={actionLoading}>
-            {actionLoading ? '...' : <><IconPlayerPlay className="h-5 w-5 mr-2" />Готов сдать</>}
-          </Button>
+          <>
+            <Button size="lg" onClick={handleMarkReady} disabled={actionLoading || !lab.can_submit_now}>
+              {actionLoading ? '...' : <><IconPlayerPlay className="h-5 w-5 mr-2" />Готов сдать</>}
+            </Button>
+            {!lab.can_submit_now && (
+              <p className="text-sm text-muted-foreground">Сдача доступна только во время пары</p>
+            )}
+          </>
         )}
         {lab.submission?.status === 'READY' && (
           <Button size="lg" variant="destructive" onClick={handleCancelReady} disabled={actionLoading}>
@@ -240,9 +245,14 @@ export default function LabDetailPage() {
           </Button>
         )}
         {lab.submission?.status === 'REJECTED' && (
-          <Button size="lg" onClick={handleMarkReady} disabled={actionLoading}>
-            {actionLoading ? '...' : <><IconPlayerPlay className="h-5 w-5 mr-2" />Исправил, сдать снова</>}
-          </Button>
+          <>
+            <Button size="lg" onClick={handleMarkReady} disabled={actionLoading || !lab.can_submit_now}>
+              {actionLoading ? '...' : <><IconPlayerPlay className="h-5 w-5 mr-2" />Исправил, сдать снова</>}
+            </Button>
+            {!lab.can_submit_now && (
+              <p className="text-sm text-muted-foreground">Сдача доступна только во время пары</p>
+            )}
+          </>
         )}
       </div>
     </div>

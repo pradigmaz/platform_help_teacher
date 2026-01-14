@@ -4,8 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Users, 
   BookOpen, 
-  GraduationCap,
-  Calendar,
   MessageCircle,
 } from 'lucide-react';
 import { PublicReportData, ReportType } from '@/lib/api';
@@ -22,14 +20,6 @@ const reportTypeLabels: Record<ReportType, string> = {
 };
 
 export function ReportHeader({ data }: ReportHeaderProps) {
-  const generatedDate = new Date(data.generated_at).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
   const contacts = data.teacher_contacts;
   const hasContacts = contacts && Object.values(contacts).some(v => v);
 
@@ -57,16 +47,8 @@ export function ReportHeader({ data }: ReportHeaderProps) {
           </div>
         )}
         <div className="flex items-center gap-2">
-          <GraduationCap className="h-4 w-4" />
-          <span>{data.teacher_name}</span>
-        </div>
-        <div className="flex items-center gap-2">
           <Users className="h-4 w-4" />
           <span>{data.total_students} студентов</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4" />
-          <span>Сформирован: {generatedDate}</span>
         </div>
       </div>
 

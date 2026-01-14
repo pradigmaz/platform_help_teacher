@@ -85,17 +85,23 @@ class AttendanceScoreCalculator:
                 absent_count * settings.absent_coef
             )
             score = effective_attendance * points_per_lesson
-            # Ratio для отображения (от ожидаемых занятий)
+            # Ratio — реальный процент посещаемости с учётом коэффициентов
+            # Максимум = количество отмеченных занятий (если бы все были PRESENT)
             counted = present_count + late_count + absent_count
-            ratio = counted / expected_lessons if expected_lessons > 0 else 0.0
+            if counted > 0:
+                ratio = effective_attendance / counted
+            else:
+                ratio = 0.0
         
         # Cap: минимум 0, максимум max_score
         score = max(0, min(score, max_score))
+        # Ratio: ограничиваем 0-1, может быть отрицательным при absent_coef < 0
+        ratio = max(0, min(ratio, 1.0))
         
         return AttendanceScoreResult(
             score=round(score, 2),
             max_score=max_score,
-            ratio=round(min(ratio, 1.0), 4),
+            ratio=round(ratio, 4),
             total_classes=total_classes,
             expected_lessons=expected_lessons,
             present_count=present_count,

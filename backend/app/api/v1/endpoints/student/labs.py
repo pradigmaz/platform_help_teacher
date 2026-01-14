@@ -213,6 +213,16 @@ async def get_lab_detail(
             "lessons_until_deadline_4": visibility_info.lessons_until_deadline_4,
         })
     
+    # Проверяем можно ли сейчас сдать (идёт ли пара)
+    can_submit_now = False
+    if current_user.group_id:
+        can_submit_now = await visibility_service.is_lab_session_now(
+            group_id=current_user.group_id,
+            subgroup=current_user.subgroup,
+            subject_id=lab.subject_id
+        )
+    response["can_submit_now"] = can_submit_now
+    
     return response
 
 
@@ -244,6 +254,15 @@ async def mark_lab_ready(
         
         if not visibility_info.is_visible:
             raise HTTPException(status_code=403, detail="Lab not available yet by schedule")
+        
+        # Проверяем идёт ли сейчас пара
+        is_session_now = await visibility_service.is_lab_session_now(
+            group_id=current_user.group_id,
+            subgroup=current_user.subgroup,
+            subject_id=lab.subject_id
+        )
+        if not is_session_now:
+            raise HTTPException(status_code=403, detail="Сдача доступна только во время пары")
     
     is_available = await _check_lab_availability(db, current_user.id, lab)
     if not is_available:

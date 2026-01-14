@@ -22,12 +22,35 @@ interface ScoreBreakdownProps {
 }
 
 export function ScoreBreakdown({ data }: ScoreBreakdownProps) {
-  const maxPoints = data.max_points || 40;
-  const minPassing = data.min_passing_points || 18;
+  const maxPoints = data.max_points || 35;
+  const minPassing = data.min_passing_points || 20;
   const totalScore = data.total_score || 0;
   const isPassing = data.is_passing ?? totalScore >= minPassing;
+  const isEarlySemester = data.is_early_semester ?? false;
   const progressPercent = Math.min((totalScore / maxPoints) * 100, 100);
-  const isExcellent = totalScore >= 34; // 85% of 40
+  const isExcellent = totalScore >= (maxPoints * 0.85); // 85%
+
+  // В начале семестра используем нейтральные цвета
+  const getScoreColor = () => {
+    if (isEarlySemester) return 'border-blue-500 bg-blue-500/10';
+    return isPassing ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10';
+  };
+
+  const getProgressColor = () => {
+    if (isEarlySemester) return '[&>div]:bg-blue-500';
+    return isPassing ? '[&>div]:bg-green-500' : '[&>div]:bg-red-500';
+  };
+
+  const getStatusText = () => {
+    if (isEarlySemester) {
+      return <span className="text-blue-600 dark:text-blue-400">⏳ Семестр в процессе</span>;
+    }
+    return isPassing ? (
+      <span className="text-green-600 dark:text-green-400">✓ Зачёт получен</span>
+    ) : (
+      <span className="text-red-600 dark:text-red-400">✗ До зачёта: {(minPassing - totalScore).toFixed(1)} баллов</span>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -41,7 +64,7 @@ export function ScoreBreakdown({ data }: ScoreBreakdownProps) {
                 <div className={cn(
                   "w-24 h-24 rounded-full flex items-center justify-center",
                   "border-4",
-                  isPassing ? "border-green-500 bg-green-500/10" : "border-red-500 bg-red-500/10"
+                  getScoreColor()
                 )}>
                   <div className="text-center">
                     <span className="text-3xl font-bold">
@@ -50,7 +73,7 @@ export function ScoreBreakdown({ data }: ScoreBreakdownProps) {
                     <p className="text-xs text-muted-foreground">/ {maxPoints}</p>
                   </div>
                 </div>
-                {isExcellent && (
+                {isExcellent && !isEarlySemester && (
                   <div className="absolute -top-1 -right-1 p-1.5 rounded-full bg-yellow-500 text-white">
                     <Award className="h-4 w-4" />
                   </div>
@@ -58,8 +81,8 @@ export function ScoreBreakdown({ data }: ScoreBreakdownProps) {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Итоговый балл</p>
-                <GradeBadge grade={data.grade} isPassing={isPassing} />
-                {isExcellent && (
+                <GradeBadge grade={data.grade} isPassing={isPassing} isEarlySemester={isEarlySemester} />
+                {isExcellent && !isEarlySemester && (
                   <Badge className="mt-1 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800">
                     <Award className="h-3 w-3 mr-1" />
                     Отличник
@@ -83,18 +106,11 @@ export function ScoreBreakdown({ data }: ScoreBreakdownProps) {
                 />
                 <Progress 
                   value={progressPercent} 
-                  className={cn(
-                    "h-full",
-                    isPassing ? "[&>div]:bg-green-500" : "[&>div]:bg-red-500"
-                  )}
+                  className={cn("h-full", getProgressColor())}
                 />
               </div>
               <p className="text-xs text-center">
-                {isPassing ? (
-                  <span className="text-green-600 dark:text-green-400">✓ Зачёт получен</span>
-                ) : (
-                  <span className="text-red-600 dark:text-red-400">✗ Зачёт не получен</span>
-                )}
+                {getStatusText()}
               </p>
             </div>
           </div>
@@ -217,8 +233,17 @@ function ComponentCard({ icon, title, score, color, details }: ComponentCardProp
   );
 }
 
-function GradeBadge({ grade, isPassing }: { grade?: string; isPassing?: boolean }) {
+function GradeBadge({ grade, isPassing, isEarlySemester }: { grade?: string; isPassing?: boolean; isEarlySemester?: boolean }) {
   if (!grade) return <span className="text-muted-foreground text-lg">—</span>;
+
+  // В начале семестра показываем нейтральный badge
+  if (isEarlySemester) {
+    return (
+      <Badge variant="secondary" className="text-lg px-4 py-1">
+        {grade}
+      </Badge>
+    );
+  }
 
   const className = cn(
     "text-lg px-4 py-1",
