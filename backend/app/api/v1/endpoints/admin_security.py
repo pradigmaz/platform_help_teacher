@@ -210,3 +210,50 @@ async def get_security_stats(
         strikes_today=total_strikes,  # За окно страйков (1 час)
         top_attack_types=dict(sorted(attack_types.items(), key=lambda x: -x[1])[:5]),
     )
+
+
+class UserInfoResponse(BaseModel):
+    """Краткая информация о пользователе для идентификации."""
+    user_id: str
+    full_name: str
+    group_name: Optional[str] = None
+    username: Optional[str] = None
+    telegram_id: Optional[int] = None
+
+
+@router.get("/security/user/{user_id}", response_model=UserInfoResponse)
+async def get_user_info_for_security(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_superuser),
+):
+    """Получить информацию о пользователе по UUID для идентификации в таблице банов."""
+    from sqlalchemy import select
+    from app.models import Group
+    
+    try:
+        from uuid import UUID
+        uuid_obj = UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    
+    result = await db.execute(select(User).where(User.id == uuid_obj))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    group_name = None
+    if user.group_id:
+        group_result = await db.execute(select(Group).where(Group.id == user.group_id))
+        group = group_result.scalar_one_or_none()
+        if group:
+            group_name = group.name
+    
+    return UserInfoResponse(
+        user_id=str(user.id),
+        full_name=user.full_name,
+        group_name=group_name,
+        username=user.username,
+        telegram_id=user.telegram_id,
+    )

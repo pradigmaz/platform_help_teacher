@@ -12,7 +12,8 @@ import {
   Bug,
   FileWarning,
   Link2Off,
-  RefreshCw
+  RefreshCw,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +49,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SecurityAPI, type SecurityStrikesResponse, type SecurityStatsResponse } from "@/lib/api";
+import { SecurityAPI, type SecurityStrikesResponse, type SecurityStatsResponse, type UserInfoResponse } from "@/lib/api";
 import { toast } from "sonner";
 
 const ATTACK_TYPE_INFO: Record<string, { icon: typeof Bug; label: string; color: string }> = {
@@ -68,6 +69,7 @@ const STRIKE_LEVEL_BADGES: Record<string, { label: string; variant: "default" | 
 export function SecurityTab() {
   const [bans, setBans] = useState<SecurityStrikesResponse[]>([]);
   const [stats, setStats] = useState<SecurityStatsResponse | null>(null);
+  const [userInfoMap, setUserInfoMap] = useState<Record<string, UserInfoResponse>>({});
   const [loading, setLoading] = useState(true);
   const [clearDialog, setClearDialog] = useState<SecurityStrikesResponse | null>(null);
   const [clearReason, setClearReason] = useState("");
@@ -82,6 +84,27 @@ export function SecurityTab() {
       ]);
       setBans(bansData);
       setStats(statsData);
+      
+      // Загружаем информацию о пользователях для user: идентификаторов
+      const userIds = bansData
+        .filter(b => b.identifier.startsWith("user:"))
+        .map(b => b.identifier.replace("user:", ""));
+      
+      const userInfoPromises = userIds.map(async (userId) => {
+        try {
+          const info = await SecurityAPI.getUserInfo(userId);
+          return { userId, info };
+        } catch {
+          return null;
+        }
+      });
+      
+      const results = await Promise.all(userInfoPromises);
+      const newUserInfoMap: Record<string, UserInfoResponse> = {};
+      results.forEach(r => {
+        if (r) newUserInfoMap[r.userId] = r.info;
+      });
+      setUserInfoMap(newUserInfoMap);
     } catch (error) {
       console.error("Failed to fetch security data:", error);
       toast.error("Не удалось загрузить данные безопасности");
@@ -210,7 +233,13 @@ export function SecurityTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bans.map((ban) => (
+                {bans.map((ban) => {
+                  const userId = ban.identifier.startsWith("user:") 
+                    ? ban.identifier.replace("user:", "") 
+                    : null;
+                  const userInfo = userId ? userInfoMap[userId] : null;
+                  
+                  return (
                   <TableRow key={ban.identifier}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -219,9 +248,28 @@ export function SecurityTab() {
                         ) : (
                           <Globe className="h-4 w-4 text-muted-foreground" />
                         )}
-                        <code className="text-xs bg-muted px-2 py-1 rounded">
-                          {ban.identifier}
-                        </code>
+                        <div className="flex flex-col">
+                          {userInfo ? (
+                            <>
+                              <span className="font-medium">{userInfo.full_name}</span>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {userInfo.group_name && (
+                                  <span className="flex items-center gap-1">
+                                    <Users className="h-3 w-3" />
+                                    {userInfo.group_name}
+                                  </span>
+                                )}
+                                {userInfo.username && (
+                                  <span>@{userInfo.username}</span>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <code className="text-xs bg-muted px-2 py-1 rounded">
+                              {ban.identifier}
+                            </code>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -276,7 +324,8 @@ export function SecurityTab() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

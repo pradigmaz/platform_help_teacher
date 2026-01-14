@@ -32,6 +32,14 @@ export interface ClearStrikesResponse {
   message: string;
 }
 
+export interface UserInfoResponse {
+  user_id: string;
+  full_name: string;
+  group_name: string | null;
+  username: string | null;
+  telegram_id: number | null;
+}
+
 export const SecurityAPI = {
   /**
    * Получить страйки по идентификатору.
@@ -68,6 +76,14 @@ export const SecurityAPI = {
     const { data } = await api.delete<ClearStrikesResponse>('/admin/security/strikes', {
       data: { identifier, reason },
     });
+    return data;
+  },
+
+  /**
+   * Получить информацию о пользователе по UUID.
+   */
+  async getUserInfo(userId: string): Promise<UserInfoResponse> {
+    const { data } = await api.get<UserInfoResponse>(`/admin/security/user/${userId}`);
     return data;
   },
 };
