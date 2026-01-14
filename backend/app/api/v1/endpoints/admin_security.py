@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_admin_user, get_db
+from app.api.deps import get_current_active_superuser, get_db
 from app.models import User
 from app.services.security_monitor import get_security_detector, AttackType, StrikeLevel
 from app.core.redis import get_redis
@@ -64,7 +64,7 @@ class ClearStrikesResponse(BaseModel):
 @router.get("/security/strikes/{identifier}", response_model=SecurityStrikesResponse)
 async def get_user_strikes(
     identifier: str,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_active_superuser),
 ):
     """
     Получить страйки по идентификатору.
@@ -97,7 +97,7 @@ async def get_user_strikes(
 @router.delete("/security/strikes", response_model=ClearStrikesResponse)
 async def clear_strikes(
     request: ClearStrikesRequest,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_active_superuser),
 ):
     """Очистить страйки и снять бан."""
     detector = get_security_detector()
@@ -121,7 +121,7 @@ async def clear_strikes(
 async def list_active_bans(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_active_superuser),
 ):
     """Список активных банов по безопасности."""
     redis = await get_redis()
@@ -160,7 +160,7 @@ async def list_active_bans(
 
 @router.get("/security/stats", response_model=SecurityStatsResponse)
 async def get_security_stats(
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_active_superuser),
 ):
     """Статистика системы безопасности."""
     redis = await get_redis()
