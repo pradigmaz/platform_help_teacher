@@ -14,6 +14,7 @@ from starlette.responses import JSONResponse
 
 from app.core.config import settings
 from app.services.security_monitor import get_security_detector, StrikeLevel
+from app.services.security_monitor.constants import MESSAGES_RU
 
 logger = logging.getLogger(__name__)
 
@@ -88,12 +89,10 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
                 if post_result.is_suspicious:
                     result = post_result
             
-            # Добавляем headers если есть предупреждение
+            # Добавляем headers если есть предупреждение (без русского текста)
             if result.is_suspicious and result.strike_level != StrikeLevel.NONE:
                 response.headers["X-Security-Warning"] = result.strike_level.value
                 response.headers["X-Security-Strike"] = str(result.strike_count)
-                if result.message:
-                    response.headers["X-Security-Message"] = result.message
             
             return response
             
@@ -104,10 +103,12 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
     
     def _banned_response(self, result) -> JSONResponse:
         """Формирует ответ для забаненного пользователя."""
+        # Русское сообщение для JSON body
+        message_ru = MESSAGES_RU.get(StrikeLevel.BANNED, result.message)
         return JSONResponse(
             status_code=403,
             content={
-                "detail": result.message or "Доступ заблокирован",
+                "detail": message_ru or "Доступ заблокирован",
                 "reason": "security_ban",
                 "attack_type": result.attack_type.value if result.attack_type else None,
                 "ban_until": result.ban_until.isoformat() if result.ban_until else None,

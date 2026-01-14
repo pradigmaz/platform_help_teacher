@@ -76,9 +76,16 @@ ATTACK_PATTERNS: List[AttackPattern] = [
     
     # XSS
     AttackPattern(
-        re.compile(r"<script[^>]*>|javascript:|on\w+\s*=", re.IGNORECASE),
+        re.compile(r"<script[^>]*>|javascript:", re.IGNORECASE),
         AttackType.XSS,
-        "XSS: script injection",
+        "XSS: script tag or javascript protocol",
+        severity=2
+    ),
+    # XSS event handlers — только в контексте HTML-тегов
+    AttackPattern(
+        re.compile(r"<[^>]+\s+on(click|load|error|mouse\w+|key\w+|focus|blur|change|submit)\s*=", re.IGNORECASE),
+        AttackType.XSS,
+        "XSS: event handler in HTML tag",
         severity=2
     ),
 ]
@@ -93,8 +100,14 @@ STRIKE_WINDOW = 3600  # 1 час — окно подсчёта страйков
 BAN_DURATION = 3600   # 1 час — длительность бана
 MAX_STRIKES = 3       # Страйков до бана
 
-# Сообщения
+# Сообщения (ASCII для HTTP headers, русские для JSON body)
 MESSAGES = {
+    StrikeLevel.WARNING: "Suspicious activity detected. Warning.",
+    StrikeLevel.RECORDED: "Repeated suspicious activity. Recorded.",
+    StrikeLevel.BANNED: "Access blocked for 1 hour.",
+}
+
+MESSAGES_RU = {
     StrikeLevel.WARNING: "⚠️ Обнаружена подозрительная активность. Это предупреждение.",
     StrikeLevel.RECORDED: "⚠️ Повторная подозрительная активность. Зафиксировано.",
     StrikeLevel.BANNED: "🚫 Посиди в бане за плохое поведение. Доступ заблокирован на 1 час.",
