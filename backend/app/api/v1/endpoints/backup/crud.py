@@ -121,6 +121,39 @@ async def upload_backup(
     if len(content) == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file")
     
+    # SECURITY: Validate encrypted file format (magic bytes check)
+    # Format v1: [version:1][salt:16][nonce:8]... minimum 25 bytes header
+    # Format v0 (legacy): [salt:16][nonce:12]... minimum 28 bytes
+    MIN_ENCRYPTED_SIZE = 25 + 16  # header + at least one tag
+    if len(content) < MIN_ENCRYPTED_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too small to be a valid encrypted backup"
+        )
+    
+    # Check format version byte
+    version_byte = content[0]
+    if version_byte == 1:
+        # v1 format: version(1) + salt(16) + base_nonce(8) = 25 bytes header
+        if len(content) < 25 + 16:  # header + minimum ciphertext with tag
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid v1 encrypted backup format"
+            )
+    elif version_byte <= 16:
+        # Likely legacy format (first byte is part of salt)
+        # Legacy: salt(16) + nonce(12) = 28 bytes header
+        if len(content) < 28 + 16:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid legacy encrypted backup format"
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown encryption format version: {version_byte}"
+        )
+    
     try:
         safe_filename = validate_backup_key(file.filename)
         
@@ -130,7 +163,7 @@ async def upload_backup(
         
         try:
             await service.storage.upload(tmp_path, safe_filename)
-            logger.info(f"Backup uploaded by {current_user.id}: {safe_filename}")
+            logger.info(f"Backup uploaded by {current_user.id}: {safe_filename} (v{version_byte if version_byte == 1 else 0})")
             return UploadBackupResponse(success=True, backup_key=safe_filename, size=len(content))
         finally:
             tmp_path.unlink(missing_ok=True)

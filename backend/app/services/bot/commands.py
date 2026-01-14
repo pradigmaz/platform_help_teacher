@@ -211,15 +211,26 @@ async def _handle_personal_invite(db, social_id, username, platform, existing_st
 
 
 async def _handle_group_invite(db, redis, social_id, full_name, username, platform, group) -> str:
-    """Обработка группового invite_code."""
+    """Обработка группового invite_code.
+    
+    SECURITY: Не меняем full_name существующего пользователя — 
+    это позволило бы сменить ФИО через изменение имени в Telegram.
+    """
     await reset_code_attempts(social_id, platform)
     
     user = await find_user_by_social_id(db, social_id, platform)
     if user:
+        # SECURITY: Только обновляем группу и username, НЕ full_name!
+        # Смена ФИО через Telegram — уязвимость
+        old_group_id = user.group_id
         user.group_id = group.id
-        user.full_name = full_name or user.full_name
-        user.username = username
+        user.username = username  # username можно обновлять
         await db.commit()
+        
+        logger.info(
+            f"User {user.id} ({user.full_name}) transferred to group {group.name} "
+            f"from group_id={old_group_id}"
+        )
         return f"✅ Вы переведены в группу {group.name}!"
     
     fsm_data = json.dumps({
