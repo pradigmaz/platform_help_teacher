@@ -48,7 +48,7 @@ export const GroupsAPI = {
   },
 
   addStudentsBulk: async (groupId: string, names: string[]) => {
-    const { data } = await api.post<{ added: number; students: any[] }>(
+    const { data } = await api.post<{ added: number; students: { id: string; full_name: string }[] }>(
       `/groups/${groupId}/students/bulk`,
       { names }
     );
