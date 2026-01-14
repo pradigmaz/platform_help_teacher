@@ -52,7 +52,7 @@ export function collectFingerprint(): DeviceFingerprint {
       colorDepth: window.screen.colorDepth,
       pixelDepth: window.screen.pixelDepth,
       pixelRatio: window.devicePixelRatio || 1,
-      orientation: screen.orientation?.type,
+      orientation: screen.orientation?.type as string | undefined,
       orientationAngle: screen.orientation?.angle,
     }), { 
       width: 0, 
@@ -62,8 +62,6 @@ export function collectFingerprint(): DeviceFingerprint {
       colorDepth: 0, 
       pixelDepth: 0, 
       pixelRatio: 1,
-      orientation: undefined,
-      orientationAngle: undefined,
     }),
     
     // GPU

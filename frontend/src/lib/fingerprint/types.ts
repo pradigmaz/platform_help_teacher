@@ -2,6 +2,8 @@
  * Типы для device fingerprint.
  */
 
+export type OrientationType = 'portrait-primary' | 'portrait-secondary' | 'landscape-primary' | 'landscape-secondary' | string;
+
 export interface ScreenInfo {
   width: number;
   height: number;
@@ -10,7 +12,7 @@ export interface ScreenInfo {
   colorDepth: number;
   pixelDepth: number;
   pixelRatio: number;
-  orientation?: string;
+  orientation?: OrientationType;
   orientationAngle?: number;
 }
 
