@@ -139,14 +139,30 @@ async def _process_code_result(
 
 
 async def _handle_relink(db, redis, social_id, username, code, platform, relink_data) -> str:
-    """Обработка relink-кода."""
+    """Обработка relink-кода.
+    
+    SECURITY: Проверяет что код использует тот же пользователь, который его запросил.
+    Если у аккаунта уже была привязка — код может использовать только владелец.
+    """
     try:
         data = json.loads(relink_data)
         target_user_id = data.get("user_id")
         target_platform = data.get("platform", platform)
+        original_social_id = data.get("original_social_id")  # SECURITY: ID владельца
     except json.JSONDecodeError:
         target_user_id = relink_data
         target_platform = platform
+        original_social_id = None
+    
+    # SECURITY: Если у аккаунта была привязка, код может использовать только владелец
+    if original_social_id is not None and original_social_id != social_id:
+        logger.warning(
+            f"SECURITY: Relink code theft attempt! "
+            f"Code owner: {original_social_id}, attacker: {social_id}, code: {mask_code(code)}"
+        )
+        # НЕ удаляем код — владелец ещё может его использовать
+        await increment_code_attempts(social_id, platform)
+        return "❌ Этот код предназначен для другого аккаунта."
     
     await redis.delete(f"relink:{code}")
     await reset_code_attempts(social_id, platform)

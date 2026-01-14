@@ -122,9 +122,17 @@ async def relink_telegram(
     """
     Получить код для перепривязки Telegram.
     Работает для всех ролей: студент, преподаватель, админ.
+    
+    SECURITY: Код привязан к текущему telegram_id пользователя.
+    Если у пользователя уже есть привязка, код может использовать только он.
     """
     from app.services import bot_service
-    code = await bot_service.generate_relink_code(db, current_user.id, "telegram")
+    code = await bot_service.generate_relink_code(
+        db, 
+        current_user.id, 
+        "telegram",
+        current_social_id=current_user.telegram_id
+    )
     
     return RelinkTelegramResponse(
         code=code,
@@ -142,9 +150,17 @@ async def link_vk(
     """
     Получить код для привязки VK.
     Работает для всех ролей: студент, преподаватель, админ.
+    
+    SECURITY: Код привязан к текущему vk_id пользователя.
+    Если у пользователя уже есть привязка, код может использовать только он.
     """
     from app.services import bot_service
-    code = await bot_service.generate_relink_code(db, current_user.id, "vk")
+    code = await bot_service.generate_relink_code(
+        db, 
+        current_user.id, 
+        "vk",
+        current_social_id=current_user.vk_id
+    )
     
     return RelinkTelegramResponse(
         code=code,

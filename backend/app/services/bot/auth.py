@@ -14,12 +14,29 @@ from .constants import Platform, RELINK_TTL, OTP_TTL
 logger = logging.getLogger(__name__)
 
 
-async def generate_relink_code(db: AsyncSession, user_id: UUID, platform: Platform) -> str:
+async def generate_relink_code(
+    db: AsyncSession, 
+    user_id: UUID, 
+    platform: Platform,
+    current_social_id: int | None = None
+) -> str:
     """
     Генерирует код для привязки/перепривязки аккаунта.
     Проверяет уникальность среди invite_code пользователей и групп.
+    
+    SECURITY: Сохраняет current_social_id для проверки при использовании кода.
+    Если у пользователя уже есть привязка, код может использовать только он сам.
     """
     redis = await get_redis()
+    
+    # Получаем текущий social_id пользователя если не передан
+    if current_social_id is None:
+        from .users import get_social_id_field
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user:
+            field = get_social_id_field(platform)
+            current_social_id = getattr(user, field.key)
     
     for _ in range(10):
         code = gen_relink()
@@ -39,7 +56,12 @@ async def generate_relink_code(db: AsyncSession, user_id: UUID, platform: Platfo
         if group_result.scalar_one_or_none():
             continue
         
-        data = json.dumps({"user_id": str(user_id), "platform": platform})
+        # SECURITY: Сохраняем original_social_id для валидации при использовании
+        data = json.dumps({
+            "user_id": str(user_id), 
+            "platform": platform,
+            "original_social_id": current_social_id  # None если первая привязка
+        })
         await redis.setex(f"relink:{code}", RELINK_TTL, data)
         logger.info(f"Generated relink code {mask_code(code)} for user {user_id}, platform {platform}")
         return code
