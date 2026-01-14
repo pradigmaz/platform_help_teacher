@@ -1,7 +1,8 @@
 /**
  * Device fingerprint collector — модульная версия.
  */
-export type { DeviceFingerprint } from './types';
+export type { DeviceFingerprint, AutomationSignals } from './types';
+export { detectAutomation, isProbablyBot } from './automation-detect';
 
 import type { DeviceFingerprint, ScreenInfo } from './types';
 import { getCanvasFingerprint, getCanvasGeometry } from './canvas';

@@ -171,3 +171,18 @@ export interface DeviceFingerprint {
   };
   dateFormat?: string;
 }
+
+// Automation detection
+export interface AutomationSignals {
+  isWebdriver: boolean;
+  isHeadless: boolean;
+  hasSeleniumVars: boolean;
+  hasChromeObject: boolean;
+  pluginsCount: number;
+  hasPhantom: boolean;
+  hasNightmare: boolean;
+  hasCypressVars: boolean;
+  suspiciousUA: boolean;
+  chromeVersionMismatch: boolean;
+  automationScore: number;
+}
