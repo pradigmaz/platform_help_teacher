@@ -257,11 +257,11 @@ function RiskBanner({ hasRisk, failingCount, totalCount, isEarlySemester }: Risk
 
 interface GradeScaleCardProps {
   gradeScale: Record<string, number[]>;
-  attestationType: string;
+  attestationType?: string;
   maxPoints: number;
 }
 
-function GradeScaleCard({ gradeScale, attestationType, maxPoints }: GradeScaleCardProps) {
+function GradeScaleCard({ gradeScale, attestationType = 'first', maxPoints }: GradeScaleCardProps) {
   // Порядок оценок для отображения
   const gradeOrder = ['неуд', 'уд', 'хор', 'отл'];
   const gradeLabels: Record<string, string> = {
