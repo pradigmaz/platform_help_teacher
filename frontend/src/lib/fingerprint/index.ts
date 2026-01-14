@@ -3,7 +3,7 @@
  */
 export type { DeviceFingerprint } from './types';
 
-import type { DeviceFingerprint } from './types';
+import type { DeviceFingerprint, ScreenInfo } from './types';
 import { getCanvasFingerprint, getCanvasGeometry } from './canvas';
 import { getWebGLInfo, isWebGL2Available } from './webgl';
 import { getAudioFingerprint } from './audio';
@@ -44,7 +44,7 @@ export function collectFingerprint(): DeviceFingerprint {
   
   return {
     // Screen
-    screen: safeGet(() => ({
+    screen: safeGet<ScreenInfo>(() => ({
       width: window.screen.width,
       height: window.screen.height,
       availWidth: window.screen.availWidth,
@@ -52,7 +52,7 @@ export function collectFingerprint(): DeviceFingerprint {
       colorDepth: window.screen.colorDepth,
       pixelDepth: window.screen.pixelDepth,
       pixelRatio: window.devicePixelRatio || 1,
-      orientation: screen.orientation?.type as string | undefined,
+      orientation: screen.orientation?.type,
       orientationAngle: screen.orientation?.angle,
     }), { 
       width: 0, 
@@ -62,6 +62,8 @@ export function collectFingerprint(): DeviceFingerprint {
       colorDepth: 0, 
       pixelDepth: 0, 
       pixelRatio: 1,
+      orientation: undefined,
+      orientationAngle: undefined,
     }),
     
     // GPU
