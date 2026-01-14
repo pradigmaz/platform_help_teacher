@@ -54,7 +54,17 @@ export function collectFingerprint(): DeviceFingerprint {
       pixelRatio: window.devicePixelRatio || 1,
       orientation: screen.orientation?.type,
       orientationAngle: screen.orientation?.angle,
-    }), { width: 0, height: 0, colorDepth: 0, pixelDepth: 0, pixelRatio: 1 }),
+    }), { 
+      width: 0, 
+      height: 0, 
+      availWidth: 0,
+      availHeight: 0,
+      colorDepth: 0, 
+      pixelDepth: 0, 
+      pixelRatio: 1,
+      orientation: undefined,
+      orientationAngle: undefined,
+    }),
     
     // GPU
     webgl: safeGet(() => getWebGLInfo(), undefined),
