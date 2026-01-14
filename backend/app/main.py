@@ -167,6 +167,10 @@ app.add_middleware(
 from app.middleware.ip_ban import IPBanMiddleware
 app.add_middleware(IPBanMiddleware)
 
+# Security Monitor Middleware (детекция SQL injection, XSS, IDOR)
+from app.middleware.security_monitor import SecurityMonitorMiddleware
+app.add_middleware(SecurityMonitorMiddleware)
+
 # Audit Middleware (тихий сбор данных о действиях)
 app.add_middleware(AuditMiddleware)
 

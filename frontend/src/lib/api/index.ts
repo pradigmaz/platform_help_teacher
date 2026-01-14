@@ -22,6 +22,8 @@ export { AuditAPI } from './audit';
 export type { AuditLog, AuditLogListResponse, AuditStats, AuditFilters } from './audit';
 export { RateLimitAPI } from './rate-limit';
 export type { RateLimitWarning, WarningListResponse } from './rate-limit';
+export { SecurityAPI } from './security';
+export type { SecurityStrikesResponse, SecurityStatsResponse, StrikeDetail, ClearStrikesResponse } from './security';
 export { BackupAPI } from './backup';
 export type { 
   BackupInfo, 

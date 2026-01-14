@@ -4,3 +4,4 @@ export { AuditFilters } from './AuditFilters';
 export { AuditLogsTable } from './AuditLogsTable';
 export { LogsTab } from './LogsTab';
 export { BansTab } from './BansTab';
+export { SecurityTab } from './SecurityTab';

@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, Download, Ban, Calendar } from "lucide-react";
+import { Shield, Download, Ban, Calendar, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuditAPI } from "@/lib/api";
-import { LogsTab, BansTab } from "./components";
+import { LogsTab, BansTab, SecurityTab } from "./components";
 
 export default function AuditPage() {
   const [activeTab, setActiveTab] = useState("logs");
@@ -128,6 +128,10 @@ export default function AuditPage() {
             <Shield className="h-4 w-4" />
             Логи
           </TabsTrigger>
+          <TabsTrigger value="security" className="gap-2">
+            <ShieldAlert className="h-4 w-4" />
+            Безопасность
+          </TabsTrigger>
           <TabsTrigger value="bans" className="gap-2">
             <Ban className="h-4 w-4" />
             Баны
@@ -136,6 +140,10 @@ export default function AuditPage() {
 
         <TabsContent value="logs" className="mt-6">
           <LogsTab />
+        </TabsContent>
+
+        <TabsContent value="security" className="mt-6">
+          <SecurityTab />
         </TabsContent>
 
         <TabsContent value="bans" className="mt-6">
