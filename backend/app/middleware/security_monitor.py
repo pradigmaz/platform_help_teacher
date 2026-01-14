@@ -1,8 +1,9 @@
 """
 Security Monitor Middleware — детекция атак в реальном времени.
 """
+import json
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 from uuid import UUID
 
 import jwt
@@ -42,6 +43,7 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         
         user_id = self._get_user_id_from_token(request)
+        fingerprint = self._get_fingerprint(request)
         detector = get_security_detector()
         
         # Собираем URL с query params
@@ -64,6 +66,7 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
                 url=full_url,
                 user_id=user_id,
                 body=body,
+                fingerprint=fingerprint,
             )
             
             # Если забанен — сразу 403
@@ -80,6 +83,7 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
                     url=full_url,
                     user_id=user_id,
                     response_status=404,
+                    fingerprint=fingerprint,
                 )
                 if post_result.is_suspicious:
                     result = post_result
@@ -147,3 +151,14 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
             pass
         
         return None
+    
+    def _get_fingerprint(self, request: Request) -> Optional[Dict[str, Any]]:
+        """Извлекает fingerprint из заголовка."""
+        fp_header = request.headers.get("X-Device-Fingerprint")
+        if not fp_header:
+            return None
+        
+        try:
+            return json.loads(fp_header)
+        except (json.JSONDecodeError, TypeError):
+            return None
