@@ -13,6 +13,7 @@ from app.models.attendance import Attendance
 from app.models.lesson import Lesson
 from app.models.user import User
 from app.schemas.report import AttendanceDistribution, AttendanceRecord, DateAttendance, AttendanceStats, TodayLessonAttendance
+from app.services.schedule_constants import today_msk
 
 
 async def get_group_attendance_stats(
@@ -320,9 +321,7 @@ async def get_today_lessons_attendance(
     target_date: Optional[date] = None
 ) -> List[TodayLessonAttendance]:
     """Получить посещаемость по парам на указанную дату (по умолчанию сегодня)."""
-    from datetime import date as date_type
-    
-    check_date = target_date or date_type.today()
+    check_date = target_date or today_msk()
     student_ids = [s.id for s in students]
     student_map = {s.id: s for s in students}
     
