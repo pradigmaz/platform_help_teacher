@@ -9,6 +9,7 @@ from uuid import UUID
 from app.core.celery_app import celery_app
 from app.db.session import AsyncSessionLocal
 from app.services.schedule_import_service import ScheduleImportService
+from app.services.schedule_constants import MSK_TZ
 from app.services.notification_service import (
     send_to_teacher, format_parse_result, format_parse_error
 )
@@ -122,7 +123,7 @@ def check_all_schedules():
         async with AsyncSessionLocal() as db:
             configs = await get_all_enabled_configs(db)
             
-            now = datetime.now()
+            now = datetime.now(MSK_TZ)
             current_day = now.weekday()  # 0=пн, 6=вс
             
             for config in configs:

@@ -2,7 +2,11 @@
 Константы для модуля расписания.
 Единый источник истины для backend.
 """
+from datetime import timezone, timedelta
 from app.models.schedule import LessonType
+
+# Московская таймзона (UTC+3)
+MSK_TZ = timezone(timedelta(hours=3))
 
 # Маппинг времени на номер пары
 TIME_TO_LESSON_NUMBER = {

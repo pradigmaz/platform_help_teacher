@@ -310,9 +310,9 @@ class LabVisibilityService:
         - Занятие не отменено
         """
         from datetime import datetime
-        from app.services.schedule_constants import TIME_TO_LESSON_NUMBER
+        from app.services.schedule_constants import TIME_TO_LESSON_NUMBER, MSK_TZ
         
-        now = datetime.now()
+        now = datetime.now(MSK_TZ)
         today = now.date()
         current_time = now.time()
         
