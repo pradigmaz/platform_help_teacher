@@ -26,11 +26,12 @@ REDIS_FINGERPRINT_BAN = "sec:ban:fp:{fp_hash}"  # Бан по fingerprint
 REDIS_COMPONENT_BAN = "sec:ban:comp:{comp_hash}"  # Бан по компоненту fingerprint
 
 # Компоненты fingerprint для отдельного бана (уникальные идентификаторы устройства)
+# ВАЖНО: audio и screen убраны — слишком много коллизий между пользователями
 BANNABLE_COMPONENTS = [
     "webgl",       # GPU renderer — уникален для видеокарты
     "canvas",      # Canvas fingerprint — уникален для браузера+GPU
-    "audio",       # Audio fingerprint — уникален для аудио стека
-    "screen",      # Разрешение экрана + pixel ratio
+    # "audio",     # ОТКЛЮЧЕНО: слишком много коллизий, банит невинных
+    # "screen",    # ОТКЛЮЧЕНО: разрешение экрана не уникально
 ]
 
 
