@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.models.attendance import Attendance, AttendanceStatus
+from app.services.schedule_constants import today_msk
 from .exceptions import (
     AttendanceValidationError,
     DuplicateAttendanceError,
@@ -50,7 +51,7 @@ async def create_attendance(
     """
     await validate_student_in_group(db, student_id, group_id)
     
-    if attendance_date > date.today():
+    if attendance_date > today_msk():
         raise FutureDateError(f"Нельзя создать запись для будущей даты {attendance_date}")
     
     existing = await check_attendance_exists(db, student_id, attendance_date)

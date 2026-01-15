@@ -101,7 +101,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
     .toUpperCase();
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-background">
+    <div className="h-screen w-screen flex flex-col md:flex-row overflow-hidden bg-background">
       <Sidebar open={open} setOpen={setOpen}>
         <SidebarBody className="flex flex-col h-full justify-between border-r border-border">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
@@ -159,7 +159,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
         </SidebarBody>
       </Sidebar>
       
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto min-h-0">
         {children}
       </main>
     </div>

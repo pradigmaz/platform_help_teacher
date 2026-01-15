@@ -12,6 +12,7 @@ from app.models import User
 from app.models.schedule import DayOfWeek, LessonType, WeekParity
 from app.crud.crud_schedule import schedule as crud_schedule, lesson as crud_lesson
 from app.services.lesson_generator import lesson_generator
+from app.services.schedule_constants import today_msk
 from app.schemas.schedule import (
     ScheduleItemCreate, ScheduleItemUpdate, ScheduleItemResponse,
     LessonCreate, LessonUpdate, LessonResponse,
@@ -276,7 +277,7 @@ async def parse_schedule(
     Парсинг расписания с kis.vgltu.ru.
     Автоматически создаёт группы и занятия.
     """
-    end_date = data.end_date or date.today()
+    end_date = data.end_date or today_msk()
     
     if data.start_date > end_date:
         raise HTTPException(status_code=400, detail="start_date должна быть раньше end_date")

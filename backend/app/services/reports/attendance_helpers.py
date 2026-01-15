@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.attendance import Attendance
 from app.models.lesson import Lesson
 from app.models.user import User
-from app.schemas.report import AttendanceDistribution, AttendanceRecord, DateAttendance, AttendanceStats
+from app.schemas.report import AttendanceDistribution, AttendanceRecord, DateAttendance, AttendanceStats, TodayLessonAttendance
 
 
 async def get_group_attendance_stats(
@@ -89,7 +89,7 @@ async def get_student_attendance_history(
     student_id: UUID,
     group_id: UUID
 ) -> List[AttendanceRecord]:
-    """Получить историю посещаемости студента."""
+    """Получить историю посещаемости студента с деталями пар."""
     query = (
         select(Attendance)
         .where(
@@ -101,14 +101,23 @@ async def get_student_attendance_history(
     result = await db.execute(query)
     records = result.scalars().all()
     
-    return [
-        AttendanceRecord(
-            date=r.date, 
-            status=r.status.value.lower() if hasattr(r.status, 'value') else str(r.status).lower(), 
-            lesson_topic=None
-        )
-        for r in records
-    ]
+    history = []
+    for r in records:
+        status_str = r.status.value.lower() if hasattr(r.status, 'value') else str(r.status).lower()
+        lesson_type_str = None
+        if r.lesson_type:
+            lesson_type_str = r.lesson_type.value if hasattr(r.lesson_type, 'value') else str(r.lesson_type)
+        
+        history.append(AttendanceRecord(
+            date=r.date,
+            status=status_str,
+            lesson_topic=None,  # TODO: join с Lesson если нужен topic
+            lesson_number=r.lesson_number,
+            lesson_type=lesson_type_str,
+            subgroup=r.subgroup
+        ))
+    
+    return history
 
 
 async def get_student_attendance_stats(
@@ -301,3 +310,99 @@ async def get_full_attendance_stats(
         trend=trend,
         average_rate=average_rate
     )
+
+
+async def get_today_lessons_attendance(
+    db: AsyncSession,
+    group_id: UUID,
+    students: List[User],
+    show_names: bool = True,
+    target_date: Optional[date] = None
+) -> List[TodayLessonAttendance]:
+    """Получить посещаемость по парам на указанную дату (по умолчанию сегодня)."""
+    from datetime import date as date_type
+    
+    check_date = target_date or date_type.today()
+    student_ids = [s.id for s in students]
+    student_map = {s.id: s for s in students}
+    
+    # Получаем занятия на эту дату
+    lessons_query = (
+        select(Lesson)
+        .where(
+            Lesson.group_id == group_id,
+            Lesson.date == check_date,
+            Lesson.is_cancelled == False
+        )
+        .order_by(Lesson.lesson_number)
+    )
+    lessons_result = await db.execute(lessons_query)
+    lessons = lessons_result.scalars().all()
+    
+    if not lessons:
+        return []
+    
+    # Получаем посещаемость на эту дату
+    attendance_query = (
+        select(Attendance)
+        .where(
+            Attendance.group_id == group_id,
+            Attendance.date == check_date,
+            Attendance.student_id.in_(student_ids)
+        )
+    )
+    attendance_result = await db.execute(attendance_query)
+    attendance_records = attendance_result.scalars().all()
+    
+    # Группируем посещаемость по (lesson_number, student_id)
+    att_map: Dict[tuple, Attendance] = {}
+    for att in attendance_records:
+        key = (att.lesson_number, att.student_id)
+        att_map[key] = att
+    
+    result = []
+    for lesson in lessons:
+        # Определяем студентов для этого занятия
+        if lesson.subgroup is None:
+            # Лекция — все студенты
+            relevant_students = students
+        else:
+            # Лаба/практика — только подгруппа
+            relevant_students = [s for s in students if s.subgroup == lesson.subgroup]
+        
+        present, absent, late, excused = [], [], [], []
+        
+        for student in relevant_students:
+            # Имя или ID
+            identifier = student.full_name if show_names else str(student.id)
+            
+            att = att_map.get((lesson.lesson_number, student.id))
+            if att:
+                status = att.status.value.lower() if hasattr(att.status, 'value') else str(att.status).lower()
+                if status == 'present':
+                    present.append(identifier)
+                elif status == 'late':
+                    late.append(identifier)
+                elif status == 'excused':
+                    excused.append(identifier)
+                else:
+                    absent.append(identifier)
+            else:
+                # Нет записи — считаем отсутствующим
+                absent.append(identifier)
+        
+        lesson_type_str = lesson.lesson_type.value if hasattr(lesson.lesson_type, 'value') else str(lesson.lesson_type)
+        
+        result.append(TodayLessonAttendance(
+            date=lesson.date,
+            lesson_number=lesson.lesson_number,
+            lesson_type=lesson_type_str,
+            topic=lesson.topic,
+            subgroup=lesson.subgroup,
+            present=present,
+            absent=absent,
+            late=late,
+            excused=excused
+        ))
+    
+    return result

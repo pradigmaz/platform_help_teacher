@@ -10,6 +10,8 @@
 from datetime import date
 from typing import Tuple
 
+from app.services.schedule_constants import today_msk
+
 
 def get_current_semester() -> Tuple[int, int]:
     """
@@ -22,7 +24,7 @@ def get_current_semester() -> Tuple[int, int]:
         (учебный_год, номер_семестра)
         учебный_год - год начала учебного года (например 2025 для 2025-2026)
     """
-    now = date.today()
+    now = today_msk()
     
     if now.month >= 9:  # сентябрь-декабрь → 1 семестр
         return (now.year, 1)

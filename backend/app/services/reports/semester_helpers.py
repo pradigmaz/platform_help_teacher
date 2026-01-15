@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attestation_settings import AttestationType, AttestationSettings
 from app.services.attestation.settings import AttestationSettingsManager
+from app.services.schedule_constants import today_msk
 
 
 EARLY_SEMESTER_WEEKS = 6  # Первые 6 недель - "начало семестра"
@@ -41,7 +42,7 @@ async def get_current_semester_from_settings(db: AsyncSession) -> Tuple[int, int
             return (semester_start.year - 1, 2)
     
     # Fallback на текущую дату
-    now = date.today()
+    now = today_msk()
     if now.month >= 9:
         return (now.year, 1)
     elif now.month <= 5:
@@ -68,7 +69,7 @@ async def get_semester_info(
     if not settings or not settings.semester_start_date:
         return True, max_points, min_passing, False
     
-    today = date.today()
+    today = today_msk()
     early_end = settings.semester_start_date + timedelta(weeks=EARLY_SEMESTER_WEEKS)
     is_early = today < early_end
     

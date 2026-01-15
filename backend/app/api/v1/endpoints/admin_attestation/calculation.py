@@ -99,8 +99,14 @@ async def calculate_all_students_attestation(
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Рассчитать баллы аттестации для всех студентов."""
-    # Получаем все неархивированные группы
-    groups_result = await db.execute(select(Group).where(Group.is_archived == False))
+    # Получаем все неархивированные группы с их студентами одним запросом (фикс N+1)
+    from sqlalchemy.orm import selectinload
+    
+    groups_result = await db.execute(
+        select(Group)
+        .options(selectinload(Group.users))
+        .where(Group.is_archived == False)
+    )
     groups = list(groups_result.scalars().all())
     
     if not groups:
@@ -111,14 +117,11 @@ async def calculate_all_students_attestation(
     all_errors = []
     
     for group in groups:
-        students_result = await db.execute(
-            select(User).where(
-                User.group_id == group.id,
-                User.role == UserRole.STUDENT,
-                User.is_active == True
-            )
-        )
-        students = list(students_result.scalars().all())
+        # Фильтруем студентов из уже загруженных users
+        students = [
+            u for u in group.users 
+            if u.role == UserRole.STUDENT and u.is_active
+        ]
         
         if not students:
             continue

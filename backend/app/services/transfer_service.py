@@ -1,7 +1,7 @@
 """Сервис перевода студентов между группами/подгруппами"""
 import logging
 from typing import Optional, List
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from uuid import UUID
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,7 @@ from app.schemas.transfer import (
     TransferRequest, TransferResponse, TransferSummary,
     AttendanceSnapshot, LabGradeSnapshot, StudentTransfersResponse
 )
+from app.services.schedule_constants import MSK_TZ, today_msk
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class TransferService:
         settings = result.scalar_one_or_none()
         
         if settings and settings.period_end_date:
-            today = datetime.now(timezone.utc).date()
+            today = today_msk()
             if settings.period_end_date < today:
                 raise ValueError(
                     f"Период аттестации '{attestation_type.value}' завершён "
@@ -68,7 +69,7 @@ class TransferService:
         
         from_group_id = student.group_id
         from_subgroup = student.subgroup
-        transfer_date = request.transfer_date or date.today()
+        transfer_date = request.transfer_date or today_msk()
         
         # Получаем группы для имён
         from_group = await self.db.get(Group, from_group_id) if from_group_id else None

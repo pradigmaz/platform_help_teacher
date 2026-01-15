@@ -9,7 +9,7 @@ from uuid import UUID
 from app.core.celery_app import celery_app
 from app.db.session import AsyncSessionLocal
 from app.services.schedule_import_service import ScheduleImportService
-from app.services.schedule_constants import MSK_TZ
+from app.services.schedule_constants import MSK_TZ, today_msk
 from app.services.notification_service import (
     send_to_teacher, format_parse_result, format_parse_error
 )
@@ -52,7 +52,7 @@ def parse_schedule_task(
             
             try:
                 service = ScheduleImportService(db)
-                start_date = date.today()
+                start_date = today_msk()
                 end_date = start_date + timedelta(days=days_ahead)
                 
                 logger.info(f"Starting schedule parse for {teacher_name}: {start_date} - {end_date}")

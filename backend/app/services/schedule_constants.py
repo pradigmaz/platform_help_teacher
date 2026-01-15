@@ -8,6 +8,18 @@ from app.models.schedule import LessonType
 # Московская таймзона (UTC+3)
 MSK_TZ = timezone(timedelta(hours=3))
 
+
+def today_msk():
+    """Получить сегодняшнюю дату по МСК."""
+    from datetime import datetime
+    return datetime.now(MSK_TZ).date()
+
+
+def now_msk():
+    """Получить текущее время по МСК."""
+    from datetime import datetime
+    return datetime.now(MSK_TZ)
+
 # Маппинг времени на номер пары
 TIME_TO_LESSON_NUMBER = {
     "08:30-10:00": 1,

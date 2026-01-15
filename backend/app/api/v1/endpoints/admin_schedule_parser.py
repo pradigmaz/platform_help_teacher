@@ -20,6 +20,7 @@ from app.schemas.schedule_parser import (
 from app.crud import crud_schedule_parser as crud
 from app.crud import crud_parse_history
 from app.services.schedule_import_service import ScheduleImportService
+from app.services.schedule_constants import today_msk
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ async def parse_now(
         raise HTTPException(status_code=400, detail="Parser config not found")
     
     service = ScheduleImportService(db)
-    start_date = date.today()
+    start_date = today_msk()
     end_date = start_date + timedelta(days=config.parse_days_ahead)
     
     try:

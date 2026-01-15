@@ -142,6 +142,19 @@ class LabProgress(BaseModel):
     subgroup: Optional[int] = None  # None = все, 1 или 2
 
 
+class TodayLessonAttendance(BaseModel):
+    """Посещаемость на конкретной паре (для 'сегодня на паре')."""
+    date: date
+    lesson_number: int = Field(description="Номер пары (1-8)")
+    lesson_type: str = Field(description="lecture/practice/lab")
+    topic: Optional[str] = None
+    subgroup: Optional[int] = Field(None, description="Подгруппа (null = лекция, вся группа)")
+    present: List[str] = Field(default_factory=list, description="Присутствующие (имена или ID)")
+    absent: List[str] = Field(default_factory=list, description="Отсутствующие")
+    late: List[str] = Field(default_factory=list, description="Опоздавшие")
+    excused: List[str] = Field(default_factory=list, description="Уважительная причина")
+
+
 class PublicReportData(BaseModel):
     """Данные для публичной страницы отчёта группы."""
     group_code: str
@@ -195,15 +208,23 @@ class PublicReportData(BaseModel):
     
     # Распределение оценок
     grade_distribution: Optional[Dict[str, int]] = None
+    
+    # Посещаемость по парам (сегодня)
+    today_lessons: Optional[List[TodayLessonAttendance]] = Field(
+        None, description="Занятия на сегодня с посещаемостью"
+    )
 
 
 # ============== Student Detail Schemas ==============
 
 class AttendanceRecord(BaseModel):
     """Запись о посещении."""
-    date: datetime
+    date: date
     status: str = Field(description="present/late/excused/absent")
     lesson_topic: Optional[str] = None
+    lesson_number: Optional[int] = Field(None, description="Номер пары (1-8)")
+    lesson_type: Optional[str] = Field(None, description="lecture/practice/lab")
+    subgroup: Optional[int] = Field(None, description="Подгруппа (null = вся группа)")
 
 
 class LabSubmission(BaseModel):

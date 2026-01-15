@@ -16,6 +16,7 @@ from app.models.lab import Lab
 from app.models.lesson import Lesson
 from app.models.group import Group
 from app.models.schedule import LessonType
+from app.services.schedule_constants import today_msk
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -62,7 +63,7 @@ async def get_schedule_slots(
     if not lab:
         raise HTTPException(status_code=404, detail="Lab not found")
     
-    today = date.today()
+    today = today_msk()
     end_date = today + timedelta(days=SCHEDULE_LOOKAHEAD_DAYS)
     
     # Build filter

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lesson import Lesson
 from app.models.schedule import LessonType
+from app.services.schedule_constants import MSK_TZ, today_msk
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ class LabVisibilityService:
         if not lab_numbers:
             return {}
         
-        today = date.today()
+        today = today_msk()
         labs_subjects = labs_subjects or {}
         
         # Группируем лабы по subject_id для оптимизации запросов
@@ -235,7 +236,7 @@ class LabVisibilityService:
         Получить словарь {subject_id: [work_numbers]} видимых лаб.
         Для корректной фильтрации лаб по предметам.
         """
-        today = date.today()
+        today = today_msk()
         
         base_filter = [
             Lesson.group_id == group_id,
@@ -275,7 +276,7 @@ class LabVisibilityService:
         Получить список номеров лаб, видимых студенту на сегодня.
         Если subject_id указан — только для этого предмета.
         """
-        today = date.today()
+        today = today_msk()
         
         base_filter = [
             Lesson.group_id == group_id,
