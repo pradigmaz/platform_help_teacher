@@ -18,7 +18,8 @@ import {
   BarChart3,
   ChevronDown,
   Shield,
-  MessageSquare
+  MessageSquare,
+  Megaphone
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -92,6 +93,7 @@ const sidebarItems: SidebarItem[] = [
   { title: "Расписание", href: "/admin/schedule", icon: Calendar },
   { title: "Журнал", href: "/admin/journal", icon: ClipboardList },
   { title: "Аудит", href: "/admin/audit", icon: Shield },
+  { title: "Объявления", href: "/admin/announcements", icon: Megaphone },
   { title: "Обращения", href: "/admin/feedback", icon: MessageSquare, badge: 'feedback' },
   { title: "Настройки", href: "/admin/settings", icon: Settings },
 ];

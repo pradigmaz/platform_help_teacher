@@ -30,6 +30,8 @@ from .settings_audit import SettingsAuditLog
 from .backup_settings import BackupSettings
 from .feedback import Feedback, FeedbackType, FeedbackStatus
 from .feedback_attachment import FeedbackAttachment
+from .announcement import Announcement
+from .notification_settings import NotificationSettings
 from app.audit.models import StudentAuditLog
 
 __all__ = [
@@ -70,5 +72,7 @@ __all__ = [
     "FeedbackType",
     "FeedbackStatus",
     "FeedbackAttachment",
+    "Announcement",
+    "NotificationSettings",
     "StudentAuditLog",
 ]

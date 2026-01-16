@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import users, auth, webhooks, groups, labs, admin_labs, admin_attestation, admin_attendance, admin_stats, admin_activities, admin_works, admin_work_submissions, admin_schedule, admin_journal, student, admin_subjects, admin_schedule_parser, admin_notes, admin_lectures, lectures, admin_reports, public_reports, admin_lab_queue, admin_audit, admin_audit_export, admin_rate_limit, admin_impersonate, feedback, admin_lab_schedule, admin_security, honeypot
+from app.api.v1.endpoints import users, auth, webhooks, groups, labs, admin_labs, admin_attestation, admin_attendance, admin_stats, admin_activities, admin_works, admin_work_submissions, admin_schedule, admin_journal, student, admin_subjects, admin_schedule_parser, admin_notes, admin_lectures, lectures, admin_reports, public_reports, admin_lab_queue, admin_audit, admin_audit_export, admin_rate_limit, admin_impersonate, feedback, admin_lab_schedule, admin_security, honeypot, admin_announcements
 from app.api.v1.endpoints.backup import router as backup_router
 
 api_router = APIRouter()
@@ -61,6 +61,7 @@ api_router.include_router(admin_rate_limit.router, prefix="/admin/rate-limits", 
 api_router.include_router(admin_security.router, prefix="/admin", tags=["admin_security"])
 api_router.include_router(admin_impersonate.router, prefix="/admin", tags=["admin_impersonate"])
 api_router.include_router(admin_lab_schedule.router, prefix="/admin/labs", tags=["admin_lab_schedule"])
+api_router.include_router(admin_announcements.router, prefix="/admin/announcements", tags=["admin_announcements"])
 
 api_router.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
 api_router.include_router(labs.router, prefix="/labs", tags=["labs"])

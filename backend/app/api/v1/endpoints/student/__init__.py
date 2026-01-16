@@ -9,6 +9,7 @@ from .labs import router as labs_router
 from .attestation import router as attestation_router
 from .misc import router as misc_router
 from .activities import router as activities_router
+from .notifications import router as notifications_router
 
 router = APIRouter()
 
@@ -18,3 +19,4 @@ router.include_router(labs_router, tags=["student-labs"])
 router.include_router(attestation_router, tags=["student-attestation"])
 router.include_router(misc_router, tags=["student-misc"])
 router.include_router(activities_router, tags=["student-activities"])
+router.include_router(notifications_router, tags=["student-notifications"])
