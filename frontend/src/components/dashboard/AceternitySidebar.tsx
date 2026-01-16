@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { SidebarLink } from "@/components/ui/aceternity-sidebar";
+import Link from "next/link";
 import {
   IconLayoutDashboard,
   IconFlask,
@@ -17,6 +17,38 @@ import { cn } from "@/lib/utils";
 import { useRouter, usePathname } from "next/navigation";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import api from "@/lib/api";
+
+interface SidebarLinkItem {
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+}
+
+// Локальный компонент ссылки без зависимости от SidebarProvider
+function NavLink({ 
+  link, 
+  open, 
+  onClick 
+}: { 
+  link: SidebarLinkItem; 
+  open: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <Link
+      href={link.href}
+      className="flex items-center justify-start gap-3 py-2.5 px-2 rounded-lg hover:bg-accent transition-colors"
+      onClick={onClick}
+    >
+      {link.icon}
+      {open && (
+        <span className="text-foreground text-base whitespace-pre">
+          {link.label}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 interface AceternitySidebarProps {
   children: React.ReactNode;
@@ -121,7 +153,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
             {open ? <Logo /> : <LogoIcon />}
             <div className="mt-8 flex flex-col gap-1">
               {links.map((link, idx) => (
-                <SidebarLink key={idx} link={link} onClick={handleLinkClick} />
+                <NavLink key={idx} link={link} open={open} onClick={handleLinkClick} />
               ))}
             </div>
           </div>
@@ -207,7 +239,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
               <div className="flex-1 overflow-y-auto p-4">
                 <div className="flex flex-col gap-1">
                   {links.map((link, idx) => (
-                    <SidebarLink key={idx} link={link} onClick={handleLinkClick} />
+                    <NavLink key={idx} link={link} open={true} onClick={handleLinkClick} />
                   ))}
                 </div>
               </div>
