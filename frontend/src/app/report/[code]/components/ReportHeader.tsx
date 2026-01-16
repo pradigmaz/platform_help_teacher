@@ -28,6 +28,9 @@ export function ReportHeader({ data }: ReportHeaderProps) {
       <div className="flex items-center gap-2 flex-wrap">
         <h1 className="text-2xl sm:text-3xl font-bold">
           Отчёт группы {formatGroupCode(data.group_code)}
+          <span className="text-muted-foreground font-normal text-xl sm:text-2xl ml-2">
+            ({data.total_students} студентов)
+          </span>
         </h1>
         <Badge variant="secondary">{reportTypeLabels[data.report_type]}</Badge>
       </div>
