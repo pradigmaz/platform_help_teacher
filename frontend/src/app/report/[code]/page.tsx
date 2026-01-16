@@ -156,9 +156,13 @@ export default function PublicReportPage({ params }: PageProps) {
         </div>
       )}
       
-      {/* Today's lessons */}
-      {data.today_lessons && data.today_lessons.length > 0 && (
-        <TodayLessonsCard lessons={data.today_lessons} showNames={data.show_names} />
+      {/* Today's lessons and history */}
+      {(data.today_lessons?.length || data.lesson_history?.length) && (
+        <TodayLessonsCard 
+          todayLessons={data.today_lessons} 
+          lessonHistory={data.lesson_history}
+          showNames={data.show_names} 
+        />
       )}
       
       <ReportStudentTable data={data} code={code} />

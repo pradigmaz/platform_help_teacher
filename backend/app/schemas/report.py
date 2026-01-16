@@ -155,6 +155,18 @@ class TodayLessonAttendance(BaseModel):
     excused: List[str] = Field(default_factory=list, description="Уважительная причина")
 
 
+class LessonHistoryItem(BaseModel):
+    """Элемент истории занятий."""
+    date: date
+    lesson_number: int = Field(description="Номер пары (1-8)")
+    lesson_type: str = Field(description="lecture/practice/lab")
+    topic: Optional[str] = None
+    subgroup: Optional[int] = Field(None, description="Подгруппа (null = лекция)")
+    attendance_rate: float = Field(description="Процент посещаемости")
+    present_count: int = 0
+    total_count: int = 0
+
+
 class PublicReportData(BaseModel):
     """Данные для публичной страницы отчёта группы."""
     group_code: str
@@ -212,6 +224,11 @@ class PublicReportData(BaseModel):
     # Посещаемость по парам (сегодня)
     today_lessons: Optional[List[TodayLessonAttendance]] = Field(
         None, description="Занятия на сегодня с посещаемостью"
+    )
+    
+    # История занятий (последние N)
+    lesson_history: Optional[List[LessonHistoryItem]] = Field(
+        None, description="История последних занятий"
     )
 
 

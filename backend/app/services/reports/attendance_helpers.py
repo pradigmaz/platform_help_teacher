@@ -405,3 +405,93 @@ async def get_today_lessons_attendance(
         ))
     
     return result
+
+
+async def get_recent_lessons_history(
+    db: AsyncSession,
+    group_id: UUID,
+    students: List[User],
+    limit: int = 10,
+    semester_start_date: Optional[date] = None
+) -> List["LessonHistoryItem"]:
+    """Получить историю последних занятий с посещаемостью."""
+    from app.schemas.report import LessonHistoryItem
+    
+    check_date = today_msk()
+    student_ids = [s.id for s in students]
+    student_map = {s.id: s for s in students}
+    
+    # Получаем последние занятия (до сегодня включительно)
+    lessons_query = (
+        select(Lesson)
+        .where(
+            Lesson.group_id == group_id,
+            Lesson.date <= check_date,
+            Lesson.is_cancelled == False
+        )
+        .order_by(Lesson.date.desc(), Lesson.lesson_number.desc())
+        .limit(limit * 2)  # Берём с запасом, потом отфильтруем
+    )
+    if semester_start_date:
+        lessons_query = lessons_query.where(Lesson.date >= semester_start_date)
+    
+    lessons_result = await db.execute(lessons_query)
+    lessons = lessons_result.scalars().all()
+    
+    if not lessons:
+        return []
+    
+    # Получаем даты для запроса посещаемости
+    lesson_dates = list(set(l.date for l in lessons))
+    
+    # Получаем посещаемость
+    attendance_query = (
+        select(Attendance)
+        .where(
+            Attendance.group_id == group_id,
+            Attendance.date.in_(lesson_dates),
+            Attendance.student_id.in_(student_ids)
+        )
+    )
+    attendance_result = await db.execute(attendance_query)
+    attendance_records = attendance_result.scalars().all()
+    
+    # Группируем посещаемость по (date, lesson_number, student_id)
+    att_map: Dict[tuple, Attendance] = {}
+    for att in attendance_records:
+        key = (att.date, att.lesson_number, att.student_id)
+        att_map[key] = att
+    
+    result = []
+    for lesson in lessons[:limit]:
+        # Определяем студентов для этого занятия
+        if lesson.subgroup is None:
+            relevant_students = students
+        else:
+            relevant_students = [s for s in students if s.subgroup == lesson.subgroup]
+        
+        present_count = 0
+        total_count = len(relevant_students)
+        
+        for student in relevant_students:
+            att = att_map.get((lesson.date, lesson.lesson_number, student.id))
+            if att:
+                status = att.status.value.lower() if hasattr(att.status, 'value') else str(att.status).lower()
+                if status in ('present', 'late'):
+                    present_count += 1
+        
+        attendance_rate = round(present_count / total_count * 100, 1) if total_count > 0 else 0.0
+        lesson_type_str = lesson.lesson_type.value if hasattr(lesson.lesson_type, 'value') else str(lesson.lesson_type)
+        
+        result.append(LessonHistoryItem(
+            date=lesson.date,
+            lesson_number=lesson.lesson_number,
+            lesson_type=lesson_type_str,
+            topic=lesson.topic,
+            subgroup=lesson.subgroup,
+            attendance_rate=attendance_rate,
+            present_count=present_count,
+            total_count=total_count
+        ))
+    
+    return result

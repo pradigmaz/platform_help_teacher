@@ -22,7 +22,8 @@ from .base_helpers import (
 from .attendance_helpers import (
     get_group_attendance_stats, get_attendance_distribution,
     get_student_attendance_history, get_student_attendance_stats,
-    get_full_attendance_stats, get_today_lessons_attendance
+    get_full_attendance_stats, get_today_lessons_attendance,
+    get_recent_lessons_history
 )
 from .labs_helpers import (
     get_group_labs_stats, get_lab_progress, 
@@ -100,6 +101,7 @@ class ReportDataCollector:
         attendance_distribution = None
         attendance_stats = None
         today_lessons = None
+        lesson_history = None
         has_subgroups = group.has_subgroups if group and hasattr(group, 'has_subgroups') else False
         
         if report.show_attendance:
@@ -107,6 +109,9 @@ class ReportDataCollector:
             attendance_stats = await get_full_attendance_stats(self.db, report.group_id, students, has_subgroups, semester_start, subject_id)
             today_lessons = await get_today_lessons_attendance(
                 self.db, report.group_id, students, show_names=report.show_names
+            )
+            lesson_history = await get_recent_lessons_history(
+                self.db, report.group_id, students, limit=10, semester_start_date=semester_start
             )
         
         lab_progress = None
@@ -146,6 +151,7 @@ class ReportDataCollector:
             lab_progress_by_subgroup=lab_progress_by_subgroup,
             grade_distribution=grade_distribution,
             today_lessons=today_lessons,
+            lesson_history=lesson_history,
         )
     
     async def get_student_report_data(

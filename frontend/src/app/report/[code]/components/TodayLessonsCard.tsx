@@ -2,11 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TodayLessonAttendance } from '@/lib/api';
-import { Calendar, Users, UserX, Clock, UserCheck } from 'lucide-react';
+import { TodayLessonAttendance, LessonHistoryItem } from '@/lib/api';
+import { Calendar, Users, UserX, Clock, UserCheck, CalendarX, History } from 'lucide-react';
 
 interface TodayLessonsCardProps {
-  lessons: TodayLessonAttendance[];
+  todayLessons?: TodayLessonAttendance[];
+  lessonHistory?: LessonHistoryItem[];
   showNames: boolean;
 }
 
@@ -22,10 +23,22 @@ const lessonTypeColors: Record<string, string> = {
   lab: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
 };
 
-export function TodayLessonsCard({ lessons, showNames }: TodayLessonsCardProps) {
-  if (!lessons || lessons.length === 0) return null;
+export function TodayLessonsCard({ todayLessons, lessonHistory, showNames }: TodayLessonsCardProps) {
+  const hasTodayLessons = todayLessons && todayLessons.length > 0;
+  const hasHistory = lessonHistory && lessonHistory.length > 0;
+  
+  if (!hasTodayLessons && !hasHistory) return null;
 
   const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ru-RU', { 
+      weekday: 'short', 
+      day: 'numeric', 
+      month: 'short' 
+    });
+  };
+
+  const formatFullDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('ru-RU', { 
       weekday: 'long', 
@@ -35,33 +48,63 @@ export function TodayLessonsCard({ lessons, showNames }: TodayLessonsCardProps) 
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-muted-foreground" />
-          <CardTitle className="text-base">
-            Занятия сегодня — {formatDate(lessons[0].date)}
-          </CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {lessons.map((lesson, idx) => (
-          <LessonItem key={idx} lesson={lesson} showNames={showNames} />
-        ))}
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      {/* Сегодня */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-muted-foreground" />
+            <CardTitle className="text-base">
+              Сегодня — {formatFullDate(new Date().toISOString())}
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {hasTodayLessons ? (
+            <div className="space-y-3">
+              {todayLessons.map((lesson, idx) => (
+                <TodayLessonItem key={idx} lesson={lesson} showNames={showNames} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-muted-foreground py-4">
+              <CalendarX className="h-5 w-5" />
+              <span>Сегодня занятий нет</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* История занятий */}
+      {hasHistory && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <History className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-base">История занятий</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {lessonHistory.map((lesson, idx) => (
+                <HistoryItem key={idx} lesson={lesson} formatDate={formatDate} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 
-function LessonItem({ lesson, showNames }: { lesson: TodayLessonAttendance; showNames: boolean }) {
+function TodayLessonItem({ lesson, showNames }: { lesson: TodayLessonAttendance; showNames: boolean }) {
   const totalStudents = lesson.present.length + lesson.absent.length + lesson.late.length + lesson.excused.length;
   const attendanceRate = totalStudents > 0 
     ? Math.round(((lesson.present.length + lesson.late.length) / totalStudents) * 100) 
     : 0;
 
   return (
-    <div className="border rounded-lg p-4 space-y-3">
-      {/* Header */}
+    <div className="border rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <span className="font-medium">{lesson.lesson_number} пара</span>
@@ -72,73 +115,89 @@ function LessonItem({ lesson, showNames }: { lesson: TodayLessonAttendance; show
             <Badge variant="outline">{lesson.subgroup} п/г</Badge>
           )}
         </div>
-        <div className="text-sm text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           Посещаемость: <span className="font-medium">{attendanceRate}%</span>
-        </div>
+        </span>
       </div>
 
-      {/* Topic */}
       {lesson.topic && (
         <p className="text-sm text-muted-foreground">{lesson.topic}</p>
       )}
 
-      {/* Attendance stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
         <StatItem 
-          icon={<UserCheck className="h-4 w-4 text-green-600" />}
-          label="Присутствуют"
+          icon={<UserCheck className="h-3.5 w-3.5 text-green-600" />}
+          label="Были"
           count={lesson.present.length}
           names={showNames ? lesson.present : undefined}
-          color="text-green-600"
         />
         <StatItem 
-          icon={<Clock className="h-4 w-4 text-amber-600" />}
+          icon={<Clock className="h-3.5 w-3.5 text-amber-600" />}
           label="Опоздали"
           count={lesson.late.length}
           names={showNames ? lesson.late : undefined}
-          color="text-amber-600"
         />
         <StatItem 
-          icon={<Users className="h-4 w-4 text-blue-600" />}
-          label="Уваж. причина"
+          icon={<Users className="h-3.5 w-3.5 text-blue-600" />}
+          label="Уваж."
           count={lesson.excused.length}
           names={showNames ? lesson.excused : undefined}
-          color="text-blue-600"
         />
         <StatItem 
-          icon={<UserX className="h-4 w-4 text-red-600" />}
-          label="Отсутствуют"
+          icon={<UserX className="h-3.5 w-3.5 text-red-600" />}
+          label="Нет"
           count={lesson.absent.length}
           names={showNames ? lesson.absent : undefined}
-          color="text-red-600"
         />
       </div>
     </div>
   );
 }
 
-function StatItem({ 
-  icon, 
-  label, 
-  count, 
-  names, 
-  color 
-}: { 
+function HistoryItem({ lesson, formatDate }: { lesson: LessonHistoryItem; formatDate: (d: string) => string }) {
+  const rateColor = lesson.attendance_rate >= 80 
+    ? 'text-green-600' 
+    : lesson.attendance_rate >= 50 
+      ? 'text-amber-600' 
+      : 'text-red-600';
+
+  return (
+    <div className="flex items-center justify-between py-2 border-b last:border-0">
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground w-20">{formatDate(lesson.date)}</span>
+        <Badge variant="outline" className="text-xs">
+          {lesson.lesson_number} пара
+        </Badge>
+        <Badge className={`text-xs ${lessonTypeColors[lesson.lesson_type] || 'bg-gray-100'}`}>
+          {lessonTypeLabels[lesson.lesson_type] || lesson.lesson_type}
+        </Badge>
+        {lesson.subgroup && (
+          <span className="text-xs text-muted-foreground">{lesson.subgroup} п/г</span>
+        )}
+      </div>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{lesson.present_count}/{lesson.total_count}</span>
+        <span className={`font-medium ${rateColor}`}>{lesson.attendance_rate}%</span>
+      </div>
+    </div>
+  );
+}
+
+function StatItem({ icon, label, count, names }: { 
   icon: React.ReactNode;
   label: string;
   count: number;
   names?: string[];
-  color: string;
 }) {
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-1.5">
+    <div className="space-y-0.5">
+      <div className="flex items-center gap-1">
         {icon}
-        <span className="text-muted-foreground">{label}:</span>
-        <span className={`font-medium ${color}`}>{count}</span>
+        <span className="text-muted-foreground text-xs">{label}:</span>
+        <span className="font-medium text-xs">{count}</span>
       </div>
       {names && names.length > 0 && (
-        <div className="text-xs text-muted-foreground pl-5 max-h-20 overflow-y-auto">
+        <div className="text-xs text-muted-foreground pl-4 max-h-16 overflow-y-auto">
           {names.join(', ')}
         </div>
       )}

@@ -117,6 +117,17 @@ export interface TodayLessonAttendance {
   excused: string[];
 }
 
+export interface LessonHistoryItem {
+  date: string;
+  lesson_number: number;
+  lesson_type: string;
+  topic?: string;
+  subgroup?: number;
+  attendance_rate: number;
+  present_count: number;
+  total_count: number;
+}
+
 export interface PublicReportData {
   group_code: string;
   group_name?: string;
@@ -147,6 +158,7 @@ export interface PublicReportData {
   grade_distribution?: Record<string, number>;
   teacher_contacts?: TeacherContacts;
   today_lessons?: TodayLessonAttendance[];
+  lesson_history?: LessonHistoryItem[];
 }
 
 export interface AttendanceRecordPublic {
