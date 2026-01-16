@@ -93,11 +93,16 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
       const { data } = await api.post(`/feedback/${feedbackId}/attachments?${params}`);
       
       // Upload to MinIO
-      await fetch(data.upload_url, {
+      const response = await fetch(data.upload_url, {
         method: 'PUT',
         body: file,
         headers: { 'Content-Type': file.type },
       });
+      
+      if (!response.ok) {
+        console.error('MinIO upload failed:', response.status, response.statusText);
+        return false;
+      }
       return true;
     } catch (e) {
       console.error('Upload failed:', e);
@@ -110,30 +115,41 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
     if (submittingRef.current) return;
     submittingRef.current = true;
     
+    let feedbackCreated = false;
+    
     try {
       setSubmitting(true);
       
       // Create feedback
       const { data: feedback } = await api.post('/feedback', data);
+      feedbackCreated = true;
       
       // Upload attachments
+      let failedUploads = 0;
       if (files.length > 0) {
         const results = await Promise.all(
           files.map(f => uploadAttachment(feedback.id, f.file))
         );
-        const failed = results.filter(r => !r).length;
-        if (failed > 0) {
-          toast.warning(`${failed} файл(ов) не загружено`);
-        }
+        failedUploads = results.filter(r => !r).length;
       }
       
-      toast.success('Спасибо за обратную связь!');
+      // Show appropriate message
+      if (failedUploads > 0) {
+        toast.warning(`Отправлено, но ${failedUploads} файл(ов) не загружено`);
+      } else {
+        toast.success('Спасибо за обратную связь!');
+      }
+      
       setOpen(false);
       form.reset();
       files.forEach(f => URL.revokeObjectURL(f.preview));
       setFiles([]);
     } catch {
-      toast.error('Не удалось отправить');
+      if (feedbackCreated) {
+        toast.warning('Отправлено, но возникла ошибка при загрузке файлов');
+      } else {
+        toast.error('Не удалось отправить');
+      }
     } finally {
       setSubmitting(false);
       submittingRef.current = false;

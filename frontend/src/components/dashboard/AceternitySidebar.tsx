@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/aceternity-sidebar";
+import { SidebarLink } from "@/components/ui/aceternity-sidebar";
 import {
   IconLayoutDashboard,
   IconFlask,
@@ -9,8 +9,10 @@ import {
   IconLogout,
   IconSchool,
   IconStar,
+  IconMenu2,
+  IconX,
 } from "@tabler/icons-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname } from "next/navigation";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -30,6 +32,11 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // Close mobile menu on navigation
+  const handleLinkClick = () => {
+    setOpen(false);
+  };
+
   const links = [
     {
       label: "Обзор",
@@ -37,7 +44,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
       icon: (
         <IconLayoutDashboard className={cn(
           "h-6 w-6 shrink-0",
-          pathname === "/dashboard" ? "text-primary" : "text-neutral-700 dark:text-neutral-200"
+          pathname === "/dashboard" ? "text-primary" : "text-muted-foreground"
         )} />
       ),
     },
@@ -47,7 +54,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
       icon: (
         <IconFlask className={cn(
           "h-6 w-6 shrink-0",
-          pathname === "/dashboard/labs" ? "text-primary" : "text-neutral-700 dark:text-neutral-200"
+          pathname?.startsWith("/dashboard/labs") ? "text-primary" : "text-muted-foreground"
         )} />
       ),
     },
@@ -57,7 +64,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
       icon: (
         <IconCalendar className={cn(
           "h-6 w-6 shrink-0",
-          pathname === "/dashboard/attendance" ? "text-primary" : "text-neutral-700 dark:text-neutral-200"
+          pathname === "/dashboard/attendance" ? "text-primary" : "text-muted-foreground"
         )} />
       ),
     },
@@ -67,7 +74,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
       icon: (
         <IconStar className={cn(
           "h-6 w-6 shrink-0",
-          pathname === "/dashboard/activities" ? "text-primary" : "text-neutral-700 dark:text-neutral-200"
+          pathname === "/dashboard/activities" ? "text-primary" : "text-muted-foreground"
         )} />
       ),
     },
@@ -77,7 +84,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
       icon: (
         <IconSettings className={cn(
           "h-6 w-6 shrink-0",
-          pathname === "/dashboard/settings" ? "text-primary" : "text-neutral-700 dark:text-neutral-200"
+          pathname === "/dashboard/settings" ? "text-primary" : "text-muted-foreground"
         )} />
       ),
     },
@@ -101,14 +108,20 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
     .toUpperCase();
 
   return (
-    <div className="h-screen w-screen flex flex-col lg:flex-row overflow-hidden bg-background">
-      <Sidebar open={open} setOpen={setOpen}>
-        <SidebarBody className="flex flex-col h-full justify-between border-r border-border">
+    <div className="min-h-dvh w-full flex flex-col md:flex-row bg-background">
+      {/* Desktop Sidebar - only on md+ */}
+      <aside 
+        className="hidden md:flex md:flex-col shrink-0 border-r border-border bg-background h-dvh sticky top-0 transition-all duration-200"
+        style={{ width: open ? 300 : 70 }}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+      >
+        <div className="flex flex-col h-full justify-between px-4 py-4">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             {open ? <Logo /> : <LogoIcon />}
             <div className="mt-8 flex flex-col gap-1">
               {links.map((link, idx) => (
-                <SidebarLink key={idx} link={link} />
+                <SidebarLink key={idx} link={link} onClick={handleLinkClick} />
               ))}
             </div>
           </div>
@@ -124,15 +137,11 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
               className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-destructive/10 transition-colors w-full text-left"
             >
               <IconLogout className="h-6 w-6 shrink-0 text-destructive" />
-              <motion.span
-                animate={{
-                  display: open ? "inline-block" : "none",
-                  opacity: open ? 1 : 0,
-                }}
-                className="text-destructive text-base whitespace-pre"
-              >
-                Выйти
-              </motion.span>
+              {open && (
+                <span className="text-destructive text-base whitespace-pre">
+                  Выйти
+                </span>
+              )}
             </button>
           </div>
 
@@ -142,24 +151,101 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
               <span className="text-sm font-medium text-primary">{initials}</span>
             </div>
             {open && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col overflow-hidden"
-              >
+              <div className="flex flex-col overflow-hidden">
                 <span className="text-sm font-medium text-foreground truncate">
                   {user.name}
                 </span>
                 <span className="text-xs text-muted-foreground truncate">
                   {user.group || `@${user.username}` || "Студент"}
                 </span>
-              </motion.div>
+              </div>
             )}
           </div>
-        </SidebarBody>
-      </Sidebar>
+        </div>
+      </aside>
+
+      {/* Mobile Header - only on mobile */}
+      <header className="md:hidden flex items-center justify-between h-14 px-4 border-b border-border bg-background shrink-0 sticky top-0 z-50">
+        <button
+          onClick={() => setOpen(!open)}
+          className="p-2 -ml-2 rounded-lg hover:bg-accent"
+        >
+          <IconMenu2 className="h-6 w-6 text-foreground" />
+        </button>
+        <LogoIcon />
+        <div className="w-10" /> {/* Spacer for centering */}
+      </header>
+
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="md:hidden fixed inset-0 bg-black/50 z-[100]"
+              onClick={() => setOpen(false)}
+            />
+            <motion.aside
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="md:hidden fixed top-0 left-0 h-dvh w-[280px] max-w-[85vw] bg-background z-[101] flex flex-col border-r border-border shadow-xl"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <Logo />
+                <button
+                  onClick={() => setOpen(false)}
+                  className="p-2 rounded-lg hover:bg-accent"
+                >
+                  <IconX className="h-5 w-5 text-foreground" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex flex-col gap-1">
+                  {links.map((link, idx) => (
+                    <SidebarLink key={idx} link={link} onClick={handleLinkClick} />
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-border p-4">
+                <div className="flex items-center justify-center mb-4">
+                  <AnimatedThemeToggler />
+                </div>
+                
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-destructive/10 transition-colors w-full text-left"
+                >
+                  <IconLogout className="h-6 w-6 shrink-0 text-destructive" />
+                  <span className="text-destructive text-base">Выйти</span>
+                </button>
+
+                <div className="mt-4 flex items-center gap-3 px-2 py-2">
+                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-medium text-primary">{initials}</span>
+                  </div>
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="text-sm font-medium text-foreground truncate">
+                      {user.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      {user.group || `@${user.username}` || "Студент"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
       
-      <main className="flex-1 overflow-auto min-h-0">
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto w-full">
         {children}
       </main>
     </div>
