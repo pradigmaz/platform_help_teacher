@@ -60,3 +60,4 @@ scripts/
 # Deploy scripts (Windows only)
 *.ps1
 deploy/openapi_temp.json
+.claude/
