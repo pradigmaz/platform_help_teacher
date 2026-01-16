@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = '073_add_announcements'
-down_revision = '072_add_submission_unique_constraint'
+down_revision = '072_submission_unique'
 branch_labels = None
 depends_on = None
 
