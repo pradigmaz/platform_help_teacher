@@ -84,6 +84,10 @@ def parse_command(text: str) -> tuple[str | None, str | None]:
     if text_lower == "код":
         return "/code", None
     
+    # Команда "расписание" для преподавателей
+    if text_lower in ("расписание", "schedule"):
+        return "/schedule", None
+    
     return None, text
 
 
@@ -117,6 +121,12 @@ async def handle_message(user_id: int, text: str):
                     )
             elif command == "/status":
                 response = "✅ Бот работает в штатном режиме."
+            elif command == "/schedule":
+                response = await bot_service.process_schedule_command(
+                    db=db,
+                    social_id=user_id,
+                    platform="vk"
+                )
             elif command == "/cancel":
                 from app.core.redis import get_redis
                 redis = await get_redis()

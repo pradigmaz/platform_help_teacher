@@ -102,6 +102,26 @@ async def command_status_handler(message: types.Message) -> None:
     """
     await message.answer("✅ Бот работает в штатном режиме.")
 
+
+@router.message(Command("schedule"))
+async def command_schedule_handler(message: types.Message) -> None:
+    """
+    Расписание преподавателя.
+    """
+    social_id = message.from_user.id
+    
+    try:
+        async with AsyncSessionLocal() as db:
+            response_text = await telegram_service.process_schedule_command(
+                db=db,
+                social_id=social_id
+            )
+            if response_text:
+                await message.answer(response_text)
+    except Exception as e:
+        logger.error(f"Error in command_schedule_handler: {e}", exc_info=True)
+        await message.answer("Произошла внутренняя ошибка сервера.")
+
 @router.message(lambda message: message.text and not message.text.startswith('/'))
 async def text_message_handler(message: types.Message) -> None:
     """

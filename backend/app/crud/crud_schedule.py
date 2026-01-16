@@ -91,6 +91,26 @@ class CRUDSchedule:
             return True
         return False
 
+    async def get_by_teacher(
+        self,
+        db: AsyncSession,
+        teacher_id: UUID,
+        active_only: bool = True
+    ) -> List[ScheduleItem]:
+        """Получить расписание преподавателя."""
+        from sqlalchemy.orm import selectinload
+        
+        query = select(ScheduleItem).where(
+            ScheduleItem.teacher_id == teacher_id
+        ).options(selectinload(ScheduleItem.group))
+        
+        if active_only:
+            query = query.where(ScheduleItem.is_active == True)
+        
+        query = query.order_by(ScheduleItem.day_of_week, ScheduleItem.lesson_number)
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
 
 class CRUDLesson:
     """CRUD для занятий"""

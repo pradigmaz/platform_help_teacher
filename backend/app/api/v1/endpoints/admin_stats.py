@@ -43,8 +43,13 @@ async def get_stats(
     labs_result = await db.execute(select(func.count(Lab.id)))
     active_labs = labs_result.scalar() or 0
 
-    # Считаем количество лекций
-    lectures_result = await db.execute(select(func.count(Lecture.id)))
+    # Считаем количество опубликованных лекций (не удалённых)
+    lectures_result = await db.execute(
+        select(func.count(Lecture.id)).where(
+            Lecture.is_published == True,
+            Lecture.deleted_at.is_(None)
+        )
+    )
     total_lectures = lectures_result.scalar() or 0
 
     return {

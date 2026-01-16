@@ -66,3 +66,15 @@ async def process_text_message(
         username=username,
         platform="telegram"
     )
+
+
+async def process_schedule_command(
+    db: AsyncSession,
+    social_id: int
+) -> str | None:
+    """Обработка команды /schedule для Telegram (расписание преподавателя)."""
+    return await bot_service.process_schedule_command(
+        db=db,
+        social_id=social_id,
+        platform="telegram"
+    )
