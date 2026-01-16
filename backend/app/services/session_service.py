@@ -177,3 +177,40 @@ async def get_user_sessions(user_id: UUID) -> list[dict]:
             await redis.srem(user_sessions_key, session_id)
     
     return result
+
+
+async def revoke_all_except_current(user_id: UUID, current_session_id: str) -> int:
+    """Revoke all sessions for a user except the current one."""
+    redis = await get_redis()
+    user_id_str = str(user_id)
+    user_sessions_key = f"{USER_SESSIONS_PREFIX}{user_id_str}"
+    
+    sessions = await redis.smembers(user_sessions_key)
+    count = 0
+    
+    for session_id in sessions:
+        if session_id == current_session_id:
+            continue
+        session_key = f"{SESSION_PREFIX}{session_id}"
+        if await redis.delete(session_key):
+            await redis.srem(user_sessions_key, session_id)
+            count += 1
+    
+    logger.info(f"Revoked {count} sessions for user {user_id_str} (kept current: {current_session_id[:8]}...)")
+    return count
+
+
+async def get_session_owner(session_id: str) -> Optional[str]:
+    """Get user_id for a session. Returns None if session doesn't exist."""
+    redis = await get_redis()
+    session_key = f"{SESSION_PREFIX}{session_id}"
+    data = await redis.get(session_key)
+    
+    if not data:
+        return None
+    
+    try:
+        parsed = json.loads(data)
+        return parsed.get("user_id")
+    except json.JSONDecodeError:
+        return None

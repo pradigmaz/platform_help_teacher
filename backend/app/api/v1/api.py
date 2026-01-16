@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import users, auth, webhooks, groups, labs, admin_labs, admin_attestation, admin_attendance, admin_stats, admin_activities, admin_works, admin_work_submissions, admin_schedule, admin_journal, student, admin_subjects, admin_schedule_parser, admin_notes, admin_lectures, lectures, admin_reports, public_reports, admin_lab_queue, admin_audit, admin_audit_export, admin_rate_limit, admin_impersonate, feedback, admin_lab_schedule, admin_security, honeypot, admin_announcements
+from app.api.v1.endpoints import users, auth, webhooks, groups, labs, admin_labs, admin_attestation, admin_attendance, admin_stats, admin_activities, admin_works, admin_work_submissions, admin_schedule, admin_journal, student, admin_subjects, admin_schedule_parser, admin_notes, admin_lectures, lectures, admin_reports, public_reports, admin_lab_queue, admin_audit, admin_audit_export, admin_rate_limit, admin_impersonate, feedback, admin_lab_schedule, admin_security, honeypot, admin_announcements, user_sessions
 from app.api.v1.endpoints.backup import router as backup_router
 
 api_router = APIRouter()
@@ -32,6 +32,7 @@ api_router.include_router(honeypot.router, prefix="/admin/backup/download", tags
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(user_sessions.router, prefix="/users", tags=["user_sessions"])
 api_router.include_router(groups.router, prefix="/groups", tags=["groups"])
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 

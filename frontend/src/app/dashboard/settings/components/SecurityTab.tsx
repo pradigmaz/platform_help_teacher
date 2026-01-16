@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { StudentProfile, RelinkTelegramResponse } from '@/lib/api';
 import type { LinkVkResponse } from '@/lib/api/types/admin';
 import { cn } from '@/lib/utils';
+import { SessionsSection } from './SessionsSection';
 
 interface SecurityTabProps {
   profile: StudentProfile | null;
@@ -85,6 +86,10 @@ export function SecurityTab({
             actionLabel={isVkLinked ? "Перепривязать" : "Привязать"}
           />
         </div>
+
+        <Separator className="bg-neutral-200 dark:bg-neutral-800 my-6" />
+
+        <SessionsSection />
 
         <Separator className="bg-neutral-200 dark:bg-neutral-800 my-6" />
 
