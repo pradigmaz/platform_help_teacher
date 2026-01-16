@@ -122,9 +122,7 @@ export default function AdminLayout({
       <AdminSidebar />
       <div className="flex-1 flex flex-col relative z-10 transition-all duration-300 min-h-screen">
         <header className="h-14 lg:h-16 border-b border-border flex items-center justify-between px-4 lg:px-8 gap-4 bg-background/40 backdrop-blur-xl sticky top-0 z-30">
-          <div className="lg:hidden">
-            <AdminSidebar />
-          </div>
+          <MobileSidebarTrigger />
           <div className="flex-1" />
           <AnimatedThemeToggler />
         </header>

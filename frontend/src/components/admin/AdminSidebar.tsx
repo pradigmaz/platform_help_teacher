@@ -216,20 +216,11 @@ function NavContent({ pathname, onClose, isCollapsed, feedbackCount }: NavConten
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = React.useState(false);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const feedbackCount = useNewFeedbackCount();
 
   return (
     <>
-      {/* Mobile: кнопка в хедере (рендерится через портал в layout) */}
-      <MobileSidebarTrigger 
-        isOpen={isOpen} 
-        setIsOpen={setIsOpen} 
-        feedbackCount={feedbackCount}
-        pathname={pathname}
-      />
-
       {/* Desktop: боковая панель */}
       <aside className={cn(
         "hidden lg:flex h-screen flex-col sticky left-0 top-0 z-40 border-r border-border backdrop-blur-xl bg-background/40 transition-all duration-300",
@@ -250,15 +241,16 @@ export function AdminSidebar() {
 }
 
 interface MobileSidebarTriggerProps {
-  isOpen: boolean;
-  setIsOpen: (open: boolean) => void;
-  feedbackCount: number;
-  pathname: string;
+  className?: string;
 }
 
-function MobileSidebarTrigger({ isOpen, setIsOpen, feedbackCount, pathname }: MobileSidebarTriggerProps) {
+function MobileSidebarTrigger({ className }: MobileSidebarTriggerProps) {
+  const pathname = usePathname();
+  const [isOpen, setIsOpen] = React.useState(false);
+  const feedbackCount = useNewFeedbackCount();
+
   return (
-    <div className="lg:hidden">
+    <div className={cn("lg:hidden", className)}>
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="relative">
