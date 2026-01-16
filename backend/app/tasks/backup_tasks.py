@@ -83,33 +83,56 @@ def create_scheduled_backup():
     Checks if backup is enabled and applies max_backups limit.
     Called by celery beat at scheduled time (crontab).
     """
-    # Get settings from DB
-    db_settings = _run_async(_get_backup_settings())
+    logger.warning("=== SCHEDULED BACKUP TASK STARTED ===")
     
-    # Check if backups are enabled
-    if not db_settings["enabled"]:
-        logger.info("Scheduled backup skipped: backups disabled in settings")
-        return {"success": False, "reason": "disabled"}
+    try:
+        # Get settings from DB
+        logger.info("Fetching backup settings from DB...")
+        db_settings = _run_async(_get_backup_settings())
+        logger.info(f"Backup settings: enabled={db_settings['enabled']}")
+        
+        # Check if backups are enabled
+        if not db_settings["enabled"]:
+            logger.info("Scheduled backup skipped: backups disabled in settings")
+            return {"success": False, "reason": "disabled"}
+        
+        logger.info("Starting scheduled backup...")
+        
+        service = BackupService()
+        result = _run_async(service.create_backup(send_to_admin=True))
+        
+        if result.success:
+            logger.info(f"Scheduled backup completed: {result.backup_key}")
+            # Cleanup with both retention AND max_backups limits
+            deleted = _run_async(_cleanup_with_limits(
+                service,
+                db_settings["retention_days"],
+                db_settings["max_backups"]
+            ))
+            if deleted:
+                logger.info(f"Cleaned up {deleted} old backups")
+        else:
+            logger.error(f"Scheduled backup failed: {result.error}")
+        
+        return {"success": result.success, "key": result.backup_key}
     
-    logger.info("Starting scheduled backup...")
-    
-    service = BackupService()
-    result = _run_async(service.create_backup())
-    
-    if result.success:
-        logger.info(f"Scheduled backup completed: {result.backup_key}")
-        # Cleanup with both retention AND max_backups limits
-        deleted = _run_async(_cleanup_with_limits(
-            service,
-            db_settings["retention_days"],
-            db_settings["max_backups"]
-        ))
-        if deleted:
-            logger.info(f"Cleaned up {deleted} old backups")
-    else:
-        logger.error(f"Scheduled backup failed: {result.error}")
-    
-    return {"success": result.success, "key": result.backup_key}
+    except Exception as e:
+        import traceback
+        tb_text = traceback.format_exc()
+        logger.error(f"Scheduled backup task failed: {e}\n{tb_text}")
+        
+        # Try to notify admin about failure
+        try:
+            from app.services.backup.notification import get_notification_service
+            notifier = get_notification_service()
+            _run_async(notifier.notify_backup_failure(
+                f"Scheduled backup task failed: {e}",
+                traceback_text=tb_text
+            ))
+        except Exception as notify_err:
+            logger.error(f"Failed to send failure notification: {notify_err}")
+        
+        return {"success": False, "error": str(e)}
 
 
 @celery_app.task(name="app.tasks.backup_tasks.cleanup_old_backups")
