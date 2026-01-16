@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -48,6 +48,7 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [files, setFiles] = useState<PendingFile[]>([]);
+  const submittingRef = useRef(false);
 
   const form = useForm<FeedbackForm>({
     resolver: zodResolver(feedbackSchema),
@@ -105,6 +106,10 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
   };
 
   const onSubmit = async (data: FeedbackForm) => {
+    // Защита от двойной отправки
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    
     try {
       setSubmitting(true);
       
