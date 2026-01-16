@@ -136,6 +136,7 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
       toast.error('Не удалось отправить');
     } finally {
       setSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
