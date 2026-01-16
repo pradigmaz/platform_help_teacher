@@ -105,6 +105,18 @@ export interface TeacherContacts {
   max?: string;
 }
 
+export interface TodayLessonAttendance {
+  date: string;
+  lesson_number: number;
+  lesson_type: string;
+  topic?: string;
+  subgroup?: number;
+  present: string[];
+  absent: string[];
+  late: string[];
+  excused: string[];
+}
+
 export interface PublicReportData {
   group_code: string;
   group_name?: string;
@@ -134,6 +146,7 @@ export interface PublicReportData {
   lab_progress_by_subgroup?: Record<string, LabProgress[]>;
   grade_distribution?: Record<string, number>;
   teacher_contacts?: TeacherContacts;
+  today_lessons?: TodayLessonAttendance[];
 }
 
 export interface AttendanceRecordPublic {

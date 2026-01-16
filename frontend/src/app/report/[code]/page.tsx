@@ -13,6 +13,7 @@ import { ReportSummaryCards } from './components/ReportSummaryCards';
 import { ReportStudentTable } from './components/ReportStudentTable';
 import { AttendanceChart, AttendanceTrend } from './components/AttendanceChart';
 import { LabProgressChart } from './components/LabProgressChart';
+import { TodayLessonsCard } from './components/TodayLessonsCard';
 
 interface PageProps {
   params: Promise<{ code: string }>;
@@ -153,6 +154,11 @@ export default function PublicReportPage({ params }: PageProps) {
             <AttendanceTrend stats={data.attendance_stats} hasSubgroups={data.has_subgroups} />
           )}
         </div>
+      )}
+      
+      {/* Today's lessons */}
+      {data.today_lessons && data.today_lessons.length > 0 && (
+        <TodayLessonsCard lessons={data.today_lessons} showNames={data.show_names} />
       )}
       
       <ReportStudentTable data={data} code={code} />

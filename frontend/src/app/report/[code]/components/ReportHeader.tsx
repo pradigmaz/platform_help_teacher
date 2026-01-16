@@ -2,7 +2,6 @@
 
 import { Badge } from '@/components/ui/badge';
 import { 
-  Users, 
   BookOpen, 
   MessageCircle,
 } from 'lucide-react';
@@ -26,31 +25,20 @@ export function ReportHeader({ data }: ReportHeaderProps) {
   return (
     <div className="space-y-4">
       {/* Title */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-2xl sm:text-3xl font-bold">
-            Отчёт группы {formatGroupCode(data.group_code)}
-          </h1>
-          <Badge variant="secondary">{reportTypeLabels[data.report_type]}</Badge>
-        </div>
-        {data.group_name && (
-          <p className="text-lg text-muted-foreground">{data.group_name}</p>
-        )}
+      <div className="flex items-center gap-2 flex-wrap">
+        <h1 className="text-2xl sm:text-3xl font-bold">
+          Отчёт группы {formatGroupCode(data.group_code)}
+        </h1>
+        <Badge variant="secondary">{reportTypeLabels[data.report_type]}</Badge>
       </div>
 
-      {/* Info Cards */}
-      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-        {data.subject_name && (
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            <span>{data.subject_name}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4" />
-          <span>{data.total_students} студентов</span>
+      {/* Subject info */}
+      {data.subject_name && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <BookOpen className="h-4 w-4" />
+          <span>{data.subject_name}</span>
         </div>
-      </div>
+      )}
 
       {/* Teacher Contacts */}
       {hasContacts && (
