@@ -64,6 +64,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   // Close mobile menu on navigation
   const handleLinkClick = () => {
@@ -147,7 +148,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
         className="hidden md:flex md:flex-col shrink-0 border-r border-border bg-background h-dvh sticky top-0 transition-all duration-200"
         style={{ width: open ? 300 : 70 }}
         onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
+        onMouseLeave={() => !popoverOpen && setOpen(false)}
       >
         <div className="flex flex-col h-full justify-between px-4 py-4">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
@@ -162,7 +163,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
           {/* Logout */}
           <div className="border-t border-border pt-4 mt-4">
             <div className="flex items-center justify-center gap-2 px-2 mb-2">
-              <NotificationBell />
+              <NotificationBell onOpenChange={setPopoverOpen} />
               <AnimatedThemeToggler />
             </div>
             
@@ -248,7 +249,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
 
               <div className="border-t border-border p-4">
                 <div className="flex items-center justify-center gap-2 mb-4">
-                  <NotificationBell />
+                  <NotificationBell onOpenChange={setPopoverOpen} />
                   <AnimatedThemeToggler />
                 </div>
                 

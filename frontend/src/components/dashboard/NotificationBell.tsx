@@ -20,7 +20,11 @@ import {
   getUnreadCount,
 } from '@/lib/api/announcements';
 
-export function NotificationBell() {
+interface NotificationBellProps {
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function NotificationBell({ onOpenChange }: NotificationBellProps) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -47,6 +51,7 @@ export function NotificationBell() {
 
   const handleOpen = (isOpen: boolean) => {
     setOpen(isOpen);
+    onOpenChange?.(isOpen);
     if (isOpen && announcements.length > 0) {
       // Помечаем все как прочитанные при открытии
       announcements.forEach(a => markAnnouncementAsRead(a.id));
