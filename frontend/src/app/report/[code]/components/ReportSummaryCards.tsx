@@ -7,6 +7,7 @@ import { ArrowDown, ArrowUp, AlertTriangle, PartyPopper, HelpCircle } from 'luci
 import { cn } from '@/lib/utils';
 import { PublicReportData } from '@/lib/api';
 import { BlurFade } from '@/components/ui/blur-fade';
+import { getStudentWord } from '@/lib/utils/pluralize';
 
 interface ReportSummaryCardsProps {
   data: PublicReportData;
@@ -207,7 +208,7 @@ function RiskBanner({ hasRisk, failingCount, totalCount }: RiskBannerProps) {
             Требуется внимание
           </p>
           <p className="text-sm text-red-600/80 dark:text-red-400/80">
-            {failingCount} из {totalCount} студентов не получают зачёт
+            {failingCount} из {totalCount} {getStudentWord(totalCount)} не получают зачёт
           </p>
         </div>
       </div>

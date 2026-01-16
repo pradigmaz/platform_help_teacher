@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { PublicReportData, ReportType } from '@/lib/api';
 import { formatGroupCode } from '@/lib/utils';
+import { getStudentWord } from '@/lib/utils/pluralize';
 
 interface ReportHeaderProps {
   data: PublicReportData;
@@ -29,7 +30,7 @@ export function ReportHeader({ data }: ReportHeaderProps) {
         <h1 className="text-2xl sm:text-3xl font-bold">
           Отчёт группы {formatGroupCode(data.group_code)}
           <span className="text-muted-foreground font-normal text-xl sm:text-2xl ml-2">
-            ({data.total_students} студентов)
+            ({data.total_students} {getStudentWord(data.total_students)})
           </span>
         </h1>
         <Badge variant="secondary">{reportTypeLabels[data.report_type]}</Badge>
