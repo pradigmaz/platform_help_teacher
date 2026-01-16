@@ -23,7 +23,6 @@ DAY_NAMES = {
     DayOfWeek.THURSDAY: "Четверг",
     DayOfWeek.FRIDAY: "Пятница",
     DayOfWeek.SATURDAY: "Суббота",
-    DayOfWeek.SUNDAY: "Воскресенье",
 }
 
 # Типы занятий
@@ -61,7 +60,7 @@ def format_teacher_schedule(items: List[ScheduleItem], platform: Platform) -> st
     
     # Сортируем дни по порядку
     day_order = [DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, 
-                 DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY]
+                 DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY]
     
     for day in day_order:
         if day not in by_day:
