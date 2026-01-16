@@ -32,6 +32,7 @@ class AnnouncementResponse(BaseModel):
 class AnnouncementListResponse(BaseModel):
     id: UUID
     title: str
+    content: str
     is_draft: bool
     published_at: Optional[datetime] = None
     created_at: datetime

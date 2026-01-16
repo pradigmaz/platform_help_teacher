@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname } from "next/navigation";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { NotificationBell } from "./NotificationBell";
 import api from "@/lib/api";
 
 interface SidebarLinkItem {
@@ -160,7 +161,8 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
           
           {/* Logout */}
           <div className="border-t border-border pt-4 mt-4">
-            <div className="flex items-center justify-center px-2 mb-2">
+            <div className="flex items-center justify-center gap-2 px-2 mb-2">
+              <NotificationBell />
               <AnimatedThemeToggler />
             </div>
             
@@ -245,7 +247,8 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
               </div>
 
               <div className="border-t border-border p-4">
-                <div className="flex items-center justify-center mb-4">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <NotificationBell />
                   <AnimatedThemeToggler />
                 </div>
                 
