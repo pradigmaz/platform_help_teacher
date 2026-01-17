@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { IconBell } from '@tabler/icons-react';
+import { IconBell, IconX, IconTrash } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import {
   Popover,
   PopoverContent,
@@ -18,6 +21,7 @@ import {
   getReadAnnouncementIds,
   markAnnouncementAsRead,
   getUnreadCount,
+  clearAllAnnouncements,
 } from '@/lib/api/announcements';
 
 interface NotificationBellProps {
@@ -59,6 +63,18 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps) {
     }
   };
 
+  const handleClearAll = () => {
+    clearAllAnnouncements();
+    setAnnouncements([]);
+    setUnreadCount(0);
+  };
+
+  const handleDismiss = (id: string) => {
+    setAnnouncements(prev => prev.filter(a => a.id !== id));
+    markAnnouncementAsRead(id);
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  };
+
   const readIds = getReadAnnouncementIds();
 
   return (
@@ -73,11 +89,22 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="p-3 border-b">
+      <PopoverContent className="w-96 p-0" align="end">
+        <div className="p-3 border-b flex items-center justify-between">
           <h4 className="font-semibold text-sm">Объявления</h4>
+          {announcements.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearAll}
+              className="h-7 text-xs gap-1"
+            >
+              <IconTrash className="h-3 w-3" />
+              Очистить
+            </Button>
+          )}
         </div>
-        <ScrollArea className="h-[300px]">
+        <ScrollArea className="h-[400px]">
           {loading ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               Загрузка...
@@ -93,6 +120,7 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps) {
                   key={a.id}
                   announcement={a}
                   isRead={readIds.has(a.id)}
+                  onDismiss={handleDismiss}
                 />
               ))}
             </div>
@@ -103,17 +131,19 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps) {
   );
 }
 
-function AnnouncementItem({ announcement, isRead }: { 
+function AnnouncementItem({ announcement, isRead, onDismiss }: { 
   announcement: Announcement; 
   isRead: boolean;
+  onDismiss: (id: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const timeAgo = announcement.published_at
     ? formatDistanceToNow(new Date(announcement.published_at), { addSuffix: true, locale: ru })
     : '';
 
   return (
     <div className={cn(
-      "p-3 hover:bg-accent/50 transition-colors cursor-default",
+      "p-3 hover:bg-accent/50 transition-colors",
       !isRead && "bg-primary/5"
     )}>
       <div className="flex items-start gap-2">
@@ -121,10 +151,38 @@ function AnnouncementItem({ announcement, isRead }: {
           <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
         )}
         <div className={cn("flex-1 min-w-0", isRead && "ml-4")}>
-          <p className="font-medium text-sm truncate">{announcement.title}</p>
-          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-            {announcement.content}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="font-medium text-sm text-left hover:underline flex-1"
+            >
+              {announcement.title}
+            </button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0 hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDismiss(announcement.id);
+              }}
+            >
+              <IconX className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+            </Button>
+          </div>
+          
+          <div className={cn(
+            "text-xs text-muted-foreground mt-1 prose prose-sm dark:prose-invert max-w-none",
+            !expanded && "line-clamp-2"
+          )}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeSanitize]}
+            >
+              {announcement.content}
+            </ReactMarkdown>
+          </div>
+          
           {timeAgo && (
             <p className="text-xs text-muted-foreground mt-1">{timeAgo}</p>
           )}
@@ -133,3 +191,4 @@ function AnnouncementItem({ announcement, isRead }: {
     </div>
   );
 }
+

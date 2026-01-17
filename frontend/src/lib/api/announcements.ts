@@ -44,3 +44,8 @@ export function getUnreadCount(announcements: Announcement[]): number {
   const read = getReadAnnouncementIds();
   return announcements.filter(a => !read.has(a.id)).length;
 }
+
+export function clearAllAnnouncements(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(READ_KEY);
+}
