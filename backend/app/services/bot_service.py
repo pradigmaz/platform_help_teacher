@@ -27,6 +27,8 @@ from app.services.bot import (
     process_code_command,
     # FSM
     process_text_message,
+    # Schedule
+    process_schedule_command,
 )
 
 __all__ = [
@@ -45,4 +47,5 @@ __all__ = [
     "process_start_command",
     "process_code_command",
     "process_text_message",
+    "process_schedule_command",
 ]
