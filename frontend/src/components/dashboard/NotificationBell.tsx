@@ -150,14 +150,14 @@ function AnnouncementItem({ announcement, isRead, onDismiss }: {
         {!isRead && (
           <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
         )}
-        <div className={cn("flex-1 min-w-0", isRead && "ml-4")}>
+        <button 
+          onClick={() => setExpanded(!expanded)}
+          className={cn("flex-1 min-w-0 text-left", isRead && "ml-4")}
+        >
           <div className="flex items-start justify-between gap-2">
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="font-medium text-sm text-left hover:underline flex-1"
-            >
+            <h5 className="font-medium text-sm flex-1">
               {announcement.title}
-            </button>
+            </h5>
             <Button
               variant="ghost"
               size="icon"
@@ -186,7 +186,7 @@ function AnnouncementItem({ announcement, isRead, onDismiss }: {
           {timeAgo && (
             <p className="text-xs text-muted-foreground mt-1">{timeAgo}</p>
           )}
-        </div>
+        </button>
       </div>
     </div>
   );
