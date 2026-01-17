@@ -89,10 +89,23 @@ async def process_schedule_command(
     user = await find_user_by_social_id(db, social_id, platform)
     
     if not user:
+        logger.warning(f"User not found for {platform} ID {social_id}")
         return None  # Не авторизован — игнорируем
     
+    logger.info(f"User found: {user.id} ({user.full_name}), role: {user.role}")
+    
     if user.role not in ("teacher", "admin"):
+        logger.info(f"User {user.id} is not teacher/admin, ignoring")
         return None  # Студент — игнорируем
     
     items = await crud_schedule.get_by_teacher(db, user.id)
+    logger.info(f"Found {len(items)} schedule items for teacher {user.id}")
+    
+    if items:
+        for item in items:
+            logger.debug(
+                f"Schedule item: {item.day_of_week.value} #{item.lesson_number} "
+                f"{item.subject} (active={item.is_active})"
+            )
+    
     return format_teacher_schedule(items, platform)
