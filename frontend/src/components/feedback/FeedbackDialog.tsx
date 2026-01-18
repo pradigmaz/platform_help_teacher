@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Bug, Lightbulb, MessageSquarePlus, X, Upload } from 'lucide-react';
+import { Bug, Lightbulb, MessageSquarePlus, X, Upload, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDropzone } from 'react-dropzone';
 
@@ -47,6 +47,7 @@ interface FeedbackDialogProps {
 export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [files, setFiles] = useState<PendingFile[]>([]);
   const submittingRef = useRef(false);
 
@@ -133,17 +134,22 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
         failedUploads = results.filter(r => !r).length;
       }
       
-      // Show appropriate message
+      // Показываем состояние успеха
+      setSubmitted(true);
+      
+      // Показываем toast с предупреждением если были ошибки загрузки
       if (failedUploads > 0) {
         toast.warning(`Отправлено, но ${failedUploads} файл(ов) не загружено`);
-      } else {
-        toast.success('Спасибо за обратную связь!');
       }
       
-      setOpen(false);
-      form.reset();
-      files.forEach(f => URL.revokeObjectURL(f.preview));
-      setFiles([]);
+      // Закрываем форму через 1.5 секунды
+      setTimeout(() => {
+        setOpen(false);
+        setSubmitted(false);
+        form.reset();
+        files.forEach(f => URL.revokeObjectURL(f.preview));
+        setFiles([]);
+      }, 1500);
     } catch {
       if (feedbackCreated) {
         toast.warning('Отправлено, но возникла ошибка при загрузке файлов');
@@ -160,11 +166,13 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => {
+      if (submitted) return; // Не закрывать во время анимации успеха
       setOpen(v);
       if (!v) {
         files.forEach(f => URL.revokeObjectURL(f.preview));
         setFiles([]);
         form.reset();
+        setSubmitted(false);
       }
     }}>
       <DialogTrigger asChild>
@@ -296,11 +304,24 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={submitted}>
               Отмена
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? 'Отправка...' : 'Отправить'}
+            <Button 
+              type="submit" 
+              disabled={submitting || submitted}
+              className={submitted ? 'bg-green-600 hover:bg-green-600' : ''}
+            >
+              {submitted ? (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Отправлено!
+                </>
+              ) : submitting ? (
+                'Отправка...'
+              ) : (
+                'Отправить'
+              )}
             </Button>
           </div>
         </form>
