@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $getRoot, $getSelection, $isRangeSelection, $createParagraphNode, PASTE_COMMAND, COMMAND_PRIORITY_CRITICAL } from 'lexical';
+import { $getRoot, $createParagraphNode, PASTE_COMMAND, COMMAND_PRIORITY_CRITICAL } from 'lexical';
 import { $createCodeBlockNode, type CodeLanguage } from '../nodes/CodeBlockNode';
 import { $createImageNode } from '../nodes/ImageNode';
 import { $createTableFromMarkdown } from './markdown/table-parser';
@@ -127,13 +127,10 @@ export function MarkdownPastePlugin(): null {
           
           // Insert nodes
           console.log('[MarkdownPaste] Total nodes to insert:', nodesToInsert.length);
-          if ($isRangeSelection(selection) && nodesToInsert.length > 0) {
-            selection.removeText();
-            for (const node of nodesToInsert) {
-              selection.insertNodes([node]);
-            }
-          } else {
-            // Clear root and add new nodes
+          console.log('[MarkdownPaste] Node types:', nodesToInsert.map(n => n.getType()));
+          
+          if (nodesToInsert.length > 0) {
+            // Очищаем root и добавляем новые ноды напрямую
             root.clear();
             for (const node of nodesToInsert) {
               root.append(node);
