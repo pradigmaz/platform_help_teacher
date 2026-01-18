@@ -68,13 +68,13 @@ export function MarkdownPastePlugin(): null {
         
         // Если переносов строк мало, но есть markdown-паттерны подряд — 
         // вероятно переносы потерялись при копировании
-        const newlineCount = (normalizedText.match(/\n/g) || []).length;
+        const normalizedNewlineCount = (normalizedText.match(/\n/g) || []).length;
         const headingCount = (normalizedText.match(/#{1,6}\s/g) || []).length;
         
-        console.log('[MarkdownPaste] newlines:', newlineCount, 'headings:', headingCount);
+        console.log('[MarkdownPaste] newlines:', normalizedNewlineCount, 'headings:', headingCount);
         
         // Если заголовков больше чем переносов — переносы потерялись
-        if (headingCount > 1 && newlineCount < headingCount) {
+        if (headingCount > 1 && normalizedNewlineCount < headingCount) {
           console.log('[MarkdownPaste] Detected lost newlines, restoring...');
           // Восстанавливаем переносы перед заголовками
           normalizedText = normalizedText
