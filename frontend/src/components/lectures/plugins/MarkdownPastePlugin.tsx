@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $getRoot, $createParagraphNode, PASTE_COMMAND, COMMAND_PRIORITY_CRITICAL } from 'lexical';
+import { $getRoot, $createParagraphNode, $getSelection, PASTE_COMMAND, COMMAND_PRIORITY_CRITICAL } from 'lexical';
 import { $createCodeBlockNode, type CodeLanguage } from '../nodes/CodeBlockNode';
 import { $createImageNode } from '../nodes/ImageNode';
 import { $createTableFromMarkdown } from './markdown/table-parser';
@@ -90,7 +90,6 @@ export function MarkdownPastePlugin(): null {
         const { processedText, blocks } = extractCustomBlocks(normalizedText);
         
         editor.update(() => {
-          const root = $getRoot();
           const nodesToInsert: import('lexical').LexicalNode[] = [];
           
           // Split by placeholders
@@ -129,16 +128,10 @@ export function MarkdownPastePlugin(): null {
           console.log('[MarkdownPaste] Node types:', nodesToInsert.map(n => n.getType()));
           
           if (nodesToInsert.length > 0) {
-            // Очищаем root и добавляем новые ноды напрямую
-            root.clear();
-            for (const node of nodesToInsert) {
-              root.append(node);
+            const selection = $getSelection();
+            if (selection) {
+              selection.insertNodes(nodesToInsert);
             }
-          }
-          
-          // Ensure at least one paragraph
-          if (root.getChildrenSize() === 0) {
-            root.append($createParagraphNode());
           }
         });
         
