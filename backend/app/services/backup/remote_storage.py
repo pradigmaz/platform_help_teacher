@@ -166,3 +166,55 @@ class BackupStorage:
                 )
             except Exception:
                 return None
+
+    # ========== SYNC METHODS FOR CELERY ==========
+    
+    def _get_sync_client(self):
+        """Get synchronous boto3 client."""
+        import boto3
+        return boto3.client(
+            "s3",
+            endpoint_url=self.endpoint,
+            aws_access_key_id=settings.MINIO_ROOT_USER,
+            aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
+        )
+    
+    def ensure_bucket_sync(self) -> None:
+        """Create bucket if not exists (sync)."""
+        client = self._get_sync_client()
+        try:
+            client.head_bucket(Bucket=self.bucket)
+        except Exception:
+            client.create_bucket(Bucket=self.bucket)
+            logger.info(f"Created backup bucket: {self.bucket}")
+    
+    def upload_sync(self, local_path: Path, remote_key: str) -> str:
+        """Upload backup (sync version for Celery)."""
+        self.ensure_bucket_sync()
+        client = self._get_sync_client()
+        client.upload_file(str(local_path), self.bucket, remote_key)
+        logger.info(f"Uploaded backup: {remote_key}")
+        return remote_key
+    
+    def list_backups_sync(self) -> List[BackupMetadata]:
+        """List all backups (sync version for Celery)."""
+        self.ensure_bucket_sync()
+        client = self._get_sync_client()
+        backups = []
+        
+        paginator = client.get_paginator('list_objects_v2')
+        for page in paginator.paginate(Bucket=self.bucket):
+            for obj in page.get('Contents', []):
+                backups.append(BackupMetadata(
+                    name=Path(obj['Key']).stem,
+                    size=obj['Size'],
+                    created_at=obj['LastModified'],
+                    key=obj['Key'],
+                ))
+        return sorted(backups, key=lambda x: x.created_at, reverse=True)
+    
+    def delete_sync(self, remote_key: str) -> None:
+        """Delete backup (sync version for Celery)."""
+        client = self._get_sync_client()
+        client.delete_object(Bucket=self.bucket, Key=remote_key)
+        logger.info(f"Deleted backup: {remote_key}")

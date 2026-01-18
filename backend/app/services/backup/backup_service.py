@@ -235,3 +235,136 @@ class BackupService:
                 logger.info(f"Deleted old backup: {backup.key}")
         
         return deleted
+
+    # ========== SYNC METHODS FOR CELERY ==========
+    
+    def create_backup_sync(
+        self,
+        name: Optional[str] = None,
+        send_to_admin: bool = True,
+    ) -> BackupResult:
+        """
+        Синхронная версия create_backup для Celery tasks.
+        Использует subprocess вместо asyncio для pg_dump.
+        """
+        import subprocess
+        import os
+        
+        backup_name = name or _generate_backup_name()
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            dump_file = tmp_path / f"{backup_name}.dump"
+            compressed_file = tmp_path / f"{backup_name}.dump.gz"
+            encrypted_file = tmp_path / f"{backup_name}.enc"
+            
+            try:
+                # Step 1: pg_dump (sync)
+                logger.info(f"Starting backup: {backup_name}")
+                self._pg_dump_sync(dump_file)
+                
+                # Step 2: Compress
+                self._compress(dump_file, compressed_file)
+                _secure_delete(dump_file)
+                
+                # Step 3: Encrypt
+                self.encryption.encrypt_file(compressed_file, encrypted_file)
+                _secure_delete(compressed_file)
+                
+                # Step 4: Upload (sync)
+                remote_key = f"{backup_name}.enc"
+                self.storage.upload_sync(encrypted_file, remote_key)
+                
+                size = encrypted_file.stat().st_size
+                logger.info(f"Backup completed: {remote_key} ({size} bytes)")
+                
+                # Step 5: Send to admin (sync)
+                if send_to_admin:
+                    from .notification import send_backup_to_admin_sync
+                    send_backup_to_admin_sync(
+                        file_path=encrypted_file,
+                        backup_name=remote_key,
+                        size=size,
+                    )
+                
+                return BackupResult(
+                    success=True,
+                    backup_key=remote_key,
+                    size=size,
+                )
+                
+            except Exception as e:
+                import traceback
+                tb_text = traceback.format_exc()
+                logger.error(f"Backup failed: {e}\n{tb_text}")
+                from .notification import notify_backup_failure_sync
+                notify_backup_failure_sync(str(e), traceback_text=tb_text)
+                return BackupResult(success=False, error=str(e))
+    
+    def _pg_dump_sync(self, output_path: Path) -> None:
+        """Синхронный pg_dump для Celery."""
+        import subprocess
+        import os
+        
+        pgpass_path = output_path.parent / ".pgpass"
+        pgpass_content = (
+            f"{settings.POSTGRES_SERVER}:"
+            f"{settings.POSTGRES_PORT}:"
+            f"{settings.POSTGRES_DB}:"
+            f"{settings.POSTGRES_USER}:"
+            f"{settings.POSTGRES_PASSWORD}"
+        )
+        
+        try:
+            pgpass_path.write_text(pgpass_content)
+            os.chmod(pgpass_path, 0o600)
+            
+            cmd = [
+                "pg_dump",
+                "--format=custom",
+                "--no-password",
+                f"--host={settings.POSTGRES_SERVER}",
+                f"--port={settings.POSTGRES_PORT}",
+                f"--username={settings.POSTGRES_USER}",
+                f"--dbname={settings.POSTGRES_DB}",
+                f"--file={output_path}",
+            ]
+            
+            env = {**dict(os.environ), "PGPASSFILE": str(pgpass_path)}
+            
+            result = subprocess.run(
+                cmd,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=600
+            )
+            
+            if result.returncode != 0:
+                raise RuntimeError(f"pg_dump failed: {result.stderr}")
+            
+            logger.info(f"pg_dump completed: {output_path.stat().st_size} bytes")
+            
+        finally:
+            if pgpass_path.exists():
+                pgpass_path.unlink()
+    
+    def list_backups_sync(self) -> List[BackupMetadata]:
+        """Синхронный list_backups для Celery."""
+        return self.storage.list_backups_sync()
+    
+    def cleanup_old_backups_sync(self, retention_days: int = None) -> int:
+        """Синхронный cleanup для Celery."""
+        retention = retention_days or settings.BACKUP_RETENTION_DAYS
+        cutoff = datetime.now().timestamp() - (retention * 86400)
+        
+        backups = self.list_backups_sync()
+        deleted = 0
+        
+        for backup in backups:
+            if backup.created_at.timestamp() < cutoff:
+                self.storage.delete_sync(backup.key)
+                deleted += 1
+                logger.info(f"Deleted old backup: {backup.key}")
+        
+        return deleted

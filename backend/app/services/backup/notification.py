@@ -275,3 +275,95 @@ def get_notification_service() -> BackupNotificationService:
     if _notification_service is None:
         _notification_service = BackupNotificationService()
     return _notification_service
+
+
+# ========== SYNC FUNCTIONS FOR CELERY ==========
+
+def send_backup_to_admin_sync(
+    file_path: Path,
+    backup_name: str,
+    size: int,
+    admin_telegram_id: Optional[int] = None,
+) -> bool:
+    """
+    Синхронная отправка бэкапа админу через Telegram.
+    Использует requests вместо aiogram.
+    """
+    import requests
+    
+    telegram_id = admin_telegram_id or settings.FIRST_SUPERUSER_ID
+    
+    if not telegram_id or not settings.TELEGRAM_BOT_TOKEN:
+        logger.warning("No admin Telegram ID or bot token configured")
+        return False
+    
+    try:
+        size_kb = size / 1024
+        caption = (
+            f"🔐 Резервная копия БД\n\n"
+            f"📦 {backup_name}\n"
+            f"📊 Размер: {size_kb:.1f} KB\n\n"
+            f"⚠️ Файл зашифрован AES-256-GCM"
+        )
+        
+        url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendDocument"
+        
+        with open(file_path, 'rb') as f:
+            response = requests.post(
+                url,
+                data={
+                    "chat_id": telegram_id,
+                    "caption": caption,
+                    "parse_mode": "HTML"
+                },
+                files={"document": (backup_name, f)},
+                timeout=120
+            )
+        
+        if response.status_code == 200:
+            logger.info(f"Backup sent to admin {telegram_id}: {backup_name}")
+            return True
+        else:
+            logger.error(f"Failed to send backup: {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Failed to send backup to admin: {e}")
+        return False
+
+
+def notify_backup_failure_sync(
+    error: str,
+    admin_telegram_id: Optional[int] = None,
+    traceback_text: Optional[str] = None,
+) -> bool:
+    """Синхронное уведомление об ошибке бэкапа."""
+    import requests
+    
+    telegram_id = admin_telegram_id or settings.FIRST_SUPERUSER_ID
+    
+    if not telegram_id or not settings.TELEGRAM_BOT_TOKEN:
+        return False
+    
+    try:
+        text = (
+            f"❌ Ошибка создания бэкапа\n\n"
+            f"{error[:500]}"
+        )
+        
+        url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
+        
+        response = requests.post(
+            url,
+            json={
+                "chat_id": telegram_id,
+                "text": text,
+            },
+            timeout=30
+        )
+        
+        return response.status_code == 200
+        
+    except Exception as e:
+        logger.error(f"Failed to send failure notification: {e}")
+        return False
