@@ -91,7 +91,6 @@ export function MarkdownPastePlugin(): null {
         
         editor.update(() => {
           const root = $getRoot();
-          const selection = $getSelection();
           const nodesToInsert: import('lexical').LexicalNode[] = [];
           
           // Split by placeholders
