@@ -6,7 +6,7 @@ import { $getRoot, $getSelection, $isRangeSelection, $createParagraphNode, PASTE
 import { $createCodeBlockNode, type CodeLanguage } from '../nodes/CodeBlockNode';
 import { $createImageNode } from '../nodes/ImageNode';
 import { $createTableFromMarkdown } from './markdown/table-parser';
-import { $parseMarkdownLine } from './markdown/block-parser';
+import { $parseMarkdownLines } from './markdown/block-parser';
 import { extractCustomBlocks, splitByPlaceholders, type CodeBlockData, type ImageData } from './markdown/placeholder-processor';
 import type { MarkdownTableData } from './markdown/table-parser';
 
@@ -60,16 +60,12 @@ export function MarkdownPastePlugin(): null {
                 nodesToInsert.push($createTableFromMarkdown(tableData));
               }
             } else {
-              // Parse markdown lines
+              // Parse markdown lines with proper list grouping
               const lines = part.split('\n');
-              console.log('[MarkdownPaste] Parsing', lines.length, 'lines, first 3:', lines.slice(0, 3));
-              for (const line of lines) {
-                const node = $parseMarkdownLine(line);
-                if (node) {
-                  console.log('[MarkdownPaste] Created node type:', node.getType(), 'for line:', line.slice(0, 50));
-                  nodesToInsert.push(node);
-                }
-              }
+              console.log('[MarkdownPaste] Parsing', lines.length, 'lines with grouping');
+              const parsedNodes = $parseMarkdownLines(lines);
+              console.log('[MarkdownPaste] Created', parsedNodes.length, 'nodes from', lines.length, 'lines');
+              nodesToInsert.push(...parsedNodes);
             }
           }
           

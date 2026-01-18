@@ -1,13 +1,16 @@
 import { $createTextNode, $createLineBreakNode } from 'lexical';
 
 /**
- * Парсит inline markdown: **bold**, *italic*, ***bold italic***
+ * Парсит inline markdown: **bold**, __bold__, *italic*, _italic_, ***bold italic***
  */
 export function $parseInlineMarkdown(text: string): import('lexical').LexicalNode[] {
   const nodes: import('lexical').LexicalNode[] = [];
   
-  // Regex for bold+italic (***text***), bold (**text**), italic (*text*)
-  const regex = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*)/g;
+  // Regex for:
+  // - bold+italic: ***text*** or ___text___
+  // - bold: **text** or __text__
+  // - italic: *text* or _text_ (but not inside words for underscore)
+  const regex = /(\*\*\*(.+?)\*\*\*|___(.+?)___|__(.+?)__|_([^_\s][^_]*[^_\s])_|\*\*(.+?)\*\*|\*([^*\s][^*]*[^*\s]|\S)\*)/g;
   
   let lastIndex = 0;
   let match;
@@ -21,20 +24,40 @@ export function $parseInlineMarkdown(text: string): import('lexical').LexicalNod
       }
     }
     
-    // Create formatted text node
-    const textNode = $createTextNode(match[2] || match[3] || match[4]);
+    // Determine which group matched and create formatted text node
+    let content: string;
+    let format: number;
     
     if (match[2]) {
-      // ***bold italic***
-      textNode.setFormat(0b11); // bold + italic
+      // ***bold italic*** with asterisks
+      content = match[2];
+      format = 0b11; // bold + italic
     } else if (match[3]) {
-      // **bold**
-      textNode.setFormat(0b1); // bold
+      // ___bold italic___ with underscores
+      content = match[3];
+      format = 0b11; // bold + italic
     } else if (match[4]) {
-      // *italic*
-      textNode.setFormat(0b10); // italic
+      // __bold__ with underscores
+      content = match[4];
+      format = 0b1; // bold
+    } else if (match[5]) {
+      // _italic_ with underscores
+      content = match[5];
+      format = 0b10; // italic
+    } else if (match[6]) {
+      // **bold** with asterisks
+      content = match[6];
+      format = 0b1; // bold
+    } else if (match[7]) {
+      // *italic* with asterisks
+      content = match[7];
+      format = 0b10; // italic
+    } else {
+      continue;
     }
     
+    const textNode = $createTextNode(content);
+    textNode.setFormat(format);
     nodes.push(textNode);
     lastIndex = regex.lastIndex;
   }
