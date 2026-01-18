@@ -43,7 +43,7 @@ export function LectureContent({
       <div className="pt-20 pb-16 px-4 max-w-7xl mx-auto flex">
         {/* TOC Sidebar - Desktop */}
         <aside className="hidden lg:block w-64 flex-shrink-0 mr-8">
-          <div className="sticky top-20">
+          <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
             <LecturePublicTOC
               items={tocItems}
               activeId={activeHeadingId}
@@ -53,7 +53,7 @@ export function LectureContent({
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 max-w-4xl">
+        <main className="flex-1 min-w-0 max-w-5xl">
           <motion.article
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

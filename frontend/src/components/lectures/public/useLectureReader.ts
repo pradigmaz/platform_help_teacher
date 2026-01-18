@@ -120,7 +120,9 @@ export function useLectureReader(code: string): UseLectureReaderResult {
           const text = extractText(n.children || []);
           if (text) {
             const id = text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
-            items.push({ id, text, level });
+            if (level >= 1 && level <= 3) {
+              items.push({ id, text, level });
+            }
           }
         }
         if (n.children) {
@@ -187,7 +189,7 @@ export function useLectureReader(code: string): UseLectureReaderResult {
             }
           }
         },
-        { rootMargin: '-80px 0px -50% 0px', threshold: 0 }
+        { rootMargin: '-120px 0px -80% 0px', threshold: 0 }
       );
 
       headings.forEach((heading) => observer?.observe(heading));
@@ -202,7 +204,7 @@ export function useLectureReader(code: string): UseLectureReaderResult {
   const scrollToHeading = useCallback((id: string) => {
     const el = document.getElementById(id);
     if (el) {
-      const offset = 80;
+      const offset = 120;
       const top = el.getBoundingClientRect().top + window.scrollY - offset;
       window.scrollTo({ top, behavior: 'smooth' });
     }
