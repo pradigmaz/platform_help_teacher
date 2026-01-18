@@ -9,7 +9,7 @@ export const editorTheme: EditorThemeClasses = {
     h1: "scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl text-center mt-10 mb-6",
     h2: "scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight text-center mt-8 mb-4",
     h3: "scroll-m-20 text-2xl font-semibold tracking-tight text-center mt-6 mb-3",
-    h4: "scroll-m-20 text-xl font-semibold tracking-tight mt-4 mb-2",
+    h4: "scroll-m-20 text-xl font-semibold tracking-tight text-center mt-4 mb-2",
     h5: "scroll-m-20 text-lg font-semibold tracking-tight mt-3 mb-2",
     h6: "scroll-m-20 text-base font-semibold tracking-tight mt-2 mb-1",
   },
