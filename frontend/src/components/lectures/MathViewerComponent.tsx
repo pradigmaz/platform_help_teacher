@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useMemo } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { cn } from '@/lib/utils';
@@ -12,22 +12,19 @@ interface MathViewerComponentProps {
 
 export function MathViewerComponent({ latex, displayMode }: MathViewerComponentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    
+  const { html, error } = useMemo(() => {
     try {
-      katex.render(latex, containerRef.current, {
+      const rendered = katex.renderToString(latex, {
         displayMode,
         throwOnError: false,
         errorColor: '#ef4444',
         trust: false,
         strict: 'warn',
       });
-      setError(null);
+      return { html: rendered, error: null };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка рендеринга формулы');
+      return { html: '', error: err instanceof Error ? err.message : 'Ошибка рендеринга формулы' };
     }
   }, [latex, displayMode]);
 
@@ -39,6 +36,7 @@ export function MathViewerComponent({ latex, displayMode }: MathViewerComponentP
         error && "text-destructive"
       )}
       title={error || undefined}
+      dangerouslySetInnerHTML={{ __html: html }}
     />
   );
 }
