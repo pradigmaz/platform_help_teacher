@@ -1,16 +1,18 @@
 import { $createTextNode, $createLineBreakNode } from 'lexical';
+import { $createMathNode } from '../../nodes/MathNode';
 
 /**
- * Парсит inline markdown: **bold**, __bold__, *italic*, _italic_, ***bold italic***
+ * Парсит inline markdown: **bold**, *italic*, LaTeX формулы \(...\) и $...$
  */
 export function $parseInlineMarkdown(text: string): import('lexical').LexicalNode[] {
   const nodes: import('lexical').LexicalNode[] = [];
   
   // Regex for:
+  // - inline math: \(...\) or $...$ (not $$)
   // - bold+italic: ***text*** or ___text___
   // - bold: **text** or __text__
   // - italic: *text* or _text_ (but not inside words for underscore)
-  const regex = /(\*\*\*(.+?)\*\*\*|___(.+?)___|__(.+?)__|_([^_\s][^_]*[^_\s])_|\*\*(.+?)\*\*|\*([^*\s][^*]*[^*\s]|\S)\*)/g;
+  const regex = /(\\\((.+?)\\\)|\$(?!\$)([^$\n]+?)\$(?!\$)|\*\*\*(.+?)\*\*\*|___(.+?)___|__(.+?)__|_([^_\s][^_]*[^_\s])_|\*\*(.+?)\*\*|\*([^*\s][^*]*[^*\s]|\S)\*)/g;
   
   let lastIndex = 0;
   let match;
@@ -24,33 +26,48 @@ export function $parseInlineMarkdown(text: string): import('lexical').LexicalNod
       }
     }
     
-    // Determine which group matched and create formatted text node
+    // Determine which group matched and create appropriate node
+    // Groups: [2]=\(...\), [3]=$...$, [4]=***...***, [5]=___...___,
+    //         [6]=__...__, [7]=_..._, [8]=**...**, [9]=*...*
+    
+    if (match[2]) {
+      // \(...\) inline math
+      nodes.push($createMathNode(match[2], false));
+      lastIndex = regex.lastIndex;
+      continue;
+    } else if (match[3]) {
+      // $...$ inline math
+      nodes.push($createMathNode(match[3], false));
+      lastIndex = regex.lastIndex;
+      continue;
+    }
+    
     let content: string;
     let format: number;
     
-    if (match[2]) {
+    if (match[4]) {
       // ***bold italic*** with asterisks
-      content = match[2];
-      format = 0b11; // bold + italic
-    } else if (match[3]) {
-      // ___bold italic___ with underscores
-      content = match[3];
-      format = 0b11; // bold + italic
-    } else if (match[4]) {
-      // __bold__ with underscores
       content = match[4];
-      format = 0b1; // bold
+      format = 0b11; // bold + italic
     } else if (match[5]) {
-      // _italic_ with underscores
+      // ___bold italic___ with underscores
       content = match[5];
-      format = 0b10; // italic
+      format = 0b11; // bold + italic
     } else if (match[6]) {
-      // **bold** with asterisks
+      // __bold__ with underscores
       content = match[6];
       format = 0b1; // bold
     } else if (match[7]) {
-      // *italic* with asterisks
+      // _italic_ with underscores
       content = match[7];
+      format = 0b10; // italic
+    } else if (match[8]) {
+      // **bold** with asterisks
+      content = match[8];
+      format = 0b1; // bold
+    } else if (match[9]) {
+      // *italic* with asterisks
+      content = match[9];
       format = 0b10; // italic
     } else {
       continue;

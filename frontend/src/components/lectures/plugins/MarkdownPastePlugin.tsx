@@ -5,9 +5,10 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { $getRoot, $createParagraphNode, $getSelection, PASTE_COMMAND, COMMAND_PRIORITY_CRITICAL } from 'lexical';
 import { $createCodeBlockNode, type CodeLanguage } from '../nodes/CodeBlockNode';
 import { $createImageNode } from '../nodes/ImageNode';
+import { $createMathNode } from '../nodes/MathNode';
 import { $createTableFromMarkdown } from './markdown/table-parser';
 import { $parseMarkdownLines } from './markdown/block-parser';
-import { extractCustomBlocks, splitByPlaceholders, type CodeBlockData, type ImageData } from './markdown/placeholder-processor';
+import { extractCustomBlocks, splitByPlaceholders, type CodeBlockData, type ImageData, type MathBlockData } from './markdown/placeholder-processor';
 import type { MarkdownTableData } from './markdown/table-parser';
 
 /**
@@ -33,6 +34,12 @@ function detectMarkdown(text: string): boolean {
   if (/(?<!\w)\*[^*\s][^*]*[^*\s]\*(?!\w)/.test(text)) return true;
   // Таблицы: |...|
   if (/^\|.+\|$/m.test(text)) return true;
+  // LaTeX display math: \[...\] или $$...$$
+  if (/\\\[[\s\S]*?\\\]/.test(text)) return true;
+  if (/\$\$[\s\S]*?\$\$/.test(text)) return true;
+  // LaTeX inline math: \(...\) или $...$
+  if (/\\\([\s\S]*?\\\)/.test(text)) return true;
+  if (/\$[^$\n]+\$/.test(text)) return true;
   
   return false;
 }
@@ -112,6 +119,9 @@ export function MarkdownPastePlugin(): null {
               } else if (block.type === 'table') {
                 const tableData = block.data as MarkdownTableData;
                 nodesToInsert.push($createTableFromMarkdown(tableData));
+              } else if (block.type === 'math') {
+                const { latex } = block.data as MathBlockData;
+                nodesToInsert.push($createMathNode(latex, true));
               }
             } else {
               // Parse markdown lines with proper list grouping

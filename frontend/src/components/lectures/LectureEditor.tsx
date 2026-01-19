@@ -16,6 +16,7 @@ import { EditorToolbar } from './EditorToolbar';
 import { CodeBlockNode } from './nodes/CodeBlockNode';
 import { ImageNode } from './nodes/ImageNode';
 import { SnippetNode } from './nodes/SnippetNode';
+import { MathNode } from './nodes/MathNode';
 import { MarkdownPastePlugin } from './plugins/MarkdownPastePlugin';
 import { TableActionMenuPlugin } from './plugins/TableActionMenuPlugin';
 import { Badge } from '@/components/ui/badge';
@@ -43,7 +44,7 @@ const LECTURE_TRANSFORMERS = [
 const lectureNodes = [
   HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode,
   TableNode, TableCellNode, TableRowNode,
-  CodeBlockNode, ImageNode, SnippetNode,
+  CodeBlockNode, ImageNode, SnippetNode, MathNode,
 ];
 
 interface LectureEditorProps {

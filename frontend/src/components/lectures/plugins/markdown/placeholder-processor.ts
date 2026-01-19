@@ -1,6 +1,7 @@
 import { parseMarkdownTable, type MarkdownTableData } from './table-parser';
+import { $createMathNode } from '../../nodes/MathNode';
 
-export type CustomBlockType = 'code' | 'image' | 'table';
+export type CustomBlockType = 'code' | 'image' | 'table' | 'math';
 
 export interface CustomBlock {
   type: CustomBlockType;
@@ -18,13 +19,31 @@ export interface ImageData {
   src: string;
 }
 
+export interface MathBlockData {
+  latex: string;
+}
+
 /**
- * Извлекает code blocks, images, tables и заменяет их плейсхолдерами
+ * Извлекает code blocks, images, tables, math blocks и заменяет их плейсхолдерами
  */
 export function extractCustomBlocks(text: string): { processedText: string; blocks: CustomBlock[] } {
   const customBlocks: CustomBlock[] = [];
   let processedText = text;
   let placeholderIndex = 0;
+  
+  // Extract display math blocks: \[...\] or $$...$$
+  const displayMathRegex = /\\\[([\s\S]*?)\\\]|\$\$([\s\S]*?)\$\$/g;
+  processedText = processedText.replace(displayMathRegex, (_match, latex1, latex2) => {
+    const latex = (latex1 || latex2 || '').trim();
+    const placeholder = `__MATH_BLOCK_${placeholderIndex}__`;
+    customBlocks.push({
+      type: 'math',
+      data: { latex } as MathBlockData,
+      placeholder,
+    });
+    placeholderIndex++;
+    return placeholder;
+  });
   
   // Extract code blocks
   const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
@@ -76,5 +95,7 @@ export function extractCustomBlocks(text: string): { processedText: string; bloc
  * Разбивает текст на части: плейсхолдеры и обычный текст
  */
 export function splitByPlaceholders(text: string): string[] {
-  return text.split(/(__(?:CODE_BLOCK|TABLE|IMAGE)_\d+__)/);
+  return text.split(/(__(?:CODE_BLOCK|TABLE|IMAGE|MATH_BLOCK)_\d+__)/);
 }
+
+export { $createMathNode };

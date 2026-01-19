@@ -21,6 +21,7 @@ import { INSERT_TABLE_COMMAND } from '@lexical/table';
 import { toast } from 'sonner';
 import { $createCodeBlockNode } from '../nodes/CodeBlockNode';
 import { $createImageNode } from '../nodes/ImageNode';
+import { $createMathNode } from '../nodes/MathNode';
 import { INSERT_HORIZONTAL_RULE_COMMAND } from '../nodes/HorizontalRuleNode';
 
 export function useToolbarActions(editor: LexicalEditor) {
@@ -133,6 +134,19 @@ export function useToolbarActions(editor: LexicalEditor) {
     });
   }, [editor]);
 
+  const insertMath = useCallback((displayMode: boolean = false) => {
+    editor.update(() => {
+      const selection = $getSelection();
+      const mathNode = $createMathNode('E = mc^2', displayMode);
+      if ($isRangeSelection(selection)) {
+        selection.insertNodes([mathNode]);
+      } else {
+        $getRoot().append(mathNode);
+      }
+      toast.success(displayMode ? 'Блочная формула добавлена' : 'Формула добавлена');
+    });
+  }, [editor]);
+
   // History
   const undo = useCallback(() => {
     editor.dispatchCommand(UNDO_COMMAND, undefined);
@@ -197,6 +211,7 @@ export function useToolbarActions(editor: LexicalEditor) {
     insertHorizontalRule,
     insertTable,
     insertSnippet,
+    insertMath,
     undo,
     redo,
     formatAlign,

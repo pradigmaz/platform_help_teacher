@@ -11,7 +11,7 @@ import {
   Image, FileCode, FileCode2, Undo, Redo, Save,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   IndentIncrease, IndentDecrease, Subscript, Superscript, Minus,
-  Table,
+  Table, Sigma,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolbarButton, ToolbarGroup, useToolbarActions, FONT_SIZES, LINE_HEIGHTS } from './toolbar';
@@ -137,6 +137,7 @@ export function EditorToolbar({ onSave, isSaving, className, config, onFontSizeC
         <ToolbarButton icon={<FileCode2 className="h-4 w-4" />} label="Листинг" onClick={actions.insertSnippet} />
         <ToolbarButton icon={<Image className="h-4 w-4" />} label="Изображение" onClick={actions.insertImage} />
         <ToolbarButton icon={<Table className="h-4 w-4" />} label="Таблица" onClick={() => actions.insertTable(3, 3)} />
+        <ToolbarButton icon={<Sigma className="h-4 w-4" />} label="Формула" onClick={() => actions.insertMath(true)} />
         <ToolbarButton icon={<Minus className="h-4 w-4" />} label="Разделитель" onClick={actions.insertHorizontalRule} />
       </ToolbarGroup>
     );

@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { ViewerCodeBlockNode } from './nodes/ViewerCodeBlockNode';
 import { ViewerImageNode } from './nodes/ViewerImageNode';
 import { ViewerSnippetNode } from './nodes/ViewerSnippetNode';
+import { ViewerMathNode } from './nodes/ViewerMathNode';
 
 // Custom nodes for viewer — native text nodes + viewer decorators
 const viewerNodes = [
@@ -32,6 +33,7 @@ const viewerNodes = [
   ViewerCodeBlockNode,
   ViewerImageNode,
   ViewerSnippetNode,
+  ViewerMathNode,
 ];
 
 // Дефолтное состояние с пустым параграфом
