@@ -33,31 +33,25 @@ class AttackPattern(NamedTuple):
 
 
 # Паттерны для детекции (компилируем заранее)
+# ВАЖНО: severity снижен, чтобы избежать мгновенных банов за false positives
+# severity=1: предупреждение, severity=2: 2 страйка, severity=3: мгновенный бан
 ATTACK_PATTERNS: List[AttackPattern] = [
-    # SQL Injection
-    AttackPattern(
-        re.compile(r"['\"](\s*(OR|AND)\s*['\"]?\d|--|;)", re.IGNORECASE),
-        AttackType.SQL_INJECTION,
-        "SQL injection: OR/AND condition or comment",
-        severity=3
-    ),
+    # SQL Injection — только явные атаки
+    # УБРАНО: r"['\"](\s*(OR|AND)\s*['\"]?\d|--|;)" — слишком много false positives
+    # Срабатывал на легитимные запросы с кавычками в тексте
     AttackPattern(
         re.compile(r"(UNION\s+(ALL\s+)?SELECT|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|DROP\s+TABLE)", re.IGNORECASE),
         AttackType.SQL_INJECTION,
         "SQL injection: dangerous statement",
-        severity=3
+        severity=2  # Было 3 — снижено, чтобы не банить сразу
     ),
+    # УБРАНО: r"%27|%22|%3B|%2D%2D" — URL-encoded кавычки встречаются в легитимных запросах
+    # Поиск текста, названия с кавычками, JSON в query params
     AttackPattern(
-        re.compile(r"%27|%22|%3B|%2D%2D"),  # URL-encoded ', ", ;, --
-        AttackType.SQL_INJECTION,
-        "SQL injection: URL-encoded special chars",
-        severity=2
-    ),
-    AttackPattern(
-        re.compile(r"(\x00|%00)"),  # Null byte
+        re.compile(r"(\x00|%00)"),  # Null byte — это точно атака
         AttackType.SQL_INJECTION,
         "Null byte injection",
-        severity=3
+        severity=2  # Было 3
     ),
     
     # Path Traversal
@@ -65,13 +59,13 @@ ATTACK_PATTERNS: List[AttackPattern] = [
         re.compile(r"\.\.(/|\\|%2f|%5c)", re.IGNORECASE),
         AttackType.PATH_TRAVERSAL,
         "Path traversal attempt",
-        severity=3
+        severity=2  # Было 3
     ),
     AttackPattern(
         re.compile(r"%2e%2e(%2f|%5c)", re.IGNORECASE),
         AttackType.PATH_TRAVERSAL,
         "Path traversal: URL-encoded",
-        severity=3
+        severity=2  # Было 3
     ),
     
     # XSS
