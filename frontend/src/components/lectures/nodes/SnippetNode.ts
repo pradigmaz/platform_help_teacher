@@ -17,8 +17,18 @@ export type SnippetLanguage =
   | 'html' 
   | 'css' 
   | 'sql'
-  | 'json'
+  | 'csharp'
+  | 'java'
+  | 'cpp'
+  | 'c'
+  | 'go'
+  | 'rust'
+  | 'php'
+  | 'ruby'
   | 'bash'
+  | 'json'
+  | 'yaml'
+  | 'xml'
   | 'plaintext';
 
 export type SerializedSnippetNode = Spread<

@@ -42,6 +42,19 @@ const LANGUAGE_LABELS: Record<CodeLanguage, string> = {
   html: 'HTML',
   css: 'CSS',
   sql: 'SQL',
+  csharp: 'C#',
+  java: 'Java',
+  cpp: 'C++',
+  c: 'C',
+  go: 'Go',
+  rust: 'Rust',
+  php: 'PHP',
+  ruby: 'Ruby',
+  bash: 'Bash',
+  json: 'JSON',
+  yaml: 'YAML',
+  xml: 'XML',
+  plaintext: 'Plain Text',
 };
 
 const PRISM_LANGUAGE_MAP: Record<CodeLanguage, string> = {
@@ -51,6 +64,19 @@ const PRISM_LANGUAGE_MAP: Record<CodeLanguage, string> = {
   html: 'markup',
   css: 'css',
   sql: 'sql',
+  csharp: 'csharp',
+  java: 'java',
+  cpp: 'cpp',
+  c: 'c',
+  go: 'go',
+  rust: 'rust',
+  php: 'php',
+  ruby: 'ruby',
+  bash: 'bash',
+  json: 'json',
+  yaml: 'yaml',
+  xml: 'xml',
+  plaintext: 'plaintext',
 };
 
 export function CodeBlockComponent({

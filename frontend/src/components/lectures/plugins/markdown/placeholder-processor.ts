@@ -23,6 +23,31 @@ export interface MathBlockData {
   latex: string;
 }
 
+// Маппинг языков из markdown в CodeLanguage
+const LANGUAGE_ALIASES: Record<string, string> = {
+  'cs': 'csharp',
+  'c#': 'csharp',
+  'c++': 'cpp',
+  'sh': 'bash',
+  'shell': 'bash',
+  'zsh': 'bash',
+  'yml': 'yaml',
+  'js': 'javascript',
+  'ts': 'typescript',
+  'py': 'python',
+  'rb': 'ruby',
+  'golang': 'go',
+  'rs': 'rust',
+  'text': 'plaintext',
+  'txt': 'plaintext',
+  '': 'plaintext',
+};
+
+function normalizeLanguage(lang: string): string {
+  const lower = lang.toLowerCase();
+  return LANGUAGE_ALIASES[lower] || lower || 'plaintext';
+}
+
 /**
  * Извлекает code blocks, images, tables, math blocks и заменяет их плейсхолдерами
  */
@@ -51,7 +76,7 @@ export function extractCustomBlocks(text: string): { processedText: string; bloc
     const placeholder = `__CODE_BLOCK_${placeholderIndex}__`;
     customBlocks.push({
       type: 'code',
-      data: { language: lang || 'javascript', code: code.trim() } as CodeBlockData,
+      data: { language: normalizeLanguage(lang), code: code.trim() } as CodeBlockData,
       placeholder,
     });
     placeholderIndex++;

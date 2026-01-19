@@ -34,9 +34,19 @@ const LANGUAGE_LABELS: Record<SnippetLanguage, string> = {
   html: 'HTML',
   css: 'CSS',
   sql: 'SQL',
-  json: 'JSON',
+  csharp: 'C#',
+  java: 'Java',
+  cpp: 'C++',
+  c: 'C',
+  go: 'Go',
+  rust: 'Rust',
+  php: 'PHP',
+  ruby: 'Ruby',
   bash: 'Bash',
-  plaintext: 'Text',
+  json: 'JSON',
+  yaml: 'YAML',
+  xml: 'XML',
+  plaintext: 'Plain Text',
 };
 
 const PRISM_LANGUAGE_MAP: Record<SnippetLanguage, string> = {
@@ -46,9 +56,19 @@ const PRISM_LANGUAGE_MAP: Record<SnippetLanguage, string> = {
   html: 'markup',
   css: 'css',
   sql: 'sql',
-  json: 'json',
+  csharp: 'csharp',
+  java: 'java',
+  cpp: 'cpp',
+  c: 'c',
+  go: 'go',
+  rust: 'rust',
+  php: 'php',
+  ruby: 'ruby',
   bash: 'bash',
-  plaintext: 'text',
+  json: 'json',
+  yaml: 'yaml',
+  xml: 'xml',
+  plaintext: 'plaintext',
 };
 
 export function SnippetComponent({

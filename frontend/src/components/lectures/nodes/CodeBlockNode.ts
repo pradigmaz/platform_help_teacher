@@ -10,7 +10,26 @@ import {
 } from 'lexical';
 import { createElement, type JSX } from 'react';
 
-export type CodeLanguage = 'javascript' | 'python' | 'typescript' | 'html' | 'css' | 'sql';
+export type CodeLanguage = 
+  | 'javascript' 
+  | 'typescript' 
+  | 'python' 
+  | 'html' 
+  | 'css' 
+  | 'sql'
+  | 'csharp'
+  | 'java'
+  | 'cpp'
+  | 'c'
+  | 'go'
+  | 'rust'
+  | 'php'
+  | 'ruby'
+  | 'bash'
+  | 'json'
+  | 'yaml'
+  | 'xml'
+  | 'plaintext';
 export type RenderMode = 'code' | 'render';
 
 export type SerializedCodeBlockNode = Spread<
