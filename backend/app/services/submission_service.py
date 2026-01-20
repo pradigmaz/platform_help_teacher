@@ -132,13 +132,13 @@ class SubmissionService:
         else:
             lab = submission.lab
         
-        if not lab or not lab.lesson_id:
-            return  # Нет привязки к занятию — нет ограничений
+        if not lab or not lab.subject_id:
+            return  # Нет привязки к предмету — нет ограничений
         
-        # Получаем занятие (origin_lesson)
-        lesson = await db.get(Lesson, lab.lesson_id)
+        # Ищем занятие для студента (то же что в _sync_with_journal)
+        lesson = await self._find_lesson_for_student(db, lab, submission.user_id)
         if not lesson:
-            return
+            return  # Нет занятия — нет ограничений
         
         # Проверяем дедлайн
         max_allowed = await get_max_allowed_grade_for_lab(
@@ -152,7 +152,7 @@ class SubmissionService:
         # Проверяем слоты (только для новых оценок)
         existing = await db.execute(
             select(LessonGrade).where(and_(
-                LessonGrade.lesson_id == lab.lesson_id,
+                LessonGrade.lesson_id == lesson.id,
                 LessonGrade.student_id == submission.user_id,
                 LessonGrade.work_number == lab.number,
             ))
@@ -160,7 +160,7 @@ class SubmissionService:
         if existing.scalar_one_or_none() is None:
             # Новая оценка — проверяем слоты
             current_count = await get_grades_count_on_lesson(
-                db, submission.user_id, lab.lesson_id
+                db, submission.user_id, lesson.id
             )
             max_labs = await get_max_labs_per_lesson(
                 db, submission.user_id, lesson.subject_id
