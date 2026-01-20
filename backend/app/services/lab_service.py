@@ -3,11 +3,13 @@ import secrets
 import logging
 from typing import Optional
 from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lab import Lab
+from app.models.lesson import Lesson
 from app.schemas.lab import LabCreate, LabUpdate
 from app.core.constants import LAB_PUBLIC_CODE_LENGTH, LAB_PUBLIC_CODE_MAX_ATTEMPTS
 
@@ -21,6 +23,17 @@ class LabService:
     def generate_public_code() -> str:
         """Генерировать уникальный код для публичной ссылки."""
         return secrets.token_urlsafe(LAB_PUBLIC_CODE_LENGTH)[:LAB_PUBLIC_CODE_LENGTH]
+
+    async def _sync_subject_from_lesson(
+        self,
+        db: AsyncSession,
+        lesson_id: Optional[UUID]
+    ) -> Optional[UUID]:
+        """Получить subject_id из занятия для автоматической привязки."""
+        if not lesson_id:
+            return None
+        lesson = await db.get(Lesson, lesson_id)
+        return lesson.subject_id if lesson else None
 
     async def get_by_id(
         self,
@@ -53,7 +66,13 @@ class LabService:
         lab_in: LabCreate
     ) -> Lab:
         """Создать лабораторную работу."""
-        lab = Lab(**lab_in.model_dump())
+        data = lab_in.model_dump()
+        
+        # Автоматически подтягиваем subject_id из занятия
+        if data.get('lesson_id') and not data.get('subject_id'):
+            data['subject_id'] = await self._sync_subject_from_lesson(db, data['lesson_id'])
+        
+        lab = Lab(**data)
         db.add(lab)
         await db.commit()
         await db.refresh(lab)
@@ -68,6 +87,15 @@ class LabService:
     ) -> Lab:
         """Обновить лабораторную работу."""
         update_data = lab_in.model_dump(exclude_unset=True)
+        
+        # Автоматически синхронизируем subject_id при изменении lesson_id
+        if 'lesson_id' in update_data:
+            new_lesson_id = update_data['lesson_id']
+            if new_lesson_id:
+                subject_id = await self._sync_subject_from_lesson(db, new_lesson_id)
+                if subject_id:
+                    update_data['subject_id'] = subject_id
+        
         for field, value in update_data.items():
             setattr(lab, field, value)
         await db.commit()

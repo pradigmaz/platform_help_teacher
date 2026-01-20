@@ -170,6 +170,48 @@ class SubmissionService:
                     f"Лимит лаб за занятие: {max_labs} (уже сдано: {current_count})"
                 )
 
+    async def _find_lesson_for_student(
+        self,
+        db: AsyncSession,
+        lab: Lab,
+        student_id: UUID
+    ) -> Optional[Lesson]:
+        """
+        Найти подходящее занятие для студента.
+        Ищет по предмету, группе и подгруппе студента.
+        """
+        # Загружаем студента с группой
+        student = await db.get(User, student_id)
+        if not student or not student.group_id:
+            return None
+        
+        # Если у лабы нет предмета — не можем найти занятие
+        if not lab.subject_id:
+            return None
+        
+        # Ищем занятие по предмету, группе и подгруппе студента
+        # Берём самое раннее занятие с work_number = номер лабы
+        from sqlalchemy import or_
+        
+        query = (
+            select(Lesson)
+            .where(
+                Lesson.subject_id == lab.subject_id,
+                Lesson.group_id == student.group_id,
+                Lesson.work_number == lab.number,
+                # Подгруппа: либо совпадает, либо занятие для всех (NULL)
+                or_(
+                    Lesson.subgroup == student.subgroup,
+                    Lesson.subgroup.is_(None)
+                )
+            )
+            .order_by(Lesson.date.asc())
+            .limit(1)
+        )
+        
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
     async def _sync_with_journal(
         self,
         db: AsyncSession,
@@ -188,13 +230,22 @@ class SubmissionService:
         else:
             lab = submission.lab
         
-        if not lab or not lab.lesson_id:
+        if not lab:
+            return False
+        
+        # Ищем подходящее занятие для студента
+        lesson = await self._find_lesson_for_student(db, lab, submission.user_id)
+        if not lesson:
+            logger.warning(
+                f"No lesson found for student {submission.user_id}, "
+                f"lab {lab.id}, subject {lab.subject_id}"
+            )
             return False
         
         # Проверяем существующую оценку
         existing = await db.execute(
             select(LessonGrade).where(and_(
-                LessonGrade.lesson_id == lab.lesson_id,
+                LessonGrade.lesson_id == lesson.id,
                 LessonGrade.student_id == submission.user_id,
                 LessonGrade.work_number == lab.number,
             ))
@@ -206,7 +257,7 @@ class SubmissionService:
             lesson_grade.comment = comment
         else:
             lesson_grade = LessonGrade(
-                lesson_id=lab.lesson_id,
+                lesson_id=lesson.id,
                 student_id=submission.user_id,
                 work_number=lab.number,
                 grade=grade,
@@ -215,6 +266,10 @@ class SubmissionService:
             )
             db.add(lesson_grade)
         
+        logger.info(
+            f"Synced grade {grade} for student {submission.user_id} "
+            f"to lesson {lesson.id} (work #{lab.number})"
+        )
         return True
 
 
