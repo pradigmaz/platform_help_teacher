@@ -63,7 +63,9 @@ RUN python -m playwright install chromium
 RUN addgroup --system --gid 1001 appgroup \
     && adduser --system --uid 1001 --gid 1001 appuser \
     && chown -R appuser:appgroup /ms-playwright \
-    && chown -R appuser:appgroup /home/appuser/.local
+    && chown -R appuser:appgroup /home/appuser/.local \
+    && mkdir -p /app/logs \
+    && chown -R appuser:appgroup /app/logs
 
 # Копируем только необходимый код
 COPY --chown=appuser:appgroup app ./app
