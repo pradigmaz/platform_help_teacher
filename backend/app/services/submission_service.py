@@ -177,11 +177,15 @@ class SubmissionService:
         student_id: UUID
     ) -> Optional[Lesson]:
         """
-        Найти подходящее занятие для студента.
-        Ищет ближайшее прошедшее или сегодняшнее занятие с work_number = номер лабы.
+        Найти подходящее занятие для записи оценки.
+        Ищет ближайшее прошедшее или сегодняшнее LAB-занятие для группы/подгруппы студента.
+        
+        Важно: lesson.work_number может отличаться от lab.number (сдача долга).
+        Оценка ставится на текущее занятие, а work_number в lesson_grade = номер сдаваемой лабы.
         """
         from sqlalchemy import or_
         from app.services.schedule_constants import today_msk
+        from app.models.schedule import LessonType
         
         # Загружаем студента с группой
         student = await db.get(User, student_id)
@@ -194,15 +198,16 @@ class SubmissionService:
         
         today = today_msk()
         
-        # Ищем ближайшее прошедшее или сегодняшнее занятие
-        # (студент сдаёт на текущей паре, а не на первой)
+        # Ищем ближайшее LAB-занятие на сегодня или раньше
+        # НЕ фильтруем по work_number — студент может сдавать долг
         query = (
             select(Lesson)
             .where(
                 Lesson.subject_id == lab.subject_id,
                 Lesson.group_id == student.group_id,
-                Lesson.work_number == lab.number,
+                Lesson.lesson_type == LessonType.LAB,
                 Lesson.date <= today,
+                Lesson.is_cancelled == False,
                 # Подгруппа: либо совпадает, либо занятие для всех (NULL)
                 or_(
                     Lesson.subgroup == student.subgroup,

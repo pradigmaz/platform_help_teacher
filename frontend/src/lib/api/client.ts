@@ -66,6 +66,11 @@ axiosRetry(api, {
   retries: 3,
   retryDelay: axiosRetry.exponentialDelay,
   retryCondition: (error) => {
+    // НЕ повторяем POST/PUT/PATCH/DELETE — они не идемпотентны
+    const method = error.config?.method?.toUpperCase();
+    if (method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      return false;
+    }
     return (
       axiosRetry.isNetworkOrIdempotentRequestError(error) ||
       error.code === 'ERR_NETWORK' ||
