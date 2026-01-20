@@ -61,16 +61,19 @@ class SubmissionDetailResponse(BaseModel):
     submission_id: UUID
     student_id: UUID
     student_name: str
-    group_id: Optional[UUID]
+    group_id: Optional[UUID] = None
     group_name: str
     lab_id: UUID
     lab_number: int
     lab_title: str
-    variant_number: Optional[int]
-    variant_data: Optional[dict]  # Данные варианта из lab.variants
-    questions: Optional[List[str]]  # Контрольные вопросы
-    ready_at: datetime
+    variant_number: Optional[int] = None
+    variant_data: Optional[dict] = None  # Данные варианта из lab.variants
+    questions: Optional[List[Any]] = None  # Контрольные вопросы (str или Lexical JSON dict)
+    ready_at: Optional[datetime] = None
     status: str
+    
+    class Config:
+        from_attributes = True
 
 
 # === Endpoints ===
@@ -179,12 +182,12 @@ async def get_submission_detail(
         group_name=group.name if group else "Без группы",
         lab_id=lab.id,
         lab_number=lab.number,
-        lab_title=lab.title,
+        lab_title=lab.title or "Без названия",
         variant_number=sub.variant_number,
         variant_data=variant_data,
-        questions=lab.questions,
+        questions=lab.questions if lab.questions else None,
         ready_at=sub.ready_at,
-        status=sub.status.value,
+        status=sub.status.value if sub.status else "unknown",
     )
 
 
