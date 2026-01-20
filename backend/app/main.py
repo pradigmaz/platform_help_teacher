@@ -27,10 +27,31 @@ from app.core.prestart_check import check_deployment_settings
 from app.audit.middleware import AuditMiddleware
 from app.audit.deps import set_audit_extra
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+import os
+from logging.handlers import RotatingFileHandler
+
+# Настройка логирования
+log_level = logging.DEBUG if os.getenv("ENVIRONMENT") == "development" else logging.INFO
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Базовая конфигурация
+logging.basicConfig(level=log_level, format=log_format)
+
+# Файловый handler с ротацией (5 файлов по 10MB)
+log_dir = "/app/logs"
+os.makedirs(log_dir, exist_ok=True)
+file_handler = RotatingFileHandler(
+    f"{log_dir}/app.log",
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5,
+    encoding="utf-8"
 )
+file_handler.setFormatter(logging.Formatter(log_format))
+file_handler.setLevel(log_level)
+
+# Добавляем handler к root logger
+logging.getLogger().addHandler(file_handler)
+
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
@@ -153,6 +174,19 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail}
+    )
+
+
+# Global Exception Handler — ловит все необработанные ошибки
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Логирует все необработанные исключения."""
+    logger.exception(
+        f"Unhandled exception on {request.method} {request.url.path}: {exc}"
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
     )
 
 app.add_middleware(

@@ -107,6 +107,8 @@ services:
       VK_BOT_TOKEN: ${VK_BOT_TOKEN}
       VK_GROUP_ID: ${VK_GROUP_ID}
       ENVIRONMENT: production
+    volumes:
+      - backend_logs:/app/logs
     depends_on:
       db:
         condition: service_healthy
@@ -235,6 +237,7 @@ volumes:
   minio_data_prod:
   certbot_data:
   certbot_www:
+  backend_logs:
 
 networks:
   backend-net:

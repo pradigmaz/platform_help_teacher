@@ -61,7 +61,7 @@ class SubmissionDetailResponse(BaseModel):
     submission_id: UUID
     student_id: UUID
     student_name: str
-    group_id: UUID
+    group_id: Optional[UUID]
     group_name: str
     lab_id: UUID
     lab_number: int
