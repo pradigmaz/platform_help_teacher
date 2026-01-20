@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.lab import Lab
 from app.models.lesson import Lesson
 from app.models.attendance import Attendance, AttendanceStatus
+from app.models.schedule import LessonType
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ async def get_max_allowed_grades_batch(
     Returns:
         Dict: {(student_id, work_number): max_grade}
     """
-    if lesson.lesson_type != 'LAB':
+    if lesson.lesson_type != LessonType.LAB:
         return {item: 5 for item in grade_items}
     
     # Собираем уникальные work_numbers

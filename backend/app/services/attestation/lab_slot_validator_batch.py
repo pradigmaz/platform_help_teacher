@@ -13,6 +13,7 @@ from app.models.lab import Lab
 from app.models.lesson import Lesson
 from app.models.lesson_grade import LessonGrade
 from app.models.attendance import Attendance, AttendanceStatus
+from app.models.schedule import LessonType
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ async def get_max_labs_per_lesson_batch(
             Attendance.student_id.in_(student_ids),
             Attendance.status == AttendanceStatus.EXCUSED,
             Lesson.subject_id == subject_id,
-            Lesson.lesson_type == 'LAB',
+            Lesson.lesson_type == LessonType.LAB,
             Lesson.is_cancelled == False
         ))
     )
