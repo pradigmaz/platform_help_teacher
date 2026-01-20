@@ -95,11 +95,10 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
                 onChange={(e) => updateField('deadline_5_lessons', e.target.value ? Number(e.target.value) : null)}
               >
                 <option value="">Без ограничения</option>
-                <option value="1">Следующая пара</option>
-                <option value="2">Через пару</option>
-                <option value="3">Через 2 пары</option>
-                <option value="4">Через 3 пары</option>
-                <option value="5">Через 4 пары</option>
+                <option value="1">1 пара (2 ак.ч.)</option>
+                <option value="2">2 пары (4 ак.ч.)</option>
+                <option value="3">3 пары (6 ак.ч.)</option>
+                <option value="4">4 пары (8 ак.ч.)</option>
               </select>
             </div>
             <div>
@@ -111,11 +110,10 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
                 onChange={(e) => updateField('deadline_4_lessons', e.target.value ? Number(e.target.value) : null)}
               >
                 <option value="">Без ограничения</option>
-                <option value="2">Через пару</option>
-                <option value="3">Через 2 пары</option>
-                <option value="4">Через 3 пары</option>
-                <option value="5">Через 4 пары</option>
-                <option value="6">Через 5 пар</option>
+                <option value="2">2 пары (4 ак.ч.)</option>
+                <option value="3">3 пары (6 ак.ч.)</option>
+                <option value="4">4 пары (8 ак.ч.)</option>
+                <option value="5">5 пар (10 ак.ч.)</option>
               </select>
             </div>
           </div>

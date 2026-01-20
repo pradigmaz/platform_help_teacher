@@ -1,7 +1,7 @@
 """Lab schedule attachment endpoints."""
 import logging
 from datetime import date, timedelta
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +17,7 @@ from app.models.lesson import Lesson
 from app.models.group import Group
 from app.models.schedule import LessonType
 from app.services.schedule_constants import today_msk
+from app.services.lab_attachment_validator import LabAttachmentValidator
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -39,9 +40,17 @@ class GroupSlots(BaseModel):
     slots: List[ScheduleSlot]
 
 
+class AttachmentBlockInfo(BaseModel):
+    """Информация о блокировке привязки."""
+    blocking_lab_number: int
+    can_attach_from: Optional[date]
+    message: str
+
+
 class ScheduleSlotsResponse(BaseModel):
     lab_number: int
     groups: List[GroupSlots]
+    attachment_blocked: Optional[AttachmentBlockInfo] = None
 
 
 class AttachRequest(BaseModel):
@@ -105,9 +114,29 @@ async def get_schedule_slots(
             is_attached=lesson.work_number == lab.number,
         ))
     
+    # Проверяем блокировку привязки для каждой группы
+    attachment_blocked = None
+    if lessons and lab.number > 1:
+        validator = LabAttachmentValidator(db)
+        # Проверяем для первой группы (блокировка одинакова для всех)
+        first_lesson = lessons[0]
+        validation = await validator.validate_attachment(
+            lab_to_attach=lab,
+            target_lesson_date=first_lesson.date,
+            group_id=first_lesson.group_id,
+            subject_id=lab.subject_id
+        )
+        if not validation.is_valid:
+            attachment_blocked = AttachmentBlockInfo(
+                blocking_lab_number=validation.blocking_lab_number,
+                can_attach_from=validation.can_attach_from,
+                message=validation.message
+            )
+    
     return ScheduleSlotsResponse(
         lab_number=lab.number,
-        groups=list(groups_map.values())
+        groups=list(groups_map.values()),
+        attachment_blocked=attachment_blocked
     )
 
 
@@ -127,6 +156,31 @@ async def attach_to_lessons(
         return AttachResponse(attached_count=0)
     
     lesson_uuids = [UUID(lid) for lid in data.lesson_ids]
+    
+    # Получаем первое занятие для валидации
+    first_lesson = await db.get(Lesson, lesson_uuids[0])
+    if not first_lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    # Валидация: проверяем не активна ли предыдущая лаба
+    validator = LabAttachmentValidator(db)
+    validation = await validator.validate_attachment(
+        lab_to_attach=lab,
+        target_lesson_date=first_lesson.date,
+        group_id=first_lesson.group_id,
+        subject_id=lab.subject_id
+    )
+    
+    if not validation.is_valid:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "previous_lab_active",
+                "blocking_lab_number": validation.blocking_lab_number,
+                "can_attach_from": validation.can_attach_from.isoformat() if validation.can_attach_from else None,
+                "message": validation.message
+            }
+        )
     
     # Update work_number for selected lessons
     stmt = (

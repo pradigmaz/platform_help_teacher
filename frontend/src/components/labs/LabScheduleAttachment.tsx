@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Calendar, Check, AlertTriangle, Loader2, ChevronDown } from 'lucide-react';
+import { Calendar, Check, AlertTriangle, Loader2, ChevronDown, Ban } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -38,6 +38,11 @@ interface GroupSlots {
 interface ScheduleSlotsResponse {
   lab_number: number;
   groups: GroupSlots[];
+  attachment_blocked?: {
+    blocking_lab_number: number;
+    can_attach_from: string | null;
+    message: string;
+  };
 }
 
 interface Props {
@@ -111,8 +116,15 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
       
       toast.success('Привязки обновлены');
       setInitialSelected(new Set(selected));
-    } catch {
-      toast.error('Ошибка сохранения');
+      await loadSlots(); // Перезагрузить для обновления блокировки
+    } catch (error: unknown) {
+      // Обработка ошибки блокировки
+      const axiosError = error as { response?: { status?: number; data?: { detail?: { error?: string; message?: string } } } };
+      if (axiosError.response?.status === 409 && axiosError.response?.data?.detail?.error === 'previous_lab_active') {
+        toast.error(axiosError.response.data.detail.message || 'Предыдущая лаба ещё активна');
+      } else {
+        toast.error('Ошибка сохранения');
+      }
     } finally {
       setSaving(false);
     }
@@ -182,6 +194,22 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
         </CollapsibleTrigger>
         <CollapsibleContent>
           <CardContent className="pt-0 pb-4">
+            {/* Предупреждение о блокировке */}
+            {data.attachment_blocked && (
+              <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-start gap-3">
+                <Ban className="h-5 w-5 text-yellow-500 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-yellow-600">Привязка заблокирована</p>
+                  <p className="text-muted-foreground mt-1">{data.attachment_blocked.message}</p>
+                  {data.attachment_blocked.can_attach_from && (
+                    <p className="text-muted-foreground mt-1">
+                      Можно привязать после: <span className="font-medium">{new Date(data.attachment_blocked.can_attach_from).toLocaleDateString('ru-RU')}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            
             <Accordion type="multiple" defaultValue={data.groups.map(g => g.group_id)}>
               {data.groups.map(group => (
                 <AccordionItem key={group.group_id} value={group.group_id}>
@@ -234,7 +262,7 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
             <div className="mt-4 flex justify-end">
               <Button 
                 onClick={handleSave} 
-                disabled={!hasChanges || saving}
+                disabled={!hasChanges || saving || !!data.attachment_blocked}
                 size="sm"
               >
                 {saving ? (
