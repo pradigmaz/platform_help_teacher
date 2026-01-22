@@ -51,7 +51,7 @@ export function useJournalExport(): UseJournalExportReturn {
       }
 
       const response = await fetch(
-        `/api/v1/journal/export?${searchParams.toString()}`,
+        `/api/v1/admin/journal/export?${searchParams.toString()}`,
         {
           method: 'GET',
           credentials: 'include',
