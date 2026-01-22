@@ -23,9 +23,9 @@ depends_on: Union[str, None] = None
 def upgrade() -> None:
     conn = op.get_bind()
     
-    # 1. Найти админа
+    # 1. Найти админа (ADMIN в uppercase — так хранится в enum БД)
     admin_result = conn.execute(
-        sa.text("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
+        sa.text("SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1")
     )
     admin_row = admin_result.fetchone()
     
@@ -102,9 +102,9 @@ def upgrade() -> None:
 def downgrade() -> None:
     conn = op.get_bind()
     
-    # Найти админа
+    # Найти админа (ADMIN в uppercase)
     admin_result = conn.execute(
-        sa.text("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
+        sa.text("SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1")
     )
     admin_row = admin_result.fetchone()
     

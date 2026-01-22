@@ -1,6 +1,6 @@
 """Схемы для экспорта журнала."""
 
-from datetime import date, datetime
+from datetime import date as date_type, datetime
 from enum import Enum
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -68,8 +68,8 @@ class JournalExportMeta(BaseModel):
 
     group_code: str = Field(..., description="Код группы")
     group_name: Optional[str] = Field(default=None, description="Название группы")
-    period_start: date = Field(..., description="Начало периода")
-    period_end: date = Field(..., description="Конец периода")
+    period_start: date_type = Field(..., description="Начало периода")
+    period_end: date_type = Field(..., description="Конец периода")
     generated_at: datetime = Field(..., description="Время генерации файла")
     total_students: int = Field(..., description="Количество студентов")
     total_lessons: int = Field(..., description="Количество занятий")
@@ -113,7 +113,7 @@ class LessonExportColumn(BaseModel):
     """Колонка занятия для экспорта."""
 
     lesson_id: UUID = Field(..., description="ID занятия")
-    date: date = Field(..., description="Дата занятия")
+    date: date_type = Field(..., description="Дата занятия")
     lesson_number: int = Field(..., description="Номер пары")
     lesson_type: str = Field(..., description="Тип занятия (лекция/практика/лаба)")
     topic: Optional[str] = Field(default=None, description="Тема занятия")
