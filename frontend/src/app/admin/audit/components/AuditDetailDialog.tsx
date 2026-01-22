@@ -119,12 +119,12 @@ export function AuditDetailDialog({ log, onClose }: Props) {
             <Separator />
 
             {/* Причина ошибки аутентификации */}
-            {log.extra_data?.auth_error_reason && (
+            {Boolean(log.extra_data?.auth_error_reason) && (
               <>
                 <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg space-y-2">
                   <h4 className="font-semibold text-red-500">Причина ошибки 401</h4>
                   <p className="text-sm">
-                    {AUTH_ERROR_REASONS[log.extra_data.auth_error_reason as string] || log.extra_data.auth_error_reason}
+                    {AUTH_ERROR_REASONS[String(log.extra_data?.auth_error_reason)] || String(log.extra_data?.auth_error_reason)}
                   </p>
                 </div>
                 <Separator />
@@ -286,7 +286,7 @@ export function AuditDetailDialog({ log, onClose }: Props) {
             )}
 
             {/* Request body */}
-            {log.request_body && Object.keys(log.request_body).length > 0 && (
+            {log.request_body && typeof log.request_body === 'object' && Object.keys(log.request_body).length > 0 && (
               <>
                 <Separator />
                 <div className="space-y-3">

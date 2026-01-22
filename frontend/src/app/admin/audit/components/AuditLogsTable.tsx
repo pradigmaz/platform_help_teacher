@@ -98,17 +98,17 @@ function AuditLogRow({ log, onClick }: { log: AuditLog; onClick: () => void }) {
           <Badge variant={log.response_status && log.response_status >= 400 ? "destructive" : "outline"}>
             {log.response_status || "—"}
           </Badge>
-          {log.response_status === 401 && log.extra_data?.auth_error_reason && (
+          {log.response_status === 401 && Boolean(log.extra_data?.auth_error_reason) && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
                   <Badge variant="outline" className="gap-1 bg-red-500/10 text-red-500 border-red-500/30 cursor-help">
                     <KeyRound className="h-3 w-3" />
-                    {AUTH_ERROR_SHORT[log.extra_data.auth_error_reason as string] || "Auth"}
+                    {AUTH_ERROR_SHORT[String(log.extra_data?.auth_error_reason)] || "Auth"}
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-sm">{log.extra_data.auth_error_reason}</p>
+                  <p className="text-sm">{String(log.extra_data?.auth_error_reason)}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
