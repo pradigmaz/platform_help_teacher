@@ -12,6 +12,15 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { AuditLog } from "@/lib/api";
 
+const AUTH_ERROR_REASONS: Record<string, string> = {
+  no_token: "Токен отсутствует — клиент не отправил cookie с access_token",
+  token_expired: "Токен истёк — прошло более 15 минут с момента выдачи",
+  invalid_token: "Токен невалиден — повреждён, подделан или неверная подпись",
+  invalid_token_no_sub: "Токен без user_id — отсутствует поле 'sub' в payload",
+  user_not_found: "Пользователь не найден — удалён из БД после выдачи токена",
+  user_inactive: "Пользователь деактивирован — аккаунт заблокирован",
+};
+
 interface Props {
   log: AuditLog | null;
   onClose: () => void;
@@ -108,6 +117,19 @@ export function AuditDetailDialog({ log, onClose }: Props) {
             </div>
 
             <Separator />
+
+            {/* Причина ошибки аутентификации */}
+            {log.extra_data?.auth_error_reason && (
+              <>
+                <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg space-y-2">
+                  <h4 className="font-semibold text-red-500">Причина ошибки 401</h4>
+                  <p className="text-sm">
+                    {AUTH_ERROR_REASONS[log.extra_data.auth_error_reason as string] || log.extra_data.auth_error_reason}
+                  </p>
+                </div>
+                <Separator />
+              </>
+            )}
 
             {/* Клиент */}
             <div className="space-y-3">

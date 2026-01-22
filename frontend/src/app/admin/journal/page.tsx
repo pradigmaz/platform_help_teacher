@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Users, BookOpen } from 'lucide-react';
+import { Users, BookOpen, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { useJournalData, AttestationPeriod, SemesterInfo } from './hooks/useJournalData';
 import { LessonSheet } from '@/components/schedule';
+import { ExportDialog } from '@/components/journal';
 import {
   Select,
   SelectContent,
@@ -29,6 +31,7 @@ export default function JournalPage() {
   const lessonIdParam = searchParams.get('lesson_id');
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [studentSearch, setStudentSearch] = useState('');
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   const {
     groups,
@@ -79,6 +82,12 @@ export default function JournalPage() {
           <h1 className="text-3xl font-bold tracking-tight">Журнал</h1>
           <p className="text-muted-foreground mt-1">Посещаемость и оценки</p>
         </div>
+        {selectedGroupId && (
+          <Button variant="outline" onClick={() => setShowExportDialog(true)}>
+            <Download className="h-4 w-4 mr-2" />
+            Экспорт
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -200,6 +209,14 @@ export default function JournalPage() {
           // Refresh data after save
           setSelectedLesson(null);
         }}
+      />
+
+      {/* Export Dialog */}
+      <ExportDialog
+        groupId={selectedGroupId}
+        groupName={groups.find(g => g.id === selectedGroupId)?.name}
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
       />
     </div>
   );

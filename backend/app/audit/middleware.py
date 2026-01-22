@@ -136,6 +136,13 @@ class AuditMiddleware(BaseHTTPMiddleware):
         if response.status_code >= 400:
             audit_context.action_type = ActionType.ERROR.value
         
+        # Добавляем причину auth ошибки если есть
+        auth_error_reason = getattr(request.state, "auth_error_reason", None)
+        if auth_error_reason:
+            if audit_context.extra_data is None:
+                audit_context.extra_data = {}
+            audit_context.extra_data["auth_error_reason"] = auth_error_reason
+        
         # Выбираем метод записи в зависимости от критичности
         audit_service = get_audit_service()
         if audit_service.is_security_critical(audit_context.action_type):

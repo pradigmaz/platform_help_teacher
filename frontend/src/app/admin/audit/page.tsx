@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuditAPI } from "@/lib/api";
 import { LogsTab, SecurityTab } from "./components";
+import { ClearLogsDialog } from "./components/ClearLogsDialog";
 
 export default function AuditPage() {
   const [activeTab, setActiveTab] = useState("logs");
@@ -18,6 +19,11 @@ export default function AuditPage() {
   const [dateTo, setDateTo] = useState("");
   const [timeFrom, setTimeFrom] = useState("");
   const [timeTo, setTimeTo] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleLogsCleared = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -67,13 +73,15 @@ export default function AuditPage() {
             <p className="text-muted-foreground">Мониторинг активности студентов</p>
           </div>
         </div>
-        <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Экспорт JSONL
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <ClearLogsDialog onCleared={handleLogsCleared} />
+          <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Экспорт JSONL
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Экспорт логов аудита</DialogTitle>
@@ -120,6 +128,7 @@ export default function AuditPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -135,7 +144,7 @@ export default function AuditPage() {
         </TabsList>
 
         <TabsContent value="logs" className="mt-6">
-          <LogsTab />
+          <LogsTab refreshKey={refreshKey} />
         </TabsContent>
 
         <TabsContent value="security" className="mt-6">

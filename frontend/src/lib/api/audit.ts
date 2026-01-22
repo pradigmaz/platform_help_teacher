@@ -179,4 +179,47 @@ export const AuditAPI = {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
   },
+
+  /**
+   * Предпросмотр очистки логов — сколько записей будет удалено.
+   */
+  async previewClearLogs(filters: {
+    date_from?: string;
+    date_to?: string;
+    status_codes?: number[];
+    action_type?: string;
+  }): Promise<{ count: number; by_status: Record<string, number>; filters: Record<string, unknown> }> {
+    const params = new URLSearchParams();
+    if (filters.date_from) params.append('date_from', filters.date_from);
+    if (filters.date_to) params.append('date_to', filters.date_to);
+    if (filters.status_codes?.length) params.append('status_codes', filters.status_codes.join(','));
+    if (filters.action_type) params.append('action_type', filters.action_type);
+    
+    const { data } = await api.get<{ count: number; by_status: Record<string, number>; filters: Record<string, unknown> }>(
+      `/admin/audit/clear/preview?${params}`
+    );
+    return data;
+  },
+
+  /**
+   * Очистить логи по фильтрам.
+   */
+  async clearLogs(filters: {
+    date_from?: string;
+    date_to?: string;
+    status_codes?: number[];
+    action_type?: string;
+  }): Promise<{ deleted: number; message: string }> {
+    const params = new URLSearchParams();
+    if (filters.date_from) params.append('date_from', filters.date_from);
+    if (filters.date_to) params.append('date_to', filters.date_to);
+    if (filters.status_codes?.length) params.append('status_codes', filters.status_codes.join(','));
+    if (filters.action_type) params.append('action_type', filters.action_type);
+    params.append('confirm', 'true');
+    
+    const { data } = await api.delete<{ deleted: number; message: string }>(
+      `/admin/audit/clear?${params}`
+    );
+    return data;
+  },
 };

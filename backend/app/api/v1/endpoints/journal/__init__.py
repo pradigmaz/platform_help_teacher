@@ -3,5 +3,6 @@
 """
 from .lessons import router as lessons_router
 from .grades import router as grades_router
+from .export import router as export_router
 
-__all__ = ["lessons_router", "grades_router"]
+__all__ = ["lessons_router", "grades_router", "export_router"]

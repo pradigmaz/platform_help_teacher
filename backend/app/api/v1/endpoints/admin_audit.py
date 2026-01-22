@@ -4,9 +4,10 @@ Admin Audit API — просмотр логов действий студент�
 from datetime import datetime, timedelta
 from typing import Optional, List
 from uuid import UUID
+import logging
 
-from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import select, func, desc
+from fastapi import APIRouter, Depends, Query, Request, HTTPException
+from sqlalchemy import select, func, desc, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -16,6 +17,8 @@ from app.models.user import User
 from app.audit.models import StudentAuditLog
 from app.audit.schemas import AuditLogResponse, AuditLogListResponse, AuditStatsResponse
 from app.audit.suspicion import enrich_logs_with_suspicion
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -222,3 +225,147 @@ async def get_audit_stats(
         by_action_type=by_action,
         period_days=days,
     )
+
+
+def _build_delete_filters(
+    date_from: Optional[datetime],
+    date_to: Optional[datetime],
+    status_codes: Optional[List[int]],
+    action_type: Optional[str],
+):
+    """Построить фильтры для удаления/подсчёта логов."""
+    filters = []
+    
+    if date_from:
+        filters.append(StudentAuditLog.created_at >= date_from)
+    if date_to:
+        filters.append(StudentAuditLog.created_at <= date_to)
+    if status_codes:
+        filters.append(StudentAuditLog.response_status.in_(status_codes))
+    if action_type:
+        filters.append(StudentAuditLog.action_type == action_type)
+    
+    return filters
+
+
+@router.get("/clear/preview")
+@limiter.limit("10/minute")
+async def preview_clear_logs(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_active_superuser),
+    date_from: Optional[datetime] = Query(None, description="Дата от"),
+    date_to: Optional[datetime] = Query(None, description="Дата до"),
+    status_codes: Optional[str] = Query(None, description="Статус коды через запятую (401,404,500)"),
+    action_type: Optional[str] = Query(None, description="Тип действия"),
+):
+    """Предпросмотр: сколько записей будет удалено."""
+    # Парсим статус коды
+    codes_list = None
+    if status_codes:
+        try:
+            codes_list = [int(c.strip()) for c in status_codes.split(",") if c.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid status_codes format")
+    
+    filters = _build_delete_filters(date_from, date_to, codes_list, action_type)
+    
+    if not filters:
+        raise HTTPException(status_code=400, detail="At least one filter is required")
+    
+    # Подсчёт записей
+    count_query = select(func.count(StudentAuditLog.id))
+    for f in filters:
+        count_query = count_query.where(f)
+    
+    result = await db.execute(count_query)
+    count = result.scalar() or 0
+    
+    # Статистика по статус кодам
+    stats_query = (
+        select(StudentAuditLog.response_status, func.count(StudentAuditLog.id))
+        .group_by(StudentAuditLog.response_status)
+    )
+    for f in filters:
+        stats_query = stats_query.where(f)
+    
+    stats_result = await db.execute(stats_query)
+    by_status = {str(row[0] or "null"): row[1] for row in stats_result.all()}
+    
+    return {
+        "count": count,
+        "by_status": by_status,
+        "filters": {
+            "date_from": date_from.isoformat() if date_from else None,
+            "date_to": date_to.isoformat() if date_to else None,
+            "status_codes": codes_list,
+            "action_type": action_type,
+        }
+    }
+
+
+@router.delete("/clear")
+@limiter.limit("5/minute")
+async def clear_logs(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_active_superuser),
+    date_from: Optional[datetime] = Query(None, description="Дата от"),
+    date_to: Optional[datetime] = Query(None, description="Дата до"),
+    status_codes: Optional[str] = Query(None, description="Статус коды через запятую (401,404,500)"),
+    action_type: Optional[str] = Query(None, description="Тип действия"),
+    confirm: bool = Query(False, description="Подтверждение удаления"),
+):
+    """Удалить логи по фильтрам."""
+    if not confirm:
+        raise HTTPException(status_code=400, detail="Confirmation required (confirm=true)")
+    
+    # Парсим статус коды
+    codes_list = None
+    if status_codes:
+        try:
+            codes_list = [int(c.strip()) for c in status_codes.split(",") if c.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid status_codes format")
+    
+    filters = _build_delete_filters(date_from, date_to, codes_list, action_type)
+    
+    if not filters:
+        raise HTTPException(status_code=400, detail="At least one filter is required")
+    
+    # Подсчёт перед удалением
+    count_query = select(func.count(StudentAuditLog.id))
+    for f in filters:
+        count_query = count_query.where(f)
+    
+    count_result = await db.execute(count_query)
+    count = count_result.scalar() or 0
+    
+    if count == 0:
+        return {"deleted": 0, "message": "No logs matched the filters"}
+    
+    # Удаление
+    delete_query = delete(StudentAuditLog)
+    for f in filters:
+        delete_query = delete_query.where(f)
+    
+    await db.execute(delete_query)
+    await db.commit()
+    
+    # Логируем операцию
+    logger.warning(
+        f"Audit logs cleared | admin={admin.id} ({admin.full_name}) | "
+        f"count={count} | date_from={date_from} | date_to={date_to} | "
+        f"status_codes={codes_list} | action_type={action_type}"
+    )
+    
+    return {
+        "deleted": count,
+        "message": f"Successfully deleted {count} audit logs",
+        "filters": {
+            "date_from": date_from.isoformat() if date_from else None,
+            "date_to": date_to.isoformat() if date_to else None,
+            "status_codes": codes_list,
+            "action_type": action_type,
+        }
+    }

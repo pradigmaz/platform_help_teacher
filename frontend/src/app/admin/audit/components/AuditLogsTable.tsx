@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, Globe, Fingerprint, Clock, AlertTriangle } from "lucide-react";
+import { Eye, Globe, Fingerprint, Clock, AlertTriangle, KeyRound } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,15 @@ import {
 } from "@/components/ui/table";
 import type { AuditLog } from "@/lib/api";
 import { ACTION_LABELS, formatAuditDate } from "../lib/audit-constants";
+
+const AUTH_ERROR_SHORT: Record<string, string> = {
+  no_token: "Нет токена",
+  token_expired: "Истёк",
+  invalid_token: "Невалидный",
+  invalid_token_no_sub: "Нет sub",
+  user_not_found: "Юзер удалён",
+  user_inactive: "Заблокирован",
+};
 
 interface AuditLogsTableProps {
   logs: AuditLog[];
@@ -85,9 +94,26 @@ function AuditLogRow({ log, onClick }: { log: AuditLog; onClick: () => void }) {
       <TableCell className="font-mono text-xs max-w-[200px] truncate">{log.path}</TableCell>
       <TableCell className="font-mono text-xs">{log.ip_address}</TableCell>
       <TableCell>
-        <Badge variant={log.response_status && log.response_status >= 400 ? "destructive" : "outline"}>
-          {log.response_status || "—"}
-        </Badge>
+        <div className="flex items-center gap-1">
+          <Badge variant={log.response_status && log.response_status >= 400 ? "destructive" : "outline"}>
+            {log.response_status || "—"}
+          </Badge>
+          {log.response_status === 401 && log.extra_data?.auth_error_reason && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Badge variant="outline" className="gap-1 bg-red-500/10 text-red-500 border-red-500/30 cursor-help">
+                    <KeyRound className="h-3 w-3" />
+                    {AUTH_ERROR_SHORT[log.extra_data.auth_error_reason as string] || "Auth"}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-sm">{log.extra_data.auth_error_reason}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
       </TableCell>
       <TableCell><SuspicionBadges suspicion={log.suspicion} /></TableCell>
       <TableCell>

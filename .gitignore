@@ -61,3 +61,5 @@ scripts/
 *.ps1
 deploy/openapi_temp.json
 .claude/
+
+лабораторные/

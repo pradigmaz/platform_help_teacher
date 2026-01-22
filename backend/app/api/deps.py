@@ -24,40 +24,73 @@ async def get_current_user(
     db: Annotated[AsyncSession, Depends(get_db)]
 ) -> User:
     token = get_token_from_cookie(request)
-    
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    client_ip = request.client.host if request.client else "unknown"
+    path = request.url.path
 
     if not token:
-        raise credentials_exception
+        logger.warning(f"Auth failed: no token | path={path} | ip={client_ip}")
+        request.state.auth_error_reason = "no_token"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
-            raise credentials_exception
+            logger.warning(f"Auth failed: no 'sub' in token | path={path} | ip={client_ip}")
+            request.state.auth_error_reason = "invalid_token_no_sub"
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         
         # Track impersonation for audit
         impersonated_by = payload.get("impersonated_by")
         if impersonated_by:
-            logger.info(f"Impersonated request: admin={impersonated_by}, acting_as={user_id}, path={request.url.path}")
+            logger.info(f"Impersonated request: admin={impersonated_by}, acting_as={user_id}, path={path}")
             request.state.impersonated_by = impersonated_by
             
-    except InvalidTokenError:
-        raise credentials_exception
+    except jwt.ExpiredSignatureError:
+        logger.warning(f"Auth failed: token expired | path={path} | ip={client_ip}")
+        request.state.auth_error_reason = "token_expired"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except InvalidTokenError as e:
+        logger.warning(f"Auth failed: invalid token | error={str(e)[:100]} | path={path} | ip={client_ip}")
+        request.state.auth_error_reason = "invalid_token"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
         
     result = await db.execute(select(User).where(User.id == UUID(user_id)))
     user = result.scalar_one_or_none()
     
     if user is None:
-        raise credentials_exception
+        logger.warning(f"Auth failed: user not found | user_id={user_id} | path={path} | ip={client_ip}")
+        request.state.auth_error_reason = "user_not_found"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
         
-    # FIX: Security check for deactivated users
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        logger.warning(f"Auth failed: user inactive | user_id={user_id} | path={path} | ip={client_ip}")
+        request.state.auth_error_reason = "user_inactive"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account is inactive",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
         
     return user
 

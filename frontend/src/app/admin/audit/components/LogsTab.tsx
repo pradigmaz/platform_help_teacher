@@ -10,7 +10,11 @@ import { AuditDetailDialog } from "./AuditDetailDialog";
 
 const LIMIT = 50;
 
-export function LogsTab() {
+interface LogsTabProps {
+  refreshKey?: number;
+}
+
+export function LogsTab({ refreshKey = 0 }: LogsTabProps) {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [stats, setStats] = useState<AuditStats | null>(null);
   const [total, setTotal] = useState(0);
@@ -47,7 +51,7 @@ export function LogsTab() {
 
   useEffect(() => {
     fetchLogs();
-  }, [fetchLogs]);
+  }, [fetchLogs, refreshKey]);
 
   const handleSearch = () => {
     setPage(0);
