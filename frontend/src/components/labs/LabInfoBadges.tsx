@@ -12,8 +12,7 @@ interface LabInfoBadgesProps {
 export function LabInfoBadges({ lab }: LabInfoBadgesProps) {
   const formatDeadline = (lessons: number | null | undefined) => {
     if (!lessons) return null;
-    if (lessons === 1) return 'След. пара';
-    return `Через ${lessons - 1} пар`;
+    return `${lessons} ${lessons === 1 ? 'пара' : lessons < 5 ? 'пары' : 'пар'}`;
   };
 
   const deadline5 = lab.deadline_5_lessons;

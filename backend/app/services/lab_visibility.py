@@ -224,6 +224,11 @@ class LabVisibilityService:
                 elif deadline_active_from <= today:
                     deadline_5_status = 'active'
                     lessons_until_5 = effective_deadline_5 - labs_after
+                
+                logger.debug(
+                    f"Lab {lab_number}: labs_after={labs_after}, deadline_5={effective_deadline_5}, "
+                    f"status={deadline_5_status}, deadline_active_from={deadline_active_from}"
+                )
             
             if effective_deadline_4 is not None:
                 if labs_after >= effective_deadline_4:

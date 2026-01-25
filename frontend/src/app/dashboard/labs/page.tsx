@@ -210,15 +210,15 @@ export default function LabsPage() {
                       )}>
                         {lab.has_extension
                           ? `+${lab.extension_bonus} пар (продление)`
-                          : lab.lessons_until_deadline_5 !== undefined && lab.lessons_until_deadline_5 !== null
-                            ? lab.deadline_5_status === 'expired'
-                              ? 'На 5 уже нельзя'
-                              : lab.lessons_until_deadline_5 === 0
+                          : lab.deadline_5_status === 'expired'
+                            ? 'На 5 уже нельзя'
+                            : lab.lessons_until_deadline_5 !== undefined && lab.lessons_until_deadline_5 !== null
+                              ? lab.lessons_until_deadline_5 === 0
                                 ? 'Последняя пара на 5'
                                 : `Ещё ${lab.lessons_until_deadline_5} пар на 5`
-                            : lab.deadline_5_lessons
-                              ? (lab.deadline_5_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_5_lessons - 1} пар`)
-                              : 'Без дедлайна'
+                              : lab.deadline_5_lessons
+                                ? 'Дедлайн не активен'
+                                : 'Без дедлайна'
                         }
                       </span>
                     </div>

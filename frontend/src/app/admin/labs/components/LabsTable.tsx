@@ -56,7 +56,7 @@ export function LabsTable({ labs, onDelete }: LabsTableProps) {
                       {lab.deadline_5_lessons ? (
                         <span className="flex items-center gap-1 text-sm">
                           <Calendar className="w-3 h-3" />
-                          {lab.deadline_5_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_5_lessons - 1} пар`}
+                          {lab.deadline_5_lessons} {lab.deadline_5_lessons === 1 ? 'пара' : lab.deadline_5_lessons < 5 ? 'пары' : 'пар'}
                         </span>
                       ) : '—'}
                     </TableCell>
@@ -64,7 +64,7 @@ export function LabsTable({ labs, onDelete }: LabsTableProps) {
                       {lab.deadline_4_lessons ? (
                         <span className="flex items-center gap-1 text-sm">
                           <Calendar className="w-3 h-3" />
-                          {lab.deadline_4_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_4_lessons - 1} пар`}
+                          {lab.deadline_4_lessons} {lab.deadline_4_lessons === 1 ? 'пара' : lab.deadline_4_lessons < 5 ? 'пары' : 'пар'}
                         </span>
                       ) : '—'}
                     </TableCell>
