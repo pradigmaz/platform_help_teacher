@@ -183,6 +183,8 @@ services:
       redis:
         condition: service_healthy
     command: celery -A app.core.celery_app worker -B --loglevel=warning --max-tasks-per-child=50 --concurrency=2
+    healthcheck:
+      disable: true
     networks:
       - backend-net
     restart: always
