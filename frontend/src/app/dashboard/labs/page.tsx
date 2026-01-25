@@ -177,8 +177,15 @@ export default function LabsPage() {
                       <div className={cn("p-2 rounded-lg", status.bg)}><StatusIcon className={cn("h-5 w-5", status.color)} /></div>
                       <span className="text-sm font-medium text-muted-foreground">№{lab.number}</span>
                     </div>
-                    <Badge variant={lab.submission?.status === 'ACCEPTED' ? 'default' : lab.submission?.status === 'REJECTED' ? 'destructive' : 'secondary'}>
-                      {lab.submission?.grade !== undefined ? `${lab.submission.grade}/${lab.max_grade}` : `—/${lab.max_grade}`}
+                    <Badge variant={lab.submission?.status === 'ACCEPTED' ? 'default' : lab.submission?.status === 'REJECTED' ? 'destructive' : 'secondary'}
+                      className={cn(
+                        lab.current_max_grade && lab.current_max_grade < lab.max_grade && !lab.submission?.grade && "bg-orange-500/10 text-orange-500 border-orange-500/30"
+                      )}>
+                      {lab.submission?.grade !== undefined 
+                        ? `${lab.submission.grade}/${lab.max_grade}` 
+                        : lab.current_max_grade && lab.current_max_grade < lab.max_grade
+                          ? `макс. ${lab.current_max_grade}`
+                          : `—/${lab.max_grade}`}
                     </Badge>
                   </div>
                   <h4 className="font-semibold text-foreground mb-1 line-clamp-2">{lab.title}</h4>
@@ -197,18 +204,21 @@ export default function LabsPage() {
                     <div className="flex items-center gap-1">
                       <IconCalendar className="h-3 w-3" />
                       <span className={cn(
-                        lab.deadline_5_status === 'expired' && "text-red-500 font-medium",
-                        lab.lessons_until_deadline_5 !== undefined && lab.lessons_until_deadline_5 !== null && lab.lessons_until_deadline_5 <= 1 && lab.deadline_5_status !== 'expired' && "text-orange-500 font-medium"
+                        lab.deadline_5_status === 'expired' && !lab.has_extension && "text-red-500 font-medium",
+                        lab.has_extension && "text-green-500 font-medium",
+                        lab.lessons_until_deadline_5 !== undefined && lab.lessons_until_deadline_5 !== null && lab.lessons_until_deadline_5 <= 1 && lab.deadline_5_status !== 'expired' && !lab.has_extension && "text-orange-500 font-medium"
                       )}>
-                        {lab.lessons_until_deadline_5 !== undefined && lab.lessons_until_deadline_5 !== null
-                          ? lab.deadline_5_status === 'expired'
-                            ? 'На 5 уже нельзя'
-                            : lab.lessons_until_deadline_5 === 0
-                              ? 'Последняя пара на 5'
-                              : `Ещё ${lab.lessons_until_deadline_5} пар на 5`
-                          : lab.deadline_5_lessons
-                            ? (lab.deadline_5_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_5_lessons - 1} пар`)
-                            : 'Без дедлайна'
+                        {lab.has_extension
+                          ? `+${lab.extension_bonus} пар (продление)`
+                          : lab.lessons_until_deadline_5 !== undefined && lab.lessons_until_deadline_5 !== null
+                            ? lab.deadline_5_status === 'expired'
+                              ? 'На 5 уже нельзя'
+                              : lab.lessons_until_deadline_5 === 0
+                                ? 'Последняя пара на 5'
+                                : `Ещё ${lab.lessons_until_deadline_5} пар на 5`
+                            : lab.deadline_5_lessons
+                              ? (lab.deadline_5_lessons === 1 ? 'След. пара' : `Через ${lab.deadline_5_lessons - 1} пар`)
+                              : 'Без дедлайна'
                         }
                       </span>
                     </div>

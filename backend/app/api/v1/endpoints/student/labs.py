@@ -73,12 +73,17 @@ async def get_my_labs(
         lab.number: lab.subject_id
         for lab in visible_labs
     }
+    labs_ids = {
+        lab.number: lab.id
+        for lab in visible_labs
+    }
     visibility_map = await visibility_service.get_batch_visibility_info(
         lab_numbers=[lab.number for lab in visible_labs],
         group_id=current_user.group_id,
         subgroup=current_user.subgroup,
         labs_deadlines=labs_deadlines,
-        labs_subjects=labs_subjects
+        labs_subjects=labs_subjects,
+        labs_ids=labs_ids
     )
     
     subs_result = await db.execute(
@@ -112,6 +117,7 @@ async def get_my_labs(
             "deadline_5_lessons": lab.deadline_5_lessons,
             "deadline_4_lessons": lab.deadline_4_lessons,
             "max_grade": lab.max_grade,
+            "current_max_grade": visibility_info.current_max_grade if visibility_info else lab.max_grade,
             "is_available": is_available,
             "variant_number": variant_number,
             "submission": _format_submission(sub) if sub else None,
@@ -122,6 +128,8 @@ async def get_my_labs(
             "deadline_4_status": visibility_info.deadline_4_status if visibility_info else None,
             "lessons_until_deadline_5": visibility_info.lessons_until_deadline_5 if visibility_info else None,
             "lessons_until_deadline_4": visibility_info.lessons_until_deadline_4 if visibility_info else None,
+            "has_extension": visibility_info.has_extension if visibility_info else False,
+            "extension_bonus": visibility_info.extension_bonus if visibility_info else 0,
         })
         
         if sub and sub.status.value == "ACCEPTED":

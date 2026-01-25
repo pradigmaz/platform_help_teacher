@@ -13,7 +13,13 @@ from app.core.limiter import limiter
 from app.core.redis import get_redis
 from app.core.constants import RATE_LIMIT_LAB_CREATE, RATE_LIMIT_LAB_DELETE, RATE_LIMIT_LAB_PUBLISH
 from app.models import User, Lab, LabSettings
+from app.models.lab_deadline_extension import LabDeadlineExtension
+from app.models.group import Group
 from app.schemas.lab import LabCreate, LabUpdate, LabOut, LabDetailResponse, PublishLabResponse
+from app.schemas.deadline_extension import (
+    DeadlineExtensionCreate, DeadlineExtensionUpdate, 
+    DeadlineExtensionResponse, DeadlineExtensionListResponse
+)
 from app.services.lab_service import lab_service
 from app import schemas
 
@@ -237,3 +243,170 @@ async def update_lab_settings(
     await db.refresh(settings)
     return settings
 
+
+
+# --- Deadline Extensions ---
+
+@router.get("/deadline-extensions", response_model=DeadlineExtensionListResponse)
+async def get_deadline_extensions(
+    lab_id: Optional[UUID] = Query(default=None),
+    group_id: Optional[UUID] = Query(default=None),
+    is_active: Optional[bool] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """Получить список продлений дедлайнов."""
+    query = select(LabDeadlineExtension)
+    
+    if lab_id:
+        query = query.where(LabDeadlineExtension.lab_id == lab_id)
+    if group_id:
+        query = query.where(LabDeadlineExtension.group_id == group_id)
+    if is_active is not None:
+        query = query.where(LabDeadlineExtension.is_active == is_active)
+    
+    query = query.order_by(LabDeadlineExtension.created_at.desc())
+    result = await db.execute(query)
+    extensions = result.scalars().all()
+    
+    # Загружаем связанные данные для отображения
+    items = []
+    for ext in extensions:
+        lab = await db.get(Lab, ext.lab_id)
+        group = await db.get(Group, ext.group_id)
+        creator = await db.get(User, ext.created_by) if ext.created_by else None
+        
+        items.append(DeadlineExtensionResponse(
+            id=ext.id,
+            lab_id=ext.lab_id,
+            group_id=ext.group_id,
+            bonus_lessons=ext.bonus_lessons,
+            reason=ext.reason,
+            expires_at=ext.expires_at,
+            is_active=ext.is_active,
+            created_by=ext.created_by,
+            created_at=ext.created_at,
+            updated_at=ext.updated_at,
+            lab_number=lab.number if lab else None,
+            lab_title=lab.title if lab else None,
+            group_name=group.name if group else None,
+            creator_name=creator.full_name if creator else None,
+        ))
+    
+    return DeadlineExtensionListResponse(items=items, total=len(items))
+
+
+@router.post("/deadline-extensions", response_model=DeadlineExtensionResponse)
+async def create_deadline_extension(
+    ext_in: DeadlineExtensionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """Создать продление дедлайна для группы."""
+    # Проверяем существование лабы и группы
+    lab = await db.get(Lab, ext_in.lab_id)
+    if not lab:
+        raise HTTPException(status_code=404, detail="Lab not found")
+    
+    group = await db.get(Group, ext_in.group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Проверяем нет ли уже активного продления
+    existing = await db.execute(
+        select(LabDeadlineExtension).where(
+            LabDeadlineExtension.lab_id == ext_in.lab_id,
+            LabDeadlineExtension.group_id == ext_in.group_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Extension already exists for this lab and group")
+    
+    extension = LabDeadlineExtension(
+        lab_id=ext_in.lab_id,
+        group_id=ext_in.group_id,
+        bonus_lessons=ext_in.bonus_lessons,
+        reason=ext_in.reason,
+        expires_at=ext_in.expires_at,
+        created_by=current_user.id,
+    )
+    db.add(extension)
+    await db.commit()
+    await db.refresh(extension)
+    
+    logger.info(f"Created deadline extension for lab {lab.number} group {group.name}: +{ext_in.bonus_lessons} lessons")
+    
+    return DeadlineExtensionResponse(
+        id=extension.id,
+        lab_id=extension.lab_id,
+        group_id=extension.group_id,
+        bonus_lessons=extension.bonus_lessons,
+        reason=extension.reason,
+        expires_at=extension.expires_at,
+        is_active=extension.is_active,
+        created_by=extension.created_by,
+        created_at=extension.created_at,
+        updated_at=extension.updated_at,
+        lab_number=lab.number,
+        lab_title=lab.title,
+        group_name=group.name,
+        creator_name=current_user.full_name,
+    )
+
+
+@router.patch("/deadline-extensions/{extension_id}", response_model=DeadlineExtensionResponse)
+async def update_deadline_extension(
+    extension_id: UUID,
+    ext_in: DeadlineExtensionUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """Обновить продление дедлайна."""
+    extension = await db.get(LabDeadlineExtension, extension_id)
+    if not extension:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    update_data = ext_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(extension, field, value)
+    
+    await db.commit()
+    await db.refresh(extension)
+    
+    lab = await db.get(Lab, extension.lab_id)
+    group = await db.get(Group, extension.group_id)
+    creator = await db.get(User, extension.created_by) if extension.created_by else None
+    
+    return DeadlineExtensionResponse(
+        id=extension.id,
+        lab_id=extension.lab_id,
+        group_id=extension.group_id,
+        bonus_lessons=extension.bonus_lessons,
+        reason=extension.reason,
+        expires_at=extension.expires_at,
+        is_active=extension.is_active,
+        created_by=extension.created_by,
+        created_at=extension.created_at,
+        updated_at=extension.updated_at,
+        lab_number=lab.number if lab else None,
+        lab_title=lab.title if lab else None,
+        group_name=group.name if group else None,
+        creator_name=creator.full_name if creator else None,
+    )
+
+
+@router.delete("/deadline-extensions/{extension_id}")
+async def delete_deadline_extension(
+    extension_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """Удалить продление дедлайна."""
+    extension = await db.get(LabDeadlineExtension, extension_id)
+    if not extension:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    await db.delete(extension)
+    await db.commit()
+    
+    return {"status": "deleted"}

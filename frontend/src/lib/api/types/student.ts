@@ -51,6 +51,7 @@ export interface StudentLab {
   deadline_5_lessons?: number | null;
   deadline_4_lessons?: number | null;
   max_grade: number;
+  current_max_grade?: number;  // Текущий максимальный балл с учётом дедлайна
   is_available: boolean;
   variant_number?: number;
   submission?: StudentLabSubmission;
@@ -61,6 +62,9 @@ export interface StudentLab {
   deadline_4_status?: 'active' | 'expired' | null;
   lessons_until_deadline_5?: number | null;
   lessons_until_deadline_4?: number | null;
+  // Продление дедлайна
+  has_extension?: boolean;
+  extension_bonus?: number;
 }
 
 export interface StudentLabDetail {

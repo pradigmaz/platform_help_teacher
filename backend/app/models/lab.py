@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .submission import Submission
     from .subject import Subject
     from .lesson import Lesson
+    from .lab_deadline_extension import LabDeadlineExtension
 
 
 class Lab(Base, TimestampMixin):
@@ -100,3 +101,6 @@ class Lab(Base, TimestampMixin):
     submissions: Mapped[List["Submission"]] = relationship(back_populates="lab", cascade="all, delete-orphan")
     subject: Mapped[Optional["Subject"]] = relationship()
     lesson: Mapped[Optional["Lesson"]] = relationship()
+    deadline_extensions: Mapped[List["LabDeadlineExtension"]] = relationship(
+        back_populates="lab", cascade="all, delete-orphan"
+    )

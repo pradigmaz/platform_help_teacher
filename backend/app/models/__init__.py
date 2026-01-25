@@ -6,6 +6,7 @@ from .group import Group
 from .lecture import Lecture
 from .lecture_image import LectureImage
 from .lab import Lab
+from .lab_deadline_extension import LabDeadlineExtension
 from .submission import Submission, SubmissionStatus
 from .lab_settings import LabSettings, GradingScale
 from .attestation_settings import AttestationSettings, AttestationType
@@ -42,6 +43,7 @@ __all__ = [
     "Lecture",
     "LectureImage",
     "Lab",
+    "LabDeadlineExtension",
     "Submission", "SubmissionStatus",
     "LabSettings", "GradingScale",
     "AttestationSettings", "AttestationType",

@@ -5,9 +5,10 @@
 - Видимость лабы = MIN(date) занятий с work_number = N для группы/подгруппы
 - Активация дедлайна = MAX(date) занятий с work_number = N
 - Дедлайн на 5/4 = N уникальных work_number после активации (не занятий!)
+- Продления (LabDeadlineExtension) добавляют bonus_lessons к дедлайнам
 """
 import logging
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List, Dict
 from uuid import UUID
 from dataclasses import dataclass
@@ -17,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lesson import Lesson
 from app.models.schedule import LessonType
-from app.services.schedule_constants import MSK_TZ, today_msk
+from app.models.lab_deadline_extension import LabDeadlineExtension
+from app.services.schedule_constants import MSK_TZ, today_msk, now_msk
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,9 @@ class LabVisibilityInfo:
     deadline_4_status: Optional[str] = None
     lessons_until_deadline_5: Optional[int] = None
     lessons_until_deadline_4: Optional[int] = None
+    current_max_grade: int = 5  # Текущий максимальный балл с учётом дедлайна
+    has_extension: bool = False  # Есть ли активное продление
+    extension_bonus: int = 0  # Сколько бонусных пар от продления
 
 
 class LabVisibilityService:
@@ -62,20 +67,38 @@ class LabVisibilityService:
         group_id: UUID,
         subgroup: Optional[int],
         labs_deadlines: Dict[int, tuple],  # {lab_number: (deadline_5, deadline_4)}
-        labs_subjects: Optional[Dict[int, Optional[UUID]]] = None  # {lab_number: subject_id}
+        labs_subjects: Optional[Dict[int, Optional[UUID]]] = None,  # {lab_number: subject_id}
+        labs_ids: Optional[Dict[int, UUID]] = None  # {lab_number: lab_id} для проверки продлений
     ) -> Dict[int, LabVisibilityInfo]:
         """
         Batch-загрузка информации о видимости для нескольких лаб.
         Решает проблему N+1 запросов.
         
         labs_subjects: словарь {lab_number: subject_id} для фильтрации по предметам.
-        Если не указан — все лабы считаются без привязки к предмету.
+        labs_ids: словарь {lab_number: lab_id} для проверки продлений дедлайнов.
         """
         if not lab_numbers:
             return {}
         
         today = today_msk()
+        now = now_msk()
         labs_subjects = labs_subjects or {}
+        labs_ids = labs_ids or {}
+        
+        # Загружаем активные продления для группы
+        extensions_map: Dict[UUID, int] = {}  # {lab_id: bonus_lessons}
+        if labs_ids:
+            lab_id_list = list(labs_ids.values())
+            ext_query = select(LabDeadlineExtension).where(and_(
+                LabDeadlineExtension.lab_id.in_(lab_id_list),
+                LabDeadlineExtension.group_id == group_id,
+                LabDeadlineExtension.is_active == True,
+                # Проверяем expires_at: либо NULL, либо ещё не истекло
+                (LabDeadlineExtension.expires_at == None) | (LabDeadlineExtension.expires_at > now)
+            ))
+            ext_result = await self.db.execute(ext_query)
+            for ext in ext_result.scalars().all():
+                extensions_map[ext.lab_id] = ext.bonus_lessons
         
         # Группируем лабы по subject_id для оптимизации запросов
         by_subject: Dict[Optional[UUID], List[int]] = {}
@@ -95,7 +118,9 @@ class LabVisibilityService:
                 subgroup=subgroup,
                 labs_deadlines=labs_deadlines,
                 subject_id=subject_id,
-                today=today
+                today=today,
+                labs_ids=labs_ids,
+                extensions_map=extensions_map
             )
             result.update(subject_result)
         
@@ -108,9 +133,14 @@ class LabVisibilityService:
         subgroup: Optional[int],
         labs_deadlines: Dict[int, tuple],
         subject_id: Optional[UUID],
-        today: date
+        today: date,
+        labs_ids: Optional[Dict[int, UUID]] = None,
+        extensions_map: Optional[Dict[UUID, int]] = None
     ) -> Dict[int, LabVisibilityInfo]:
         """Получить visibility для лаб одного предмета."""
+        labs_ids = labs_ids or {}
+        extensions_map = extensions_map or {}
+        
         # Базовый фильтр
         base_filter = [
             Lesson.group_id == group_id,
@@ -176,20 +206,32 @@ class LabVisibilityService:
             deadline_4_status = None
             lessons_until_5 = None
             lessons_until_4 = None
+            current_max_grade = 5  # По умолчанию максимум
             
-            if deadline_5 is not None:
-                if labs_after >= deadline_5:
+            # Проверяем продление для этой лабы
+            lab_id = labs_ids.get(lab_number)
+            extension_bonus = extensions_map.get(lab_id, 0) if lab_id else 0
+            has_extension = extension_bonus > 0
+            
+            # Применяем бонус к дедлайнам
+            effective_deadline_5 = (deadline_5 + extension_bonus) if deadline_5 is not None else None
+            effective_deadline_4 = (deadline_4 + extension_bonus) if deadline_4 is not None else None
+            
+            if effective_deadline_5 is not None:
+                if labs_after >= effective_deadline_5:
                     deadline_5_status = 'expired'
+                    current_max_grade = 4  # Дедлайн на 5 истёк
                 elif deadline_active_from <= today:
                     deadline_5_status = 'active'
-                    lessons_until_5 = deadline_5 - labs_after
+                    lessons_until_5 = effective_deadline_5 - labs_after
             
-            if deadline_4 is not None:
-                if labs_after >= deadline_4:
+            if effective_deadline_4 is not None:
+                if labs_after >= effective_deadline_4:
                     deadline_4_status = 'expired'
+                    current_max_grade = 3  # Дедлайн на 4 тоже истёк
                 elif deadline_active_from <= today:
                     deadline_4_status = 'active'
-                    lessons_until_4 = deadline_4 - labs_after
+                    lessons_until_4 = effective_deadline_4 - labs_after
             
             result[lab_number] = LabVisibilityInfo(
                 lab_number=lab_number,
@@ -200,7 +242,10 @@ class LabVisibilityService:
                 deadline_5_status=deadline_5_status,
                 deadline_4_status=deadline_4_status,
                 lessons_until_deadline_5=lessons_until_5,
-                lessons_until_deadline_4=lessons_until_4
+                lessons_until_deadline_4=lessons_until_4,
+                current_max_grade=current_max_grade,
+                has_extension=has_extension,
+                extension_bonus=extension_bonus
             )
         
         return result

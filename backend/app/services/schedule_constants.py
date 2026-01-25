@@ -32,8 +32,14 @@ TIME_TO_LESSON_NUMBER = {
     "20:20-21:50": 8,
 }
 
-# Обратный маппинг: номер пары -> время
+# Обратный маппинг: номер пары -> время (строка)
 LESSON_NUMBER_TO_TIME = {v: k for k, v in TIME_TO_LESSON_NUMBER.items()}
+
+# Маппинг номера пары -> кортеж (start_time, end_time)
+LESSON_TIMES = {
+    num: tuple(time_str.split("-"))
+    for num, time_str in LESSON_NUMBER_TO_TIME.items()
+}
 
 # Маппинг текста типа занятия (из парсера) -> строка
 LESSON_TYPE_TEXT_MAP = {
