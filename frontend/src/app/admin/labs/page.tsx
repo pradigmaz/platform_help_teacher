@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Plus, FlaskConical, Settings, Users } from 'lucide-react';
+import { Plus, FlaskConical, Settings, Users, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { LabQueueAPI } from '@/lib/api/lab-queue';
@@ -20,6 +20,7 @@ import {
   QueueDialog,
   GradeDialog,
   RejectDialog,
+  DeadlineExtensionsDialog,
 } from './components';
 
 interface LabSettings {
@@ -51,6 +52,9 @@ export default function AdminLabsPage() {
   const [gradeForm, setGradeForm] = useState({ grade: 5, comment: '' });
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectComment, setRejectComment] = useState('');
+
+  // Extensions state
+  const [extensionsDialogOpen, setExtensionsDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchLabs();
@@ -174,6 +178,9 @@ export default function AdminLabsPage() {
       <div className="space-y-6 mt-6">
         {/* Actions */}
         <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setExtensionsDialogOpen(true)}>
+            <Clock className="mr-2 h-4 w-4" /> Продления
+          </Button>
           <Button variant="outline" onClick={openQueueDialog}>
             <Users className="mr-2 h-4 w-4" /> Очередь на сдачу
           </Button>
@@ -210,6 +217,7 @@ export default function AdminLabsPage() {
       />
       <GradeDialog open={gradeDialogOpen} onOpenChange={setGradeDialogOpen} submission={selectedSubmission} form={gradeForm} setForm={setGradeForm} onAccept={handleAccept} />
       <RejectDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen} submission={selectedSubmission} comment={rejectComment} setComment={setRejectComment} onReject={handleReject} />
+      <DeadlineExtensionsDialog open={extensionsDialogOpen} onOpenChange={setExtensionsDialogOpen} labs={labs} />
     </div>
   );
 }
