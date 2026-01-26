@@ -194,10 +194,11 @@ class LabVisibilityService:
                 )
                 continue
             
-            # Считаем уникальные лабы после активации (не занятия!)
+            # Считаем уникальные лабы после первого занятия этой лабы (не занятия!)
+            # Дедлайн отсчитывается от visible_from (первое занятие), а не от deadline_active_from
             labs_after = sum(
                 1 for wn, first_date in all_labs_ordered
-                if first_date > deadline_active_from and wn != lab_number
+                if first_date > visible_from and wn != lab_number
             )
             
             # Статус дедлайнов
@@ -221,20 +222,20 @@ class LabVisibilityService:
                 if labs_after >= effective_deadline_5:
                     deadline_5_status = 'expired'
                     current_max_grade = 4  # Дедлайн на 5 истёк
-                elif deadline_active_from <= today:
+                elif visible_from <= today:
                     deadline_5_status = 'active'
                     lessons_until_5 = effective_deadline_5 - labs_after
                 
                 logger.debug(
                     f"Lab {lab_number}: labs_after={labs_after}, deadline_5={effective_deadline_5}, "
-                    f"status={deadline_5_status}, deadline_active_from={deadline_active_from}"
+                    f"status={deadline_5_status}, visible_from={visible_from}"
                 )
             
             if effective_deadline_4 is not None:
                 if labs_after >= effective_deadline_4:
                     deadline_4_status = 'expired'
                     current_max_grade = 3  # Дедлайн на 4 тоже истёк
-                elif deadline_active_from <= today:
+                elif visible_from <= today:
                     deadline_4_status = 'active'
                     lessons_until_4 = effective_deadline_4 - labs_after
             
