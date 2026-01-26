@@ -73,7 +73,8 @@ export function CodeBlockViewerComponent({
   const [activeTab, setActiveTab] = useState<RenderMode>(renderMode);
   
   const isDark = resolvedTheme === 'dark';
-  const isRenderable = language === 'javascript' || language === 'typescript';
+  // Показываем таб "Результат" только если язык поддерживает выполнение И renderMode не 'code'
+  const isRenderable = (language === 'javascript' || language === 'typescript') && renderMode !== 'code';
 
   const copyToClipboard = useCallback(async () => {
     await navigator.clipboard.writeText(code);
