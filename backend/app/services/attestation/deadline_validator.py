@@ -3,6 +3,7 @@
 Проверяет максимально допустимую оценку с учётом количества прошедших пар.
 """
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.lab import Lab
 from app.models.lesson import Lesson
 from app.models.attendance import Attendance, AttendanceStatus
+from app.models.lab_deadline_extension import LabDeadlineExtension
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +61,9 @@ async def get_max_allowed_grade_for_lab(
     if not origin_lesson:
         return 5
     
+    # Проверяем продление дедлайна для группы студента
+    bonus_lessons = await _get_extension_bonus(db, lab.id, current_lesson.group_id)
+    
     # Считаем номер текущей пары относительно создания лабы
     lesson_index = await _get_lesson_index(
         db,
@@ -69,17 +74,46 @@ async def get_max_allowed_grade_for_lab(
     if lesson_index is None:
         return 5
     
+    # Применяем бонус от продления
+    effective_deadline_5 = (lab.deadline_5_lessons or 0) + bonus_lessons if lab.deadline_5_lessons is not None else None
+    effective_deadline_4 = (lab.deadline_4_lessons or 0) + bonus_lessons if lab.deadline_4_lessons is not None else None
+    
     # Проверяем дедлайны
     # lesson_index = 0 — это пара создания лабы
     # deadline_5_lessons = 1 — можно сдать на 5 на паре 0 и 1 (текущая + следующая)
     
-    if lab.deadline_4_lessons is not None and lesson_index > lab.deadline_4_lessons:
+    if effective_deadline_4 is not None and lesson_index > effective_deadline_4:
         return 3  # Сильно просрочил → макс 3
     
-    if lab.deadline_5_lessons is not None and lesson_index > lab.deadline_5_lessons:
+    if effective_deadline_5 is not None and lesson_index > effective_deadline_5:
         return 4  # Немного просрочил → макс 4
     
     return 5  # Вовремя
+
+
+async def _get_extension_bonus(
+    db: AsyncSession,
+    lab_id: UUID,
+    group_id: Optional[UUID]
+) -> int:
+    """Получить бонус пар от продления дедлайна для группы."""
+    if not group_id:
+        return 0
+    
+    now = datetime.now(timezone.utc)
+    
+    query = select(LabDeadlineExtension.bonus_lessons).where(and_(
+        LabDeadlineExtension.lab_id == lab_id,
+        LabDeadlineExtension.group_id == group_id,
+        LabDeadlineExtension.is_active == True,
+        # Не истекло (expires_at is NULL или > now)
+        (LabDeadlineExtension.expires_at.is_(None)) | (LabDeadlineExtension.expires_at > now)
+    ))
+    
+    result = await db.execute(query)
+    bonus = result.scalar_one_or_none()
+    
+    return bonus or 0
 
 
 async def _get_lesson_index(

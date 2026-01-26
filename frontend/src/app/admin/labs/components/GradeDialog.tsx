@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { AlertCircle } from 'lucide-react';
 import type { SubmissionDetail } from '@/lib/api/types/lab-queue';
 
 interface GradeForm {
@@ -28,6 +29,9 @@ interface GradeDialogProps {
 }
 
 export function GradeDialog({ open, onOpenChange, submission, form, setForm, onAccept }: GradeDialogProps) {
+  const maxGrade = submission?.max_allowed_grade ?? 5;
+  const hasDeadlineLimit = maxGrade < 5;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[400px]">
@@ -41,17 +45,28 @@ export function GradeDialog({ open, onOpenChange, submission, form, setForm, onA
           <div className="grid gap-2">
             <Label>Оценка</Label>
             <div className="flex gap-2">
-              {[2, 3, 4, 5].map((g) => (
-                <Button
-                  key={g}
-                  variant={form.grade === g ? 'default' : 'outline'}
-                  className="flex-1"
-                  onClick={() => setForm({ ...form, grade: g })}
-                >
-                  {g}
-                </Button>
-              ))}
+              {[2, 3, 4, 5].map((g) => {
+                const isDisabled = g > maxGrade;
+                return (
+                  <Button
+                    key={g}
+                    variant={form.grade === g ? 'default' : 'outline'}
+                    className={`flex-1 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={() => !isDisabled && setForm({ ...form, grade: g })}
+                    disabled={isDisabled}
+                    title={isDisabled ? `Недоступно: просрочен дедлайн (макс. ${maxGrade})` : undefined}
+                  >
+                    {g}
+                  </Button>
+                );
+              })}
             </div>
+            {hasDeadlineLimit && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-500 mt-1">
+                <AlertCircle className="w-4 h-4" />
+                <span>Просрочен дедлайн — максимум {maxGrade}</span>
+              </div>
+            )}
           </div>
           <div className="grid gap-2">
             <Label>Комментарий (необязательно)</Label>

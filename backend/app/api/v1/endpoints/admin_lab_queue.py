@@ -6,15 +6,18 @@ from uuid import UUID
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel, Field
 
 from app.api import deps
 from app.db.session import get_db
-from app.models import User, Lab, Submission, SubmissionStatus
+from app.models import User, Lab, Submission, SubmissionStatus, Lesson
+from app.models.schedule import LessonType
 from app.services.submission_service import submission_service
+from app.services.attestation.deadline_validator import get_max_allowed_grade_for_lab
+from app.services.schedule_constants import today_msk
 
 router = APIRouter()
 
@@ -71,6 +74,7 @@ class SubmissionDetailResponse(BaseModel):
     questions: Optional[List[Any]] = None  # Контрольные вопросы (str или Lexical JSON dict)
     ready_at: Optional[datetime] = None
     status: str
+    max_allowed_grade: int = 5  # Максимальная оценка с учётом дедлайна (2-5)
     
     class Config:
         from_attributes = True
@@ -174,6 +178,15 @@ async def get_submission_detail(
                 variant_data = v
                 break
     
+    # Вычисляем max_allowed_grade с учётом дедлайна
+    max_allowed_grade = 5
+    if lab.subject_id and student.group_id:
+        lesson = await _find_lesson_for_grading(db, lab, student)
+        if lesson:
+            max_allowed_grade = await get_max_allowed_grade_for_lab(
+                db, lab, lesson, student.id
+            )
+    
     return SubmissionDetailResponse(
         submission_id=sub.id,
         student_id=student.id,
@@ -188,7 +201,40 @@ async def get_submission_detail(
         questions=lab.questions if lab.questions else None,
         ready_at=sub.ready_at,
         status=sub.status.value if sub.status else "unknown",
+        max_allowed_grade=max_allowed_grade,
     )
+
+
+async def _find_lesson_for_grading(
+    db: AsyncSession,
+    lab: Lab,
+    student: User
+) -> Optional[Lesson]:
+    """Найти занятие для определения дедлайна."""
+    if not lab.subject_id or not student.group_id:
+        return None
+    
+    today = today_msk()
+    
+    query = (
+        select(Lesson)
+        .where(
+            Lesson.subject_id == lab.subject_id,
+            Lesson.group_id == student.group_id,
+            Lesson.lesson_type == LessonType.LAB,
+            Lesson.date <= today,
+            Lesson.is_cancelled == False,
+            or_(
+                Lesson.subgroup == student.subgroup,
+                Lesson.subgroup.is_(None)
+            )
+        )
+        .order_by(Lesson.date.desc())
+        .limit(1)
+    )
+    
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
 
 
 @router.post("/submissions/{submission_id}/accept")

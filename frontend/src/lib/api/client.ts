@@ -126,12 +126,27 @@ api.interceptors.response.use(
       return Promise.reject(new ApiError(0, 'Network error. Please check your connection.', true));
     }
 
-    if (error.response?.status === 403 && error.response?.data?.detail?.includes('CSRF')) {
+    const status = error.response?.status || 0;
+    const detail = error.response?.data?.detail || '';
+    
+    // CSRF ошибка (400 или 403) — сбрасываем токен и повторяем запрос один раз
+    if ((status === 400 || status === 403) && detail.includes('CSRF')) {
       csrfToken = null;
+      
+      // Повторяем запрос только если это первая попытка
+      const config = error.config;
+      if (config && !config.headers['X-CSRF-Retry']) {
+        config.headers['X-CSRF-Retry'] = 'true';
+        // Получаем новый токен
+        const newToken = await ensureCsrfTokenInternal();
+        if (newToken) {
+          config.headers['X-CSRF-Token'] = newToken;
+          return api.request(config);
+        }
+      }
     }
 
-    const status = error.response?.status || 0;
-    const message = error.response?.data?.detail || error.message || 'Something went wrong';
+    const message = detail || error.message || 'Something went wrong';
     const isRetryable = status >= 500 || status === 0;
     return Promise.reject(new ApiError(status, message, isRetryable));
   }

@@ -36,6 +36,7 @@ export interface SubmissionDetail {
   questions?: (string | { text?: string; content?: Record<string, unknown> })[];
   ready_at: string;
   status: string;
+  max_allowed_grade: number;  // Максимальная оценка с учётом дедлайна (2-5)
 }
 
 export interface AcceptSubmissionRequest {
