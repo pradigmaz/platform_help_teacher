@@ -1,6 +1,25 @@
 {
   "student_issues": {
     "critical_false_negatives": [],
+    "attendance_score_discrepancies": [
+      {
+        "id": "attendance-score-skew",
+        "title": "Discrepancies in attendance score calculation",
+        "files": [
+          "backend/app/services/attestation/attendance_calculator.py",
+          "backend/app/services/transfer_service.py"
+        ],
+        "root_cause": [
+          "Expected lessons floor (min 8 * weeks) can inflate scores for groups with few actual lessons.",
+          "Transfer snapshots add attendance counts (present/late/absent) but do not increase the expected lessons count, acting as bonus points.",
+          "Rounding points_per_lesson to integer can lead to unexpected totals (e.g., 11/13).",
+          "Large expected_lessons values (e.g., from settings) can significantly deflate per-lesson points."
+        ],
+        "impact": "Students may receive scores that do not accurately reflect their attendance percentage (e.g., 21/11/13 scenarios).",
+        "priority": "high",
+        "status": "investigating"
+      }
+    ],
     "intermittent_errors": [
       {
         "id": "lab-submission-intermittent",

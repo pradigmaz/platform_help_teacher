@@ -63,7 +63,9 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
     if (newGrade === null && gradeValue) {
       onGradeChange(null, null);
     } else if (newGrade && newGrade !== gradeValue) {
-      onGradeChange(newGrade, workNum || lessonWorkNum);
+      // Используем только workNum если он уже есть, иначе null
+      // НЕ берём lessonWorkNum автоматически — студент может сдавать долг
+      onGradeChange(newGrade, workNum ?? null);
     }
   };
 
@@ -82,8 +84,9 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
     setTimeout(() => inputRef.current?.select(), 0);
   };
 
-  // Show work number indicator if different from lesson's
+  // Show work number indicator if different from lesson's or if not set
   const showWorkNum = workNum && workNum !== lessonWorkNum;
+  const needsWorkNum = !workNum && gradeValue && (lessonType === 'lab' || lessonType === 'practice');
   const workNumbers = Array.from({ length: Math.max(maxWorkNum, 8) }, (_, i) => i + 1);
 
   return (
@@ -102,7 +105,8 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
           "w-5 h-5 text-center text-[10px] rounded border-0 bg-transparent outline-none transition-all",
           "focus:bg-primary focus:text-primary-foreground focus:ring-1 focus:ring-primary",
           value ? "font-semibold text-foreground" : "text-muted-foreground/50",
-          isEditing && "bg-primary/10"
+          isEditing && "bg-primary/10",
+          needsWorkNum && "ring-1 ring-orange-400"
         )}
       />
       {/* Work number selector for labs/practices */}
@@ -112,10 +116,11 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
             <button 
               className={cn(
                 "text-[8px] px-0.5 rounded hover:bg-accent",
+                needsWorkNum ? "text-orange-500 font-bold animate-pulse" : 
                 showWorkNum ? "text-primary font-medium" : "text-muted-foreground/50"
               )}
             >
-              {showWorkNum ? `(${workNum})` : '№'}
+              {workNum ? `(${workNum})` : '№?'}
             </button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2" align="center">
@@ -124,7 +129,7 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
               {workNumbers.map(n => (
                 <Button
                   key={n}
-                  variant={(workNum || lessonWorkNum) === n ? 'default' : 'outline'}
+                  variant={workNum === n ? 'default' : 'outline'}
                   size="sm"
                   className="h-5 w-5 text-[10px] p-0"
                   onClick={() => onGradeChange(gradeValue, n)}

@@ -156,12 +156,14 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
       }
 
       // Save grades (bulk instead of one-by-one)
+      // НЕ берём lesson.work_number автоматически — студент может сдавать долг
+      // work_number должен быть явно выбран преподавателем
       const gradeRecords = Object.entries(grades)
         .filter(([_, grade]) => grade !== null)
         .map(([student_id, grade]) => ({
           student_id,
           grade,
-          work_number: workNumber ?? lesson.work_number
+          work_number: workNumber ?? null
         }));
       
       if (gradeRecords.length > 0) {

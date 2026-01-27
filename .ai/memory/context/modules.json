@@ -91,6 +91,30 @@
       "notes": "Centralized frontend logger implementation (currently unused across frontend/src)."
     },
     {
+      "name": "frontend/app/admin/attestation",
+      "type": "route-segment",
+      "path": "frontend/src/app/admin/attestation/",
+      "notes": "Admin attestation management. Includes scores table, student details, and attendance statistics components."
+    },
+    {
+      "name": "backend/services/attestation",
+      "type": "service-layer",
+      "path": "backend/app/services/attestation/",
+      "notes": "Core attestation logic. Includes attendance_calculator.py (score formula, transfer merges) and helpers.py."
+    },
+    {
+      "name": "backend/services/transfer",
+      "type": "service-layer",
+      "path": "backend/app/services/transfer_service.py",
+      "notes": "Handles student transfers and attendance snapshot merging."
+    },
+    {
+      "name": "backend/api/student",
+      "type": "api-layer",
+      "path": "backend/app/api/v1/endpoints/student/",
+      "notes": "Student-facing API endpoints, including attendance and score reporting."
+    },
+    {
       "name": "backend",
       "type": "service",
       "path": "backend/",
