@@ -106,9 +106,16 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
     try {
       const data = await AuthAPI.login(otpCode, rememberDevice);
 
+      // Проверяем returnUrl из query params (после 401 редиректа)
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const returnUrl = params?.get('returnUrl');
+
       let targetPath = '/';
       if (redirectTo) {
         targetPath = redirectTo;
+      } else if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
+        // Безопасный returnUrl (только относительные пути)
+        targetPath = returnUrl;
       } else if (data.user?.role === 'admin' || data.user?.role === 'teacher') {
         targetPath = '/admin';
       } else if (data.user?.role === 'student') {
