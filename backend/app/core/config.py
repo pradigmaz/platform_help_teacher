@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000"] # Default safe
+    
+    # Cookie domain (None = текущий домен, ".example.com" для поддоменов)
+    COOKIE_DOMAIN: Optional[str] = None
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
