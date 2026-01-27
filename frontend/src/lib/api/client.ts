@@ -129,6 +129,19 @@ api.interceptors.response.use(
     const status = error.response?.status || 0;
     const detail = error.response?.data?.detail || '';
     
+    // 401 Unauthorized — редирект на логин
+    if (status === 401 && typeof window !== 'undefined') {
+      // Не редиректим если уже на странице авторизации
+      const isAuthPage = window.location.pathname.startsWith('/auth');
+      if (!isAuthPage) {
+        // Сохраняем текущий URL для возврата после логина
+        const returnUrl = window.location.pathname + window.location.search;
+        window.location.href = `/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+        // Возвращаем rejected promise чтобы прервать цепочку
+        return Promise.reject(new ApiError(401, 'Session expired', false));
+      }
+    }
+    
     // CSRF ошибка (400 или 403) — сбрасываем токен и повторяем запрос один раз
     if ((status === 400 || status === 403) && detail.includes('CSRF')) {
       csrfToken = null;
