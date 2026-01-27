@@ -93,7 +93,8 @@ async def create_grade(
         grade=data.grade,
         work_number=data.work_number,
         comment=data.comment,
-        created_by=current_user.id
+        created_by=current_user.id,
+        group_id=lesson.group_id
     )
     return grade
 

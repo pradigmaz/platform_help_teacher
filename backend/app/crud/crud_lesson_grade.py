@@ -98,6 +98,33 @@ async def get_student_lesson_grade(
     return result.scalar_one_or_none()
 
 
+async def get_student_grade_by_work(
+    db: AsyncSession,
+    student_id: UUID,
+    work_number: int,
+    group_id: Optional[UUID] = None
+) -> Optional[LessonGrade]:
+    """
+    Получить оценку студента за работу (независимо от занятия).
+    Используется для проверки: уже есть оценка за эту лабу?
+    """
+    from app.models.lesson import Lesson
+    
+    query = (
+        select(LessonGrade)
+        .join(Lesson, LessonGrade.lesson_id == Lesson.id)
+        .where(and_(
+            LessonGrade.student_id == student_id,
+            LessonGrade.work_number == work_number
+        ))
+    )
+    if group_id:
+        query = query.where(Lesson.group_id == group_id)
+    
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
 async def update_lesson_grade(
     db: AsyncSession,
     grade_id: UUID,
@@ -145,17 +172,35 @@ async def upsert_lesson_grade(
     grade: int,
     work_number: Optional[int] = None,
     comment: Optional[str] = None,
-    created_by: Optional[UUID] = None
+    created_by: Optional[UUID] = None,
+    group_id: Optional[UUID] = None
 ) -> LessonGrade:
-    """Создать или обновить оценку."""
-    existing = await get_student_lesson_grade(db, lesson_id, student_id, work_number)
+    """
+    Создать или обновить оценку.
+    
+    Логика:
+    1. Если work_number указан — ищем существующую оценку за эту лабу (любое занятие)
+    2. Если найдена — обновляем (перемещаем на новое занятие)
+    3. Если нет — создаём новую
+    """
+    existing = None
+    
+    # Сначала ищем по work_number (оценка за лабу может быть на другом занятии)
+    if work_number is not None:
+        existing = await get_student_grade_by_work(db, student_id, work_number, group_id)
+    
+    # Если не нашли по work_number, ищем по lesson_id (для оценок без номера)
+    if not existing:
+        existing = await get_student_lesson_grade(db, lesson_id, student_id, work_number)
     
     if existing:
         existing.grade = grade
+        existing.lesson_id = lesson_id  # Перемещаем на текущее занятие
         if comment is not None:
             existing.comment = comment
         await db.commit()
         await db.refresh(existing)
+        logger.info(f"Updated lesson grade: student={student_id}, work={work_number}, grade={grade}")
         return existing
     
     return await create_lesson_grade(
