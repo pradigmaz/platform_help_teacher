@@ -12,25 +12,32 @@ from app.models.attendance import Attendance
 async def check_attendance_exists(
     db: AsyncSession,
     student_id: UUID,
-    attendance_date: date
+    attendance_date: date,
+    lesson_number: Optional[int] = None
 ) -> Optional[Attendance]:
     """
-    Проверка существования записи посещаемости для студента на дату.
+    Проверка существования записи посещаемости для студента на дату и пару.
     
     Args:
         db: Сессия базы данных
         student_id: ID студента
         attendance_date: Дата занятия
+        lesson_number: Номер пары (опционально)
         
     Returns:
         Attendance или None если запись не существует
     """
-    query = select(Attendance).where(
-        and_(
-            Attendance.student_id == student_id,
-            Attendance.date == attendance_date
-        )
-    )
+    conditions = [
+        Attendance.student_id == student_id,
+        Attendance.date == attendance_date
+    ]
+    
+    if lesson_number is not None:
+        conditions.append(Attendance.lesson_number == lesson_number)
+    else:
+        conditions.append(Attendance.lesson_number.is_(None))
+    
+    query = select(Attendance).where(and_(*conditions))
     result = await db.execute(query)
     return result.scalar_one_or_none()
 

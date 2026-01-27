@@ -89,16 +89,19 @@ async def bulk_update_attendance(
     for record in data.records:
         status = AttendanceStatus(record.status)
         
+        # Проверяем по student_id, date, lesson_number (соответствует UniqueConstraint)
         existing_result = await db.execute(
             select(Attendance).where(and_(
-                Attendance.lesson_id == data.lesson_id,
-                Attendance.student_id == record.student_id
+                Attendance.student_id == record.student_id,
+                Attendance.date == lesson.date,
+                Attendance.lesson_number == lesson.lesson_number
             ))
         )
         existing = existing_result.scalar_one_or_none()
         
         if existing:
             existing.status = status
+            existing.lesson_id = data.lesson_id  # Обновляем lesson_id если был None
             updated.append(existing)
         else:
             new_attendance = Attendance(

@@ -27,7 +27,8 @@ async def create_attendance(
     group_id: UUID,
     attendance_date: date,
     status: AttendanceStatus,
-    created_by: Optional[UUID] = None
+    created_by: Optional[UUID] = None,
+    lesson_number: Optional[int] = None
 ) -> Attendance:
     """
     Создание записи посещаемости с валидацией.
@@ -39,6 +40,7 @@ async def create_attendance(
         attendance_date: Дата занятия
         status: Статус посещаемости
         created_by: ID создателя записи
+        lesson_number: Номер пары
         
     Returns:
         Attendance: Созданная запись
@@ -54,10 +56,10 @@ async def create_attendance(
     if attendance_date > today_msk():
         raise FutureDateError(f"Нельзя создать запись для будущей даты {attendance_date}")
     
-    existing = await check_attendance_exists(db, student_id, attendance_date)
+    existing = await check_attendance_exists(db, student_id, attendance_date, lesson_number)
     if existing:
         raise DuplicateAttendanceError(
-            f"Запись для студента {student_id} на {attendance_date} уже существует"
+            f"Запись для студента {student_id} на {attendance_date} пара {lesson_number} уже существует"
         )
     
     attendance = Attendance(
@@ -65,7 +67,8 @@ async def create_attendance(
         group_id=group_id,
         date=attendance_date,
         status=status,
-        created_by=created_by
+        created_by=created_by,
+        lesson_number=lesson_number
     )
     db.add(attendance)
     
@@ -120,7 +123,8 @@ async def upsert_attendance(
     group_id: UUID,
     attendance_date: date,
     status: AttendanceStatus,
-    created_by: Optional[UUID] = None
+    created_by: Optional[UUID] = None,
+    lesson_number: Optional[int] = None
 ) -> Attendance:
     """
     Создание или обновление записи посещаемости.
@@ -132,16 +136,17 @@ async def upsert_attendance(
         attendance_date: Дата занятия
         status: Статус посещаемости
         created_by: ID создателя записи
+        lesson_number: Номер пары
         
     Returns:
         Attendance: Созданная или обновлённая запись
     """
-    existing = await check_attendance_exists(db, student_id, attendance_date)
+    existing = await check_attendance_exists(db, student_id, attendance_date, lesson_number)
     
     if existing:
         existing.status = status
         await db.flush()
-        logger.info(f"Updated attendance: student={student_id}, date={attendance_date}, status={status}")
+        logger.info(f"Updated attendance: student={student_id}, date={attendance_date}, lesson={lesson_number}, status={status}")
         return existing
     
     return await create_attendance(
@@ -150,7 +155,8 @@ async def upsert_attendance(
         group_id=group_id,
         attendance_date=attendance_date,
         status=status,
-        created_by=created_by
+        created_by=created_by,
+        lesson_number=lesson_number
     )
 
 
@@ -187,7 +193,8 @@ async def bulk_create_attendance(
     group_id: UUID,
     attendance_date: date,
     student_statuses: List[tuple[UUID, AttendanceStatus]],
-    created_by: Optional[UUID] = None
+    created_by: Optional[UUID] = None,
+    lesson_number: Optional[int] = None
 ) -> List[Attendance]:
     """
     Массовое создание записей посещаемости для группы.
@@ -198,6 +205,7 @@ async def bulk_create_attendance(
         attendance_date: Дата занятия
         student_statuses: Список кортежей (student_id, status)
         created_by: ID создателя записей
+        lesson_number: Номер пары
         
     Returns:
         List[Attendance]: Список созданных записей
@@ -213,7 +221,8 @@ async def bulk_create_attendance(
                     group_id=group_id,
                     attendance_date=attendance_date,
                     status=status,
-                    created_by=created_by
+                    created_by=created_by,
+                    lesson_number=lesson_number
                 )
                 created_records.append(attendance)
         except (AttendanceValidationError, IntegrityError) as e:
