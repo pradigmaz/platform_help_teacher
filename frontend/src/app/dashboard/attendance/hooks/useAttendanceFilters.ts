@@ -1,0 +1,71 @@
+import { useCallback, useMemo, useState } from 'react';
+import type { CalendarDay } from '../types';
+import { toDateKey } from '../types';
+
+export type UseAttendanceFiltersResult = {
+  currentDate: Date;
+  calendarDays: CalendarDay[];
+  goToPrevMonth: () => void;
+  goToNextMonth: () => void;
+};
+
+export function useAttendanceFilters(initialDate = new Date()): UseAttendanceFiltersResult {
+  const [currentDate, setCurrentDate] = useState(() => new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
+
+  const goToPrevMonth = useCallback(() => {
+    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  }, []);
+
+  const goToNextMonth = useCallback(() => {
+    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  }, []);
+
+  const calendarDays = useMemo(() => buildCalendarDays(currentDate), [currentDate]);
+
+  return {
+    currentDate,
+    calendarDays,
+    goToPrevMonth,
+    goToNextMonth,
+  };
+}
+
+function buildCalendarDays(currentDate: Date): CalendarDay[] {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  let startDay = firstDay.getDay() - 1;
+  if (startDay === -1) startDay = 6;
+
+  const days: CalendarDay[] = [];
+  const todayStr = toDateKey(new Date());
+  const prevMonthDays = new Date(year, month, 0).getDate();
+
+  for (let i = startDay - 1; i >= 0; i--) {
+    days.push({ date: prevMonthDays - i, isCurrentMonth: false });
+  }
+
+  for (let i = 1; i <= daysInMonth; i++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+    days.push({ date: i, isCurrentMonth: true, dateStr, isToday: dateStr === todayStr });
+  }
+
+  const gridSize = 35;
+  const overflow = days.length - gridSize;
+
+  if (overflow > 0) {
+    let trimmed = 0;
+    while (trimmed < overflow && days.length > 0 && !days[0].isCurrentMonth) {
+      days.shift();
+      trimmed++;
+    }
+  }
+
+  for (let i = 1; days.length < gridSize; i++) {
+    days.push({ date: i, isCurrentMonth: false });
+  }
+
+  return days;
+}

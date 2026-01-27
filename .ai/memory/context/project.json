@@ -1,0 +1,87 @@
+{
+  "name": "platforma_maga",
+  "project_type": "frontend",
+  "description": "Next.js App Router frontend that proxies API requests to a backend via rewrites.",
+  "stack": {
+    "language": "TypeScript",
+    "framework": {
+      "name": "Next.js",
+      "version": "16.0.10",
+      "router": "app",
+      "build_output": "standalone",
+      "proxy": {
+        "mechanism": "next.config.ts rewrites",
+        "env_var": "BACKEND_URL",
+        "routes": [
+          "/api/:path*",
+          "/docs",
+          "/openapi.json",
+          "/redoc"
+        ]
+      }
+    },
+    "ui": {
+      "react": "19.2.1",
+      "tailwindcss": "4.0.0",
+      "radix_ui": true,
+      "editor": [
+        "Lexical"
+      ],
+      "charts": [
+        "Chart.js",
+        "Plotly.js"
+      ]
+    },
+    "state_management": [
+      "Zustand"
+    ],
+    "http": [
+      "Axios"
+    ],
+    "api": {
+      "style": "REST",
+      "spec": "OpenAPI",
+      "clients": [
+        "openapi-typescript",
+        "openapi-typescript-codegen"
+      ]
+    }
+  },
+  "architecture": {
+    "style": "feature-based",
+    "app_router_segments": [
+      "admin",
+      "dashboard",
+      "report",
+      "lectures",
+      "auth",
+      "labs",
+      "editor-00"
+    ],
+    "shared_layers": [
+      "frontend/src/components/ui",
+      "frontend/src/hooks",
+      "frontend/src/lib/api",
+      "frontend/src/lib"
+    ]
+  },
+  "repo_structure": {
+    "frontend": "frontend/",
+    "backend": "backend/",
+    "deploy": "deploy/",
+    "docs": "docs/",
+    "ci_cd": ".github/workflows/",
+    "process_docs": ".kiro/"
+  },
+    "notable_files": {
+      "next_config": "frontend/next.config.ts",
+      "frontend_logger": "frontend/src/lib/logger.ts"
+    },
+    "environment_constraints": {
+      "docker": "unavailable (command not found)",
+      "qa_execution": "direct via npm"
+    }
+  }
+}
+
+}

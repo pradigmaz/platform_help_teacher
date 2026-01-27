@@ -1,0 +1,137 @@
+import { Bug, Lightbulb, Upload, X } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
+import type { FeedbackFormValues } from './schema';
+import { FEEDBACK_ACCEPT, FEEDBACK_FILE_LIMIT, FEEDBACK_MAX_SIZE, type PendingFile } from './types';
+import type { UseFormReturn } from 'react-hook-form';
+
+type FormContentProps = {
+  form: UseFormReturn<FeedbackFormValues>;
+  files: PendingFile[];
+  hasLimit: boolean;
+  addFiles: (acceptedFiles: File[]) => void;
+  removeFile: (index: number) => void;
+};
+
+export function FormContent({ form, files, hasLimit, addFiles, removeFile }: FormContentProps) {
+  const selectedType = form.watch('type');
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: addFiles,
+    accept: FEEDBACK_ACCEPT,
+    maxSize: FEEDBACK_MAX_SIZE,
+    maxFiles: Math.max(0, FEEDBACK_FILE_LIMIT - files.length),
+    disabled: hasLimit,
+  });
+
+  return (
+    <>
+      <div className="space-y-2">
+        <Label>Тип обращения</Label>
+        <RadioGroup
+          value={selectedType}
+          onValueChange={(value) => form.setValue('type', value as 'bug' | 'suggestion', { shouldValidate: true })}
+          className="flex gap-4"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="bug" id="bug" />
+            <Label htmlFor="bug" className="flex items-center gap-1 cursor-pointer">
+              <Bug className="h-4 w-4 text-red-500" />
+              Ошибка
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="suggestion" id="suggestion" />
+            <Label htmlFor="suggestion" className="flex items-center gap-1 cursor-pointer">
+              <Lightbulb className="h-4 w-4 text-yellow-500" />
+              Предложение
+            </Label>
+          </div>
+        </RadioGroup>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="title">Заголовок</Label>
+        <Input
+          id="title"
+          placeholder={selectedType === 'bug' ? 'Кратко опишите проблему' : 'Суть предложения'}
+          {...form.register('title')}
+        />
+        {form.formState.errors.title && (
+          <p className="text-sm text-red-500">{form.formState.errors.title.message}</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Подробное описание</Label>
+        <Textarea
+          id="description"
+          rows={14}
+          className="min-h-[280px] resize-y font-mono text-sm"
+          placeholder={
+            selectedType === 'bug'
+              ? `Опишите проблему:
+
+• Что произошло?
+• Какие действия выполняли?
+• На какой странице?
+• Повторяется ли ошибка?`
+              : `Опишите идею:
+
+• В чём суть?
+• Какую проблему решит?
+• Как улучшит работу?`
+          }
+          {...form.register('description')}
+        />
+        {form.formState.errors.description && (
+          <p className="text-sm text-red-500">{form.formState.errors.description.message}</p>
+        )}
+        <p className="text-xs text-muted-foreground">Минимум 20 символов, максимум 10000</p>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Скриншоты (до {FEEDBACK_FILE_LIMIT} файлов)</Label>
+        <div
+          {...getRootProps()}
+          className={`
+            border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors
+            ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}
+            ${hasLimit ? 'opacity-50 cursor-not-allowed' : ''}
+          `}
+        >
+          <input {...getInputProps()} />
+          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            {isDragActive
+              ? 'Отпустите файлы...'
+              : hasLimit
+                ? 'Достигнут лимит файлов'
+                : 'Перетащите скриншоты или кликните для выбора'}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF, WebP до 5MB</p>
+        </div>
+
+        {files.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {files.map((file, index) => (
+              <div key={file.preview} className="relative group">
+                <img src={file.preview} alt={file.file.name} className="h-20 w-20 object-cover rounded border" />
+                <button
+                  type="button"
+                  onClick={() => removeFile(index)}
+                  className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

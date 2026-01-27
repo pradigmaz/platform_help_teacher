@@ -1,0 +1,50 @@
+{
+  "phase": "structure-refactoring",
+  "timestamp": "2026-01-27T20:29:41+03:00",
+  "batches": [
+    {
+      "name": "attendance-dashboard-split",
+      "files_added": [
+        "frontend/src/app/dashboard/attendance/types.ts",
+        "frontend/src/app/dashboard/attendance/hooks/useAttendanceData.ts",
+        "frontend/src/app/dashboard/attendance/hooks/useAttendanceFilters.ts",
+        "frontend/src/app/dashboard/attendance/calendar.tsx",
+        "frontend/src/app/dashboard/attendance/StatsCard.tsx",
+        "frontend/src/app/dashboard/attendance/index.ts"
+      ],
+      "files_modified": [
+        "frontend/src/app/dashboard/attendance/page.tsx"
+      ],
+      "imports_updated": [
+        "frontend/src/app/dashboard/attendance/page.tsx"
+      ]
+    },
+    {
+      "name": "feedback-dialog-split",
+      "files_added": [
+        "frontend/src/components/feedback/schema.ts",
+        "frontend/src/components/feedback/types.ts",
+        "frontend/src/components/feedback/hooks/useAttachments.ts",
+        "frontend/src/components/feedback/hooks/useFeedbackForm.ts",
+        "frontend/src/components/feedback/FormContent.tsx",
+        "frontend/src/components/feedback/SubmitActions.tsx",
+        "frontend/src/components/feedback/index.ts"
+      ],
+      "files_modified": [
+        "frontend/src/components/feedback/FeedbackDialog.tsx"
+      ],
+      "imports_updated": [
+        "frontend/src/components/feedback/FeedbackDialog.tsx"
+      ]
+    }
+  ],
+  "files_moved": [],
+  "files_modified": [
+    "frontend/src/app/dashboard/attendance/page.tsx",
+    "frontend/src/components/feedback/FeedbackDialog.tsx"
+  ],
+  "imports_updated": [
+    "frontend/src/app/dashboard/attendance/page.tsx",
+    "frontend/src/components/feedback/FeedbackDialog.tsx"
+  ]
+}

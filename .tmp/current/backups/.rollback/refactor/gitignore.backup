@@ -63,3 +63,7 @@ deploy/openapi_temp.json
 .claude/
 
 лабораторные/
+
+.ai/
+
+.tmp/

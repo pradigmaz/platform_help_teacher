@@ -30,6 +30,10 @@ jobs:
             echo "Changed files: $CHANGED_FILES"
             
             git reset --hard origin/master
+            
+            # Удаляем ненужные файлы (экономим место на VPS)
+            rm -rf лабораторные "идеи ui" md .ai docs .kiro .vscode .husky .tmp node_modules 2>/dev/null || true
+            
             cd deploy
             
             # Используем .env.prod если есть, иначе .env

@@ -1,17 +1,23 @@
 'use client';
 
-import { IconAlertCircle, IconBook, IconCalendar } from '@tabler/icons-react';
+import { IconAlertCircle, IconBook, IconCalendar, IconRefresh } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
 import { CardSpotlight } from '@/components/ui/card-spotlight';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import type { AttendanceRecord } from '@/lib/api';
 import { AttendanceStatsRow, CompactCalendar, useAttendanceData, useAttendanceFilters } from './';
 import { formatDate, LESSON_TYPE_LABELS, STATUS_LABELS, type AttendanceRecordsByDate, type AttendanceStatus } from './types';
 
 export default function AttendancePage() {
-  const { loading, attendance, stats, attendanceMap, recordsByDate } = useAttendanceData();
+  const { loading, attendance, error, stats, attendanceMap, recordsByDate, reload } = useAttendanceData();
   const { currentDate, calendarDays, goToPrevMonth, goToNextMonth } = useAttendanceFilters();
 
   if (loading) return <AttendanceSkeleton />;
+
+  if (error) {
+    return <AttendanceErrorState message={error} onRetry={reload} />;
+  }
 
   if (!attendance) {
     return <EmptyAttendanceState />;
@@ -111,6 +117,24 @@ function EmptyAttendanceState() {
         <IconAlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-foreground mb-2">Нет данных</h3>
         <p className="text-muted-foreground">Данные о посещаемости появятся здесь после первого занятия</p>
+      </CardSpotlight>
+    </div>
+  );
+}
+
+function AttendanceErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      <CardSpotlight className="p-12 text-center space-y-3">
+        <IconAlertCircle className="h-12 w-12 text-red-500 mx-auto" />
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold text-foreground">Не удалось загрузить данные</h3>
+          <p className="text-muted-foreground">{message}</p>
+        </div>
+        <Button onClick={onRetry} className="gap-2" variant="outline">
+          <IconRefresh className="h-4 w-4" />
+          Повторить
+        </Button>
       </CardSpotlight>
     </div>
   );

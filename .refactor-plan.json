@@ -1,0 +1,113 @@
+{
+  "workflow": "structure-refactoring",
+  "phase": "planning",
+  "config": {
+    "currentStructure": {
+      "attendance-dashboard": [
+        "frontend/src/app/dashboard/attendance/page.tsx"
+      ],
+      "feedback-dialog": [
+        "frontend/src/components/feedback/FeedbackDialog.tsx"
+      ]
+    },
+    "targetStructure": {
+      "pattern": "frontend/src/**",
+      "attendance-dashboard": {
+        "base": "frontend/src/app/dashboard/attendance",
+        "modules": [
+          "calendar.tsx",
+          "StatsCard.tsx",
+          "hooks/useAttendanceData.ts",
+          "hooks/useAttendanceFilters.ts",
+          "types.ts",
+          "index.ts"
+        ],
+        "notes": "Keep route entry at page.tsx; compose local components/hooks and export via barrel."
+      },
+      "feedback-dialog": {
+        "base": "frontend/src/components/feedback",
+        "modules": [
+          "hooks/useAttachments.ts",
+          "hooks/useFeedbackForm.ts",
+          "FormContent.tsx",
+          "SubmitActions.tsx",
+          "schema.ts",
+          "types.ts",
+          "index.ts"
+        ],
+        "notes": "FeedbackDialog remains orchestrator; render-only pieces and hooks live locally."
+      },
+      "subfolders": [
+        "attendance/{hooks,components}",
+        "feedback/{hooks,components}"
+      ]
+    },
+    "tasks": [
+      {
+        "id": "attendance-dashboard-split",
+        "target": "frontend/src/app/dashboard/attendance/page.tsx",
+        "batch": 1,
+        "steps": [
+          "Preflight: enforce 320-line rule with `wc -l frontend/src/app/dashboard/attendance/page.tsx`; if >320, split before edits.",
+          "Extract calendar UI and date logic into `frontend/src/app/dashboard/attendance/calendar.tsx` with typed props and pure rendering.",
+          "Extract stat widget into `frontend/src/app/dashboard/attendance/StatsCard.tsx` (title/value/delta/icon props).",
+          "Lift data fetching/state to `hooks/useAttendanceData.ts` and filters to `hooks/useAttendanceFilters.ts`; preserve loading/error paths.",
+          "Centralize types/constants in `types.ts` and re-export via local `index.ts` for barrel imports.",
+          "Keep `page.tsx` minimal: data load + layout wiring of Calendar and StatsCard grid with updated relative imports."
+        ],
+        "constraints": [
+          "Preserve existing route behavior, SSR expectations, and user-facing UX.",
+          "Do not modify shadcn/ui or ace-ternity components; only consume them.",
+          "Prefer local relative imports and keep boundaries inside attendance folder."
+        ],
+        "importUpdateStrategy": "automatic"
+      },
+      {
+        "id": "feedback-dialog-split",
+        "target": "frontend/src/components/feedback/FeedbackDialog.tsx",
+        "batch": 2,
+        "steps": [
+          "Preflight: enforce 320-line rule with `wc -l frontend/src/components/feedback/FeedbackDialog.tsx`; if >320, split before edits.",
+          "Move attachment handling to `hooks/useAttachments.ts` (queue, add/remove, retry, limits).",
+          "Move form state/validation to `hooks/useFeedbackForm.ts` (schema, defaults, submit, error surfacing).",
+          "Render-only form body into `FormContent.tsx` and actions/footer into `SubmitActions.tsx`; dialog container stays in FeedbackDialog.",
+          "Share types/constants in `types.ts` and validation schema in `schema.ts`; export via local `index.ts`.",
+          "Update FeedbackDialog to orchestrate hooks + components; keep API client usage centralized and UX/accessibility identical."
+        ],
+        "constraints": [
+          "Do not modify shadcn/ui or ace-ternity components; only consume them.",
+          "Preserve accessibility, focus management, and upload retry UX.",
+          "Use automatic import updates; keep files under feedback folder."
+        ],
+        "importUpdateStrategy": "automatic"
+      }
+    ],
+    "exclusions": [
+      "frontend/src/components/ui/**/*",
+      "frontend/src/lib/shadcn/**/*",
+      "frontend/src/components/shadcn/**/*",
+      "frontend/src/vendor/ace-ternity/**/*"
+    ],
+    "batchSize": 1,
+    "qaPipeline": [
+      "test-automator",
+      "code-reviewer",
+      "documentarist"
+    ]
+  },
+  "validation": {
+    "required": [
+      "type-check",
+      "build"
+    ],
+    "optional": [
+      "tests"
+    ],
+    "qaPipeline": [
+      "test-automator",
+      "code-reviewer",
+      "documentarist"
+    ]
+  },
+  "nextAgent": "code-structure-refactorer"
+ }

@@ -1,0 +1,118 @@
+{
+  "modules": [
+    {
+      "name": "frontend",
+      "type": "app",
+      "path": "frontend/",
+      "notes": "Next.js 16 App Router application."
+    },
+    {
+      "name": "frontend/app",
+      "type": "routing",
+      "path": "frontend/src/app/",
+      "notes": "App Router entry; segmented by feature routes."
+    },
+    {
+      "name": "frontend/app/admin",
+      "type": "route-segment",
+      "path": "frontend/src/app/admin/",
+      "notes": "Admin routes and admin-only UI."
+    },
+    {
+      "name": "frontend/app/dashboard",
+      "type": "route-segment",
+      "path": "frontend/src/app/dashboard/",
+      "notes": "User dashboard routes. Student routes: /dashboard, /dashboard/activities, /dashboard/attendance, /dashboard/labs, /dashboard/labs/[id], /dashboard/settings."
+    },
+    {
+      "name": "frontend/app/dashboard/attendance",
+      "type": "page",
+      "path": "frontend/src/app/dashboard/attendance/",
+      "notes": "Student attendance module. Modular structure: hooks, types, calendar/stats components. Features: safe date handling, retry logic."
+    },
+    {
+      "name": "frontend/components/feedback",
+      "type": "feature-component",
+      "path": "frontend/src/components/feedback/",
+      "notes": "Feedback system. Modular structure: schema, hooks, form/submit/preview components. Includes FeedbackDialog with centralized API use."
+    },
+    {
+      "name": "frontend/app/report",
+      "type": "route-segment",
+      "path": "frontend/src/app/report/",
+      "notes": "Reports routes (incl. dynamic segments). Student/public routes: /report/[code], /report/[code]/student/[studentId]."
+    },
+    {
+      "name": "frontend/app/lectures",
+      "type": "route-segment",
+      "path": "frontend/src/app/lectures/",
+      "notes": "Lectures routes and lecture-related UI."
+    },
+    {
+      "name": "frontend/app/auth",
+      "type": "route-segment",
+      "path": "frontend/src/app/auth/",
+      "notes": "Authentication routes."
+    },
+    {
+      "name": "frontend/app/labs",
+      "type": "route-segment",
+      "path": "frontend/src/app/labs/",
+      "notes": "Labs routes."
+    },
+    {
+      "name": "frontend/app/editor-00",
+      "type": "route-segment",
+      "path": "frontend/src/app/editor-00/",
+      "notes": "Editor prototype/feature route segment."
+    },
+    {
+      "name": "frontend/components/ui",
+      "type": "shared-layer",
+      "path": "frontend/src/components/ui/",
+      "notes": "Shared UI components (includes a large sidebar module)."
+    },
+    {
+      "name": "frontend/hooks",
+      "type": "shared-layer",
+      "path": "frontend/src/hooks/",
+      "notes": "Shared React hooks."
+    },
+    {
+      "name": "frontend/lib/api",
+      "type": "shared-layer",
+      "path": "frontend/src/lib/api/",
+      "notes": "REST/OpenAPI API clients and domain-specific API wrappers."
+    },
+    {
+      "name": "frontend/lib/logger",
+      "type": "shared-lib",
+      "path": "frontend/src/lib/logger.ts",
+      "notes": "Centralized frontend logger implementation (currently unused across frontend/src)."
+    },
+    {
+      "name": "backend",
+      "type": "service",
+      "path": "backend/",
+      "notes": "Backend service exists in repo; frontend proxies requests to BACKEND_URL."
+    },
+    {
+      "name": "deploy",
+      "type": "ops",
+      "path": "deploy/",
+      "notes": "Docker/nginx/systemd scripts and environment templates."
+    },
+    {
+      "name": "docs",
+      "type": "docs",
+      "path": "docs/",
+      "notes": "Operational guides (server hardening, bot setup)."
+    },
+    {
+      "name": "process-docs",
+      "type": "docs",
+      "path": ".kiro/",
+      "notes": "Process and spec documentation (audits, specs, steering)."
+    }
+  ]
+}
