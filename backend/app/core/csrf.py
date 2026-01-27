@@ -4,20 +4,25 @@ from fastapi import Response
 from app.core.config import settings
 
 
+# Конфиг CSRF
+CSRF_COOKIE_KEY = "fastapi-csrf-token"
+CSRF_COOKIE_SAMESITE = "lax"
+CSRF_COOKIE_SECURE = settings.ENVIRONMENT == "production"
+CSRF_COOKIE_HTTPONLY = False  # JS должен читать cookie
+CSRF_COOKIE_PATH = "/"
+CSRF_COOKIE_DOMAIN: str | None = settings.COOKIE_DOMAIN
+
+
 class CsrfSettings(BaseSettings):
     secret_key: str = settings.SECRET_KEY
-    cookie_samesite: str = "lax"
-    cookie_secure: bool = settings.ENVIRONMENT == "production"
-    cookie_httponly: bool = False  # JS должен читать cookie для CSRF
-    cookie_path: str = "/"  # Cookie доступен для всех путей
+    cookie_samesite: str = CSRF_COOKIE_SAMESITE
+    cookie_secure: bool = CSRF_COOKIE_SECURE
+    cookie_httponly: bool = CSRF_COOKIE_HTTPONLY
+    cookie_path: str = CSRF_COOKIE_PATH
     token_location: str = "header"
     header_name: str = "X-CSRF-Token"
     header_type: str = ""
-    cookie_key: str = "fastapi-csrf-token"
-
-
-# Домен для cookie (None = текущий домен)
-CSRF_COOKIE_DOMAIN: str | None = settings.COOKIE_DOMAIN
+    cookie_key: str = CSRF_COOKIE_KEY
 
 
 @CsrfProtect.load_config
@@ -25,19 +30,19 @@ def get_csrf_config():
     return CsrfSettings()
 
 
-# Monkey-patch для поддержки cookie_domain
+# Monkey-patch для поддержки cookie_domain (библиотека не поддерживает нативно)
 _original_set_csrf_cookie = CsrfProtect.set_csrf_cookie
 
 
 def _patched_set_csrf_cookie(self, signed_token: str, response: Response) -> None:
     """Устанавливает CSRF cookie с поддержкой domain."""
     response.set_cookie(
-        key=self._cookie_key,
+        key=CSRF_COOKIE_KEY,
         value=signed_token,
-        secure=self._cookie_secure,
-        httponly=self._cookie_httponly,
-        samesite=self._cookie_samesite,
-        path=self._cookie_path,
+        secure=CSRF_COOKIE_SECURE,
+        httponly=CSRF_COOKIE_HTTPONLY,
+        samesite=CSRF_COOKIE_SAMESITE,
+        path=CSRF_COOKIE_PATH,
         domain=CSRF_COOKIE_DOMAIN,
     )
 
