@@ -75,6 +75,7 @@ export interface AttestationSettingsUpdate {
   grade_4_coef: number;
   grade_3_coef: number;
   late_coef: number;
+  absent_coef: number;
   late_max_grade: number;
   very_late_max_grade: number;
   late_threshold_days: number;
