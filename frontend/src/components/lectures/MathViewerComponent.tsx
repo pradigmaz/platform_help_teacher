@@ -19,8 +19,8 @@ export function MathViewerComponent({ latex, displayMode }: MathViewerComponentP
         displayMode,
         throwOnError: false,
         errorColor: '#ef4444',
-        trust: false,
-        strict: 'warn',
+        trust: true,
+        strict: false,
       });
       return { html: rendered, error: null };
     } catch (err) {

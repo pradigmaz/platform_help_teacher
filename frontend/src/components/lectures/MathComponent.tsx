@@ -35,8 +35,8 @@ export function MathComponent({ nodeKey, latex, displayMode }: MathComponentProp
         displayMode,
         throwOnError: false,
         errorColor: '#ef4444',
-        trust: false,
-        strict: 'warn',
+        trust: true,
+        strict: false,
       });
       setError(null);
     } catch (err) {

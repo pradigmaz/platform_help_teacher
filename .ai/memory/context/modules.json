@@ -232,10 +232,16 @@
       "notes": "Admin announcements API. CRUD, publish, and notification delivery via AnnouncementService."
     },
     {
+      "name": "frontend/app/admin/feedback",
+      "type": "route-segment",
+      "path": "frontend/src/app/admin/feedback/",
+      "notes": "Admin feedback management. Модернизирован (2024-12-19): UI улучшения (автозагрузка превью 100x100px, модальное окно, галерея), рефакторинг 350→487 LOC в 5 файлов. Components: FeedbackCard (120 LOC), AttachmentPreview (55 LOC), ImageGalleryModal (135 LOC), types.ts (30 LOC). Функционал сохранён: фильтры, статусы, ответы админа."
+    },
+    {
       "name": "process-docs",
       "type": "docs",
       "path": ".kiro/",
       "notes": "Process and spec documentation (audits, specs, steering)."
-    }
+    },
   ]
 }
