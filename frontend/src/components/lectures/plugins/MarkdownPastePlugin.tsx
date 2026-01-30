@@ -93,6 +93,16 @@ export function MarkdownPastePlugin(): null {
             .replace(/([^\n])(\n?\d+\.\s)/g, '$1\n$2');
         }
         
+        // Удаляем дублирующиеся заголовки (склеенные без пробела)
+        // Паттерн: "### БЛОК 1...### БЛОК 1..." или "**1.1. ...**1.1. ..."
+        normalizedText = normalizedText
+          // Дубли markdown заголовков: ### Title### Title → ### Title
+          .replace(/(#{1,6}\s+[^\n#]+?)(#{1,6}\s+)\1/g, '$1')
+          // Дубли жирных заголовков: **1.1. Text****1.1. Text** → **1.1. Text**
+          .replace(/(\*\*\d+\.\d+\.[^*]+\*\*)\1/g, '$1')
+          // Общий паттерн: любой текст повторённый дважды подряд (минимум 20 символов)
+          .replace(/(.{20,}?)\1/g, '$1');
+        
         // Extract custom blocks (code, images, tables)
         const { processedText, blocks } = extractCustomBlocks(normalizedText);
         
