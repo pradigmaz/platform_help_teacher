@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import ARRAY
 
 revision = '047'
-down_revision = '44dd67787045'
+down_revision = '046_add_settings_audit_log'
 branch_labels = None
 depends_on = None
 

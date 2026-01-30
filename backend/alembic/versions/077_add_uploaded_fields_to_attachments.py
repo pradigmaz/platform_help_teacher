@@ -1,7 +1,7 @@
 """Add is_uploaded and uploaded_at to feedback_attachments
 
 Revision ID: 077_add_uploaded_fields_to_attachments
-Revises: 44dd67787045
+Revises: 076_add_deadline_extensions
 Create Date: 2026-01-28
 """
 
@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 
 revision = "077_add_uploaded_fields_to_attachments"
-down_revision = "44dd67787045"
+down_revision = "076_add_deadline_extensions"
 branch_labels = None
 depends_on = None
 
