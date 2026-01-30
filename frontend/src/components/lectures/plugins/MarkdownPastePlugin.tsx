@@ -83,9 +83,9 @@ export function MarkdownPastePlugin(): null {
         // Если заголовков больше чем переносов — переносы потерялись
         if (headingCount > 1 && normalizedNewlineCount < headingCount) {
           console.log('[MarkdownPaste] Detected lost newlines, restoring...');
-          // Восстанавливаем переносы перед заголовками
+          // Восстанавливаем переносы перед заголовками (только если заголовок не в начале строки)
           normalizedText = normalizedText
-            .replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2')
+            .replace(/([^\n\r])(#{1,6}\s)/g, '$1\n\n$2')
             // Перед жирным текстом в начале "предложения" (после точки)
             .replace(/\.(\*\*[А-ЯA-Z])/g, '.\n\n$1')
             // Перед списками
