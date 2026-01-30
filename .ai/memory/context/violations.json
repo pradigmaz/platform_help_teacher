@@ -1,0 +1,113 @@
+{
+  "violations": {
+    "oversized_files": [
+      {
+        "file": "frontend/src/app/admin/groups/[id]/page.tsx",
+        "problem": "Oversized (396 lines)",
+        "recommendation": "Разбить: вынести API-хендлеры и state в hooks (useGroupDetail), вынести header/tabs в отдельные компоненты"
+      },
+      {
+        "file": "frontend/src/app/admin/groups/new/page.tsx",
+        "problem": "Oversized (320 lines)",
+        "recommendation": "Разбить: Step1/Step2 компоненты, вынести парсинг ФИО в общий util"
+      },
+      {
+        "file": "backend/app/api/v1/endpoints/admin_labs.py",
+        "problem": "Oversized (412 lines)",
+        "recommendation": "Разбить на модули: admin_labs_crud.py, admin_lab_settings.py, admin_deadline_extensions.py"
+      },
+      {
+        "file": "frontend/src/app/admin/journal/components/JournalTable.tsx",
+        "problem": "Monolithic component (321 lines)",
+        "recommendation": "Потенциально монолитный компонент (рендер таблицы + расчеты + диалоги)"
+      },
+      {
+        "file": "frontend/src/components/dashboard/AceternitySidebar.tsx",
+        "problem": "Oversized (323 lines)",
+        "recommendation": "Разбить на подкомпоненты: DesktopSidebar, MobileSidebar, LinksConfig, UserSection"
+      },
+      {
+        "file": "backend/app/api/v1/endpoints/student/labs.py",
+        "problem": "Oversized (409 lines)",
+        "recommendation": "Разбить: list.py, detail.py, submission.py, helpers/service.py"
+      },
+      {
+        "file": "frontend/src/app/report/[code]/components/ReportStudentTable.tsx",
+        "problem": "Oversized (382 lines)",
+        "recommendation": "Разбить на подкомпоненты: TableHeader, Row, Cells, вынести сортировку/фильтрацию в hook"
+      },
+      {
+        "file": "backend/app/api/v1/endpoints/public_reports.py",
+        "problem": "Oversized (403 lines)",
+        "recommendation": "Разделить: endpoints vs security helpers vs shared utils"
+      },
+      {
+        "file": "backend/app/services/reports/data_collector.py",
+        "problem": "Oversized (332 lines)",
+        "recommendation": "Разделить фасад агрегации на модули/классы: GroupReportCollector, StudentReportCollector"
+      },
+      {
+        "file": "backend/app/services/reports/attendance_helpers.py",
+        "problem": "Oversized (497 lines)",
+        "recommendation": "Разбить по задачам и оптимизировать get_attendance_trend"
+      },
+      {
+        "file": "frontend/src/app/admin/attestation/scores/page.tsx",
+        "problem": "Oversized (351 lines)",
+        "recommendation": "Разбить на подкомпоненты: AttestationTable, SummaryCards, StudentDetailSheet; вынести логику расчета в hook"
+      },
+      {
+        "file": "backend/app/api/v1/endpoints/feedback_attachments.py",
+        "problem": "Oversized (316 lines)",
+        "recommendation": "Разбить на модули: upload.py, download.py, management.py"
+      }
+    ],
+    "missing_logs": [
+      {
+        "file": "frontend/src/app/admin/groups/[id]/reports/page.tsx",
+        "problem": "Missing error logs in catch blocks",
+        "recommendation": "Добавить логирование ошибок в catch-блоках"
+      },
+      {
+        "file": "frontend/src/app/dashboard/page.tsx",
+        "problem": "Missing diagnostic logs",
+        "recommendation": "Добавить диагностический лог в catch"
+      },
+      {
+        "file": "frontend/src/components/dashboard/NotificationBell.tsx",
+        "problem": "Ignored error in loadAnnouncements",
+        "recommendation": "В loadAnnouncements catch полностью игнорирует ошибку"
+      },
+      {
+        "file": "frontend/src/app/dashboard/labs/page.tsx",
+        "problem": "Missing debug logs",
+        "recommendation": "Добавить debug-логирование в случае ошибок загрузки/ready/cancel"
+      },
+      {
+        "file": "frontend/src/lib/api/student.ts",
+        "problem": "Missing centralized error logging",
+        "recommendation": "Логировать сетевые ошибки/коды ответов в одном месте (interceptor)"
+      },
+      {
+        "file": "backend/app/api/v1/endpoints/student/labs.py",
+        "problem": "Missing structured logs",
+        "recommendation": "Добавить структурированные логи"
+      },
+      {
+        "file": "backend/app/api/v1/endpoints/student/activities.py",
+        "problem": "Missing audit/structured logs",
+        "recommendation": "Добавить audit_action и/или структурированное логирование"
+      },
+      {
+        "file": "frontend/src/app/report/[code]/page.tsx",
+        "problem": "Missing client-side error logs",
+        "recommendation": "Добавить клиентское логирование ошибок загрузки"
+      },
+      {
+        "file": "backend/app/services/reports/attendance_helpers.py",
+        "problem": "Missing debug logs/metrics for heavy functions",
+        "recommendation": "Добавить debug-логи/метрики для тяжёлых функций"
+      }
+    ]
+  }
+}

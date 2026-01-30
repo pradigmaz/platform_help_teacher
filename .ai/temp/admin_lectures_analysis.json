@@ -1,0 +1,747 @@
+{
+  "lecture_management": {
+    "description": "Лекционный редактор админа: создание, редактирование, публикация материалов, экспорт PDF и управление медиа.",
+    "scope": {
+      "included_paths": [
+        "frontend/src/app/admin/lectures/*",
+        "frontend/src/components/lectures/admin/*",
+        "backend/app/api/v1/endpoints/admin_lectures.py"
+      ],
+      "missing_or_empty_paths": [
+        "backend/app/api/v1/endpoints/lectures/* (not found)"
+      ],
+      "notes": [
+        "Зависимости (например, @/lib/lectures-api, @/lib/api, LectureEditor/LectureViewer) перечислены как связи, но их исходники не анализировались, т.к. они вне запрошенного списка."
+      ]
+    },
+    "frontend_files": [
+      {
+        "path": "frontend/src/app/admin/lectures/page.tsx",
+        "lines": 165,
+        "type": "nextjs_app_router_page_client",
+        "purpose": "Список и управление лекциями: фильтр по предмету, создание новой лекции, действия (публикация/снятие, удаление, копирование ссылки, экспорт PDF) через хук.",
+        "lecture_actions": [
+          "list",
+          "filter_by_subject (client-side)",
+          "create",
+          "delete (delegated)",
+          "publish/unpublish (delegated)",
+          "copy_public_link (delegated)",
+          "export_pdf (delegated)"
+        ],
+        "provides": [
+          "default export: AdminLecturesPage (route: /admin/lectures)"
+        ],
+        "uses_components": [
+          "CreateLectureDialog",
+          "LectureCard",
+          "BlurFade",
+          "MagicCard",
+          "BorderBeam",
+          "NumberTicker",
+          "Sparkles",
+          "Card",
+          "CardContent"
+        ],
+        "imports": [
+          { "from": "next/navigation", "items": ["useRouter"] },
+          { "from": "lexical", "items": ["SerializedEditorState (type)"] },
+          { "from": "@/components/ui/card", "items": ["Card", "CardContent"] },
+          { "from": "@/components/ui/button", "items": ["Button"] },
+          { "from": "lucide-react", "items": ["Plus", "BookOpen"] },
+          { "from": "sonner", "items": ["toast"] },
+          { "from": "@/components/ui/blur-fade", "items": ["BlurFade"] },
+          { "from": "@/components/ui/magic-card", "items": ["MagicCard"] },
+          { "from": "@/components/ui/border-beam", "items": ["BorderBeam"] },
+          { "from": "@/components/ui/number-ticker", "items": ["NumberTicker"] },
+          { "from": "@/components/ui/sparkles", "items": ["Sparkles"] },
+          { "from": "@/lib/lectures-api", "items": ["LecturesAPI (default)"] },
+          { "from": "@/components/lectures/admin", "items": ["LectureCard", "CreateLectureDialog", "useLectures"] }
+        ],
+        "api_endpoints": [
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.create",
+            "method": "POST",
+            "path_guess": "/admin/lectures/",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:create_lecture",
+            "notes": [
+              "Создаёт лекцию с пустым Lexical state.",
+              "subject_id передаётся из диалога (может быть null).",
+              "После успеха навигация: /admin/lectures/{id}."
+            ]
+          },
+          {
+            "direction": "calls",
+            "via": "useLectures()",
+            "method": "(multiple)",
+            "path_guess": "см. frontend/src/components/lectures/admin/useLectures.ts",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py (+ subjects endpoint elsewhere)",
+            "notes": [
+              "Список/публикация/удаление/экспорт PDF делегированы в хук."
+            ]
+          }
+        ],
+        "notes": [
+          "Импорты Button и Plus не используются (возможный мусор/следы рефакторинга).",
+          "Фильтрация по предмету делается на клиенте; backend поддерживает subject_id query для списка лекций, но он не используется здесь."
+        ]
+      },
+      {
+        "path": "frontend/src/app/admin/lectures/[id]/page.tsx",
+        "lines": 162,
+        "type": "nextjs_app_router_page_client",
+        "purpose": "Редактор одной лекции (или создание новой через id='new'): загрузка, автосохранение, предпросмотр (split/full), управление состоянием заголовка.",
+        "lecture_actions": [
+          "load",
+          "create (if id='new')",
+          "update",
+          "preview (off/split/full)",
+          "redirect_on_load_error"
+        ],
+        "provides": [
+          "default export: LectureEditorPage (route: /admin/lectures/[id])"
+        ],
+        "uses_components": [
+          "LectureEditor",
+          "LectureViewer",
+          "LectureEditorHeader",
+          "TooltipProvider",
+          "Button"
+        ],
+        "imports": [
+          { "from": "react", "items": ["useEffect", "useState", "useCallback", "useRef"] },
+          { "from": "next/navigation", "items": ["useParams", "useRouter"] },
+          { "from": "lexical", "items": ["SerializedEditorState"] },
+          { "from": "@/components/lectures/LectureEditor", "items": ["LectureEditor"] },
+          { "from": "@/components/lectures/LectureViewer", "items": ["LectureViewer"] },
+          { "from": "@/components/lectures/admin/LectureEditorHeader", "items": ["LectureEditorHeader"] },
+          { "from": "@/lib/lectures-api", "items": ["LecturesAPI", "LectureResponse (type)"] },
+          { "from": "@/components/ui/button", "items": ["Button"] },
+          { "from": "@/components/ui/tooltip", "items": ["TooltipProvider"] },
+          { "from": "sonner", "items": ["toast"] },
+          { "from": "lucide-react", "items": ["Loader2", "EyeOff"] },
+          { "from": "@/lib/utils", "items": ["cn"] }
+        ],
+        "api_endpoints": [
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.get",
+            "method": "GET",
+            "path_guess": "/admin/lectures/{lecture_id}",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:get_lecture",
+            "notes": ["На ошибке показывает toast и редиректит на /admin/lectures."]
+          },
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.create",
+            "method": "POST",
+            "path_guess": "/admin/lectures/",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:create_lecture",
+            "notes": [
+              "Вызывается из handleSave при isNew.",
+              "subject_id при создании из этой страницы не передаётся (в отличие от создания из списка)."
+            ]
+          },
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.update",
+            "method": "PUT",
+            "path_guess": "/admin/lectures/{lecture_id}",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:update_lecture",
+            "notes": ["Вызывается из handleSave для существующей лекции."]
+          },
+          {
+            "direction": "calls",
+            "via": "LectureEditorHeader",
+            "method": "(publish/unpublish/delete)",
+            "path_guess": "см. frontend/src/components/lectures/admin/LectureEditorHeader.tsx",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py",
+            "notes": ["Публикация/удаление сделаны в заголовке, а не в странице."]
+          }
+        ],
+        "notes": [
+          "Предпросмотр контента дебаунсится на 300ms (debouncedPreviewContent).",
+          "LectureEditor получает autoSaveInterval=30000 (30s).",
+          "Тип PreviewMode дублируется с компонентом заголовка (две отдельные декларации)."
+        ]
+      },
+      {
+        "path": "frontend/src/components/lectures/admin/index.ts",
+        "lines": 4,
+        "type": "ts_barrel",
+        "purpose": "Barrel-файл для переэкспорта компонентов/хука редактора лекций админа.",
+        "lecture_actions": [],
+        "provides": [
+          "export { LectureCard }",
+          "export { CreateLectureDialog }",
+          "export { LectureEditorHeader }",
+          "export { useLectures }"
+        ],
+        "uses_components": [],
+        "imports": [],
+        "api_endpoints": [],
+        "notes": []
+      },
+      {
+        "path": "frontend/src/components/lectures/admin/LectureEditorHeader.tsx",
+        "lines": 260,
+        "type": "react_component_client",
+        "purpose": "Хедер редактора: навигация назад, изменение заголовка, publish/unpublish, копирование публичной ссылки, toggle preview, удаление.",
+        "lecture_actions": [
+          "publish",
+          "unpublish",
+          "delete",
+          "copy_public_link",
+          "toggle_preview"
+        ],
+        "provides": [
+          "export function LectureEditorHeader(props)"
+        ],
+        "uses_components": [
+          "Button",
+          "Input",
+          "Badge",
+          "Tooltip",
+          "AlertDialog"
+        ],
+        "imports": [
+          { "from": "react", "items": ["useState"] },
+          { "from": "next/navigation", "items": ["useRouter"] },
+          { "from": "@/components/ui/button", "items": ["Button"] },
+          { "from": "@/components/ui/input", "items": ["Input"] },
+          { "from": "@/components/ui/badge", "items": ["Badge"] },
+          { "from": "@/components/ui/tooltip", "items": ["Tooltip", "TooltipContent", "TooltipTrigger"] },
+          { "from": "sonner", "items": ["toast"] },
+          {
+            "from": "lucide-react",
+            "items": [
+              "ArrowLeft",
+              "Globe",
+              "GlobeLock",
+              "Copy",
+              "Check",
+              "Loader2",
+              "FileDown",
+              "Trash2",
+              "Eye",
+              "EyeOff",
+              "PanelLeft"
+            ]
+          },
+          {
+            "from": "@/components/ui/alert-dialog",
+            "items": [
+              "AlertDialog",
+              "AlertDialogAction",
+              "AlertDialogCancel",
+              "AlertDialogContent",
+              "AlertDialogDescription",
+              "AlertDialogFooter",
+              "AlertDialogHeader",
+              "AlertDialogTitle",
+              "AlertDialogTrigger"
+            ]
+          },
+          { "from": "@/lib/lectures-api", "items": ["LecturesAPI", "LectureResponse (type)"] }
+        ],
+        "api_endpoints": [
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.publish",
+            "method": "POST",
+            "path_guess": "/admin/lectures/{lecture_id}/publish",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:publish_lecture",
+            "notes": ["Обновляет локальный lecture.public_code и is_published по результату."]
+          },
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.unpublish",
+            "method": "POST",
+            "path_guess": "/admin/lectures/{lecture_id}/unpublish",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:unpublish_lecture",
+            "notes": ["Сбрасывает public_code в локальном стейте."]
+          },
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.delete",
+            "method": "DELETE",
+            "path_guess": "/admin/lectures/{lecture_id}",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:delete_lecture",
+            "notes": ["После успеха делает router.push('/admin/lectures')."]
+          }
+        ],
+        "notes": [
+          "Кнопка 'Экспорт в PDF' отображается, но disabled и помечена как 'скоро' (при этом экспорт PDF реализован в useLectures для списка).",
+          "Публичная ссылка формируется как /lectures/view/{public_code} и копируется в буфер.",
+          "В catch-блоках есть toast, но нет console.error/логирования для диагностики в браузере."
+        ]
+      },
+      {
+        "path": "frontend/src/components/lectures/admin/useLectures.ts",
+        "lines": 138,
+        "type": "react_hook_client",
+        "purpose": "Хук для страницы списка: загружает лекции и предметы, группирует по предметам, предоставляет обработчики delete/publish/unpublish/copy/export.",
+        "lecture_actions": [
+          "list",
+          "group_by_subject",
+          "delete",
+          "publish",
+          "unpublish",
+          "copy_public_link",
+          "export_pdf"
+        ],
+        "provides": [
+          "export function useLectures()"
+        ],
+        "uses_components": [],
+        "imports": [
+          { "from": "react", "items": ["useState", "useEffect", "useMemo", "useCallback"] },
+          { "from": "sonner", "items": ["toast"] },
+          { "from": "@/lib/lectures-api", "items": ["LecturesAPI (default)", "LectureListResponse", "SubjectBrief"] },
+          { "from": "@/lib/api", "items": ["api (default)"] }
+        ],
+        "api_endpoints": [
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.list",
+            "method": "GET",
+            "path_guess": "/admin/lectures/",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:get_lectures",
+            "notes": ["Запрашивает список лекций (без server-side фильтрации subject_id)."]
+          },
+          {
+            "direction": "calls",
+            "via": "api.get('/admin/subjects/')",
+            "method": "GET",
+            "path_guess": "/admin/subjects/",
+            "handled_by": "(not in analyzed scope)",
+            "notes": ["Нужен для списка предметов/фильтра и assign subject_id при создании."]
+          },
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.delete",
+            "method": "DELETE",
+            "path_guess": "/admin/lectures/{lecture_id}",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:delete_lecture",
+            "notes": ["Перед вызовом использует confirm(). После удаления делает fetchData()."]
+          },
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.publish",
+            "method": "POST",
+            "path_guess": "/admin/lectures/{lecture_id}/publish",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:publish_lecture",
+            "notes": ["После publish копирует публичную ссылку в буфер и обновляет список."]
+          },
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.unpublish",
+            "method": "POST",
+            "path_guess": "/admin/lectures/{lecture_id}/unpublish",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:unpublish_lecture",
+            "notes": ["Обновляет список после снятия публикации."]
+          },
+          {
+            "direction": "calls",
+            "via": "LecturesAPI.exportPdf",
+            "method": "GET",
+            "path_guess": "/admin/lectures/{lecture_id}/pdf",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:export_lecture_pdf",
+            "notes": ["Скачивает blob и триггерит download через <a>. Есть toast.info('Генерация PDF...')."]
+          }
+        ],
+        "notes": [
+          "Subject интерфейс включает is_active, но фильтрация по активным предметам не делается.",
+          "В обработчиках ошибок используется toast, но нет дополнительного логирования (console.error)."
+        ]
+      },
+      {
+        "path": "frontend/src/components/lectures/admin/CreateLectureDialog.tsx",
+        "lines": 110,
+        "type": "react_component_client",
+        "purpose": "Диалог создания лекции: ввод названия и (опционально) выбор предмета, затем вызов onSubmit.",
+        "lecture_actions": ["create (UI only)"] ,
+        "provides": [
+          "export function CreateLectureDialog(props)"
+        ],
+        "uses_components": [
+          "Dialog",
+          "Select",
+          "Button",
+          "Input",
+          "Label"
+        ],
+        "imports": [
+          { "from": "react", "items": ["useState"] },
+          { "from": "@/components/ui/button", "items": ["Button"] },
+          { "from": "@/components/ui/input", "items": ["Input"] },
+          { "from": "@/components/ui/label", "items": ["Label"] },
+          {
+            "from": "@/components/ui/dialog",
+            "items": [
+              "Dialog",
+              "DialogContent",
+              "DialogDescription",
+              "DialogFooter",
+              "DialogHeader",
+              "DialogTitle",
+              "DialogTrigger"
+            ]
+          },
+          {
+            "from": "@/components/ui/select",
+            "items": [
+              "Select",
+              "SelectContent",
+              "SelectItem",
+              "SelectTrigger",
+              "SelectValue"
+            ]
+          },
+          { "from": "lucide-react", "items": ["Plus"] }
+        ],
+        "api_endpoints": [
+          {
+            "direction": "calls",
+            "via": "onSubmit(title, subjectId)",
+            "method": "(delegated)",
+            "path_guess": "см. frontend/src/app/admin/lectures/page.tsx:handleCreate",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py:create_lecture",
+            "notes": ["Компонент сам API не вызывает."]
+          }
+        ],
+        "notes": ["Закрывает диалог и сбрасывает форму после успешного onSubmit."]
+      },
+      {
+        "path": "frontend/src/components/lectures/admin/LectureCard.tsx",
+        "lines": 127,
+        "type": "react_component_client",
+        "purpose": "Карточка лекции в списке: переход к редактированию, дропдаун с действиями publish/unpublish/copy/open/export/delete через callbacks.",
+        "lecture_actions": [
+          "navigate_to_edit",
+          "publish/unpublish (delegated)",
+          "copy_public_link (delegated)",
+          "open_public_view",
+          "export_pdf (delegated)",
+          "delete (delegated)"
+        ],
+        "provides": [
+          "export function LectureCard(props)"
+        ],
+        "uses_components": [
+          "MagicCard",
+          "DropdownMenu",
+          "Button",
+          "Badge"
+        ],
+        "imports": [
+          { "from": "next/navigation", "items": ["useRouter"] },
+          { "from": "@/components/ui/button", "items": ["Button"] },
+          { "from": "@/components/ui/badge", "items": ["Badge"] },
+          {
+            "from": "@/components/ui/dropdown-menu",
+            "items": ["DropdownMenu", "DropdownMenuContent", "DropdownMenuItem", "DropdownMenuTrigger"]
+          },
+          {
+            "from": "lucide-react",
+            "items": [
+              "MoreVertical",
+              "Pencil",
+              "Trash2",
+              "Link2",
+              "Link2Off",
+              "Download",
+              "Copy",
+              "ExternalLink",
+              "GraduationCap"
+            ]
+          },
+          { "from": "@/components/ui/magic-card", "items": ["MagicCard"] },
+          { "from": "@/lib/lectures-api", "items": ["LectureListResponse (type)"] }
+        ],
+        "api_endpoints": [
+          {
+            "direction": "calls",
+            "via": "props callbacks (onDelete/onPublish/onUnpublish/onCopyLink/onExportPdf)",
+            "method": "(delegated)",
+            "path_guess": "см. frontend/src/components/lectures/admin/useLectures.ts",
+            "handled_by": "backend/app/api/v1/endpoints/admin_lectures.py",
+            "notes": ["Компонент сам API не вызывает, только делегирует обработчикам."]
+          },
+          {
+            "direction": "calls",
+            "via": "window.open('/lectures/view/{public_code}')",
+            "method": "GET (page)",
+            "path_guess": "/lectures/view/{public_code}",
+            "handled_by": "(public lecture viewer route; not in analyzed scope)",
+            "notes": ["Открывает публичную страницу лекции в новой вкладке."]
+          }
+        ],
+        "notes": ["Дата updated_at форматируется через toLocaleDateString('ru-RU')."]
+      }
+    ],
+    "backend_files": [
+      {
+        "path": "backend/app/api/v1/endpoints/admin_lectures.py",
+        "lines": 326,
+        "type": "fastapi_router_module",
+        "purpose": "Admin API для лекций: CRUD, публикация/снятие, soft-delete/restore, экспорт PDF, загрузка/удаление изображений через MinIO.",
+        "lecture_actions": [
+          "list",
+          "create",
+          "get",
+          "update",
+          "delete (soft/hard)",
+          "restore",
+          "publish",
+          "unpublish",
+          "export_pdf",
+          "upload_image",
+          "delete_image"
+        ],
+        "provides": [
+          "router = APIRouter()",
+          "11 route handlers"
+        ],
+        "imports": [
+          { "from": "logging", "items": ["logging"] },
+          { "from": "typing", "items": ["List"] },
+          { "from": "uuid", "items": ["UUID", "uuid4"] },
+          {
+            "from": "fastapi",
+            "items": [
+              "APIRouter",
+              "Depends",
+              "HTTPException",
+              "Query",
+              "UploadFile",
+              "File",
+              "Request"
+            ]
+          },
+          { "from": "fastapi.responses", "items": ["Response"] },
+          { "from": "sqlalchemy.ext.asyncio", "items": ["AsyncSession"] },
+          { "from": "app.api", "items": ["deps"] },
+          { "from": "app.db.session", "items": ["get_db"] },
+          { "from": "app.crud.crud_lecture", "items": ["crud_lecture"] },
+          { "from": "app.services.lecture_service", "items": ["lecture_service"] },
+          { "from": "app.models.user", "items": ["User"] },
+          { "from": "app.models.lecture_image", "items": ["LectureImage"] },
+          {
+            "from": "app.schemas.lecture",
+            "items": [
+              "LectureCreate",
+              "LectureUpdate",
+              "LectureResponse",
+              "LectureListResponse",
+              "LectureImageResponse",
+              "PublicLinkResponse"
+            ]
+          },
+          { "from": "app.services.pdf_service", "items": ["pdf_service"] },
+          { "from": "app.services.storage", "items": ["StorageService"] },
+          { "from": "app.core.config", "items": ["settings"] },
+          { "from": "app.core.limiter", "items": ["limiter"] },
+          { "from": "app.core.constants", "items": ["LECTURE_PDF_TIMEOUT_MS"] }
+        ],
+        "api_endpoints": [
+          {
+            "direction": "serves",
+            "method": "GET",
+            "path": "/",
+            "handler": "get_lectures",
+            "response_model": "List[LectureListResponse]",
+            "auth": "deps.get_current_active_superuser",
+            "notes": ["Query: skip, limit, subject_id."]
+          },
+          {
+            "direction": "serves",
+            "method": "POST",
+            "path": "/",
+            "handler": "create_lecture",
+            "response_model": "LectureResponse",
+            "auth": "deps.get_current_active_superuser"
+          },
+          {
+            "direction": "serves",
+            "method": "GET",
+            "path": "/{lecture_id}",
+            "handler": "get_lecture",
+            "response_model": "LectureResponse",
+            "auth": "deps.get_current_active_superuser",
+            "notes": ["404 если лекция не найдена."]
+          },
+          {
+            "direction": "serves",
+            "method": "PUT",
+            "path": "/{lecture_id}",
+            "handler": "update_lecture",
+            "response_model": "LectureResponse",
+            "auth": "deps.get_current_active_superuser",
+            "notes": ["404 если лекция не найдена."]
+          },
+          {
+            "direction": "serves",
+            "method": "DELETE",
+            "path": "/{lecture_id}",
+            "handler": "delete_lecture",
+            "response_model": "{status: deleted}",
+            "auth": "deps.get_current_active_superuser",
+            "notes": ["Query: hard=false (по умолчанию soft-delete через lecture_service.soft_delete)."]
+          },
+          {
+            "direction": "serves",
+            "method": "POST",
+            "path": "/{lecture_id}/restore",
+            "handler": "restore_lecture",
+            "response_model": "{status: restored}",
+            "auth": "deps.get_current_active_superuser",
+            "notes": ["Работает только для soft-deleted (include_deleted=True)."]
+          },
+          {
+            "direction": "serves",
+            "method": "POST",
+            "path": "/{lecture_id}/publish",
+            "handler": "publish_lecture",
+            "response_model": "PublicLinkResponse",
+            "auth": "deps.get_current_active_superuser",
+            "notes": ["Возвращает public_code и url вида /lectures/view/{public_code}."]
+          },
+          {
+            "direction": "serves",
+            "method": "POST",
+            "path": "/{lecture_id}/unpublish",
+            "handler": "unpublish_lecture",
+            "response_model": "{status: unpublished}",
+            "auth": "deps.get_current_active_superuser"
+          },
+          {
+            "direction": "serves",
+            "method": "GET",
+            "path": "/{lecture_id}/pdf",
+            "handler": "export_lecture_pdf",
+            "response_model": "application/pdf",
+            "auth": "deps.get_current_active_superuser",
+            "notes": ["Rate limit: 5/minute. Генерация через pdf_service.generate_pdf()."]
+          },
+          {
+            "direction": "serves",
+            "method": "POST",
+            "path": "/{lecture_id}/images",
+            "handler": "upload_lecture_image",
+            "response_model": "LectureImageResponse",
+            "auth": "deps.get_current_active_superuser",
+            "notes": ["Проверка content_type и размера; загрузка в MinIO через presigned URL + httpx PUT; запись LectureImage в БД."]
+          },
+          {
+            "direction": "serves",
+            "method": "DELETE",
+            "path": "/{lecture_id}/images/{image_id}",
+            "handler": "delete_lecture_image",
+            "response_model": "{status: deleted}",
+            "auth": "deps.get_current_active_superuser",
+            "notes": ["Удаляет объект из storage (best-effort) и запись из БД."]
+          }
+        ],
+        "notes": [
+          "Модуль совмещает несколько ответственностей: CRUD, публикация, PDF и медиа-хранилище (признак монолита).",
+          "LECTURE_PDF_TIMEOUT_MS импортирован, но в файле не используется.",
+          "subject_id параметр объявлен как UUID с default None (по смыслу Optional[UUID])."
+        ]
+      }
+    ],
+    "dependencies": {
+      "frontend": {
+        "external": ["react", "next/navigation", "lexical", "lucide-react", "sonner"],
+        "internal": [
+          "@/lib/lectures-api",
+          "@/lib/api",
+          "@/lib/utils",
+          "@/components/lectures/admin/*",
+          "@/components/lectures/LectureEditor",
+          "@/components/lectures/LectureViewer",
+          "@/components/ui/*"
+        ]
+      },
+      "backend": {
+        "external": ["fastapi", "sqlalchemy", "httpx"],
+        "internal": [
+          "app.crud.crud_lecture.crud_lecture",
+          "app.services.lecture_service.lecture_service",
+          "app.services.pdf_service.pdf_service",
+          "app.services.storage.StorageService",
+          "app.core.limiter.limiter",
+          "app.core.config.settings",
+          "app.api.deps.get_current_active_superuser",
+          "app.db.session.get_db",
+          "app.schemas.lecture.*",
+          "app.models.lecture_image.LectureImage"
+        ]
+      },
+      "frontend_to_backend_contract_guess": {
+        "admin_lectures_router_prefix_guess": "/admin/lectures",
+        "mapping": [
+          { "frontend_call": "LecturesAPI.list()", "backend": "GET / (get_lectures)" },
+          { "frontend_call": "LecturesAPI.create()", "backend": "POST / (create_lecture)" },
+          { "frontend_call": "LecturesAPI.get(id)", "backend": "GET /{lecture_id} (get_lecture)" },
+          { "frontend_call": "LecturesAPI.update(id)", "backend": "PUT /{lecture_id} (update_lecture)" },
+          { "frontend_call": "LecturesAPI.delete(id)", "backend": "DELETE /{lecture_id} (delete_lecture)" },
+          { "frontend_call": "LecturesAPI.publish(id)", "backend": "POST /{lecture_id}/publish (publish_lecture)" },
+          { "frontend_call": "LecturesAPI.unpublish(id)", "backend": "POST /{lecture_id}/unpublish (unpublish_lecture)" },
+          { "frontend_call": "LecturesAPI.exportPdf(id)", "backend": "GET /{lecture_id}/pdf (export_lecture_pdf)" }
+        ],
+        "notes": [
+          "Точный prefix зависит от include_router(...) в общем api router (не анализировался).",
+          "Публичная ссылка возвращается как относительная (/lectures/view/{code}) и строится в UI через window.location.origin."
+        ]
+      }
+    },
+    "violations": {
+      "oversized_files": [
+        {
+          "file": "backend/app/api/v1/endpoints/admin_lectures.py",
+          "lines": 326,
+          "recommendation": "Разделить по зонам ответственности: admin_lectures_crud.py, admin_lectures_publish.py, admin_lectures_pdf.py, admin_lectures_images.py; оставить общий router include."
+        }
+      ],
+      "monolithic_files": [
+        {
+          "file": "backend/app/api/v1/endpoints/admin_lectures.py",
+          "exports": 11,
+          "recommendation": "Вынести PDF и images в отдельные роутеры/модули, чтобы уменьшить связность и упростить тестирование."
+        }
+      ],
+      "missing_logs": [
+        {
+          "file": "frontend/src/app/admin/lectures/page.tsx",
+          "recommendation": "Добавить диагностическое логирование ошибок в catch (console.error или централизованный client logger) рядом с toast.error."
+        },
+        {
+          "file": "frontend/src/app/admin/lectures/[id]/page.tsx",
+          "recommendation": "Логировать ошибки загрузки/сохранения (с lectureId) для дебага, кроме toast."
+        },
+        {
+          "file": "frontend/src/components/lectures/admin/LectureEditorHeader.tsx",
+          "recommendation": "Логировать ошибки publish/unpublish/delete (с lecture.id) в catch, кроме toast."
+        },
+        {
+          "file": "frontend/src/components/lectures/admin/useLectures.ts",
+          "recommendation": "Логировать ошибки fetchData/publish/unpublish/delete/exportPdf; сейчас есть только toast."
+        }
+      ]
+    },
+    "refactoring_priority": [
+      "backend/app/api/v1/endpoints/admin_lectures.py (326 lines, mixed responsibilities) - HIGH",
+      "frontend/src/components/lectures/admin/LectureEditorHeader.tsx (260 lines, many UI branches + API actions) - MEDIUM",
+      "frontend/src/components/lectures/admin/useLectures.ts (data fetching + actions + grouping) - MEDIUM",
+      "frontend/src/app/admin/lectures/page.tsx (unused imports, client-side filtering) - LOW"
+    ],
+    "risks": [
+      "Несогласованный стиль импорта @/lib/lectures-api (default vs named) может усложнить поддержку при изменениях модуля.",
+      "Создание лекции со страницы /admin/lectures/[id] при id='new' не передаёт subject_id (в отличие от создания из диалога на списке).",
+      "PDF экспорт доступен из списка (useLectures), но в хедере редактора кнопка экспортa disabled: риск UX-несоответствия.",
+      "Все анализируемые файлы имеют расхождение read vs wc - вероятно отсутствует финальный перевод строки (EOF newline)."
+    ]
+  }
+}

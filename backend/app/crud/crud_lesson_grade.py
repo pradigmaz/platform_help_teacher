@@ -176,36 +176,57 @@ async def upsert_lesson_grade(
     group_id: Optional[UUID] = None
 ) -> LessonGrade:
     """
-    Создать или обновить оценку.
+    Создать или обновить оценку (атомарно через ON CONFLICT).
     
     Логика:
-    1. Если work_number указан — ищем существующую оценку за эту лабу (любое занятие)
+    1. Если work_number указан — ищем существующую оценку за эту лабу (любое занятие в группе)
     2. Если найдена — обновляем (перемещаем на новое занятие)
-    3. Если нет — создаём новую
+    3. Если нет — используем INSERT ON CONFLICT для атомарного upsert
     """
-    existing = None
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
     
-    # Сначала ищем по work_number (оценка за лабу может быть на другом занятии)
+    # Если work_number указан, сначала проверяем есть ли оценка за эту работу
+    # на ДРУГОМ занятии (чтобы переместить её)
     if work_number is not None:
         existing = await get_student_grade_by_work(db, student_id, work_number, group_id)
+        if existing and existing.lesson_id != lesson_id:
+            # Перемещаем оценку на текущее занятие
+            existing.grade = grade
+            existing.lesson_id = lesson_id
+            if comment is not None:
+                existing.comment = comment
+            await db.commit()
+            await db.refresh(existing)
+            logger.info(f"Moved lesson grade: student={student_id}, work={work_number}, grade={grade}")
+            return existing
     
-    # Если не нашли по work_number, ищем по lesson_id (для оценок без номера)
-    if not existing:
-        existing = await get_student_lesson_grade(db, lesson_id, student_id, work_number)
-    
-    if existing:
-        existing.grade = grade
-        existing.lesson_id = lesson_id  # Перемещаем на текущее занятие
-        if comment is not None:
-            existing.comment = comment
-        await db.commit()
-        await db.refresh(existing)
-        logger.info(f"Updated lesson grade: student={student_id}, work={work_number}, grade={grade}")
-        return existing
-    
-    return await create_lesson_grade(
-        db, lesson_id, student_id, grade, work_number, comment, created_by
+    # Атомарный upsert через ON CONFLICT
+    stmt = pg_insert(LessonGrade).values(
+        lesson_id=lesson_id,
+        student_id=student_id,
+        grade=grade,
+        work_number=work_number,
+        comment=comment,
+        created_by=created_by
     )
+    
+    # ON CONFLICT — обновляем если запись уже есть
+    # Используем constraint name для точного матчинга
+    stmt = stmt.on_conflict_do_update(
+        constraint='uq_lesson_grade_student_lesson_work',
+        set_={
+            'grade': stmt.excluded.grade,
+            'comment': stmt.excluded.comment,
+        }
+    )
+    
+    result = await db.execute(stmt)
+    await db.commit()
+    
+    # Получаем созданную/обновлённую запись
+    lesson_grade = await get_student_lesson_grade(db, lesson_id, student_id, work_number)
+    logger.info(f"Upserted lesson grade: student={student_id}, work={work_number}, grade={grade}")
+    return lesson_grade
 
 
 async def bulk_upsert_lesson_grades(

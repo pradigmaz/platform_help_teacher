@@ -1,0 +1,713 @@
+{
+  "journal_management": {
+    "description": "Админ-журнал: посещаемость, оценки, аттестация/итоги, экспорт данных",
+    "frontend_files": [
+      {
+        "path": "frontend/src/app/admin/journal/page.tsx",
+        "lines": 223,
+        "function": "Next.js client page админ-журнала: выбор группы/предмета/типа, период (неделя/аттестации), таблица посещаемости/оценок, статистика, экспорт.",
+        "imports": [
+          "import { useState } from 'react';",
+          "import { useSearchParams } from 'next/navigation';",
+          "import { Users, BookOpen, Download } from 'lucide-react';",
+          "import { Card, CardContent } from '@/components/ui/card';",
+          "import { Skeleton } from '@/components/ui/skeleton';",
+          "import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';",
+          "import { Button } from '@/components/ui/button';",
+          "import { useJournalData, AttestationPeriod, SemesterInfo } from './hooks/useJournalData';",
+          "import { LessonSheet } from '@/components/schedule';",
+          "import { ExportDialog } from '@/components/journal';",
+          "import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';",
+          "import { JournalFilters, JournalWeekNav, JournalStats, JournalTable, JournalLegend } from './components';",
+          "import type { Lesson } from './lib/journal-constants';"
+        ],
+        "provides": {
+          "components": ["JournalPage (default export)"]
+        },
+        "uses": {
+          "hooks": ["useJournalData"],
+          "components": [
+            "JournalFilters",
+            "JournalWeekNav",
+            "JournalStats",
+            "JournalTable",
+            "JournalLegend",
+            "LessonSheet",
+            "ExportDialog",
+            "Card/CardContent",
+            "Tabs/TabsList/TabsTrigger",
+            "Select/Select*",
+            "Button",
+            "Skeleton"
+          ]
+        },
+        "api_endpoints": {
+          "calls": [],
+          "notes": "Прямых вызовов API нет; данные грузятся внутри useJournalData и дочерних хуков (см. hooks/*)."
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/components/index.ts",
+        "lines": 7,
+        "function": "Barrel-file: реэкспорт UI-компонентов страницы журнала для удобного импорта.",
+        "imports": [],
+        "provides": {
+          "components": [
+            "JournalFilters",
+            "JournalWeekNav",
+            "JournalStats",
+            "JournalTable",
+            "JournalLegend",
+            "AttendanceCell",
+            "GradeCell"
+          ]
+        },
+        "uses": {
+          "components": []
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/components/JournalTable.tsx",
+        "lines": 321,
+        "function": "Основная таблица журнала: строки студентов, колонки занятий; интерактивные ячейки посещаемости и оценок; подсчет процента посещаемости; показ итогов аттестации; запуск диалога добавления активности.",
+        "imports": [
+          "import { useState } from 'react';",
+          "import { format } from 'date-fns';",
+          "import { ru } from 'date-fns/locale';",
+          "import { Users, TrendingUp, Award, Sparkles } from 'lucide-react';",
+          "import { Badge } from '@/components/ui/badge';",
+          "import { Button } from '@/components/ui/button';",
+          "import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';",
+          "import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';",
+          "import { AttendanceCell } from './AttendanceCell';",
+          "import { GradeCell } from './GradeCell';",
+          "import { NoteButton } from '@/components/notes';",
+          "import { AddActivityDialog } from '@/components/admin/AddActivityDialog';",
+          "import { LESSON_TYPE_INFO, canHaveGrade } from '../lib/journal-constants';",
+          "import type { Lesson, Student, GradeData } from '../lib/journal-constants';",
+          "import type { AttestationResult } from '@/lib/api';"
+        ],
+        "provides": {
+          "components": ["JournalTable"],
+          "helpers": ["getGradeColor (internal)"]
+        },
+        "uses": {
+          "components": [
+            "AttendanceCell",
+            "GradeCell",
+            "NoteButton",
+            "AddActivityDialog",
+            "Badge",
+            "Button",
+            "Table*",
+            "Tooltip*"
+          ],
+          "constants": ["LESSON_TYPE_INFO", "canHaveGrade"],
+          "types": ["Lesson", "Student", "GradeData", "AttestationResult"]
+        },
+        "api_endpoints": {
+          "calls": [],
+          "notes": "API не вызывает; получает данные и колбэки (onAttendanceChange/onGradeChange) извне."
+        },
+        "quality_notes": {
+          "oversized_file": true,
+          "notes": "321 строка (>300): потенциально монолитный компонент (рендер таблицы + расчеты + диалоги)."
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/components/AttendanceCell.tsx",
+        "lines": 99,
+        "function": "UI-ячейка посещаемости: циклическое переключение статуса по клику + контекстное меню (DropdownMenu) + подсказки (Tooltip).",
+        "imports": [
+          "import { cn } from '@/lib/utils';",
+          "import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';",
+          "import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';",
+          "import { STATUS_INFO } from '../lib/journal-constants';"
+        ],
+        "provides": {
+          "components": ["AttendanceCell"],
+          "helpers": ["getNextStatus (internal)"]
+        },
+        "uses": {
+          "components": ["DropdownMenu*", "Tooltip*"],
+          "constants": ["STATUS_INFO"]
+        },
+        "api_endpoints": {
+          "calls": [],
+          "notes": "API не вызывает; дергает onStatusChange колбэк."
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/components/GradeCell.tsx",
+        "lines": 146,
+        "function": "UI-ячейка оценки: ввод 2–5 с сохранением по blur/enter, опциональный выбор номера работы для лаб/практик; подсветка отсутствующего номера работы.",
+        "imports": [
+          "import { useState, useEffect, useRef, useCallback } from 'react';",
+          "import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';",
+          "import { Button } from '@/components/ui/button';",
+          "import { cn } from '@/lib/utils';",
+          "import type { GradeData, Lesson } from '../lib/journal-constants';"
+        ],
+        "provides": {
+          "components": ["GradeCell"]
+        },
+        "uses": {
+          "components": ["Popover*", "Button"],
+          "types": ["GradeData", "Lesson"]
+        },
+        "api_endpoints": {
+          "calls": [],
+          "notes": "API не вызывает; дергает onGradeChange колбэк."
+        },
+        "quality_notes": {
+          "notes": "В файле объявлен debouncedSave, но в текущей версии он не используется (вызовы идут через onBlur)."
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/components/JournalFilters.tsx",
+        "lines": 87,
+        "function": "Набор фильтров журнала: селекты группа/предмет/тип занятия + поле поиска студента.",
+        "imports": [
+          "import { Search } from 'lucide-react';",
+          "import { Input } from '@/components/ui/input';",
+          "import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';",
+          "import type { Group, Subject } from '../lib/journal-constants';"
+        ],
+        "provides": {
+          "components": ["JournalFilters"]
+        },
+        "uses": {
+          "components": ["Select*", "Input"]
+        },
+        "api_endpoints": {
+          "calls": [],
+          "notes": "API не вызывает; прокидывает изменения наружу через on*Change callbacks."
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/components/JournalWeekNav.tsx",
+        "lines": 48,
+        "function": "Навигация по неделям: назад/вперёд + календарь выбора даты недели (Пн–Сб).",
+        "imports": [
+          "import { format, startOfWeek, addDays, addWeeks, subWeeks } from 'date-fns';",
+          "import { ru } from 'date-fns/locale';",
+          "import { ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react';",
+          "import { Button } from '@/components/ui/button';",
+          "import { Calendar } from '@/components/ui/calendar';",
+          "import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';"
+        ],
+        "provides": {
+          "components": ["JournalWeekNav"]
+        },
+        "uses": {
+          "components": ["Button", "Calendar", "Popover*"]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/components/JournalStats.tsx",
+        "lines": 66,
+        "function": "Виджет статистики журнала: количество занятий по типам, процент посещаемости, средний балл.",
+        "imports": [
+          "import { TrendingUp, BarChart3 } from 'lucide-react';",
+          "import { Card, CardContent } from '@/components/ui/card';",
+          "import { Progress } from '@/components/ui/progress';",
+          "import type { JournalStats as JournalStatsType } from '../lib/journal-constants';"
+        ],
+        "provides": {
+          "components": ["JournalStats"]
+        },
+        "uses": {
+          "components": ["Card/CardContent", "Progress"],
+          "types": ["JournalStats"]
+        },
+        "api_endpoints": {
+          "calls": [],
+          "notes": "API не вызывает; получает stats объект из хуков."
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/components/JournalLegend.tsx",
+        "lines": 32,
+        "function": "Поповер-легенда по статусам посещаемости (иконки/лейблы) на основе STATUS_INFO.",
+        "imports": [
+          "import { FileQuestion } from 'lucide-react';",
+          "import { Button } from '@/components/ui/button';",
+          "import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';",
+          "import { STATUS_INFO } from '../lib/journal-constants';"
+        ],
+        "provides": {
+          "components": ["JournalLegend"]
+        },
+        "uses": {
+          "components": ["Button", "Popover*"],
+          "constants": ["STATUS_INFO"]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/hooks/useJournalData.ts",
+        "lines": 128,
+        "function": "Композиционный хук: объединяет фильтры, загрузку занятий/студентов, посещаемость, оценки и статистику; управляет каскадной загрузкой при изменении списка занятий/периода.",
+        "imports": [
+          "import { useEffect } from 'react';",
+          "import type { Lesson } from '../lib/journal-constants';",
+          "import { useJournalFilters, type AttestationPeriod, type SemesterInfo } from './useJournalFilters';",
+          "import { useJournalLessons } from './useJournalLessons';",
+          "import { useJournalStats } from './useJournalStats';",
+          "import { useJournalAttendance } from './useJournalAttendance';",
+          "import { useJournalGrades } from './useJournalGrades';"
+        ],
+        "provides": {
+          "hooks": ["useJournalData"],
+          "types": ["AttestationPeriod", "SemesterInfo"]
+        },
+        "uses": {
+          "hooks": [
+            "useJournalFilters",
+            "useJournalLessons",
+            "useJournalStats",
+            "useJournalAttendance",
+            "useJournalGrades"
+          ]
+        },
+        "api_endpoints": {
+          "calls": [],
+          "notes": "Собственных вызовов API нет; вызывает методы load* из дочерних хуков."
+        },
+        "quality_notes": {
+          "notes": "useJournalStats создаётся с lessonsCount=0 (комментарий 'Will be updated', но обновления нет) — refetchStats в useJournalStats может никогда не срабатывать."
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/hooks/useJournalFilters.ts",
+        "lines": 144,
+        "function": "Хук фильтров журнала: выбранная группа/предмет/тип, текущая неделя (Пн–Сб), период аттестации, выбор семестра; вычисление дат семестра (через API semester_start_date или fallback на константы).",
+        "imports": [
+          "import { useState, useEffect } from 'react';",
+          "import { startOfWeek, addDays, getDay, addWeeks } from 'date-fns';",
+          "import { SEMESTER_MONTHS } from '@/lib/academic-constants';",
+          "import { useSemesterInfo, getSemesterDates as getSemesterDatesFromHook } from '@/hooks/useSemesterInfo';"
+        ],
+        "provides": {
+          "hooks": ["useJournalFilters"],
+          "types": ["AttestationPeriod", "SemesterInfo", "UseJournalFiltersReturn"],
+          "helpers": ["getSemesterDates"]
+        },
+        "uses": {
+          "hooks": ["useSemesterInfo"],
+          "constants": ["SEMESTER_MONTHS"]
+        },
+        "api_endpoints": {
+          "calls": [],
+          "notes": "Прямых вызовов API нет; useSemesterInfo (вне скоупа) вероятно обращается к API за текущим семестром/датами."
+        },
+        "quality_notes": {
+          "notes": "Присутствует нестандартная директива 'use no memo' (как и в GradeCell) — стоит учитывать при сборке/линтинге."
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/hooks/useJournalLessons.ts",
+        "lines": 209,
+        "function": "Хук загрузки данных занятий: грузит группы, предметы семестра, занятия по фильтрам/периоду и список студентов группы; поддерживает deep-link по lesson_id из URL.",
+        "imports": [
+          "import { useState, useEffect, useCallback } from 'react';",
+          "import { format, parseISO, addWeeks } from 'date-fns';",
+          "import { toast } from 'sonner';",
+          "import api from '@/lib/api';",
+          "import { ATTESTATION_WEEKS } from '@/lib/academic-constants';",
+          "import type { Group, Subject, Lesson, Student } from '../lib/journal-constants';",
+          "import { type AttestationPeriod, type SemesterInfo, getSemesterDates } from './useJournalFilters';"
+        ],
+        "provides": {
+          "hooks": ["useJournalLessons"],
+          "types": ["UseJournalLessonsProps", "UseJournalLessonsReturn"]
+        },
+        "uses": {
+          "modules": ["api (axios client)", "toast (sonner)", "ATTESTATION_WEEKS"],
+          "helpers": ["getAttestationPeriodDates (internal)", "getSemesterDates"]
+        },
+        "api_endpoints": {
+          "calls": [
+            { "method": "GET", "path": "/admin/lessons/{lessonId}", "used_for": "deep-link: подтянуть lesson из URL и выставить фильтры" },
+            { "method": "GET", "path": "/groups/", "used_for": "список групп" },
+            { "method": "GET", "path": "/admin/journal/lessons", "used_for": "занятия за выбранный период/фильтры + занятия семестра (для вычисления доступных предметов)" },
+            { "method": "GET", "path": "/admin/subjects/", "used_for": "полный список предметов (фильтруется по тем, что есть у группы в семестре)" },
+            { "method": "GET", "path": "/groups/{groupId}", "used_for": "детали группы и список студентов" }
+          ]
+        },
+        "quality_notes": {
+          "notes": "getSemesterDates вызывается без semesterStartDate (fallback на константы), тогда как useJournalFilters умеет учитывать semester_start_date из API — потенциальная рассинхронизация дат семестра."
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/hooks/useJournalAttendance.ts",
+        "lines": 107,
+        "function": "Хук посещаемости: загрузка по списку занятий, оптимистичные обновления (set/reset), запись через bulk endpoint, удаление записи; дебаунс-refetch статистики.",
+        "imports": [
+          "import { useState, useCallback, useRef } from 'react';",
+          "import { toast } from 'sonner';",
+          "import api from '@/lib/api';"
+        ],
+        "provides": {
+          "hooks": ["useJournalAttendance"],
+          "types": ["UseJournalAttendanceReturn"]
+        },
+        "uses": {
+          "modules": ["api (axios client)", "toast (sonner)"]
+        },
+        "api_endpoints": {
+          "calls": [
+            { "method": "GET", "path": "/admin/journal/attendance", "params": ["group_id", "lesson_ids[]"] },
+            { "method": "POST", "path": "/admin/journal/attendance/bulk", "body": "{ lesson_id, records: [{ student_id, status }] }" },
+            { "method": "DELETE", "path": "/admin/journal/attendance", "params": ["lesson_id", "student_id"] }
+          ]
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/hooks/useJournalGrades.ts",
+        "lines": 147,
+        "function": "Хук оценок: загрузка оценок по занятиям, оптимистичные изменения и удаление, автопроставление посещаемости PRESENT при выставлении оценки; загрузка итогов аттестации через AttestationAPI.",
+        "imports": [
+          "import { useState, useCallback, useRef } from 'react';",
+          "import { toast } from 'sonner';",
+          "import api, { AttestationAPI, AttestationType, AttestationResult } from '@/lib/api';",
+          "import type { GradeData } from '../lib/journal-constants';",
+          "import type { AttestationPeriod } from './useJournalFilters';"
+        ],
+        "provides": {
+          "hooks": ["useJournalGrades"],
+          "types": ["UseJournalGradesReturn"]
+        },
+        "uses": {
+          "modules": ["api (axios client)", "AttestationAPI"],
+          "cross_hook": ["updateAttendance (из useJournalAttendance)"]
+        },
+        "api_endpoints": {
+          "calls": [
+            { "method": "GET", "path": "/admin/journal/grades", "params": ["lesson_ids[]"] },
+            { "method": "POST", "path": "/admin/journal/grades", "body": "{ lesson_id, student_id, grade, work_number }" },
+            { "method": "DELETE", "path": "/admin/journal/grades", "params": ["lesson_id", "student_id"] },
+            { "method": "CALL", "path": "AttestationAPI.calculateGroup(groupId, period)", "notes": "реальный HTTP route скрыт внутри '@/lib/api' (вне скоупа)" }
+          ]
+        },
+        "quality_notes": {
+          "notes": "При успешном POST /grades может быть вызван updateAttendance(..., 'PRESENT') — это приводит к дополнительному запросу на /attendance/bulk и изменению статистики."
+        }
+      },
+      {
+        "path": "frontend/src/app/admin/journal/hooks/useJournalStats.ts",
+        "lines": 73,
+        "function": "Хук статистики журнала: загрузка агрегатов (кол-во занятий, посещаемость, средняя оценка) и refetch на основе текущих фильтров.",
+        "imports": [
+          "import { useState, useCallback } from 'react';",
+          "import { format } from 'date-fns';",
+          "import { toast } from 'sonner';",
+          "import api from '@/lib/api';",
+          "import type { JournalStats } from '../lib/journal-constants';"
+        ],
+        "provides": {
+          "hooks": ["useJournalStats"],
+          "types": ["UseJournalStatsReturn"]
+        },
+        "uses": {
+          "modules": ["api (axios client)", "toast (sonner)"]
+        },
+        "api_endpoints": {
+          "calls": [
+            { "method": "GET", "path": "/admin/journal/stats", "params": ["group_id", "start_date", "end_date", "subject_id?"] }
+          ]
+        },
+        "quality_notes": {
+          "notes": "refetchStats() делает early-return если lessonsCount === 0; useJournalData передает lessonsCount=0 и не обновляет его — refetchStats может не выполняться."
+        }
+      }
+    ],
+    "backend_files": [
+      {
+        "path": "backend/app/api/v1/endpoints/admin_journal.py",
+        "lines": 16,
+        "function": "FastAPI фасад для админ-журнала: агрегирует и подключает под-роутеры journal/*.",
+        "imports": [
+          "from fastapi import APIRouter",
+          "from .journal.lessons import router as lessons_router",
+          "from .journal.grades import router as grades_router",
+          "from .journal.export import router as export_router"
+        ],
+        "provides": {
+          "routers": ["router (APIRouter)"]
+        },
+        "uses": {
+          "routers": ["lessons_router", "grades_router", "export_router"],
+          "tags": ["journal-lessons", "journal-grades", "journal-export"]
+        },
+        "api_endpoints": {
+          "serves": [],
+          "notes": "Эндпоинтов не объявляет напрямую; подключает под-роутеры."
+        }
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/journal/lessons.py",
+        "lines": 156,
+        "function": "FastAPI эндпоинты по занятиям журнала и статистике: выдача списка уроков с фильтрами и агрегированная статистика по группе/периоду.",
+        "imports": [
+          "import logging",
+          "from datetime import date",
+          "from typing import Optional",
+          "from uuid import UUID",
+          "from fastapi import APIRouter, Depends, Query",
+          "from sqlalchemy import select, and_, func",
+          "from sqlalchemy.ext.asyncio import AsyncSession",
+          "from sqlalchemy.orm import selectinload",
+          "from app.api.deps import get_db, get_current_teacher",
+          "from app.models import User, Lesson, Attendance, AttendanceStatus, LessonGrade, Group"
+        ],
+        "provides": {
+          "routers": ["router (APIRouter)"],
+          "endpoints": ["GET /lessons", "GET /stats"],
+          "handlers": ["get_journal_lessons", "get_journal_stats"]
+        },
+        "uses": {
+          "deps": ["get_db", "get_current_teacher"],
+          "models": ["Lesson", "Attendance", "LessonGrade", "AttendanceStatus"],
+          "sql": ["select", "and_", "func", "selectinload"]
+        },
+        "api_endpoints": {
+          "serves": [
+            {
+              "method": "GET",
+              "path": "/lessons",
+              "full_path_hint": "/admin/journal/lessons",
+              "query_params": ["group_id?", "subject_id?", "lesson_type?", "start_date?", "end_date?", "skip", "limit"]
+            },
+            {
+              "method": "GET",
+              "path": "/stats",
+              "full_path_hint": "/admin/journal/stats",
+              "query_params": ["group_id", "subject_id?", "start_date?", "end_date?"]
+            }
+          ]
+        }
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/journal/attendance.py",
+        "lines": 148,
+        "function": "FastAPI эндпоинты посещаемости журнала: чтение по lesson_ids, bulk-upsert статусов, удаление записи; rate limiting на bulk.",
+        "imports": [
+          "import logging",
+          "from typing import List",
+          "from uuid import UUID",
+          "from fastapi import APIRouter, Depends, HTTPException, Query, Request",
+          "from sqlalchemy import select, and_",
+          "from sqlalchemy.ext.asyncio import AsyncSession",
+          "from sqlalchemy.orm import selectinload",
+          "from app.api.deps import get_db, get_current_teacher",
+          "from app.models import User, Lesson, Attendance, AttendanceStatus",
+          "from app.schemas.lesson_grade import BulkAttendanceUpdate",
+          "from app.core.limiter import limiter"
+        ],
+        "provides": {
+          "routers": ["router (APIRouter)"],
+          "endpoints": ["GET /attendance", "POST /attendance/bulk", "DELETE /attendance"],
+          "handlers": ["get_journal_attendance", "bulk_update_attendance", "delete_attendance"]
+        },
+        "uses": {
+          "deps": ["get_db", "get_current_teacher"],
+          "schemas": ["BulkAttendanceUpdate"],
+          "limiter": ["30/minute"],
+          "models": ["Lesson", "Attendance", "AttendanceStatus", "User"]
+        },
+        "api_endpoints": {
+          "serves": [
+            {
+              "method": "GET",
+              "path": "/attendance",
+              "full_path_hint": "/admin/journal/attendance",
+              "query_params": ["group_id", "lesson_ids[]"]
+            },
+            {
+              "method": "POST",
+              "path": "/attendance/bulk",
+              "full_path_hint": "/admin/journal/attendance/bulk",
+              "body_schema": "BulkAttendanceUpdate",
+              "rate_limit": "30/minute"
+            },
+            {
+              "method": "DELETE",
+              "path": "/attendance",
+              "full_path_hint": "/admin/journal/attendance",
+              "query_params": ["lesson_id", "student_id"]
+            }
+          ]
+        }
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/journal/grades.py",
+        "lines": 15,
+        "function": "Агрегатор роутеров журнала для оценок/посещаемости: подключает attendance.py, grades_endpoints.py и grades_bulk.py.",
+        "imports": [
+          "from fastapi import APIRouter",
+          "from .attendance import router as attendance_router",
+          "from .grades_endpoints import router as grades_router",
+          "from .grades_bulk import router as grades_bulk_router"
+        ],
+        "provides": {
+          "routers": ["router (APIRouter)"]
+        },
+        "uses": {
+          "routers": ["attendance_router", "grades_router", "grades_bulk_router"],
+          "notes": "grades_endpoints.py присутствует в репозитории, но не входил в список анализа (в этом отчете помечен как внешняя зависимость)."
+        },
+        "api_endpoints": {
+          "serves": [],
+          "notes": "Эндпоинтов не объявляет напрямую; пробрасывает эндпоинты включенных роутеров."
+        }
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/journal/grades_bulk.py",
+        "lines": 93,
+        "function": "Bulk эндпоинт оценок: массовый upsert оценок с batch-валидацией лимитов лаб и дедлайнов; rate limiting.",
+        "imports": [
+          "import logging",
+          "from uuid import UUID",
+          "from fastapi import APIRouter, Depends, HTTPException, Request",
+          "from sqlalchemy import select",
+          "from sqlalchemy.ext.asyncio import AsyncSession",
+          "from app.api.deps import get_db, get_current_teacher",
+          "from app.models import User, Lesson",
+          "from app.schemas.lesson_grade import BulkGradeCreate",
+          "from app.core.limiter import limiter",
+          "from app.services.attestation.deadline_validator import validate_grade_for_max"
+        ],
+        "provides": {
+          "routers": ["router (APIRouter)"],
+          "endpoints": ["POST /grades/bulk"],
+          "handlers": ["bulk_update_grades"]
+        },
+        "uses": {
+          "deps": ["get_db", "get_current_teacher"],
+          "schemas": ["BulkGradeCreate"],
+          "limiter": ["30/minute"],
+          "services": [
+            "app.services.attestation.lab_slot_validator_batch (import inside handler)",
+            "app.services.attestation.deadline_validator_batch (import inside handler)",
+            "app.crud.crud_lesson_grade.bulk_upsert_lesson_grades (import inside handler)"
+          ]
+        },
+        "api_endpoints": {
+          "serves": [
+            {
+              "method": "POST",
+              "path": "/grades/bulk",
+              "full_path_hint": "/admin/journal/grades/bulk",
+              "body_schema": "BulkGradeCreate",
+              "rate_limit": "30/minute"
+            }
+          ]
+        }
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/journal/export.py",
+        "lines": 79,
+        "function": "Эндпоинт экспорта журнала: формирует файл (xlsx/csv/json) по группе и периоду; делегирует ExportService; rate limiting.",
+        "imports": [
+          "import logging",
+          "from uuid import UUID",
+          "from fastapi import APIRouter, Depends, Query, Request",
+          "from fastapi.responses import Response",
+          "from sqlalchemy.ext.asyncio import AsyncSession",
+          "from app.api.deps import get_db, get_current_teacher",
+          "from app.core.limiter import limiter",
+          "from app.models import User",
+          "from app.schemas.export import ExportPeriodType, ExportFormat",
+          "from app.services.export import ExportService"
+        ],
+        "provides": {
+          "routers": ["router (APIRouter)"],
+          "endpoints": ["GET /export"],
+          "handlers": ["export_journal"]
+        },
+        "uses": {
+          "deps": ["get_db", "get_current_teacher"],
+          "schemas": ["ExportPeriodType", "ExportFormat"],
+          "service": ["ExportService.export_journal"],
+          "limiter": ["10/minute"]
+        },
+        "api_endpoints": {
+          "serves": [
+            {
+              "method": "GET",
+              "path": "/export",
+              "full_path_hint": "/admin/journal/export",
+              "query_params": [
+                "group_id",
+                "period_type",
+                "period_value?",
+                "format",
+                "include_attendance",
+                "include_grades"
+              ],
+              "rate_limit": "10/minute"
+            }
+          ]
+        },
+        "quality_notes": {
+          "notes": "TODO в коде: отсутствует проверка ownership/доступа преподавателя к группе перед экспортом."
+        }
+      }
+    ],
+    "dependencies": {
+      "frontend": {
+        "internal_modules": [
+          "./lib/journal-constants (типы и константы статусов/типов занятий)",
+          "@/lib/api (axios client + AttestationAPI)",
+          "@/lib/academic-constants (ATTESTATION_WEEKS, SEMESTER_MONTHS)",
+          "@/hooks/useSemesterInfo (семестр/semester_start_date)",
+          "@/components/journal (ExportDialog)",
+          "@/components/schedule (LessonSheet)",
+          "@/components/notes (NoteButton)",
+          "@/components/admin/AddActivityDialog"
+        ],
+        "libraries": ["react", "next/navigation", "date-fns", "lucide-react", "sonner"],
+        "ui_system": "@/components/ui/* (shadcn-like компоненты: Button, Card, Select, Table, Tooltip, Popover, etc.)"
+      },
+      "backend": {
+        "framework": "FastAPI",
+        "db": "SQLAlchemy async (AsyncSession)",
+        "auth": "Depends(get_current_teacher)",
+        "rate_limiting": "app.core.limiter.limiter",
+        "domain_models": ["Lesson", "Attendance", "LessonGrade", "AttendanceStatus"],
+        "services": ["ExportService", "attestation validators", "crud_lesson_grade.bulk_upsert_lesson_grades"]
+      },
+      "api_surface": {
+        "frontend_calls_journal": [
+          { "method": "GET", "path": "/admin/journal/lessons", "served_by": "backend/app/api/v1/endpoints/journal/lessons.py" },
+          { "method": "GET", "path": "/admin/journal/stats", "served_by": "backend/app/api/v1/endpoints/journal/lessons.py" },
+          { "method": "GET", "path": "/admin/journal/attendance", "served_by": "backend/app/api/v1/endpoints/journal/attendance.py" },
+          { "method": "POST", "path": "/admin/journal/attendance/bulk", "served_by": "backend/app/api/v1/endpoints/journal/attendance.py" },
+          { "method": "DELETE", "path": "/admin/journal/attendance", "served_by": "backend/app/api/v1/endpoints/journal/attendance.py" },
+          { "method": "GET", "path": "/admin/journal/grades", "served_by": "backend/app/api/v1/endpoints/journal/grades_endpoints.py (вне скоупа)" },
+          { "method": "POST", "path": "/admin/journal/grades", "served_by": "backend/app/api/v1/endpoints/journal/grades_endpoints.py (вне скоупа)" },
+          { "method": "DELETE", "path": "/admin/journal/grades", "served_by": "backend/app/api/v1/endpoints/journal/grades_endpoints.py (вне скоупа)" }
+        ],
+        "journal_backend_routes_defined_here": [
+          { "method": "GET", "path": "/lessons", "file": "backend/app/api/v1/endpoints/journal/lessons.py" },
+          { "method": "GET", "path": "/stats", "file": "backend/app/api/v1/endpoints/journal/lessons.py" },
+          { "method": "GET", "path": "/attendance", "file": "backend/app/api/v1/endpoints/journal/attendance.py" },
+          { "method": "POST", "path": "/attendance/bulk", "file": "backend/app/api/v1/endpoints/journal/attendance.py" },
+          { "method": "DELETE", "path": "/attendance", "file": "backend/app/api/v1/endpoints/journal/attendance.py" },
+          { "method": "POST", "path": "/grades/bulk", "file": "backend/app/api/v1/endpoints/journal/grades_bulk.py" },
+          { "method": "GET", "path": "/export", "file": "backend/app/api/v1/endpoints/journal/export.py" }
+        ],
+        "notes": "Полный префикс в приложении предполагается как /admin/journal (по фронтовым вызовам). Файл grades_endpoints.py существует, но не входил в заданный список анализа, поэтому эндпоинты /grades (single) описаны как внешняя зависимость."
+      }
+    }
+  }
+}

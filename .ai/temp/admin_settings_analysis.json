@@ -1,0 +1,36 @@
+{
+  "settings_management": {
+    "frontend": "admin/settings/*",
+    "backend": "admin_rate_limit.py (rate limiting)",
+    "functions": [
+      "настройки системы",
+      "rate limits"
+    ]
+  },
+  "feedback_management": {
+    "frontend": "admin/feedback/*",
+    "backend": "feedback/*",
+    "functions": [
+      "управление обратной связью"
+    ]
+  },
+  "attestation_scores": {
+    "frontend": "admin/attestation/scores/page.tsx (351 lines - oversized)",
+    "backend": "admin_attestation/*",
+    "functions": [
+      "управление баллами аттестации"
+    ]
+  },
+  "violations": [
+    {
+      "file": "frontend/src/app/admin/attestation/scores/page.tsx",
+      "lines": 351,
+      "issue": "oversized"
+    },
+    {
+      "file": "backend/app/api/v1/endpoints/feedback_attachments.py",
+      "lines": 316,
+      "issue": "oversized"
+    }
+  ]
+}

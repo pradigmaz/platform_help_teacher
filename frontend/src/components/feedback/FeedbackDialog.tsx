@@ -22,7 +22,18 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
   const [open, setOpen] = useState(false);
 
   const attachments = useAttachments();
-  const { form, submitting, feedbackCreated, handleSubmit, handleInvalidSubmit, resetForm } = useFeedbackForm({
+  const {
+    form,
+    submitting,
+    feedbackCreated,
+    uploadResult,
+    uploadFailed,
+    uploadInProgress,
+    handleSubmit,
+    retryFailedUploads,
+    handleInvalidSubmit,
+    resetForm,
+  } = useFeedbackForm({
     attachments,
   });
 
@@ -34,8 +45,9 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
   const onSubmit = useCallback(
     async (values: FeedbackFormValues) => {
       const result = await handleSubmit(values);
-      if (result.feedbackCreated) {
-        setTimeout(() => handleClose(), 1500);
+      // Only close if all uploads succeeded or no uploads at all
+      if (result.feedbackCreated && result.failedUploads === 0) {
+        setTimeout(() => handleClose(), 2000);
       }
     },
     [handleClose, handleSubmit],
@@ -43,16 +55,20 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
 
   const handleDialogChange = useCallback(
     (value: boolean) => {
-      if (feedbackCreated) return;
+      // Always allow closing dialog - user can cancel at any time
       setOpen(value);
       if (!value) {
         handleClose();
       }
     },
-    [feedbackCreated, handleClose],
+    [handleClose],
   );
 
   const isSubmitDisabled = submitting || feedbackCreated || !form.formState.isValid;
+
+  const handleReset = useCallback(() => {
+    handleClose();
+  }, [handleClose]);
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
@@ -82,7 +98,12 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
             submitting={submitting}
             feedbackCreated={feedbackCreated}
             isSubmitDisabled={isSubmitDisabled}
+            uploadResult={uploadResult}
+            uploadFailed={uploadFailed}
+            uploadInProgress={uploadInProgress}
             onCancel={handleClose}
+            onRetry={feedbackCreated && (uploadResult?.failed ?? 0) > 0 ? retryFailedUploads : undefined}
+            onReset={handleReset}
           />
         </form>
       </DialogContent>

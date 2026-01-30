@@ -1,0 +1,900 @@
+{
+  "backup_management": {
+    "description": "Создание, загрузка, проверка, восстановление и удаление зашифрованных бэкапов PostgreSQL через админку (UI реализован как вкладка в /admin/settings; backend роутер: /admin/backups).",
+    "scope": {
+      "included_paths": [
+        "frontend/src/app/admin/backup/*",
+        "frontend/src/app/admin/settings/page.tsx",
+        "frontend/src/app/admin/settings/components/Backup*.tsx",
+        "frontend/src/app/admin/settings/components/index.ts",
+        "backend/app/api/v1/endpoints/backup/*",
+        "backend/app/services/backup/*"
+      ],
+      "missing_or_empty_paths": [
+        "frontend/src/app/admin/backup/* (not found)"
+      ],
+      "notes": [
+        "Запрошенный путь frontend/src/app/admin/backup/* отсутствует; UI управления бэкапами реализован внутри frontend/src/app/admin/settings/page.tsx (TabsTrigger value='backup') и компонентов frontend/src/app/admin/settings/components/Backup*.tsx.",
+        "Для фиксации фронтенд->бек контракта использован модуль frontend/src/lib/api/backup.ts (вне списка анализа путей; перечислен только как зависимость).",
+        "Префикс backend роутера /admin/backups подтвержден через include_router(...) в backend/app/api/v1/api.py (контекстный файл, не входит в список анализа).",
+        "По умолчанию baseURL фронтенд API = /api/v1 (frontend/src/lib/api/client.ts), поэтому фактические URL запросов: /api/v1/admin/backups/..."
+      ]
+    },
+    "frontend_files": [
+      {
+        "path": "frontend/src/app/admin/settings/page.tsx",
+        "lines": 242,
+        "type": "nextjs_app_router_page_client",
+        "purpose": "Страница /admin/settings. Содержит вкладку 'Бэкапы' (TabsContent value='backup'), где рендерится BackupTab (UI управления бэкапами).",
+        "backup_actions": ["render_backup_tab"],
+        "provides": [
+          "default export: AdminSettingsPage (route: /admin/settings)",
+          "renders: <BackupTab /> inside TabsContent value='backup'"
+        ],
+        "uses_components": [
+          "Tabs",
+          "TabsList",
+          "TabsTrigger",
+          "TabsContent",
+          "BackupTab",
+          "Button",
+          "Card",
+          "CardHeader",
+          "CardTitle",
+          "CardDescription",
+          "CardContent",
+          "lucide-react icons (Database, Settings2, User, LogOut, Loader2)"
+        ],
+        "imports": [
+          { "from": "react", "items": ["useEffect", "useState"] },
+          {
+            "from": "lucide-react",
+            "items": ["Loader2", "Settings2", "User", "Database", "LogOut"]
+          },
+          { "from": "sonner", "items": ["toast"] },
+          {
+            "from": "@/lib/api",
+            "items": [
+              "api (default)",
+              "AdminAPI",
+              "ContactVisibility",
+              "RelinkTelegramResponse",
+              "LinkVkResponse"
+            ]
+          },
+          { "from": "@/lib/api/admin", "items": ["AdminProfile (type)"] },
+          {
+            "from": "@/components/ui/tabs",
+            "items": ["Tabs", "TabsContent", "TabsList", "TabsTrigger"]
+          },
+          { "from": "@/components/ui/button", "items": ["Button"] },
+          {
+            "from": "@/components/ui/card",
+            "items": ["Card", "CardContent", "CardDescription", "CardHeader", "CardTitle"]
+          },
+          {
+            "from": "./components",
+            "items": [
+              "ContactsCard",
+              "TelegramCard",
+              "VkCard",
+              "VisibilityInfoCard",
+              "BackupTab",
+              "ContactFieldKey (type)"
+            ]
+          }
+        ],
+        "api_calls": [],
+        "notes": [
+          "Вкладка 'backup' содержит НЕ только бэкапы: ниже рендерится 'Временная кнопка для выкидывания студентов' (POST /admin/impersonate/sessions/revoke-all-students). Это смешивает ответственности внутри backup-вкладки.",
+          "Код не вызывает бэкап-эндпоинты напрямую; вся логика вызовов вынесена в BackupTab." 
+        ]
+      },
+      {
+        "path": "frontend/src/app/admin/settings/components/index.ts",
+        "lines": 7,
+        "type": "barrel_exports",
+        "purpose": "Barrel-файл для компонентов страницы настроек; переэкспортирует BackupTab/BackupSettingsCard/BackupListCard вместе с прочими карточками настроек.",
+        "provides": [
+          "export: BackupTab",
+          "export: BackupSettingsCard",
+          "export: BackupListCard"
+        ],
+        "uses_components": [],
+        "imports": [],
+        "api_calls": [],
+        "notes": [
+          "Смешивает бэкап-компоненты и не-бэкап компоненты в одном индексе (не проблема сама по себе, но усложняет выделение фичи в отдельный модуль)."
+        ]
+      },
+      {
+        "path": "frontend/src/app/admin/settings/components/BackupTab.tsx",
+        "lines": 172,
+        "type": "react_client_container_component",
+        "purpose": "Контейнер управления бэкапами: грузит настройки и список, выполняет create/verify/restore/delete/upload через BackupAPI, показывает toasts и отдаёт данные в BackupSettingsCard/BackupListCard.",
+        "backup_actions": [
+          "settings_get",
+          "settings_update",
+          "list",
+          "create",
+          "verify",
+          "restore",
+          "delete",
+          "upload"
+        ],
+        "provides": ["named export: BackupTab"],
+        "uses_components": ["BackupSettingsCard", "BackupListCard", "Skeleton"],
+        "imports": [
+          { "from": "react", "items": ["useEffect", "useState", "useCallback"] },
+          { "from": "sonner", "items": ["toast"] },
+          {
+            "from": "@/lib/api",
+            "items": [
+              "BackupAPI",
+              "BackupInfo (type)",
+              "BackupSettings (type)",
+              "BackupSettingsUpdate (type)"
+            ]
+          },
+          { "from": "./BackupSettingsCard", "items": ["BackupSettingsCard"] },
+          { "from": "./BackupListCard", "items": ["BackupListCard"] },
+          { "from": "@/components/ui/skeleton", "items": ["Skeleton"] }
+        ],
+        "api_calls": [
+          {
+            "method": "GET",
+            "path": "/admin/backups/settings",
+            "purpose": "Загрузить текущие настройки бэкапов",
+            "called_in": "loadData() via BackupAPI.getSettings()"
+          },
+          {
+            "method": "PUT",
+            "path": "/admin/backups/settings",
+            "purpose": "Обновить настройки бэкапов",
+            "called_in": "handleSaveSettings(data) via BackupAPI.updateSettings()"
+          },
+          {
+            "method": "GET",
+            "path": "/admin/backups/",
+            "purpose": "Загрузить список доступных бэкапов",
+            "called_in": "loadData() via BackupAPI.list()"
+          },
+          {
+            "method": "POST",
+            "path": "/admin/backups",
+            "purpose": "Создать новый бэкап",
+            "called_in": "handleCreateBackup() via BackupAPI.create()"
+          },
+          {
+            "method": "POST",
+            "path": "/admin/backups/{backup_key}/verify",
+            "purpose": "Проверить валидность/целостность бэкапа",
+            "called_in": "handleVerify(key) via BackupAPI.verify(key)"
+          },
+          {
+            "method": "POST",
+            "path": "/admin/backups/{backup_key}/restore",
+            "purpose": "Восстановить базу данных из бэкапа",
+            "called_in": "handleRestore(key, dropExisting) via BackupAPI.restore(key, dropExisting)"
+          },
+          {
+            "method": "DELETE",
+            "path": "/admin/backups/{backup_key}",
+            "purpose": "Удалить бэкап",
+            "called_in": "handleDelete(key) via BackupAPI.delete(key)"
+          },
+          {
+            "method": "POST",
+            "path": "/admin/backups/upload",
+            "purpose": "Загрузить .enc файл бэкапа в storage",
+            "called_in": "handleUpload(file) via BackupAPI.upload(file)"
+          }
+        ],
+        "notes": [
+          "loadData() грузит settings и backups параллельно (Promise.all).",
+          "После create/upload вызывается loadData() для обновления списка; после delete список обновляется локально без перезагрузки.",
+          "Restore вызывается с dropExisting параметром, но текущая UI реализация всегда передаёт true (см. BackupListCard.handleRestore).",
+          "Ошибки логируются через console.error + toast.error (есть диагностическое логирование)."
+        ]
+      },
+      {
+        "path": "frontend/src/app/admin/settings/components/BackupListCard.tsx",
+        "lines": 267,
+        "type": "react_client_ui_component",
+        "purpose": "UI карточка списка бэкапов: refresh/create/upload, verify, restore (с подтверждением), delete (с подтверждением). API не вызывает напрямую, работает через колбэки из BackupTab.",
+        "backup_actions": ["list_render", "create_trigger", "upload_trigger", "verify_trigger", "restore_trigger", "delete_trigger"],
+        "provides": ["named export: BackupListCard"],
+        "uses_components": [
+          "Button",
+          "Card",
+          "CardHeader",
+          "CardTitle",
+          "CardDescription",
+          "CardContent",
+          "Badge",
+          "AlertDialog*",
+          "Checkbox",
+          "lucide-react icons (Plus, Upload, RefreshCw, Shield, Download, Trash2, Loader2, CheckCircle, AlertCircle)"
+        ],
+        "imports": [
+          { "from": "react", "items": ["useState", "useRef"] },
+          {
+            "from": "lucide-react",
+            "items": [
+              "Plus",
+              "Loader2",
+              "Download",
+              "Trash2",
+              "CheckCircle",
+              "AlertCircle",
+              "RefreshCw",
+              "Shield",
+              "Upload"
+            ]
+          },
+          { "from": "@/components/ui/button", "items": ["Button"] },
+          {
+            "from": "@/components/ui/card",
+            "items": ["Card", "CardContent", "CardDescription", "CardHeader", "CardTitle"]
+          },
+          { "from": "@/components/ui/badge", "items": ["Badge"] },
+          {
+            "from": "@/components/ui/alert-dialog",
+            "items": [
+              "AlertDialog",
+              "AlertDialogAction",
+              "AlertDialogCancel",
+              "AlertDialogContent",
+              "AlertDialogDescription",
+              "AlertDialogFooter",
+              "AlertDialogHeader",
+              "AlertDialogTitle"
+            ]
+          },
+          { "from": "@/components/ui/checkbox", "items": ["Checkbox"] },
+          { "from": "@/lib/api", "items": ["BackupInfo (type)"] },
+          { "from": "date-fns", "items": ["formatDistanceToNow"] },
+          { "from": "date-fns/locale", "items": ["ru"] }
+        ],
+        "api_calls": [],
+        "notes": [
+          "Upload ограничен accept='.enc' и доп. проверкой file.name.endsWith('.enc'); при ошибке расширения UI молча игнорирует файл (без toast).",
+          "Restore всегда вызывает onRestore(key, true) (dropExisting=true без возможности выключить в UI).",
+          "Состояние verified кэшируется в компоненте по key (Record<string, boolean>)."
+        ]
+      },
+      {
+        "path": "frontend/src/app/admin/settings/components/BackupSettingsCard.tsx",
+        "lines": 157,
+        "type": "react_client_form_component",
+        "purpose": "UI форма настроек автобэкапа: enabled, schedule_hour/minute, retention_days, max_backups, notify_on_success/failure. Сохранение делегируется наверх через onSave(data).",
+        "backup_actions": ["settings_edit"],
+        "provides": ["named export: BackupSettingsCard"],
+        "uses_components": [
+          "Button",
+          "Input",
+          "Label",
+          "Switch",
+          "Card",
+          "CardHeader",
+          "CardTitle",
+          "CardDescription",
+          "CardContent",
+          "lucide-react icons (Database, Clock, Bell, Save, Loader2)"
+        ],
+        "imports": [
+          { "from": "react", "items": ["useState"] },
+          { "from": "lucide-react", "items": ["Save", "Loader2", "Clock", "Database", "Bell"] },
+          { "from": "@/components/ui/button", "items": ["Button"] },
+          { "from": "@/components/ui/input", "items": ["Input"] },
+          { "from": "@/components/ui/label", "items": ["Label"] },
+          { "from": "@/components/ui/switch", "items": ["Switch"] },
+          {
+            "from": "@/components/ui/card",
+            "items": ["Card", "CardContent", "CardDescription", "CardHeader", "CardTitle"]
+          },
+          { "from": "@/lib/api", "items": ["BackupSettings (type)", "BackupSettingsUpdate (type)"] }
+        ],
+        "api_calls": [],
+        "notes": [
+          "Внутренний form state инициализируется из props один раз и не синхронизируется при изменении settings (потенциальная рассинхронизация после load/save).",
+          "Поле storage_bucket присутствует в типах, но в форме не редактируется (значение остаётся из initial settings)."
+        ]
+      }
+    ],
+    "backend_files": [
+      {
+        "path": "backend/app/api/v1/endpoints/backup/__init__.py",
+        "lines": 15,
+        "type": "fastapi_router_aggregator",
+        "purpose": "Агрегирует backup sub-routers (crud/restore/settings) в единый router для подключения с prefix='/admin/backups'.",
+        "provides": ["router: APIRouter"],
+        "imports": [
+          { "from": "fastapi", "items": ["APIRouter"] },
+          { "from": ".crud", "items": ["router as crud_router"] },
+          { "from": ".restore", "items": ["router as restore_router"] },
+          { "from": ".settings", "items": ["router as settings_router"] }
+        ],
+        "auth": { "dependency": "app.api.deps.get_current_active_superuser", "scope": "delegated to sub-routers" },
+        "endpoints_served": [],
+        "notes": [
+          "Фактический prefix задаётся при include_router в backend/app/api/v1/api.py: prefix='/admin/backups'."
+        ]
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/backup/deps.py",
+        "lines": 14,
+        "type": "fastapi_dependencies",
+        "purpose": "DI фабрики для сервисов бэкапа: создаёт BackupService и RestoreService для инъекции в роутеры.",
+        "provides": ["get_backup_service()", "get_restore_service()"],
+        "imports": [
+          { "from": "app.services.backup", "items": ["BackupService", "RestoreService"] }
+        ],
+        "auth": null,
+        "endpoints_served": [],
+        "notes": [
+          "Каждый вызов dependency возвращает новый экземпляр сервиса (без явного DI контейнера/синглтона)."
+        ]
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/backup/crud.py",
+        "lines": 175,
+        "type": "fastapi_router",
+        "purpose": "CRUD бэкапов: создать, получить список, удалить, загрузить .enc файл в storage.",
+        "provides": ["router: APIRouter"],
+        "imports": [
+          { "from": "logging", "items": ["getLogger"] },
+          { "from": "tempfile", "items": ["NamedTemporaryFile"] },
+          { "from": "pathlib", "items": ["Path"] },
+          {
+            "from": "fastapi",
+            "items": [
+              "APIRouter",
+              "Depends",
+              "HTTPException",
+              "status",
+              "Request",
+              "UploadFile",
+              "File"
+            ]
+          },
+          { "from": "app.api.deps", "items": ["get_current_active_superuser"] },
+          { "from": "app.models", "items": ["User"] },
+          {
+            "from": "app.schemas.backup",
+            "items": [
+              "BackupCreate",
+              "BackupInfo",
+              "BackupListResponse",
+              "BackupCreateResponse",
+              "UploadBackupResponse",
+              "validate_backup_key",
+              "MAX_BACKUP_UPLOAD_SIZE"
+            ]
+          },
+          { "from": "app.services.backup", "items": ["BackupService"] },
+          { "from": "app.core.limiter", "items": ["limiter"] },
+          {
+            "from": "app.core.constants",
+            "items": ["RATE_LIMIT_BACKUP_CREATE", "RATE_LIMIT_BACKUP_DELETE"]
+          },
+          { "from": "app.audit.decorators", "items": ["audit_action"] },
+          { "from": "app.audit.constants", "items": ["ActionType", "EntityType"] },
+          { "from": ".deps", "items": ["get_backup_service"] }
+        ],
+        "auth": {
+          "dependency": "app.api.deps.get_current_active_superuser",
+          "scope": "applies_to_all_endpoints"
+        },
+        "endpoints_served": [
+          {
+            "method": "POST",
+            "path": "/",
+            "function": "create_backup",
+            "response_model": "BackupCreateResponse",
+            "purpose": "Создать зашифрованный бэкап БД (pg_dump -> gzip -> encrypt -> upload -> notify admin)",
+            "notes": [
+              "Rate limit: RATE_LIMIT_BACKUP_CREATE",
+              "Audit: ActionType.BACKUP_CREATE",
+              "Body опционален: BackupCreate (name?)"
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/",
+            "function": "list_backups",
+            "response_model": "BackupListResponse",
+            "purpose": "Получить список бэкапов из storage",
+            "notes": ["Audit: ActionType.VIEW"]
+          },
+          {
+            "method": "DELETE",
+            "path": "/{backup_key}",
+            "function": "delete_backup",
+            "response_model": null,
+            "purpose": "Удалить бэкап из storage",
+            "notes": [
+              "Rate limit: RATE_LIMIT_BACKUP_DELETE",
+              "Audit: ActionType.BACKUP_DELETE",
+              "validate_backup_key() перед удалением",
+              "404 если delete failed"
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/upload",
+            "function": "upload_backup",
+            "response_model": "UploadBackupResponse",
+            "purpose": "Загрузить .enc файл бэкапа и положить в storage",
+            "notes": [
+              "Rate limit: 5/hour",
+              "Audit: ActionType.BACKUP_CREATE",
+              "Проверка расширения .enc + лимит MAX_BACKUP_UPLOAD_SIZE",
+              "Проверка формата шифрования: v1 (version byte=1) или legacy (без version)"
+            ]
+          }
+        ],
+        "notes": [
+          "upload_backup читает файл целиком в память (до лимита MAX_BACKUP_UPLOAD_SIZE).",
+          "upload_backup использует service.storage.upload напрямую (обходит BackupService API).",
+          "create_backup логирует успех/ошибку с user_id; upload/delete тоже логируют."
+        ]
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/backup/restore.py",
+        "lines": 73,
+        "type": "fastapi_router",
+        "purpose": "Операции restore и verify: восстановление БД из бэкапа и проверка целостности.",
+        "provides": ["router: APIRouter"],
+        "imports": [
+          { "from": "logging", "items": ["getLogger"] },
+          { "from": "fastapi", "items": ["APIRouter", "Depends", "HTTPException", "status", "Request"] },
+          { "from": "app.api.deps", "items": ["get_current_active_superuser"] },
+          { "from": "app.models", "items": ["User"] },
+          {
+            "from": "app.schemas.backup",
+            "items": [
+              "RestoreRequest",
+              "RestoreResponse",
+              "VerifyResponse",
+              "validate_backup_key"
+            ]
+          },
+          { "from": "app.services.backup", "items": ["RestoreService"] },
+          { "from": "app.core.limiter", "items": ["limiter"] },
+          {
+            "from": "app.core.constants",
+            "items": ["RATE_LIMIT_BACKUP_RESTORE", "RATE_LIMIT_BACKUP_VERIFY"]
+          },
+          { "from": "app.audit.decorators", "items": ["audit_action"] },
+          { "from": "app.audit.constants", "items": ["ActionType", "EntityType"] },
+          { "from": ".deps", "items": ["get_restore_service"] }
+        ],
+        "auth": {
+          "dependency": "app.api.deps.get_current_active_superuser",
+          "scope": "applies_to_all_endpoints"
+        },
+        "endpoints_served": [
+          {
+            "method": "POST",
+            "path": "/{backup_key}/restore",
+            "function": "restore_backup",
+            "response_model": "RestoreResponse",
+            "purpose": "Восстановить БД из зашифрованного бэкапа",
+            "notes": [
+              "Rate limit: RATE_LIMIT_BACKUP_RESTORE",
+              "Audit: ActionType.BACKUP_RESTORE",
+              "Требует confirmation='RESTORE-{backup_key}' (защита от случайного restore)",
+              "Поддерживает drop_existing (в UI сейчас всегда true)"
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/{backup_key}/verify",
+            "function": "verify_backup",
+            "response_model": "VerifyResponse",
+            "purpose": "Проверить бэкап без восстановления (download + verify + decrypt + gzip header)",
+            "notes": [
+              "Rate limit: RATE_LIMIT_BACKUP_VERIFY",
+              "Audit: ActionType.BACKUP_VERIFY"
+            ]
+          }
+        ],
+        "notes": [
+          "restore_backup логирует начало как warning и итог (success/error).",
+          "verify_backup не логирует успешные/неуспешные проверки (только RestoreService пишет logger.error при исключениях)."
+        ]
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/backup/settings.py",
+        "lines": 127,
+        "type": "fastapi_router",
+        "purpose": "Настройки автобэкапа (GET/PUT), health-check бэкап-системы и статус ботов уведомлений.",
+        "provides": ["router: APIRouter"],
+        "imports": [
+          { "from": "logging", "items": ["getLogger"] },
+          { "from": "shutil", "items": ["which"] },
+          { "from": "fastapi", "items": ["APIRouter", "Depends"] },
+          { "from": "sqlalchemy", "items": ["select"] },
+          { "from": "sqlalchemy.ext.asyncio", "items": ["AsyncSession"] },
+          { "from": "app.api.deps", "items": ["get_current_active_superuser"] },
+          { "from": "app.db.session", "items": ["get_db"] },
+          { "from": "app.models", "items": ["User", "BackupSettings"] },
+          { "from": "app.core.config", "items": ["settings"] },
+          {
+            "from": "app.schemas.backup",
+            "items": ["BackupSettingsSchema", "BackupSettingsUpdate", "BotStatusResponse"]
+          },
+          { "from": "app.services.backup", "items": ["BackupService"] },
+          { "from": ".deps", "items": ["get_backup_service"] }
+        ],
+        "auth": {
+          "dependency": "app.api.deps.get_current_active_superuser",
+          "scope": "applies_to_all_endpoints"
+        },
+        "endpoints_served": [
+          {
+            "method": "GET",
+            "path": "/settings",
+            "function": "get_backup_settings",
+            "response_model": "BackupSettingsSchema",
+            "purpose": "Получить текущие настройки бэкапа из таблицы BackupSettings (id=1)",
+            "notes": ["Если записи нет, возвращает дефолтный BackupSettingsSchema()"]
+          },
+          {
+            "method": "PUT",
+            "path": "/settings",
+            "function": "update_backup_settings",
+            "response_model": "BackupSettingsSchema",
+            "purpose": "Обновить настройки бэкапа (upsert id=1)",
+            "notes": ["Логирует update_data с user_id"]
+          },
+          {
+            "method": "GET",
+            "path": "/health",
+            "function": "backup_health_check",
+            "response_model": null,
+            "purpose": "Health-check: ключ шифрования, доступность storage bucket, наличие pg_dump, статистика по бэкапам",
+            "notes": ["Не проверяет pg_restore"]
+          },
+          {
+            "method": "GET",
+            "path": "/bot-status",
+            "function": "get_bot_status",
+            "response_model": "BotStatusResponse",
+            "purpose": "Отдать доступность Telegram/VK ботов по конфигу",
+            "notes": ["vk_admin_id сейчас всегда null"]
+          }
+        ],
+        "notes": [
+          "BackupSettings хранится как одиночная запись id=1 (не multitenant).",
+          "health-check пытается service.storage.ensure_bucket() и service.list_backups(); ошибки storage помечает как unhealthy."
+        ]
+      },
+      {
+        "path": "backend/app/services/backup/__init__.py",
+        "lines": 9,
+        "type": "python_module_facade",
+        "purpose": "Facade: экспортирует публичные классы бэкап-сервиса (BackupService/RestoreService/BackupEncryption).",
+        "provides": ["BackupService", "RestoreService", "BackupEncryption"],
+        "imports": [
+          { "from": ".backup_service", "items": ["BackupService"] },
+          { "from": ".restore_service", "items": ["RestoreService"] },
+          { "from": ".encryption", "items": ["BackupEncryption"] }
+        ],
+        "endpoints_served": [],
+        "notes": ["__all__ задаёт ограниченный публичный API модуля app.services.backup."]
+      },
+      {
+        "path": "backend/app/services/backup/backup_service.py",
+        "lines": 370,
+        "type": "python_service",
+        "purpose": "Создание бэкапов: pg_dump -> gzip -> encrypt -> upload (MinIO/S3) + уведомления админу. Есть async и sync (для Celery) реализации.",
+        "provides": [
+          "dataclass: BackupResult",
+          "class: BackupService",
+          "function: _secure_delete()",
+          "function: _generate_backup_name()"
+        ],
+        "imports": [
+          { "from": "asyncio", "items": ["create_subprocess_exec", "subprocess"] },
+          { "from": "gzip", "items": ["open as gzip_open"] },
+          { "from": "logging", "items": ["getLogger"] },
+          { "from": "tempfile", "items": ["TemporaryDirectory"] },
+          { "from": "secrets", "items": ["token_bytes", "token_hex"] },
+          { "from": "pathlib", "items": ["Path"] },
+          { "from": "datetime", "items": ["datetime"] },
+          { "from": "typing", "items": ["List", "Optional"] },
+          { "from": "dataclasses", "items": ["dataclass"] },
+          { "from": "app.core.config", "items": ["settings"] },
+          { "from": ".encryption", "items": ["BackupEncryption"] },
+          { "from": ".remote_storage", "items": ["BackupStorage", "BackupMetadata"] },
+          { "from": ".notification", "items": ["get_notification_service"] }
+        ],
+        "service_api": {
+          "async": [
+            "BackupService.create_backup(name=None, send_to_admin=True)",
+            "BackupService.list_backups()",
+            "BackupService.delete_backup(backup_key)",
+            "BackupService.cleanup_old_backups(retention_days=None)"
+          ],
+          "sync": [
+            "BackupService.create_backup_sync(name=None, send_to_admin=True)",
+            "BackupService.list_backups_sync()",
+            "BackupService.cleanup_old_backups_sync(retention_days=None)"
+          ]
+        },
+        "external_tools": ["pg_dump"],
+        "notes": [
+          "Для pg_dump используется временный .pgpass + env PGPASSFILE (не PGPASSWORD) — пароль не светится в /proc cmdline.",
+          "Есть дублирование логики между async/sync версиями (pg_dump + upload + notify).",
+          "secure delete выполняет перезапись файла случайными байтами; это может быть медленно для больших дампов и не гарантирует полное удаление на SSD/CoW ФС.",
+          "В create_backup() переменная timestamp вычисляется, но не используется (мёртвый код).",
+          "При ошибке отправляется notify_backup_failure(...) с полным traceback (может утечь чувствительная информация из исключений/логов)."
+        ]
+      },
+      {
+        "path": "backend/app/services/backup/restore_service.py",
+        "lines": 159,
+        "type": "python_service",
+        "purpose": "Восстановление и проверка бэкапа: download -> verify header -> decrypt -> gunzip -> pg_restore; отдельный verify без restore.",
+        "provides": ["dataclass: RestoreResult", "class: RestoreService"],
+        "imports": [
+          { "from": "asyncio", "items": ["create_subprocess_exec", "subprocess"] },
+          { "from": "gzip", "items": ["open as gzip_open"] },
+          { "from": "logging", "items": ["getLogger"] },
+          { "from": "tempfile", "items": ["TemporaryDirectory"] },
+          { "from": "pathlib", "items": ["Path"] },
+          { "from": "typing", "items": ["Optional"] },
+          { "from": "dataclasses", "items": ["dataclass"] },
+          { "from": "app.core.config", "items": ["settings"] },
+          { "from": ".encryption", "items": ["BackupEncryption"] },
+          { "from": ".remote_storage", "items": ["BackupStorage"] }
+        ],
+        "service_api": {
+          "async": [
+            "RestoreService.restore_backup(backup_key, drop_existing=False)",
+            "RestoreService.verify_backup(backup_key)"
+          ]
+        },
+        "external_tools": ["pg_restore"],
+        "notes": [
+          "pg_restore запускается с env PGPASSWORD (в отличие от pg_dump, который использует PGPASSFILE).",
+          "verify_backup делает download + decrypt + проверку gzip header, но не делает pg_restore.",
+          "Декриптованный dump и gzip создаются во временной директории (tempfile.TemporaryDirectory) и удаляются по завершению контекста; безопасное удаление не используется."
+        ]
+      },
+      {
+        "path": "backend/app/services/backup/remote_storage.py",
+        "lines": 220,
+        "type": "python_storage_adapter",
+        "purpose": "Абстракция remote storage для .enc бэкапов (MinIO/S3) с async (aioboto3) и sync (boto3) методами + базовая проверка целостности при upload.",
+        "provides": ["dataclass: BackupMetadata", "class: BackupStorage"],
+        "imports": [
+          { "from": "hashlib", "items": ["md5"] },
+          { "from": "logging", "items": ["getLogger"] },
+          { "from": "pathlib", "items": ["Path"] },
+          { "from": "typing", "items": ["List", "Optional"] },
+          { "from": "datetime", "items": ["datetime"] },
+          { "from": "dataclasses", "items": ["dataclass"] },
+          { "from": "aioboto3", "items": ["Session"] },
+          { "from": "app.core.config", "items": ["settings"] }
+        ],
+        "notes": [
+          "Endpoint для S3-клиента строится как http://{settings.MINIO_ENDPOINT} (без TLS).",
+          "upload(verify=True) сравнивает локальный MD5 с ETag для non-multipart; для multipart делает только size check.",
+          "Есть sync методы для Celery (boto3)."
+        ]
+      },
+      {
+        "path": "backend/app/services/backup/encryption.py",
+        "lines": 224,
+        "type": "python_crypto_utility",
+        "purpose": "Шифрование/расшифрование AES-256-GCM с PBKDF2 (поддержка format v1 + legacy) и chunked-обработка для больших файлов.",
+        "provides": ["class: BackupEncryption"],
+        "imports": [
+          { "from": "os", "items": ["urandom"] },
+          { "from": "logging", "items": ["getLogger"] },
+          { "from": "struct", "items": ["pack", "unpack"] },
+          { "from": "pathlib", "items": ["Path"] },
+          { "from": "typing", "items": ["Optional"] },
+          { "from": "cryptography.hazmat.primitives.ciphers.aead", "items": ["AESGCM"] },
+          { "from": "cryptography.hazmat.primitives.kdf.pbkdf2", "items": ["PBKDF2HMAC"] },
+          { "from": "cryptography.hazmat.primitives", "items": ["hashes"] }
+        ],
+        "notes": [
+          "encrypt_file пишет header v1: version(1) + salt(16) + base_nonce(8); nonce каждого чанка = base_nonce(8)+counter(4).",
+          "decrypt_file читает оставшийся ciphertext целиком в память (remaining = in_f.read()), что может быть проблемой при больших бэкапах (хотя шифрование чанками).",
+          "verify_file проверяет только структуру header и минимальный размер, не расшифровывает данные."
+        ]
+      },
+      {
+        "path": "backend/app/services/backup/notification.py",
+        "lines": 369,
+        "type": "python_notification_service",
+        "purpose": "Уведомления и отправка .enc файла админу: Telegram (aiogram) + опционально VK; есть async методы и sync функции для Celery через Telegram HTTP API.",
+        "provides": [
+          "class: BackupNotificationService",
+          "function: get_notification_service()",
+          "function: send_backup_to_admin_sync()",
+          "function: notify_backup_failure_sync()"
+        ],
+        "imports": [
+          { "from": "asyncio", "items": ["get_event_loop"] },
+          { "from": "logging", "items": ["getLogger"] },
+          { "from": "pathlib", "items": ["Path"] },
+          { "from": "typing", "items": ["Optional"] },
+          { "from": "aiogram", "items": ["Bot"] },
+          { "from": "aiogram.types", "items": ["FSInputFile"] },
+          { "from": "aiogram.client.default", "items": ["DefaultBotProperties"] },
+          { "from": "aiogram.enums", "items": ["ParseMode"] },
+          { "from": "app.core.config", "items": ["settings"] }
+        ],
+        "notes": [
+          "VK интеграция инициализируется лениво через vk_api (импорт внутри метода).",
+          "notify_backup_failure может отправлять traceback как временный .log файл в Telegram (потенциальный риск утечки чувствительных данных).",
+          "Файл объединяет: Telegram async, VK async, Telegram sync (requests) — много ответственностей в одном модуле."
+        ]
+      }
+    ],
+    "dependencies": {
+      "frontend": {
+        "external": ["react", "lucide-react", "sonner", "date-fns", "axios"],
+        "internal": [
+          "@/lib/api (BackupAPI)",
+          "@/components/ui/button",
+          "@/components/ui/card",
+          "@/components/ui/tabs",
+          "@/components/ui/badge",
+          "@/components/ui/alert-dialog",
+          "@/components/ui/checkbox",
+          "@/components/ui/input",
+          "@/components/ui/label",
+          "@/components/ui/switch",
+          "@/components/ui/skeleton"
+        ]
+      },
+      "backend": {
+        "external": [
+          "fastapi",
+          "sqlalchemy (async)",
+          "aioboto3",
+          "boto3",
+          "cryptography",
+          "aiogram",
+          "vk_api",
+          "requests"
+        ],
+        "internal": [
+          "app.api.deps.get_current_active_superuser",
+          "app.schemas.backup.*",
+          "app.services.backup.*",
+          "app.core.limiter.limiter",
+          "app.core.constants (RATE_LIMIT_*)",
+          "app.audit.decorators.audit_action",
+          "app.audit.constants (ActionType, EntityType)",
+          "app.models.BackupSettings"
+        ],
+        "external_tools": ["pg_dump", "pg_restore"],
+        "infra": ["PostgreSQL", "MinIO/S3"],
+        "config_keys": [
+          "BACKUP_ENCRYPTION_KEY",
+          "BACKUP_STORAGE_BUCKET",
+          "BACKUP_RETENTION_DAYS",
+          "MINIO_ENDPOINT",
+          "MINIO_ROOT_USER",
+          "MINIO_ROOT_PASSWORD",
+          "POSTGRES_SERVER",
+          "POSTGRES_PORT",
+          "POSTGRES_DB",
+          "POSTGRES_USER",
+          "POSTGRES_PASSWORD",
+          "TELEGRAM_BOT_TOKEN",
+          "VK_BOT_TOKEN",
+          "VK_GROUP_ID",
+          "FIRST_SUPERUSER_ID"
+        ]
+      },
+      "frontend_to_backend_contract": {
+        "admin_backups_router_prefix": "/admin/backups",
+        "mapping": [
+          {
+            "frontend_call": "BackupAPI.getSettings() -> GET /admin/backups/settings",
+            "backend": "GET /settings (get_backup_settings)"
+          },
+          {
+            "frontend_call": "BackupAPI.updateSettings(data) -> PUT /admin/backups/settings",
+            "backend": "PUT /settings (update_backup_settings)"
+          },
+          {
+            "frontend_call": "BackupAPI.list() -> GET /admin/backups/",
+            "backend": "GET / (list_backups)"
+          },
+          {
+            "frontend_call": "BackupAPI.create() -> POST /admin/backups",
+            "backend": "POST / (create_backup)"
+          },
+          {
+            "frontend_call": "BackupAPI.verify(key) -> POST /admin/backups/{key}/verify",
+            "backend": "POST /{backup_key}/verify (verify_backup)"
+          },
+          {
+            "frontend_call": "BackupAPI.restore(key, dropExisting) -> POST /admin/backups/{key}/restore",
+            "backend": "POST /{backup_key}/restore (restore_backup)"
+          },
+          {
+            "frontend_call": "BackupAPI.delete(key) -> DELETE /admin/backups/{key}",
+            "backend": "DELETE /{backup_key} (delete_backup)"
+          },
+          {
+            "frontend_call": "BackupAPI.upload(file) -> POST /admin/backups/upload (multipart)",
+            "backend": "POST /upload (upload_backup)"
+          },
+          {
+            "frontend_call": "BackupAPI.getBotStatus() -> GET /admin/backups/bot-status",
+            "backend": "GET /bot-status (get_bot_status)"
+          }
+        ],
+        "notes": [
+          "В backend роутер подключён с prefix='/admin/backups' в backend/app/api/v1/api.py; общий префикс версии API добавляет /api/v1 на уровне приложения.",
+          "Backend маршруты list/create объявлены на path='/' (со слешем). Фронтенд вызывает create без завершающего слеша (/admin/backups) и list со слешем (/admin/backups/). Возможен 307 redirect для create (зависит от redirect_slashes).",
+          "Restore требует confirmation строки 'RESTORE-{backup_key}' — фронтенд формирует её автоматически в BackupAPI.restore()."
+        ]
+      }
+    },
+    "violations": {
+      "oversized_files": [
+        {
+          "file": "backend/app/services/backup/backup_service.py",
+          "lines": 370,
+          "recommendation": "Разбить на модули: pg_dump_runner.py, compression.py, naming.py, cleanup.py; вынести sync/async в отдельные классы/адаптеры чтобы убрать дублирование."
+        },
+        {
+          "file": "backend/app/services/backup/notification.py",
+          "lines": 369,
+          "recommendation": "Разделить Telegram/VK и sync/async реализации (например, telegram_async.py, telegram_sync.py, vk.py) + оставить тонкий фасад."
+        }
+      ],
+      "monolithic_files": [
+        {
+          "file": "backend/app/services/backup/backup_service.py",
+          "exports": 4,
+          "recommendation": "Уменьшить смешение ответственностей (dump/compress/encrypt/upload/notify) и убрать async/sync дублирование; покрыть контрактами на уровне сервисов."
+        },
+        {
+          "file": "backend/app/services/backup/notification.py",
+          "exports": 5,
+          "recommendation": "Разнести каналы и транспорт (aiogram vs requests) по слоям; добавить единый интерфейс уведомлений." 
+        },
+        {
+          "file": "frontend/src/app/admin/settings/page.tsx",
+          "exports": 1,
+          "recommendation": "Вынести не-бэкап операции из backup-вкладки (revoke sessions) в отдельную вкладку/страницу или отдельный компонент с явным названием, чтобы вкладка 'Бэкапы' не была контейнером для произвольных admin-экшенов."
+        }
+      ],
+      "missing_logs": [
+        {
+          "file": "backend/app/api/v1/endpoints/backup/restore.py",
+          "recommendation": "Добавить логирование verify_backup (user_id, backup_key, result) и, при ошибке, контекст из исключений; это критичная операция для аудита целостности."
+        }
+      ]
+    },
+    "refactoring_priority": [
+      "backend/app/services/backup/backup_service.py (370 lines, async/sync дублирование, чувствительные операции) - HIGH",
+      "backend/app/services/backup/notification.py (369 lines, Telegram+VK+sync/async в одном файле) - HIGH",
+      "backend/app/services/backup/encryption.py (decrypt читает ciphertext целиком в память) - MEDIUM",
+      "backend/app/services/backup/restore_service.py (использует PGPASSWORD env, можно унифицировать с PGPASSFILE) - MEDIUM",
+      "frontend/src/app/admin/settings/components/BackupSettingsCard.tsx (form state не синхронизируется с props settings) - MEDIUM",
+      "frontend/src/app/admin/settings/page.tsx (backup вкладка содержит не-бэкап операции) - LOW"
+    ],
+    "risks": [
+      "Restore UI сейчас всегда делает drop_existing=true; нет возможности выполнить restore без --clean (может быть нежелательно для некоторых сценариев).",
+      "FastAPI маршруты create/list объявлены с завершающим слешем '/', а фронт create вызывает без слеша; возможны 307 редиректы для POST (обычно безопасно, но может ломаться при прокси/клиентах).",
+      "RestoreService запускает pg_restore с env PGPASSWORD (пароль может быть видимым в окружении процесса); pg_dump использует более безопасный PGPASSFILE — есть несогласованность.",
+      "BackupEncryption.decrypt_file читает весь ciphertext в память (remaining = in_f.read()), что может привести к OOM для больших бэкапов.",
+      "notify_backup_failure может отправлять полный traceback админу; в исключениях/трейсах потенциально могут оказаться чувствительные данные.",
+      "remote_storage использует http:// для MINIO_ENDPOINT; при реальном удалённом MinIO без внутренней сети это риск MITM.",
+      "В UI настройки storage_bucket не редактируются, хотя поле присутствует в типах/бекенде; возможна рассинхронизация ожиданий между UI и backend settings."
+    ]
+  }
+}

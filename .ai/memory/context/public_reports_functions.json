@@ -1,0 +1,42 @@
+{
+  "functions": {
+    "public_reports": {
+      "description": "Публичные отчёты для студентов, родителей, кураторов",
+      "frontend_files": [
+        "frontend/src/app/report/[code]/page.tsx",
+        "frontend/src/app/report/[code]/components/PinDialog.tsx",
+        "frontend/src/app/report/[code]/components/ReportHeader.tsx",
+        "frontend/src/app/report/[code]/components/ReportSummaryCards.tsx",
+        "frontend/src/app/report/[code]/components/AttendanceChart.tsx",
+        "frontend/src/app/report/[code]/components/LabProgressChart.tsx",
+        "frontend/src/app/report/[code]/components/TodayLessonsCard.tsx",
+        "frontend/src/app/report/[code]/components/ReportStudentTable.tsx"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/public_reports.py",
+        "backend/app/services/reports/service.py",
+        "backend/app/services/reports/data_collector.py",
+        "backend/app/services/reports/attendance_helpers.py",
+        "backend/app/services/reports/labs_helpers.py",
+        "backend/app/services/reports/activity_helpers.py",
+        "backend/app/services/reports/notes_helpers.py",
+        "backend/app/services/reports/semester_helpers.py",
+        "backend/app/services/reports/base_helpers.py",
+        "backend/app/services/reports/report_builder.py",
+        "backend/app/services/reports/student_builder.py",
+        "backend/app/services/reports/security.py",
+        "backend/app/services/reports/audit.py",
+        "backend/app/services/reports/__init__.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/public-reports/{code}"
+      ],
+      "security_mechanisms": [
+        "Доступ по публичному коду",
+        "Защита PIN-кодом",
+        "Honeypot",
+        "Защита от перебора"
+      ]
+    }
+  }
+}

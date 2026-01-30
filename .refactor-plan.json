@@ -2,112 +2,76 @@
   "workflow": "structure-refactoring",
   "phase": "planning",
   "config": {
+    "order": [
+      "backend-attachments",
+      "frontend-attachments-hook"
+    ],
+    "batchSize": 1,
+    "importUpdateStrategy": "automatic",
     "currentStructure": {
-      "attendance-dashboard": [
-        "frontend/src/app/dashboard/attendance/page.tsx"
+      "backend-attachments": [
+        "backend/app/api/v1/endpoints/feedback.py"
       ],
-      "feedback-dialog": [
-        "frontend/src/components/feedback/FeedbackDialog.tsx"
+      "frontend-attachments-hook": [
+        "frontend/src/components/feedback/hooks/useAttachments.ts"
       ]
     },
     "targetStructure": {
-      "pattern": "frontend/src/**",
-      "attendance-dashboard": {
-        "base": "frontend/src/app/dashboard/attendance",
-        "modules": [
-          "calendar.tsx",
-          "StatsCard.tsx",
-          "hooks/useAttendanceData.ts",
-          "hooks/useAttendanceFilters.ts",
-          "types.ts",
-          "index.ts"
+      "backend-attachments": {
+        "extractEndpointsTo": "backend/app/api/v1/endpoints/feedback_attachments.py",
+        "serviceLayerOption": "backend/app/services/feedback/attachments.py",
+        "keepInFeedbackFile": [
+          "POST /feedback",
+          "GET /feedback",
+          "PATCH /feedback/{id}",
+          "GET /feedback/count/new"
         ],
-        "notes": "Keep route entry at page.tsx; compose local components/hooks and export via barrel."
+        "moveEndpoints": [
+          "POST /attachments",
+          "POST /attachments/{id}/presign",
+          "PUT /attachments/{id}/mark-uploaded",
+          "GET /attachments/{id}/url",
+          "DELETE /attachments/{id}"
+        ],
+        "notes": [
+          "feedback.py is >320 LOC (500+); split attachment endpoints first, then refactor",
+          "preserve logging and type safety; ensure dependencies injected cleanly",
+          "update router registrations and imports after move",
+          "consider service extraction if endpoint logic heavy"
+        ]
       },
-      "feedback-dialog": {
-        "base": "frontend/src/components/feedback",
-        "modules": [
-          "hooks/useAttachments.ts",
-          "hooks/useFeedbackForm.ts",
-          "FormContent.tsx",
-          "SubmitActions.tsx",
-          "schema.ts",
-          "types.ts",
-          "index.ts"
+      "frontend-attachments-hook": {
+        "unifyFunction": "uploadOrRetryAttachment",
+        "replace": [
+          "uploadAttachment",
+          "retryAttachment"
         ],
-        "notes": "FeedbackDialog remains orchestrator; render-only pieces and hooks live locally."
-      },
-      "subfolders": [
-        "attendance/{hooks,components}",
-        "feedback/{hooks,components}"
-      ]
-    },
-    "tasks": [
-      {
-        "id": "attendance-dashboard-split",
-        "target": "frontend/src/app/dashboard/attendance/page.tsx",
-        "batch": 1,
-        "steps": [
-          "Preflight: enforce 320-line rule with `wc -l frontend/src/app/dashboard/attendance/page.tsx`; if >320, split before edits.",
-          "Extract calendar UI and date logic into `frontend/src/app/dashboard/attendance/calendar.tsx` with typed props and pure rendering.",
-          "Extract stat widget into `frontend/src/app/dashboard/attendance/StatsCard.tsx` (title/value/delta/icon props).",
-          "Lift data fetching/state to `hooks/useAttendanceData.ts` and filters to `hooks/useAttendanceFilters.ts`; preserve loading/error paths.",
-          "Centralize types/constants in `types.ts` and re-export via local `index.ts` for barrel imports.",
-          "Keep `page.tsx` minimal: data load + layout wiring of Calendar and StatsCard grid with updated relative imports."
-        ],
-        "constraints": [
-          "Preserve existing route behavior, SSR expectations, and user-facing UX.",
-          "Do not modify shadcn/ui or ace-ternity components; only consume them.",
-          "Prefer local relative imports and keep boundaries inside attendance folder."
-        ],
-        "importUpdateStrategy": "automatic"
-      },
-      {
-        "id": "feedback-dialog-split",
-        "target": "frontend/src/components/feedback/FeedbackDialog.tsx",
-        "batch": 2,
-        "steps": [
-          "Preflight: enforce 320-line rule with `wc -l frontend/src/components/feedback/FeedbackDialog.tsx`; if >320, split before edits.",
-          "Move attachment handling to `hooks/useAttachments.ts` (queue, add/remove, retry, limits).",
-          "Move form state/validation to `hooks/useFeedbackForm.ts` (schema, defaults, submit, error surfacing).",
-          "Render-only form body into `FormContent.tsx` and actions/footer into `SubmitActions.tsx`; dialog container stays in FeedbackDialog.",
-          "Share types/constants in `types.ts` and validation schema in `schema.ts`; export via local `index.ts`.",
-          "Update FeedbackDialog to orchestrate hooks + components; keep API client usage centralized and UX/accessibility identical."
-        ],
-        "constraints": [
-          "Do not modify shadcn/ui or ace-ternity components; only consume them.",
-          "Preserve accessibility, focus management, and upload retry UX.",
-          "Use automatic import updates; keep files under feedback folder."
-        ],
-        "importUpdateStrategy": "automatic"
+        "requirements": [
+          "single reusable logic handles new upload or retry given attachment_id",
+          "preserve type safety and existing logging/analytics hooks"
+        ]
       }
-    ],
-    "exclusions": [
-      "frontend/src/components/ui/**/*",
-      "frontend/src/lib/shadcn/**/*",
-      "frontend/src/components/shadcn/**/*",
-      "frontend/src/vendor/ace-ternity/**/*"
-    ],
-    "batchSize": 1,
-    "qaPipeline": [
-      "test-automator",
-      "code-reviewer",
-      "documentarist"
-    ]
+    }
   },
   "validation": {
     "required": [
-      "type-check",
-      "build"
+      "backend: pytest backend -q",
+      "frontend: pnpm lint --filter frontend",
+      "frontend: pnpm test --filter frontend -- --runInBand"
     ],
     "optional": [
-      "tests"
-    ],
-    "qaPipeline": [
-      "test-automator",
-      "code-reviewer",
-      "documentarist"
+      "frontend: pnpm type-check --filter frontend"
     ]
   },
-  "nextAgent": "code-structure-refactorer"
- }
+  "qa": {
+    "sequence": [
+      "@test-automator",
+      "@code-reviewer",
+      "@documentarist"
+    ]
+  },
+  "reporting": {
+    "reportChangedFiles": true,
+    "postRefactorNote": "List all modified files after refactor."
+  }
+}

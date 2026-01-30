@@ -1,0 +1,27 @@
+{
+  "files": {
+    "frontend/src/app/admin/groups/page.tsx": { "area": "admin", "role": "page", "functions": ["group_management"], "dependencies": ["lib/api/groups.ts"] },
+    "frontend/src/app/admin/groups/new/page.tsx": { "area": "admin", "role": "page", "functions": ["group_management"], "dependencies": ["lib/api/groups.ts"] },
+    "frontend/src/app/admin/groups/[id]/page.tsx": { "area": "admin", "role": "page", "functions": ["group_management"], "dependencies": ["lib/api/groups.ts", "_components"] },
+    "frontend/src/app/admin/labs/page.tsx": { "area": "admin", "role": "page", "functions": ["lab_management"], "dependencies": ["lib/api/labs.ts"] },
+    "frontend/src/app/admin/journal/page.tsx": { "area": "admin", "role": "page", "functions": ["journal_management"], "dependencies": ["hooks/useJournalData.ts"] },
+    "frontend/src/app/admin/lectures/page.tsx": { "area": "admin", "role": "page", "functions": ["lecture_management"], "dependencies": ["lib/lectures-api.ts", "components/lectures/admin"] },
+    "frontend/src/app/admin/lectures/[id]/page.tsx": { "area": "admin", "role": "page", "functions": ["lecture_management"], "dependencies": ["lib/lectures-api.ts", "components/lectures/admin"] },
+    "frontend/src/app/admin/announcements/page.tsx": { "area": "admin", "role": "page", "functions": ["announcement_management"], "dependencies": ["lib/api", "AnnouncementDialog.tsx"] },
+    "frontend/src/app/admin/settings/page.tsx": { "area": "admin", "role": "page", "functions": ["settings_management", "backup_management"], "dependencies": ["lib/api/admin.ts", "lib/api/backup.ts", "components"] },
+    "frontend/src/app/admin/audit/page.tsx": { "area": "admin", "role": "page", "functions": ["audit_management"], "dependencies": ["lib/api/audit.ts", "components"] },
+    "frontend/src/app/admin/feedback/page.tsx": { "area": "admin", "role": "page", "functions": ["feedback_management"], "dependencies": ["lib/api"] },
+    "frontend/src/app/admin/attestation/scores/page.tsx": { "area": "admin", "role": "page", "functions": ["attestation_system"], "dependencies": ["lib/api/attestation.ts", "components"] },
+    "frontend/src/app/admin/attestation/page.tsx": { "area": "admin", "role": "page", "functions": ["attestation_system"], "dependencies": ["lib/api/attestation.ts"] },
+    "frontend/src/app/admin/journal/page.tsx": { "area": "admin", "role": "page", "functions": ["journal_management", "attestation_system"], "dependencies": ["hooks/useJournalData.ts"] },
+    "frontend/src/app/admin/schedule/page.tsx": { "area": "admin", "role": "page", "functions": ["schedule_management", "attestation_system"], "dependencies": ["components/schedule"] },
+    "frontend/src/app/dashboard/attendance/page.tsx": { "area": "student", "role": "page", "functions": ["attendance_activities", "attestation_system"], "dependencies": ["hooks/useAttendanceData.ts"] },
+    "frontend/src/app/dashboard/page.tsx": { "area": "student", "role": "page", "functions": ["dashboard", "attestation_system"], "dependencies": ["lib/api/student.ts", "components/dashboard"] },
+    "backend/app/api/v1/endpoints/admin_attestation/calculation.py": { "area": "admin", "role": "endpoint", "functions": ["attestation_system"], "dependencies": ["services/attestation_service.py"] },
+    "backend/app/api/v1/endpoints/journal/attendance.py": { "area": "admin", "role": "endpoint", "functions": ["journal_management", "attestation_system"], "dependencies": ["models/attendance.py"] },
+    "backend/app/api/v1/endpoints/journal/grades.py": { "area": "admin", "role": "endpoint", "functions": ["journal_management", "attestation_system"], "dependencies": ["models/grade.py"] },
+    "backend/app/api/v1/endpoints/student/labs.py": { "area": "student", "role": "endpoint", "functions": ["labs"], "dependencies": ["services/labs.py"] },
+    "backend/app/api/v1/endpoints/public_reports.py": { "area": "public_reports", "role": "endpoint", "functions": ["public_reports"], "dependencies": ["services/reports"] }
+  },
+  "note": "This is a simplified map. For full list of files, refer to the specific function JSON files."
+}

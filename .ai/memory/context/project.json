@@ -49,6 +49,11 @@
   },
   "architecture": {
     "style": "feature-based",
+    "high_level_areas": [
+      "StudentArea",
+      "AdminArea",
+      "PublicReportsArea"
+    ],
     "app_router_segments": [
       "admin",
       "dashboard",

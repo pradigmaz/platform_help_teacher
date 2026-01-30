@@ -1,5 +1,6 @@
 {
   "student_issues": {
+    "area": "StudentArea",
     "critical_false_negatives": [],
     "attendance_score_discrepancies": [
       {
@@ -40,24 +41,11 @@
         "priority": "high"
       }
     ],
-    "unused_features": [
-      {
-        "id": "reports-not-accessible",
-        "title": "Отчеты не видны в UI студентов",
-        "routes": [
-          "/report/[code]",
-          "/report/[code]/student/[studentId]"
-        ],
-        "access": "Только через прямую ссылку от преподавателя (мессенджеры/QR)",
-        "ui_access": "frontend/src/app/admin/groups/[id]/reports/components/ReportLinkCopy.tsx (admin/teacher only)",
-        "is_used": "no",
-        "impact": "Фича отчетов практически скрыта от студентов; низкая обнаруживаемость и низкая фактическая полезность",
-        "priority": "low"
-      }
-    ],
+    "unused_features": [],
     "previous_findings": {
       "oversized_files": [
         {
+          "area": "AdminArea",
           "path": "frontend/src/app/admin/groups/[id]/page.tsx",
           "lines": 395,
           "origin": "custom",
@@ -146,6 +134,42 @@
           "lines": 302,
           "origin": "custom",
           "priority": "medium"
+        },
+        {
+          "path": "backend/app/api/v1/endpoints/admin_labs.py",
+          "lines": 412,
+          "origin": "custom",
+          "priority": "high"
+        },
+        {
+          "path": "frontend/src/components/dashboard/AceternitySidebar.tsx",
+          "lines": 323,
+          "origin": "custom",
+          "priority": "medium"
+        },
+        {
+          "path": "backend/app/api/v1/endpoints/student/labs.py",
+          "lines": 409,
+          "origin": "custom",
+          "priority": "high"
+        },
+        {
+          "path": "backend/app/api/v1/endpoints/public_reports.py",
+          "lines": 403,
+          "origin": "custom",
+          "priority": "high"
+        },
+        {
+          "path": "backend/app/services/reports/data_collector.py",
+          "lines": 332,
+          "origin": "custom",
+          "priority": "medium"
+        },
+        {
+          "path": "backend/app/services/reports/attendance_helpers.py",
+          "lines": 497,
+          "origin": "custom",
+          "priority": "high"
         }
       ],
       "missing_logging": [
@@ -155,6 +179,21 @@
           "logger_path": "frontend/src/lib/logger.ts",
           "impact": "Missing consistent client-side logging; errors and events are harder to trace.",
           "recommendation": "Adopt logger in key flows (API layer, auth/session, critical UI actions) and replace ad-hoc console usage.",
+          "priority": "medium"
+        },
+        {
+          "id": "missing-error-logs",
+          "title": "Missing error logging in catch blocks",
+          "files": [
+            "frontend/src/app/admin/groups/[id]/reports/page.tsx",
+            "frontend/src/app/dashboard/page.tsx",
+            "frontend/src/components/dashboard/NotificationBell.tsx",
+            "frontend/src/app/dashboard/labs/page.tsx",
+            "backend/app/api/v1/endpoints/student/activities.py",
+            "frontend/src/app/report/[code]/page.tsx",
+            "backend/app/services/reports/attendance_helpers.py"
+          ],
+          "impact": "Silent failures and difficult diagnostics.",
           "priority": "medium"
         }
       ],

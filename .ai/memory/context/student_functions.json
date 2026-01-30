@@ -1,0 +1,70 @@
+{
+  "functions": {
+    "dashboard": {
+      "description": "Дашборд студента: профиль, посещаемость, лабораторные и аттестация; hero-статус, метрики, дедлайны, уведомления. Студенты видят свои текущие баллы и статус аттестации.",
+      "frontend_files": [
+        "frontend/src/app/dashboard/page.tsx",
+        "frontend/src/components/dashboard/NotificationBell.tsx",
+        "frontend/src/components/dashboard/AceternitySidebar.tsx",
+        "frontend/src/components/dashboard/StatusHero.tsx",
+        "frontend/src/components/dashboard/ImpersonationBanner.tsx",
+        "frontend/src/components/dashboard/QuickStats.tsx",
+        "frontend/src/components/dashboard/types.ts",
+        "frontend/src/components/dashboard/DeadlinesList.tsx",
+        "frontend/src/components/dashboard/index.ts",
+        "frontend/src/components/dashboard/EmptyState.tsx",
+        "frontend/src/lib/api/student.ts"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/student/profile.py",
+        "backend/app/api/v1/endpoints/student/attestation.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/student/profile",
+        "/api/v1/student/attestation"
+      ]
+    },
+    "labs": {
+      "description": "Просмотр и сдача лабораторных работ студентом. Оценки за лабы напрямую влияют на аттестацию.",
+      "frontend_files": [
+        "frontend/src/app/dashboard/labs/page.tsx",
+        "frontend/src/components/labs/LabInfoBadges.tsx",
+        "frontend/src/components/labs/LabQuestions.tsx",
+        "frontend/src/components/labs/LabContentTabs.tsx",
+        "frontend/src/components/labs/LabScheduleAttachment.tsx",
+        "frontend/src/components/labs/LabViewHeader.tsx",
+        "frontend/src/components/labs/VariantCard.tsx",
+        "frontend/src/components/labs/index.ts",
+        "frontend/src/components/labs/editor/LabEditor.tsx",
+        "frontend/src/components/labs/editor/HeaderTab.tsx",
+        "frontend/src/components/labs/editor/TheoryTab.tsx",
+        "frontend/src/components/labs/editor/PracticeTab.tsx",
+        "frontend/src/components/labs/editor/QuestionsTab.tsx",
+        "frontend/src/components/labs/editor/LabStyleContext.tsx",
+        "frontend/src/components/labs/editor/types.ts",
+        "frontend/src/components/labs/editor/index.ts"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/student/labs.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/student/labs"
+      ]
+    },
+    "attendance_activities": {
+      "description": "Страницы посещаемости и активностей студента (бонусы/штрафы). Посещаемость лекций и практик учитывается в расчёте аттестации.",
+      "frontend_files": [
+        "frontend/src/app/dashboard/attendance/page.tsx",
+        "frontend/src/app/dashboard/activities/page.tsx"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/student/attendance.py",
+        "backend/app/api/v1/endpoints/student/activities.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/student/attendance",
+        "/api/v1/student/activities"
+      ]
+    }
+  }
+}

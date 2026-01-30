@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { type FileRejection } from 'react-dropzone';
-import { FEEDBACK_ACCEPT, FEEDBACK_FILE_LIMIT, type PendingFile, type UploadResult, type UploadError } from '../types';
-import { getRejectionReason, uploadOrRetryAttachment, validateFile } from './attachmentUpload';
+import api from '@/lib/api';
+import { FEEDBACK_ACCEPT, FEEDBACK_ALLOWED_TYPES, FEEDBACK_FILE_LIMIT, FEEDBACK_MAX_SIZE, type PendingFile, type UploadResult, type UploadError } from '../types';
 
 export function useAttachments(limit = FEEDBACK_FILE_LIMIT) {
   const [files, setFiles] = useState<PendingFile[]>([]);
@@ -86,15 +86,12 @@ export function useAttachments(limit = FEEDBACK_FILE_LIMIT) {
 
       try {
         for (const { file, preview } of files) {
-          const result = await uploadOrRetryAttachment({
-            feedbackId,
-            file,
-            abortSignal: abortControllerRef.current.signal,
-          });
+          const result = await uploadAttachment(feedbackId, file, abortControllerRef.current.signal);
           if (!result.success) {
             failed += 1;
             errors.push({ filename: file.name, error: result.error || 'Unknown error' });
           } else {
+            // Store attachment ID for retry
             setFiles((prev) =>
               prev.map((pf) =>
                 pf.preview === preview ? { ...pf, attachmentId: result.attachmentId } : pf
@@ -136,16 +133,13 @@ export function useAttachments(limit = FEEDBACK_FILE_LIMIT) {
             continue;
           }
 
-          const result = await uploadOrRetryAttachment({
-            feedbackId,
-            file,
-            existingAttachmentId: pendingFile.attachmentId,
-            abortSignal: abortControllerRef.current.signal,
-          });
+          // Use existing attachment ID if available, otherwise create new
+          const result = await retryAttachment(feedbackId, file, pendingFile.attachmentId, abortControllerRef.current.signal);
           if (!result.success) {
             failed += 1;
             errors.push({ filename: file.name, error: result.error || 'Unknown error' });
           } else {
+            // Update attachment ID
             setFiles((prev) =>
               prev.map((pf) =>
                 pf.file === file ? { ...pf, attachmentId: result.attachmentId } : pf
@@ -186,4 +180,153 @@ export function useAttachments(limit = FEEDBACK_FILE_LIMIT) {
     hasLimit: files.length >= limit,
     dropzoneAccept: FEEDBACK_ACCEPT,
   };
+}
+
+function getRejectionReason(rejection: FileRejection): string {
+  const { errors } = rejection;
+
+  if (errors?.[0]?.code === 'file-too-large') {
+    return `превышает лимит ${FEEDBACK_MAX_SIZE / 1024 / 1024}MB`;
+  }
+
+  if (errors?.[0]?.code === 'file-invalid-type') {
+    return 'неподдерживаемый тип файла';
+  }
+
+  if (errors?.[0]?.message) {
+    return errors[0].message;
+  }
+
+  return 'неизвестная ошибка';
+}
+
+function validateFile(file: File): string | null {
+  // Check file size
+  if (file.size > FEEDBACK_MAX_SIZE) {
+    return `размер ${formatFileSize(file.size)} превышает лимит ${FEEDBACK_MAX_SIZE / 1024 / 1024}MB`;
+  }
+
+  // Check file type
+  if (!FEEDBACK_ALLOWED_TYPES.includes(file.type)) {
+    return `тип "${file.type}" не поддерживается`;
+  }
+
+  // Check file extension
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (!ext || !['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+    return `расширение ".${ext || 'unknown'}" не поддерживается`;
+  }
+
+  return null;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+async function uploadAttachment(
+  feedbackId: string,
+  file: File,
+  abortSignal: AbortSignal
+): Promise<{ success: boolean; error?: string; attachmentId?: string }> {
+  try {
+    const params = new URLSearchParams({
+      filename: file.name,
+      content_type: file.type,
+      size: file.size.toString(),
+    });
+
+    const { data } = await api.post(`/feedback/${feedbackId}/attachments?${params.toString()}`);
+
+    // Upload to MinIO via presigned URL
+    const uploadResponse = await fetch(data.upload_url, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type },
+      signal: abortSignal,
+    });
+
+    if (!uploadResponse.ok) {
+      return {
+        success: false,
+        error: `Ошибка загрузки: HTTP ${uploadResponse.status} - ${uploadResponse.statusText}`,
+      };
+    }
+
+    // Mark attachment as uploaded
+    try {
+      await api.put(`/feedback/${feedbackId}/attachments/${data.attachment_id}/mark-uploaded`);
+    } catch {
+      // Not a critical error - file is uploaded successfully
+    }
+
+    return { success: true, attachmentId: data.attachment_id };
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error; // Re-throw abort error
+    }
+    const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+    return { success: false, error: errorMessage };
+  }
+}
+
+async function retryAttachment(
+  feedbackId: string,
+  file: File,
+  existingAttachmentId?: string,
+  abortSignal?: AbortSignal
+): Promise<{ success: boolean; error?: string; attachmentId?: string }> {
+  try {
+    let uploadUrl: string;
+    let attachmentId: string;
+
+    if (existingAttachmentId) {
+      // Retry with existing attachment - get new presigned URL
+      const { data } = await api.post(`/feedback/${feedbackId}/attachments/${existingAttachmentId}/presign`);
+      uploadUrl = data.upload_url;
+      attachmentId = existingAttachmentId;
+    } else {
+      // First attempt failed at DB creation - create new attachment record
+      const params = new URLSearchParams({
+        filename: file.name,
+        content_type: file.type,
+        size: file.size.toString(),
+      });
+      const { data } = await api.post(`/feedback/${feedbackId}/attachments?${params.toString()}`);
+      uploadUrl = data.upload_url;
+      attachmentId = data.attachment_id;
+    }
+
+    // Upload to MinIO via presigned URL
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type },
+      signal: abortSignal,
+    });
+
+    if (!uploadResponse.ok) {
+      return {
+        success: false,
+        error: `Ошибка загрузки: HTTP ${uploadResponse.status} - ${uploadResponse.statusText}`,
+      };
+    }
+
+    // Mark attachment as uploaded
+    try {
+      await api.put(`/feedback/${feedbackId}/attachments/${attachmentId}/mark-uploaded`);
+    } catch {
+      // Not a critical error - file is uploaded successfully
+    }
+
+    return { success: true, attachmentId };
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error; // Re-throw abort error
+    }
+    const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+    return { success: false, error: errorMessage };
+  }
 }

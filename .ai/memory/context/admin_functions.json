@@ -1,0 +1,279 @@
+{
+  "functions": {
+    "group_management": {
+      "description": "CRUD групп, импорт/управление студентами, подгруппы, инвайт-коды (плюс страница публичных отчётов группы)",
+      "frontend_files": [
+        "frontend/src/app/admin/groups/page.tsx",
+        "frontend/src/app/admin/groups/new/page.tsx",
+        "frontend/src/app/admin/groups/[id]/page.tsx",
+        "frontend/src/app/admin/groups/[id]/reports/page.tsx",
+        "frontend/src/app/admin/groups/[id]/_components/index.ts",
+        "frontend/src/app/admin/groups/[id]/_components/GroupPageSkeleton.tsx",
+        "frontend/src/app/admin/groups/[id]/_components/StudentsTab.tsx",
+        "frontend/src/app/admin/groups/[id]/_components/SubgroupsTab.tsx",
+        "frontend/src/app/admin/groups/[id]/_components/CodesTab.tsx",
+        "frontend/src/app/admin/groups/[id]/_components/StatsTab.tsx",
+        "frontend/src/app/admin/groups/[id]/_components/modals/index.ts",
+        "frontend/src/app/admin/groups/[id]/_components/modals/PasteStudentsModal.tsx",
+        "frontend/src/app/admin/groups/[id]/_components/modals/SubgroupModal.tsx",
+        "frontend/src/app/admin/groups/[id]/_components/modals/AddStudentDialog.tsx",
+        "frontend/src/app/admin/groups/[id]/_components/modals/DeleteStudentDialog.tsx",
+        "frontend/src/lib/api/groups.ts"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/groups/crud.py",
+        "backend/app/api/v1/endpoints/groups/students.py",
+        "backend/app/api/v1/endpoints/groups/subgroups.py",
+        "backend/app/api/v1/endpoints/groups/settings.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/groups",
+        "/api/v1/groups/students",
+        "/api/v1/groups/subgroups",
+        "/api/v1/groups/settings"
+      ]
+    },
+    "lab_management": {
+      "description": "CRUD лаб, дедлайны, варианты/контрольные вопросы, очередь сдачи, глобальные настройки, продления дедлайнов, привязка к расписанию",
+      "frontend_files": [
+        "frontend/src/app/admin/labs/page.tsx",
+        "frontend/src/app/admin/labs/new/page.tsx",
+        "frontend/src/app/admin/labs/[id]/page.tsx",
+        "frontend/src/app/admin/labs/[id]/edit/page.tsx",
+        "frontend/src/app/admin/labs/components/index.ts",
+        "frontend/src/app/admin/labs/components/LabsTable.tsx",
+        "frontend/src/app/admin/labs/components/StatsCards.tsx",
+        "frontend/src/app/admin/labs/components/SettingsDialog.tsx",
+        "frontend/src/app/admin/labs/components/QueueDialog.tsx",
+        "frontend/src/app/admin/labs/components/GradeDialog.tsx",
+        "frontend/src/app/admin/labs/components/RejectDialog.tsx",
+        "frontend/src/app/admin/labs/components/DeadlineExtensionsDialog.tsx",
+        "frontend/src/lib/api/labs.ts",
+        "frontend/src/lib/api/lab-queue.ts"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/admin_labs.py",
+        "backend/app/api/v1/endpoints/admin_lab_queue.py",
+        "backend/app/api/v1/endpoints/admin_lab_schedule.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/admin/labs",
+        "/api/v1/admin/lab-queue",
+        "/api/v1/admin/lab-schedule"
+      ]
+    },
+    "journal_management": {
+      "description": "Админ-журнал: посещаемость, оценки, аттестация/итоги, экспорт данных",
+      "frontend_files": [
+        "frontend/src/app/admin/journal/page.tsx",
+        "frontend/src/app/admin/journal/components/index.ts",
+        "frontend/src/app/admin/journal/components/JournalTable.tsx",
+        "frontend/src/app/admin/journal/components/AttendanceCell.tsx",
+        "frontend/src/app/admin/journal/components/GradeCell.tsx",
+        "frontend/src/app/admin/journal/components/JournalFilters.tsx",
+        "frontend/src/app/admin/journal/components/JournalWeekNav.tsx",
+        "frontend/src/app/admin/journal/components/JournalStats.tsx",
+        "frontend/src/app/admin/journal/components/JournalLegend.tsx",
+        "frontend/src/app/admin/journal/hooks/useJournalData.ts",
+        "frontend/src/app/admin/journal/hooks/useJournalFilters.ts",
+        "frontend/src/app/admin/journal/hooks/useJournalLessons.ts",
+        "frontend/src/app/admin/journal/hooks/useJournalAttendance.ts",
+        "frontend/src/app/admin/journal/hooks/useJournalGrades.ts",
+        "frontend/src/app/admin/journal/hooks/useJournalStats.ts"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/admin_journal.py",
+        "backend/app/api/v1/endpoints/journal/lessons.py",
+        "backend/app/api/v1/endpoints/journal/attendance.py",
+        "backend/app/api/v1/endpoints/journal/grades.py",
+        "backend/app/api/v1/endpoints/journal/grades_bulk.py",
+        "backend/app/api/v1/endpoints/journal/export.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/admin/journal",
+        "/api/v1/journal/lessons",
+        "/api/v1/journal/attendance",
+        "/api/v1/journal/grades",
+        "/api/v1/journal/grades-bulk",
+        "/api/v1/journal/export"
+      ]
+    },
+    "lecture_management": {
+      "description": "Лекционный редактор админа: создание, редактирование, публикация материалов, экспорт PDF и управление медиа.",
+      "frontend_files": [
+        "frontend/src/app/admin/lectures/page.tsx",
+        "frontend/src/app/admin/lectures/[id]/page.tsx",
+        "frontend/src/components/lectures/admin/index.ts",
+        "frontend/src/components/lectures/admin/LectureCard.tsx",
+        "frontend/src/components/lectures/admin/CreateLectureDialog.tsx",
+        "frontend/src/components/lectures/admin/LectureEditorHeader.tsx",
+        "frontend/src/components/lectures/admin/useLectures.ts",
+        "frontend/src/lib/lectures-api.ts"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/admin_lectures.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/admin/lectures/",
+        "/api/v1/admin/lectures/{lecture_id}",
+        "/api/v1/admin/lectures/{lecture_id}/publish",
+        "/api/v1/admin/lectures/{lecture_id}/unpublish",
+        "/api/v1/admin/lectures/{lecture_id}/pdf",
+        "/api/v1/admin/lectures/{lecture_id}/images"
+      ]
+    },
+    "announcement_management": {
+      "description": "Управление объявлениями и уведомлениями: создание черновиков, редактирование, публикация и отправка студентам через ботов.",
+      "frontend_files": [
+        "frontend/src/app/admin/announcements/page.tsx",
+        "frontend/src/app/admin/announcements/AnnouncementDialog.tsx"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/admin_announcements.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/admin/announcements",
+        "/api/v1/admin/announcements/{id}",
+        "/api/v1/admin/announcements/{id}/publish",
+        "/api/v1/admin/announcements/{id}/send"
+      ]
+    },
+    "backup_management": {
+      "description": "Создание, загрузка, проверка, восстановление и удаление зашифрованных бэкапов PostgreSQL через админку.",
+      "frontend_files": [
+        "frontend/src/app/admin/settings/page.tsx",
+        "frontend/src/app/admin/settings/components/BackupTab.tsx",
+        "frontend/src/app/admin/settings/components/BackupSettingsCard.tsx",
+        "frontend/src/app/admin/settings/components/BackupListCard.tsx",
+        "frontend/src/lib/api/backup.ts"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/backup/crud.py",
+        "backend/app/api/v1/endpoints/backup/restore.py",
+        "backend/app/api/v1/endpoints/backup/settings.py",
+        "backend/app/api/v1/endpoints/backup/__init__.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/admin/backups/settings",
+        "/api/v1/admin/backups/",
+        "/api/v1/admin/backups/{key}/verify",
+        "/api/v1/admin/backups/{key}/restore",
+        "/api/v1/admin/backups/upload",
+        "/api/v1/admin/backups/bot-status"
+      ]
+    },
+    "audit_management": {
+      "description": "Аудит безопасности админки: мониторинг действий, статистика, очистка логов, экспорт логов в JSONL и управление блокировками.",
+      "frontend_files": [
+        "frontend/src/app/admin/audit/page.tsx",
+        "frontend/src/app/admin/audit/components/index.ts",
+        "frontend/src/app/admin/audit/components/LogsTab.tsx",
+        "frontend/src/app/admin/audit/components/AuditLogsTable.tsx",
+        "frontend/src/app/admin/audit/components/AuditFilters.tsx",
+        "frontend/src/app/admin/audit/components/AuditStatsCards.tsx",
+        "frontend/src/app/admin/audit/components/AuditDetailDialog.tsx",
+        "frontend/src/app/admin/audit/components/ClearLogsDialog.tsx",
+        "frontend/src/app/admin/audit/components/SecurityTab.tsx",
+        "frontend/src/app/admin/audit/components/BansTab.tsx",
+        "frontend/src/lib/api/audit.ts"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/admin_audit.py",
+        "backend/app/api/v1/endpoints/admin_audit_export.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/admin/audit",
+        "/api/v1/admin/audit/{log_id}",
+        "/api/v1/admin/audit/stats/summary",
+        "/api/v1/admin/audit/clear/preview",
+        "/api/v1/admin/audit/clear",
+        "/api/v1/admin/audit/export"
+      ]
+    },
+    "settings_management": {
+      "description": "Управление системными настройками, профилем администратора, привязкой мессенджеров и лимитами запросов.",
+      "frontend_files": [
+        "frontend/src/app/admin/settings/page.tsx",
+        "frontend/src/app/admin/settings/components/index.ts",
+        "frontend/src/app/admin/settings/components/ContactsCard.tsx",
+        "frontend/src/app/admin/settings/components/TelegramCard.tsx",
+        "frontend/src/app/admin/settings/components/VkCard.tsx",
+        "frontend/src/app/admin/settings/components/VisibilityInfoCard.tsx",
+        "frontend/src/lib/api/admin.ts"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/admin_security.py",
+        "backend/app/api/v1/endpoints/admin_rate_limit.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/users/me",
+        "/api/v1/users/profile/contacts",
+        "/api/v1/users/me/relink-telegram",
+        "/api/v1/users/me/link-vk",
+        "/api/v1/admin/security/stats",
+        "/api/v1/admin/rate-limits/bans"
+      ]
+    },
+    "feedback_management": {
+      "description": "Просмотр и управление обратной связью от пользователей, включая вложения.",
+      "frontend_files": [
+        "frontend/src/app/admin/feedback/page.tsx"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/feedback.py",
+        "backend/app/api/v1/endpoints/feedback_attachments.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/feedback",
+        "/api/v1/feedback/count/new",
+        "/api/v1/feedback/{feedback_id}",
+        "/api/v1/feedback/{feedback_id}/attachments",
+        "/api/v1/feedback/{feedback_id}/attachments/{attachment_id}/url"
+      ]
+    },
+    "attestation_system": {
+      "description": "Система оценки и посещаемости с расчётом баллов",
+      "sub_functions": [
+        "GradeInLabs - оценки в лабах",
+        "GradeInJournal - оценки в журнале",
+        "GradeInSchedule - оценки в расписании",
+        "AttendanceInJournal - посещаемость в журнале",
+        "AttendanceInSchedule - посещаемость в расписании"
+      ],
+      "frontend_files": [
+        "frontend/src/app/admin/attestation/page.tsx",
+        "frontend/src/app/admin/attestation/scores/page.tsx",
+        "frontend/src/app/admin/attestation/scores/components/StudentDetailSheet.tsx",
+        "frontend/src/app/admin/attestation/scores/components/AttestationTable.tsx",
+        "frontend/src/app/admin/attestation/scores/components/SummaryCards.tsx",
+        "frontend/src/app/admin/journal/page.tsx",
+        "frontend/src/app/admin/journal/components/JournalTable.tsx",
+        "frontend/src/app/admin/journal/components/GradeCell.tsx",
+        "frontend/src/app/admin/journal/components/AttendanceCell.tsx",
+        "frontend/src/app/admin/labs/page.tsx",
+        "frontend/src/app/admin/labs/components/GradeDialog.tsx",
+        "frontend/src/app/admin/schedule/page.tsx",
+        "frontend/src/app/admin/schedule/components/LessonCard.tsx"
+      ],
+      "backend_files": [
+        "backend/app/api/v1/endpoints/admin_attestation/calculation.py",
+        "backend/app/api/v1/endpoints/admin_attestation/settings.py",
+        "backend/app/api/v1/endpoints/admin_attestation/audit.py",
+        "backend/app/api/v1/endpoints/admin_attestation/__init__.py",
+        "backend/app/api/v1/endpoints/admin_journal.py",
+        "backend/app/api/v1/endpoints/journal/grades.py",
+        "backend/app/api/v1/endpoints/journal/attendance.py",
+        "backend/app/api/v1/endpoints/admin_labs.py"
+      ],
+      "api_endpoints": [
+        "/api/v1/admin/attestation/settings/{type}",
+        "/api/v1/admin/attestation/settings",
+        "/api/v1/admin/attestation/calculate/{student_id}/{type}",
+        "/api/v1/admin/attestation/calculate/group/{group_id}/{type}",
+        "/api/v1/admin/attestation/scores/all/{type}",
+        "/api/v1/journal/grades",
+        "/api/v1/journal/attendance"
+      ]
+    }
+  }
+}

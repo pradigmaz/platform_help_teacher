@@ -1,4 +1,3 @@
-
 # File Validation Constants
 
 # Dictionary mapping MIME types to their standard file extensions.
@@ -13,12 +12,11 @@ ALLOWED_UPLOAD_MIME_TYPES = {
     "text/plain": ".txt",
     "text/csv": ".csv",
     "text/markdown": ".md",
-    
     # Images
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/gif": ".gif",
-    
+    "image/webp": ".webp",
     # Archives
     "application/zip": ".zip",
 }
@@ -28,10 +26,7 @@ ALLOWED_MIME_TYPES_SET = set(ALLOWED_UPLOAD_MIME_TYPES.keys())
 ALLOWED_EXTENSIONS_SET = set(ALLOWED_UPLOAD_MIME_TYPES.values())
 
 # Telegram Security
-TELEGRAM_SUBNETS = [
-    "149.154.160.0/20",
-    "91.108.4.0/22"
-]
+TELEGRAM_SUBNETS = ["149.154.160.0/20", "91.108.4.0/22"]
 
 # Lecture Constants
 LECTURE_PUBLIC_CODE_LENGTH = 8
@@ -58,4 +53,3 @@ RATE_LIMIT_BACKUP_CREATE = "3/hour"
 RATE_LIMIT_BACKUP_RESTORE = "2/hour"
 RATE_LIMIT_BACKUP_DELETE = "10/hour"
 RATE_LIMIT_BACKUP_VERIFY = "10/hour"
-

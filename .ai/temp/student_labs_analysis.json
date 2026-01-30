@@ -1,0 +1,833 @@
+{
+  "student_labs": {
+    "description": "Просмотр и сдача лабораторных работ",
+    "frontend_files": [
+      {
+        "path": "frontend/src/app/dashboard/labs/page.tsx",
+        "lines": 282,
+        "domain": "student",
+        "purpose": "Клиентская страница списка лабораторных студента: загрузка/фильтрация, прогресс, карточки работ и действия (открыть/сдать/отменить/пересдать).",
+        "imports": [
+          "react",
+          "sonner",
+          "@/lib/api",
+          "@/components/ui/card-spotlight",
+          "@/components/ui/badge",
+          "@/components/ui/skeleton",
+          "@/components/ui/button",
+          "@tabler/icons-react",
+          "motion/react",
+          "@/lib/utils",
+          "next/link"
+        ],
+        "provides": {
+          "exports": [
+            "default LabsPage"
+          ],
+          "internal_components": [
+            "LabsSkeleton"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "CardSpotlight",
+            "Badge",
+            "Skeleton",
+            "Button",
+            "next/link Link"
+          ],
+          "libraries": [
+            "React hooks (useEffect/useMemo/useState)",
+            "sonner toast",
+            "motion/react (motion, AnimatePresence)",
+            "@tabler/icons-react",
+            "cn() utility"
+          ]
+        },
+        "api_endpoints": {
+          "calls": [
+            {
+              "client": "StudentAPI.getLabs",
+              "method": "GET",
+              "path": "/student/labs"
+            },
+            {
+              "client": "StudentAPI.markLabReady",
+              "method": "POST",
+              "path": "/student/labs/{lab_id}/ready"
+            },
+            {
+              "client": "StudentAPI.cancelLabReady",
+              "method": "POST",
+              "path": "/student/labs/{lab_id}/cancel-ready"
+            }
+          ],
+          "navigates_to": [
+            "GET /dashboard/labs/{lab_id} (страница деталей не в анализируемом списке)"
+          ]
+        },
+        "notes": [
+          "Ожидает статусы submission: NEW/READY/ACCEPTED/REJECTED и поля дедлайнов (deadline_5_status, lessons_until_deadline_5, has_extension, extension_bonus, current_max_grade).",
+          "Ошибки FastAPI HTTPException(detail=...) читаются как err.response.data.detail (строка).",
+          "Явного логирования нет (только toast), что усложняет диагностику на клиентах без Sentry/лог-системы."
+        ]
+      },
+      {
+        "path": "frontend/src/components/labs/LabInfoBadges.tsx",
+        "lines": 73,
+        "domain": "shared",
+        "purpose": "UI-блок с бейджами и карточками: дедлайны на 5/4, флаг последовательности, количество вариантов/вопросов, цель и 'что записать в тетрадь'.",
+        "imports": [
+          "@/lib/api",
+          "@/components/ui/badge",
+          "@/components/ui/card",
+          "lucide-react"
+        ],
+        "provides": {
+          "exports": [
+            "LabInfoBadges"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "Badge",
+            "Card",
+            "CardHeader",
+            "CardTitle",
+            "CardContent"
+          ],
+          "libraries": [
+            "lucide-react icons (Target, Calendar)"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/components/labs/LabQuestions.tsx",
+        "lines": 43,
+        "domain": "shared",
+        "purpose": "UI-карточка со списком контрольных вопросов (рендерит вопросы из lab.questions).",
+        "imports": [
+          "@/lib/api",
+          "@/components/ui/card",
+          "@/components/ui/badge",
+          "lucide-react",
+          "@/lib/utils/question-utils"
+        ],
+        "provides": {
+          "exports": [
+            "LabQuestions"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "Card",
+            "Badge"
+          ],
+          "utils": [
+            "getQuestionText(q)"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/components/labs/LabContentTabs.tsx",
+        "lines": 102,
+        "domain": "shared",
+        "purpose": "Переключатель 'Теория/Практика' и отображение контента лабы (LectureViewer для Lexical-контента + список вариантов).",
+        "imports": [
+          "react",
+          "@/lib/api",
+          "@/components/ui/button",
+          "@/components/ui/badge",
+          "@/components/ui/card",
+          "@/components/lectures/LectureViewer",
+          "lexical",
+          "lucide-react"
+        ],
+        "provides": {
+          "exports": [
+            "LabContentTabs"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "Button",
+            "Card",
+            "Badge",
+            "LectureViewer"
+          ],
+          "libraries": [
+            "Lexical (SerializedEditorState)",
+            "lucide-react icons (BookOpen, Code)"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/components/labs/LabScheduleAttachment.tsx",
+        "lines": 282,
+        "domain": "admin",
+        "purpose": "UI для привязки лабы к слотам расписания (выбор пар/подгрупп, attach/detach, отображение блокировки).",
+        "imports": [
+          "react",
+          "lucide-react",
+          "sonner",
+          "@/components/ui/card",
+          "@/components/ui/checkbox",
+          "@/components/ui/button",
+          "@/components/ui/badge",
+          "@/components/ui/accordion",
+          "@/components/ui/collapsible",
+          "@/lib/api"
+        ],
+        "provides": {
+          "exports": [
+            "LabScheduleAttachment"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "Card",
+            "Checkbox",
+            "Button",
+            "Badge",
+            "Accordion",
+            "Collapsible"
+          ],
+          "libraries": [
+            "sonner toast",
+            "Axios client (api)",
+            "Date.toLocaleDateString('ru-RU')"
+          ]
+        },
+        "api_endpoints": {
+          "calls": [
+            {
+              "method": "GET",
+              "path": "/admin/labs/{lab_id}/schedule-slots"
+            },
+            {
+              "method": "POST",
+              "path": "/admin/labs/{lab_id}/attach"
+            },
+            {
+              "method": "POST",
+              "path": "/admin/labs/{lab_id}/detach"
+            }
+          ],
+          "error_contracts": [
+            "Ожидает 409 с detail.error='previous_lab_active' для блокировки привязки"
+          ]
+        },
+        "notes": [
+          "Файл относится к админской части (admin endpoints), но лежит в общей папке labs." 
+        ]
+      },
+      {
+        "path": "frontend/src/components/labs/LabViewHeader.tsx",
+        "lines": 168,
+        "domain": "admin",
+        "purpose": "Шапка страницы просмотра лабы в админке: публикация/снятие, редактирование, удаление, копирование публичной ссылки.",
+        "imports": [
+          "react",
+          "next/link",
+          "sonner",
+          "@/lib/api",
+          "@/components/ui/button",
+          "@/components/ui/badge",
+          "@/components/ui/alert-dialog",
+          "lucide-react"
+        ],
+        "provides": {
+          "exports": [
+            "LabViewHeader"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "Button",
+            "Badge",
+            "AlertDialog",
+            "next/link Link"
+          ],
+          "libraries": [
+            "sonner toast",
+            "Clipboard API (navigator.clipboard)",
+            "lucide-react icons"
+          ]
+        },
+        "api_endpoints": {
+          "calls": [
+            {
+              "client": "LabsAPI.adminPublish",
+              "method": "(client-defined)",
+              "path": "admin labs publish (точный путь в этом файле не виден)"
+            },
+            {
+              "client": "LabsAPI.adminUnpublish",
+              "method": "(client-defined)",
+              "path": "admin labs unpublish (точный путь в этом файле не виден)"
+            },
+            {
+              "client": "LabsAPI.adminDelete",
+              "method": "(client-defined)",
+              "path": "admin labs delete (точный путь в этом файле не виден)"
+            }
+          ],
+          "navigates_to": [
+            "/admin/labs",
+            "/admin/labs/{lab_id}/edit",
+            "/labs/view/{public_code}"
+          ]
+        },
+        "notes": [
+          "Файл относится к админской части, не к студенческому dashboard." 
+        ]
+      },
+      {
+        "path": "frontend/src/components/labs/VariantCard.tsx",
+        "lines": 100,
+        "domain": "admin",
+        "purpose": "Редактор одного варианта задания (collapsible карточка с LectureEditor, preview, reorder и удаление).",
+        "imports": [
+          "react",
+          "lexical",
+          "@/components/lectures",
+          "@/components/ui/button",
+          "@/components/ui/badge",
+          "@/components/ui/collapsible",
+          "@tabler/icons-react",
+          "@/lib/utils",
+          "@/lib/utils/lexical-utils"
+        ],
+        "provides": {
+          "exports": [
+            "VariantCard",
+            "VariantData (type/interface)"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "LectureEditor",
+            "Button",
+            "Badge",
+            "Collapsible"
+          ],
+          "utils": [
+            "extractTextFromLexical",
+            "truncateText",
+            "cn()"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        },
+        "notes": [
+          "Есть неиспользуемый импорт useMemo (может триггерить ESLint rule no-unused-vars)." 
+        ]
+      },
+      {
+        "path": "frontend/src/components/labs/index.ts",
+        "lines": 10,
+        "domain": "shared",
+        "purpose": "Barrel-файл: реэкспорт компонентов/типов из labs и labs/editor.",
+        "imports": [],
+        "provides": {
+          "exports": [
+            "LabViewHeader",
+            "LabInfoBadges",
+            "LabContentTabs",
+            "LabQuestions",
+            "LabEditor",
+            "normalizeVariant",
+            "VariantCard",
+            "LabScheduleAttachment",
+            "LabData (type)",
+            "LabVariant (type)",
+            "VariantData (type)"
+          ]
+        },
+        "uses": {
+          "ui_components": []
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/components/labs/editor/LabEditor.tsx",
+        "lines": 184,
+        "domain": "admin",
+        "purpose": "Главный редактор лабы (админ): собирает LabData, управляет вариантами/вопросами, рендерит вкладки и вызывает onSave(data).",
+        "imports": [
+          "react",
+          "@/components/ui/button",
+          "@/components/ui/tabs",
+          "@tabler/icons-react",
+          "@/lib/utils",
+          "./types",
+          "./HeaderTab",
+          "./TheoryTab",
+          "./PracticeTab",
+          "./QuestionsTab",
+          "./LabStyleContext"
+        ],
+        "provides": {
+          "exports": [
+            "default LabEditor",
+            "LabEditor (named)"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "Button",
+            "Tabs/TabsList/TabsTrigger/TabsContent",
+            "HeaderTab",
+            "TheoryTab",
+            "PracticeTab",
+            "QuestionsTab",
+            "LabStyleProvider/useLabStyle"
+          ],
+          "libraries": [
+            "Alert() for validation (title required)"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/components/labs/editor/HeaderTab.tsx",
+        "lines": 135,
+        "domain": "admin",
+        "purpose": "Вкладка 'Шапка' в редакторе: номер/название/цель, formatting_guide, дедлайны и флаг последовательности.",
+        "imports": [
+          "@/components/ui/card",
+          "@/components/ui/input",
+          "@/components/ui/textarea",
+          "@/components/ui/switch",
+          "@/components/ui/label",
+          "@/components/ui/separator",
+          "@/components/ui/input-group",
+          "@tabler/icons-react",
+          "./types"
+        ],
+        "provides": {
+          "exports": [
+            "HeaderTab"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "Card",
+            "Input",
+            "Textarea",
+            "Switch",
+            "InputGroup"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/components/labs/editor/TheoryTab.tsx",
+        "lines": 37,
+        "domain": "admin",
+        "purpose": "Вкладка 'Теория' в редакторе: LectureEditor для теоретического контента.",
+        "imports": [
+          "lexical",
+          "@/components/lectures",
+          "@/components/ui/card",
+          "@tabler/icons-react"
+        ],
+        "provides": {
+          "exports": [
+            "TheoryTab"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "LectureEditor",
+            "Card"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/components/labs/editor/PracticeTab.tsx",
+        "lines": 99,
+        "domain": "admin",
+        "purpose": "Вкладка 'Практика' в редакторе: LectureEditor для общего задания + список VariantCard и настройка количества вариантов.",
+        "imports": [
+          "lexical",
+          "@/components/lectures",
+          "@/components/ui/card",
+          "@/components/ui/input",
+          "@tabler/icons-react",
+          "../VariantCard",
+          "./types"
+        ],
+        "provides": {
+          "exports": [
+            "PracticeTab"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "LectureEditor",
+            "Card",
+            "Input",
+            "VariantCard"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/components/labs/editor/QuestionsTab.tsx",
+        "lines": 149,
+        "domain": "admin",
+        "purpose": "Вкладка 'Вопросы' в редакторе: список QuestionCard (collapsible) с LectureEditor, добавление/удаление/перемещение.",
+        "imports": [
+          "react",
+          "lexical",
+          "@/components/ui/card",
+          "@/components/ui/button",
+          "@/components/ui/badge",
+          "@/components/ui/collapsible",
+          "@tabler/icons-react",
+          "@/components/lectures",
+          "./types",
+          "@/lib/utils",
+          "@/lib/utils/lexical-utils"
+        ],
+        "provides": {
+          "exports": [
+            "QuestionsTab"
+          ],
+          "internal_components": [
+            "QuestionCard"
+          ]
+        },
+        "uses": {
+          "ui_components": [
+            "LectureEditor",
+            "Card",
+            "Button",
+            "Badge",
+            "Collapsible"
+          ],
+          "utils": [
+            "normalizeQuestion",
+            "extractTextFromLexical",
+            "truncateText",
+            "cn()"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        },
+        "notes": [
+          "normalizeQuestion вызывается на каждом рендере; если в questions попадут string-элементы, будут генерироваться новые id (nanoid) и это может ломать React key/state."
+        ]
+      },
+      {
+        "path": "frontend/src/components/labs/editor/LabStyleContext.tsx",
+        "lines": 49,
+        "domain": "admin",
+        "purpose": "Контекст для стилей редактора (fontSize/lineHeight) и безопасный хук useLabStyle с fallback вне Provider.",
+        "imports": [
+          "react"
+        ],
+        "provides": {
+          "exports": [
+            "LabStyleProvider",
+            "useLabStyle"
+          ]
+        },
+        "uses": {
+          "libraries": [
+            "React Context"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/components/labs/editor/types.ts",
+        "lines": 74,
+        "domain": "admin",
+        "purpose": "Типы и нормализация данных редактора (варианты/вопросы) + генерация уникальных id через nanoid.",
+        "imports": [
+          "lexical",
+          "nanoid"
+        ],
+        "provides": {
+          "exports": [
+            "LabVariant (type)",
+            "LabQuestion (type)",
+            "LabData (type)",
+            "LabEditorProps (type)",
+            "UpdateFieldFn (type)",
+            "createVariant()",
+            "createQuestion()",
+            "normalizeQuestion()",
+            "normalizeVariant()"
+          ]
+        },
+        "uses": {
+          "libraries": [
+            "Lexical types",
+            "nanoid"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/components/labs/editor/index.ts",
+        "lines": 4,
+        "domain": "admin",
+        "purpose": "Barrel-файл для editor: реэкспорт LabEditor и утилит нормализации/типов.",
+        "imports": [],
+        "provides": {
+          "exports": [
+            "LabEditor",
+            "normalizeVariant",
+            "normalizeQuestion",
+            "createVariant",
+            "createQuestion",
+            "LabData (type)",
+            "LabVariant (type)",
+            "LabEditorProps (type)"
+          ]
+        },
+        "api_endpoints": {
+          "calls": []
+        }
+      },
+      {
+        "path": "frontend/src/lib/api/student.ts",
+        "lines": 69,
+        "domain": "student",
+        "purpose": "Клиент StudentAPI: содержит методы для student-эндпоинтов; в контексте лаб — получение списка/деталей и отметка готовности/отмена.",
+        "imports": [
+          "./client",
+          "./types"
+        ],
+        "provides": {
+          "exports": [
+            "StudentAPI"
+          ],
+          "lab_methods": [
+            "getLabs()",
+            "getLabDetail(labId)",
+            "markLabReady(labId)",
+            "cancelLabReady(labId)"
+          ]
+        },
+        "uses": {
+          "libraries": [
+            "Axios client (api)"
+          ]
+        },
+        "api_endpoints": {
+          "calls": [
+            {
+              "method": "GET",
+              "path": "/student/labs",
+              "returns": "StudentLab[]"
+            },
+            {
+              "method": "GET",
+              "path": "/student/labs/{lab_id}",
+              "returns": "StudentLabDetail"
+            },
+            {
+              "method": "POST",
+              "path": "/student/labs/{lab_id}/ready",
+              "returns": "{ status, submission_id, variant_number?, message }"
+            },
+            {
+              "method": "POST",
+              "path": "/student/labs/{lab_id}/cancel-ready",
+              "returns": "{ status, message }"
+            }
+          ]
+        },
+        "notes": [
+          "Файл также содержит не-лабовые методы (profile/attendance/attestation/etc) — по запросу они не анализировались." 
+        ]
+      }
+    ],
+    "backend_files": [
+      {
+        "path": "backend/app/api/v1/endpoints/student/labs.py",
+        "lines": 409,
+        "domain": "student",
+        "purpose": "FastAPI эндпоинты для лабораторных студента: список видимых лаб по расписанию, детали лабы, отметка готовности к сдаче (очередь) и отмена готовности.",
+        "imports": [
+          "fastapi (APIRouter, Depends, HTTPException, Request)",
+          "sqlalchemy (select)",
+          "sqlalchemy.ext.asyncio (AsyncSession)",
+          "app.api.deps (get_db, get_current_user)",
+          "app.models.user (User, UserRole)",
+          "app.models.lab (Lab)",
+          "app.models.submission (Submission, SubmissionStatus)",
+          "app.audit (audit_action, audit_user, ActionType, EntityType)",
+          "app.services.lab_visibility (LabVisibilityService)",
+          "app.core.limiter (limiter)",
+          "typing/uuid/datetime"
+        ],
+        "provides": {
+          "router": "APIRouter()",
+          "endpoints": [
+            {
+              "method": "GET",
+              "path": "/labs (mounted under /student => /student/labs)",
+              "handler": "get_my_labs",
+              "returns": "list[dict]",
+              "notes": [
+                "Фильтрация видимых лаб по расписанию (LabVisibilityService.get_visible_lab_numbers_by_subject)",
+                "Поле is_available рассчитывается локально по prev_accepted (последовательность)"
+              ]
+            },
+            {
+              "method": "GET",
+              "path": "/labs/{lab_id} (=> /student/labs/{lab_id})",
+              "handler": "get_lab_detail",
+              "returns": "dict",
+              "notes": [
+                "Проверка видимости по расписанию через LabVisibilityService.get_visibility_info",
+                "Добавляет can_submit_now (идёт ли пара)"
+              ]
+            },
+            {
+              "method": "POST",
+              "path": "/labs/{lab_id}/ready (=> /student/labs/{lab_id}/ready)",
+              "handler": "mark_lab_ready",
+              "rate_limit": "10/hour",
+              "returns": "{ status, submission_id, variant_number, message }",
+              "notes": [
+                "Доступно только во время пары (is_lab_session_now)",
+                "Выставляет Submission.status=READY и ready_at"
+              ]
+            },
+            {
+              "method": "POST",
+              "path": "/labs/{lab_id}/cancel-ready (=> /student/labs/{lab_id}/cancel-ready)",
+              "handler": "cancel_lab_ready",
+              "returns": "{ status, message }",
+              "notes": [
+                "Переводит READY -> NEW, чистит ready_at"
+              ]
+            }
+          ],
+          "helpers": [
+            "_format_submission(sub)",
+            "_get_student_position(db, user)",
+            "_check_lab_availability(db, user_id, lab)"
+          ]
+        },
+        "serves_api_for": [
+          "frontend StudentAPI.getLabs/getLabDetail/markLabReady/cancelLabReady"
+        ],
+        "notes": [
+          "В get_my_labs реализована batch-загрузка visibility info, чтобы избежать N+1.",
+          "variant_number считается как позиция студента в группе (по full_name) % variants_count.",
+          "Явного логирования нет, но есть audit_action/audit_user (возможно, закрывает аудит/логирование действий)."
+        ],
+        "risks": [
+          "Критично для мульти-предметов: labs_deadlines/labs_subjects/labs_ids и visibility_map индексируются по lab.number. Если в разных предметах есть ЛР с одинаковым номером, ключи конфликтуют и данные могут подмешиваться/перетираться.",
+          "Критично для мульти-предметов: is_available в get_my_labs вычисляется через prev_accepted по списку visible_labs (глобально), а не по subject_id. Это может блокировать/разблокировать лабы одного предмета статусом другого.",
+          "Проверка доступности/видимости дублируется между list/detail/ready (часть условий можно вынести в сервис)."
+        ]
+      }
+    ],
+    "dependencies": {
+      "frontend_to_backend": [
+        {
+          "frontend": "StudentAPI.getLabs()",
+          "backend": "GET /student/labs (student/labs.py:get_my_labs)"
+        },
+        {
+          "frontend": "StudentAPI.getLabDetail(labId)",
+          "backend": "GET /student/labs/{lab_id} (student/labs.py:get_lab_detail)"
+        },
+        {
+          "frontend": "StudentAPI.markLabReady(labId)",
+          "backend": "POST /student/labs/{lab_id}/ready (student/labs.py:mark_lab_ready)"
+        },
+        {
+          "frontend": "StudentAPI.cancelLabReady(labId)",
+          "backend": "POST /student/labs/{lab_id}/cancel-ready (student/labs.py:cancel_lab_ready)"
+        }
+      ],
+      "internal_frontend_component_graph": [
+        "frontend/src/components/labs/index.ts -> reexports shared/admin components",
+        "frontend/src/components/labs/editor/LabEditor.tsx -> HeaderTab, TheoryTab, PracticeTab, QuestionsTab, LabStyleContext",
+        "frontend/src/components/labs/editor/PracticeTab.tsx -> VariantCard",
+        "frontend/src/components/labs/editor/QuestionsTab.tsx -> normalizeQuestion (types.ts)"
+      ],
+      "key_libraries": [
+        "Next.js App Router (client components)",
+        "React",
+        "Axios (frontend api client)",
+        "FastAPI",
+        "SQLAlchemy AsyncSession",
+        "Lexical editor/viewer",
+        "sonner toasts",
+        "lucide-react / tabler icons",
+        "motion/react"
+      ]
+    },
+    "violations": {
+      "oversized_files": [
+        {
+          "file": "backend/app/api/v1/endpoints/student/labs.py",
+          "lines": 409,
+          "recommendation": "Разбить: list.py (GET /labs), detail.py (GET /labs/{id}), submission.py (ready/cancel), helpers/service.py; отдельно вынести расчёт is_available и работу с visibility в LabVisibilityService."
+        }
+      ],
+      "monolithic_files": [
+        {
+          "file": "backend/app/api/v1/endpoints/student/labs.py",
+          "reason": "Несколько эндпоинтов + бизнес-логика видимости/дедлайнов/последовательности + helper-функции в одном файле; есть вложенная функция is_lab_visible; потенциальные ошибки при мульти-предметах.",
+          "recommendation": "Вынести вычисления видимости/доступности и маппинг ответа в сервис/DTO; ключи visibility_map сделать уникальными (lab.id или (subject_id, number))."
+        }
+      ],
+      "missing_logs": [
+        {
+          "file": "frontend/src/app/dashboard/labs/page.tsx",
+          "recommendation": "Добавить хотя бы debug-логирование в случае ошибок загрузки/ready/cancel (или подключить централизованный error reporting)."
+        },
+        {
+          "file": "frontend/src/lib/api/student.ts",
+          "recommendation": "Опционально: логировать сетевые ошибки/коды ответов в одном месте (interceptor), чтобы UI не был единственной точкой диагностики."
+        },
+        {
+          "file": "backend/app/api/v1/endpoints/student/labs.py",
+          "recommendation": "Добавить структурированные логи (или убедиться, что audit_action покрывает нужные события и ошибки)."
+        }
+      ]
+    },
+    "refactoring_priority": [
+      "backend/app/api/v1/endpoints/student/labs.py (409 lines) - HIGH: риск конфликтов по lab.number и кросс-предметная последовательность",
+      "frontend/src/app/dashboard/labs/page.tsx (282 lines) - MEDIUM: много UI+логики в одном файле, близко к порогу 300",
+      "frontend/src/lib/api/student.ts (69 lines) - LOW: OK, но можно вынести лабовые методы в отдельный модуль/namespace для ясности"
+    ]
+  }
+}

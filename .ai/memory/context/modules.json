@@ -1,6 +1,45 @@
 {
   "modules": [
     {
+      "name": "StudentArea",
+      "type": "feature-group",
+      "path": "multiple",
+      "notes": "High-level group for student-facing features. Pages: dashboard, labs, attendance, activities, settings. API: labs, attendance, attestation, profile, activities. Components: StatusHero, QuickStats, DeadlinesList, LabContentTabs, LessonSheet. Functions: progress overview, lab study/submit, attendance stats (calendar/history), activity points (bonuses/penalties), attestation calculation. AGENT RULE: Only modify these when user requests student-related tasks. Do not touch AdminArea without explicit request.",
+      "related_entities": ["StudentDashboard", "StudentFeedback", "StudentIssues", "PublicReportsArea", "StudentAttendance", "StudentActivities", "StudentAttestation"]
+    },
+    {
+      "name": "AdminArea",
+      "type": "feature-group",
+      "path": "multiple",
+      "notes": "High-level group for admin/teacher-facing features. Pages: admin, groups, labs, journal, schedule, audit, reports. API: admin_labs, admin_journal, admin_reports, groups/students, admin_audit. Components: AdminSidebar, JournalTable, ScheduleGrid, ActivityManagementSection. Functions: group/lab management, journal control, report management (PIN-protected links), audit/security. AGENT RULE: Stay away from this area if the task is about students. Do not touch StudentArea without explicit request.",
+      "related_entities": ["Large monolithic files", "AdminLintWarnings", "PublicReportsArea", "AnnouncementManagement", "BackupManagement"]
+    },
+    {
+      "name": "backend/services/backup",
+      "type": "service-layer",
+      "path": "backend/app/services/backup/",
+      "notes": "Core backup logic. Includes backup_service.py (pg_dump, encryption, upload), restore_service.py (pg_restore, verify), encryption.py (AES-256-GCM), and notification.py (Telegram/VK)."
+    },
+    {
+      "name": "backend/api/backup",
+      "type": "api-layer",
+      "path": "backend/app/api/v1/endpoints/backup/",
+      "notes": "Admin backup API. Endpoints for CRUD, restore, verify, and settings. Prefix: /admin/backups/."
+    },
+    {
+      "name": "frontend/app/admin/settings/backups",
+      "type": "feature-component",
+      "path": "frontend/src/app/admin/settings/components/",
+      "notes": "UI for backup management. Components: BackupTab (container), BackupListCard (list/actions), BackupSettingsCard (auto-backup config). Calls BackupAPI."
+    },
+    {
+      "name": "PublicReportsArea",
+      "type": "feature-group",
+      "path": "multiple",
+      "notes": "Publicly accessible reports for students, parents, and curators. Files: /report/[code], ReportStudentTable.tsx, public_reports.py, report_builder.py. Features: anonymity, granularity, PIN protection, Rate Limiting, Honeypot codes. Parents/curators access via link (no accounts).",
+      "related_entities": ["StudentArea", "AdminArea"]
+    },
+    {
       "name": "frontend",
       "type": "app",
       "path": "frontend/",
@@ -28,7 +67,13 @@
       "name": "frontend/app/dashboard/attendance",
       "type": "page",
       "path": "frontend/src/app/dashboard/attendance/",
-      "notes": "Student attendance module. Modular structure: hooks, types, calendar/stats components. Features: safe date handling, retry logic."
+      "notes": "Student attendance module. Modular structure: hooks, types, calendar/stats components. Features: safe date handling, retry logic. Calls GET /attendance."
+    },
+    {
+      "name": "frontend/app/dashboard/activities",
+      "type": "page",
+      "path": "frontend/src/app/dashboard/activities/",
+      "notes": "Student activity points history. Features: attestation tabs (first/second), bonus/penalty breakdown. Calls GET /activities."
     },
     {
       "name": "frontend/components/feedback",
@@ -112,7 +157,49 @@
       "name": "backend/api/student",
       "type": "api-layer",
       "path": "backend/app/api/v1/endpoints/student/",
-      "notes": "Student-facing API endpoints, including attendance and score reporting."
+      "notes": "Student-facing API endpoints. Includes: attendance.py (stats/records), activities.py (bonuses/penalties), attestation.py (score calculation via AttestationService)."
+    },
+    {
+      "name": "frontend/app/admin/groups",
+      "type": "route-segment",
+      "path": "frontend/src/app/admin/groups/",
+      "notes": "Admin group management. Features: CRUD, bulk student import (xlsx/docx/text), subgroups, invite codes, public reports. Components: BentoGrid, Tabs, Modals."
+    },
+    {
+      "name": "frontend/app/admin/labs",
+      "type": "route-segment",
+      "path": "frontend/src/app/admin/labs/",
+      "notes": "Admin lab management. Features: CRUD, deadlines, queue (accept/reject), schedule attachment, global settings. Components: LabsTable, StatsCards, QueueDialog, DeadlineExtensionsDialog."
+    },
+    {
+      "name": "frontend/app/admin/journal",
+      "type": "route-segment",
+      "path": "frontend/src/app/admin/journal/",
+      "notes": "Admin journal module. Features: attendance/grades table, filters, week navigation, stats, export (XLSX/CSV/JSON). Modular hooks for data/filters/attendance/grades."
+    },
+    {
+      "name": "backend/api/admin_labs",
+      "type": "api-layer",
+      "path": "backend/app/api/v1/endpoints/admin_labs.py",
+      "notes": "Admin labs API. CRUD, publish/unpublish, settings, deadline extensions. Includes Redis caching and rate limiting."
+    },
+    {
+      "name": "backend/api/admin_journal",
+      "type": "api-layer",
+      "path": "backend/app/api/v1/endpoints/admin_journal.py",
+      "notes": "Admin journal API facade. Aggregates lessons, grades, and export routers."
+    },
+    {
+      "name": "backend/api/public_reports",
+      "type": "api-layer",
+      "path": "backend/app/api/v1/endpoints/public_reports.py",
+      "notes": "Public reports API. Features: code-based access, PIN verification, student details, security (honeypot, Redis ban)."
+    },
+    {
+      "name": "backend/services/reports",
+      "type": "service-layer",
+      "path": "backend/app/services/reports/",
+      "notes": "Public reports logic. Includes data collection (aggregation from multiple domains), audit, security, and builders."
     },
     {
       "name": "backend",
@@ -131,6 +218,18 @@
       "type": "docs",
       "path": "docs/",
       "notes": "Operational guides (server hardening, bot setup)."
+    },
+    {
+      "name": "frontend/app/admin/announcements",
+      "type": "route-segment",
+      "path": "frontend/src/app/admin/announcements/",
+      "notes": "Admin announcements management. Features: CRUD, publish, send to students (Telegram/VK). Components: AnnouncementsPage, AnnouncementDialog, AnnouncementCard."
+    },
+    {
+      "name": "backend/api/admin_announcements",
+      "type": "api-layer",
+      "path": "backend/app/api/v1/endpoints/admin_announcements.py",
+      "notes": "Admin announcements API. CRUD, publish, and notification delivery via AnnouncementService."
     },
     {
       "name": "process-docs",

@@ -1,0 +1,364 @@
+{
+  "announcement_management": {
+    "description": "Управление объявлениями и уведомлениями: создание черновиков, редактирование, публикация и отправка студентам через ботов (админка).",
+    "scope": {
+      "included_paths": [
+        "frontend/src/app/admin/announcements/*",
+        "frontend/src/components/admin/announcements/*",
+        "backend/app/api/v1/endpoints/admin_announcements.py",
+        "backend/app/api/v1/endpoints/announcements/*"
+      ],
+      "missing_or_empty_paths": [
+        "frontend/src/components/admin/announcements/* (not found)",
+        "backend/app/api/v1/endpoints/announcements/* (not found)"
+      ],
+      "notes": [
+        "Зависимости, импортируемые из других модулей (например, app.services.announcement_service, app.crud.crud_announcement, @/lib/api, @/components/ui/*), перечислены как связи, но их исходники не анализировались, т.к. они вне запрошенного списка.",
+        "Префикс backend роутера /admin/announcements подтвержден через include_router(...) в backend/app/api/v1/api.py (контекстный файл, не входит в список анализа)."
+      ]
+    },
+    "frontend_files": [
+      {
+        "path": "frontend/src/app/admin/announcements/page.tsx",
+        "lines": 238,
+        "type": "nextjs_app_router_page_client",
+        "purpose": "Админ-страница /admin/announcements: список объявлений, разделение на черновики/опубликованные, открытие диалога создания/редактирования, удаление, публикация, отправка уведомления.",
+        "announcement_actions": [
+          "list",
+          "create (open dialog)",
+          "edit (open dialog)",
+          "delete",
+          "publish",
+          "send"
+        ],
+        "provides": [
+          "default export: AnnouncementsPage (route: /admin/announcements)",
+          "local component: AnnouncementCard (not exported)"
+        ],
+        "uses_components": [
+          "AnnouncementDialog",
+          "AnnouncementCard",
+          "BlurFade",
+          "Card",
+          "CardHeader",
+          "CardTitle",
+          "CardContent",
+          "Badge",
+          "Button",
+          "lucide-react icons (Plus, Loader2, FileText, Send, Eye, Pencil, Trash2)"
+        ],
+        "imports": [
+          { "from": "react", "items": ["useEffect", "useState"] },
+          {
+            "from": "lucide-react",
+            "items": [
+              "Plus",
+              "Loader2",
+              "FileText",
+              "Send",
+              "Eye",
+              "Pencil",
+              "Trash2"
+            ]
+          },
+          { "from": "sonner", "items": ["toast"] },
+          {
+            "from": "@/components/ui/card",
+            "items": ["Card", "CardContent", "CardHeader", "CardTitle"]
+          },
+          { "from": "@/components/ui/badge", "items": ["Badge"] },
+          { "from": "@/components/ui/button", "items": ["Button"] },
+          { "from": "@/components/ui/blur-fade", "items": ["BlurFade"] },
+          { "from": "@/lib/api", "items": ["api (default)"] },
+          { "from": "./AnnouncementDialog", "items": ["AnnouncementDialog"] }
+        ],
+        "api_calls": [
+          {
+            "method": "GET",
+            "path": "/admin/announcements",
+            "purpose": "Загрузить список объявлений (черновики + опубликованные)",
+            "called_in": "fetchAnnouncements()"
+          },
+          {
+            "method": "DELETE",
+            "path": "/admin/announcements/{id}",
+            "purpose": "Удалить объявление",
+            "called_in": "handleDelete(id)"
+          },
+          {
+            "method": "POST",
+            "path": "/admin/announcements/{id}/publish",
+            "purpose": "Опубликовать черновик",
+            "called_in": "handlePublish(id)"
+          },
+          {
+            "method": "POST",
+            "path": "/admin/announcements/{id}/send",
+            "purpose": "Отправить опубликованное объявление студентам через ботов; UI ожидает stats.telegram_sent и stats.vk_sent",
+            "called_in": "handleSend(id)"
+          }
+        ],
+        "notes": [
+          "UI не передаёт skip/limit; используются backend дефолты (skip=0, limit=100).",
+          "Для даты отображения используется published_at || created_at.",
+          "Ошибка API обрабатывается через toast.error без диагностического логирования."
+        ]
+      },
+      {
+        "path": "frontend/src/app/admin/announcements/AnnouncementDialog.tsx",
+        "lines": 144,
+        "type": "react_client_dialog_component",
+        "purpose": "Диалог создания/редактирования объявления: загрузка данных при редактировании, минимальная валидация, сохранение (POST/PUT).",
+        "announcement_actions": ["create_draft", "edit"],
+        "provides": ["named export: AnnouncementDialog"],
+        "uses_components": [
+          "Dialog",
+          "DialogContent",
+          "DialogHeader",
+          "DialogTitle",
+          "Button",
+          "Input",
+          "Label",
+          "Textarea",
+          "lucide-react icons (Loader2, Save)"
+        ],
+        "imports": [
+          { "from": "react", "items": ["useEffect", "useState"] },
+          { "from": "lucide-react", "items": ["Loader2", "Save"] },
+          { "from": "sonner", "items": ["toast"] },
+          {
+            "from": "@/components/ui/dialog",
+            "items": ["Dialog", "DialogContent", "DialogHeader", "DialogTitle"]
+          },
+          { "from": "@/components/ui/button", "items": ["Button"] },
+          { "from": "@/components/ui/input", "items": ["Input"] },
+          { "from": "@/components/ui/label", "items": ["Label"] },
+          { "from": "@/components/ui/textarea", "items": ["Textarea"] },
+          { "from": "@/lib/api", "items": ["api (default)"] }
+        ],
+        "api_calls": [
+          {
+            "method": "GET",
+            "path": "/admin/announcements/{id}",
+            "purpose": "Загрузить объявление для редактирования",
+            "called_in": "loadAnnouncement()"
+          },
+          {
+            "method": "PUT",
+            "path": "/admin/announcements/{id}",
+            "purpose": "Сохранить изменения объявления",
+            "called_in": "handleSubmit() (isEdit=true)"
+          },
+          {
+            "method": "POST",
+            "path": "/admin/announcements",
+            "purpose": "Создать черновик объявления",
+            "called_in": "handleSubmit() (isEdit=false)"
+          }
+        ],
+        "notes": [
+          "Валидация только на клиенте (minLength): title>=3, content>=10.",
+          "Текст подсказки: 'Поддерживается Markdown', но предпросмотр/рендер Markdown в этом компоненте отсутствует.",
+          "Ошибка API обрабатывается через toast.error без диагностического логирования."
+        ]
+      }
+    ],
+    "backend_files": [
+      {
+        "path": "backend/app/api/v1/endpoints/admin_announcements.py",
+        "lines": 148,
+        "type": "fastapi_router",
+        "purpose": "Админский CRUD объявлений + publish + отправка студентам через сервис ботов.",
+        "provides": ["router: APIRouter"],
+        "imports": [
+          { "from": "typing", "items": ["List"] },
+          { "from": "uuid", "items": ["UUID"] },
+          { "from": "fastapi", "items": ["APIRouter", "Depends", "HTTPException"] },
+          { "from": "sqlalchemy.ext.asyncio", "items": ["AsyncSession"] },
+          { "from": "app.api", "items": ["deps"] },
+          { "from": "app.db.session", "items": ["get_db"] },
+          { "from": "app.crud.crud_announcement", "items": ["crud_announcement"] },
+          { "from": "app.models.user", "items": ["User"] },
+          {
+            "from": "app.schemas.announcement",
+            "items": [
+              "AnnouncementCreate",
+              "AnnouncementUpdate",
+              "AnnouncementResponse",
+              "AnnouncementListResponse"
+            ]
+          },
+          {
+            "from": "app.services.announcement_service",
+            "items": ["send_announcement_to_students"]
+          }
+        ],
+        "auth": {
+          "dependency": "deps.get_current_active_superuser",
+          "scope": "applies_to_all_endpoints"
+        },
+        "endpoints_served": [
+          {
+            "method": "GET",
+            "path": "/",
+            "function": "get_announcements",
+            "response_model": "List[AnnouncementListResponse]",
+            "purpose": "Получить список всех объявлений (черновики + опубликованные)",
+            "notes": ["Поддерживает skip/limit (дефолт: 0/100)"]
+          },
+          {
+            "method": "POST",
+            "path": "/",
+            "function": "create_announcement",
+            "response_model": "AnnouncementResponse",
+            "purpose": "Создать черновик объявления",
+            "notes": [
+              "Создаёт запись через crud_announcement.create(..., created_by=current_user.id)",
+              "Затем перечитывает через crud_announcement.get(...) для подгрузки автора (author_name)"
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/{announcement_id}",
+            "function": "get_announcement",
+            "response_model": "AnnouncementResponse",
+            "purpose": "Получить объявление по ID",
+            "notes": ["404 если не найдено"]
+          },
+          {
+            "method": "PUT",
+            "path": "/{announcement_id}",
+            "function": "update_announcement",
+            "response_model": "AnnouncementResponse",
+            "purpose": "Обновить объявление",
+            "notes": ["404 если не найдено"]
+          },
+          {
+            "method": "DELETE",
+            "path": "/{announcement_id}",
+            "function": "delete_announcement",
+            "response_model": null,
+            "purpose": "Удалить объявление",
+            "notes": ["Возвращает {status: 'deleted'} или 404"]
+          },
+          {
+            "method": "POST",
+            "path": "/{announcement_id}/publish",
+            "function": "publish_announcement",
+            "response_model": "AnnouncementResponse",
+            "purpose": "Опубликовать черновик",
+            "notes": ["400 если уже опубликовано", "404 если не найдено"]
+          },
+          {
+            "method": "POST",
+            "path": "/{announcement_id}/send",
+            "function": "send_announcement",
+            "response_model": null,
+            "purpose": "Отправить опубликованное объявление студентам через ботов",
+            "notes": [
+              "400 если announcement.is_draft=true",
+              "Возвращает {status: 'sent', stats: <result of send_announcement_to_students>}"
+            ]
+          }
+        ],
+        "notes": [
+          "Вспомогательная функция _to_response добавляет author_name (announcement.author.full_name) и поля дат.",
+          "Отсутствует явное логирование операций publish/send."
+        ]
+      }
+    ],
+    "dependencies": {
+      "frontend": {
+        "external": ["react", "lucide-react", "sonner"],
+        "internal": [
+          "@/lib/api",
+          "@/components/ui/card",
+          "@/components/ui/badge",
+          "@/components/ui/button",
+          "@/components/ui/dialog",
+          "@/components/ui/input",
+          "@/components/ui/label",
+          "@/components/ui/textarea",
+          "@/components/ui/blur-fade"
+        ]
+      },
+      "backend": {
+        "external": ["fastapi", "sqlalchemy"],
+        "internal": [
+          "app.api.deps.get_current_active_superuser",
+          "app.db.session.get_db",
+          "app.crud.crud_announcement.crud_announcement",
+          "app.schemas.announcement.*",
+          "app.services.announcement_service.send_announcement_to_students",
+          "app.models.user.User"
+        ]
+      },
+      "frontend_to_backend_contract": {
+        "admin_announcements_router_prefix": "/admin/announcements",
+        "mapping": [
+          {
+            "frontend_call": "api.get('/admin/announcements')",
+            "backend": "GET / (get_announcements)"
+          },
+          {
+            "frontend_call": "api.post('/admin/announcements', {title, content})",
+            "backend": "POST / (create_announcement)"
+          },
+          {
+            "frontend_call": "api.get(`/admin/announcements/${id}`)",
+            "backend": "GET /{announcement_id} (get_announcement)"
+          },
+          {
+            "frontend_call": "api.put(`/admin/announcements/${id}`, {title, content})",
+            "backend": "PUT /{announcement_id} (update_announcement)"
+          },
+          {
+            "frontend_call": "api.delete(`/admin/announcements/${id}`)",
+            "backend": "DELETE /{announcement_id} (delete_announcement)"
+          },
+          {
+            "frontend_call": "api.post(`/admin/announcements/${id}/publish`)",
+            "backend": "POST /{announcement_id}/publish (publish_announcement)"
+          },
+          {
+            "frontend_call": "api.post(`/admin/announcements/${id}/send`)",
+            "backend": "POST /{announcement_id}/send (send_announcement)"
+          }
+        ],
+        "notes": [
+          "В backend этот роутер включён с prefix='/admin/announcements' в backend/app/api/v1/api.py; полный URL также зависит от общего prefix версии API (обычно /api/v1), который задаётся на уровне приложения.",
+          "В backend маршруты объявлены с path='/' (со слешем); фронтенд использует без завершающего слеша — возможен 307 redirect (зависит от redirect_slashes)."
+        ]
+      }
+    },
+    "violations": {
+      "oversized_files": [],
+      "monolithic_files": [],
+      "missing_logs": [
+        {
+          "file": "frontend/src/app/admin/announcements/page.tsx",
+          "recommendation": "Добавить диагностическое логирование ошибок в catch (console.error или централизованный client logger) рядом с toast.error, особенно для publish/send/delete."
+        },
+        {
+          "file": "frontend/src/app/admin/announcements/AnnouncementDialog.tsx",
+          "recommendation": "Логировать ошибки загрузки/сохранения (с announcementId) для дебага, кроме toast.error."
+        },
+        {
+          "file": "backend/app/api/v1/endpoints/admin_announcements.py",
+          "recommendation": "Добавить структурированное логирование для publish/send (announcement_id, user_id, stats) и ошибок сервиса отправки."
+        }
+      ]
+    },
+    "refactoring_priority": [
+      "backend/app/api/v1/endpoints/admin_announcements.py (send/publish без логирования, потенциально критичные операции) - LOW",
+      "frontend/src/app/admin/announcements/page.tsx (UI + API actions в одном файле) - LOW"
+    ],
+    "risks": [
+      "UI всегда грузит максимум 100 записей (backend limit по умолчанию 100); при большем числе объявлений часть списка будет скрыта без пагинации.",
+      "Возможна разница в поведении из-за завершающего слеша: backend объявляет '/' (требует /admin/announcements/), фронт вызывает /admin/announcements.",
+      "send endpoint не показывает явной защиты от повторной отправки (idempotency); можно случайно отправить одно и то же объявление несколько раз.",
+      "Контракт stats в /send не закреплён схемой ответа; фронтенд ожидает stats.telegram_sent и stats.vk_sent — при изменении сервиса UI сломается.",
+      "Отсутствует audit/logging на backend для publish/send, что усложнит разбор инцидентов доставки уведомлений."
+    ]
+  }
+}

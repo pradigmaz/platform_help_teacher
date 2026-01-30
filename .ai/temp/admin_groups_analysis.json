@@ -1,0 +1,639 @@
+{
+  "group_management": {
+    "description": "CRUD групп, импорт/управление студентами, подгруппы, инвайт-коды (плюс страница публичных отчётов группы)",
+    "frontend_files": [
+      {
+        "file": "frontend/src/app/admin/groups/page.tsx",
+        "role": "главная страница админки для списка групп (просмотр/удаление/переход к деталям)",
+        "functions": [
+          "загрузка списка групп",
+          "рендер карточек групп (BentoGrid)",
+          "переход к созданию новой группы",
+          "удаление группы через confirm-dialog (архивация на бэкенде)",
+          "skeleton/empty-state"
+        ],
+        "components_used": [
+          "Link (next/link)",
+          "Button",
+          "DotPattern",
+          "BentoGrid",
+          "BentoCard",
+          "Skeleton",
+          "AlertDialog (+ subcomponents)",
+          "Plus/Users/Trash2 (lucide-react icons)"
+        ],
+        "components_provided": ["AdminGroupsPage (default export)"],
+        "api_calls": [
+          "GET /groups/ (GroupsAPI.list)",
+          "DELETE /groups/{group_id} (GroupsAPI.delete)"
+        ],
+        "imports": [
+          "react",
+          "next/link",
+          "lucide-react",
+          "@/lib/api",
+          "@/components/ui/button",
+          "@/components/ui/sonner",
+          "@/components/ui/skeleton",
+          "@/components/ui/alert-dialog",
+          "@/components/ui/bento-grid",
+          "@/components/ui/dot-pattern"
+        ],
+        "lines": 156
+      },
+      {
+        "file": "frontend/src/app/admin/groups/new/page.tsx",
+        "role": "страница мастера создания группы (2 шага: данные группы + импорт/ввод списка студентов)",
+        "functions": [
+          "ввод name/code группы",
+          "импорт студентов из файла (xlsx/xls/docx/txt/csv) через /groups/parse",
+          "вставка списка студентов текстом (парсинг ФИО по строкам)",
+          "ручное редактирование списка студентов (добавить/удалить/редактировать строки)",
+          "создание группы с прикреплением студентов"
+        ],
+        "components_used": [
+          "Button",
+          "Dropzone",
+          "ArrowLeft/Upload/Check/X/Plus/ClipboardPaste (lucide-react icons)"
+        ],
+        "components_provided": ["CreateGroupPage (default export)"],
+        "api_calls": [
+          "POST /groups/parse (GroupsAPI.parseFile)",
+          "POST /groups/ (GroupsAPI.create)"
+        ],
+        "imports": [
+          "react",
+          "next/navigation",
+          "lucide-react",
+          "@/components/ui/button",
+          "@/components/ui/sonner",
+          "@/lib/api",
+          "@/lib/utils",
+          "@/components/animate-ui/dropzone"
+        ],
+        "lines": 320
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/page.tsx",
+        "role": "страница управления конкретной группой (студенты, подгруппы, инвайт-коды, статистика, активность)",
+        "functions": [
+          "загрузка деталей группы и списка студентов",
+          "табовый UI: students/subgroups/codes/stats",
+          "поиск по студентам (для students/codes)",
+          "добавление студента вручную",
+          "массовое добавление студентов по вставленному списку",
+          "удаление студента и bulk-delete",
+          "назначение/очистка подгрупп по списку ФИО",
+          "генерация индивидуальных кодов и регенерация кодов (группы/студента)",
+          "переход к странице отчётов группы",
+          "открытие AddActivityDialog (внешняя функциональность)"
+        ],
+        "components_used": [
+          "Button",
+          "DotPattern",
+          "Tabs/TabsList/TabsTrigger",
+          "Command/CommandInput",
+          "AnimatePresence/motion.div",
+          "AddActivityDialog",
+          "StudentsTab",
+          "SubgroupsTab",
+          "CodesTab",
+          "StatsTab",
+          "PasteStudentsModal",
+          "SubgroupModal",
+          "AddStudentDialog",
+          "DeleteStudentDialog",
+          "GroupPageSkeleton",
+          "ArrowLeft/Users/Users2/Key/BarChart3/Plus/Sparkles/ClipboardPaste/FileText (lucide-react icons)"
+        ],
+        "components_provided": ["GroupDetailPage (default export)"],
+        "api_calls": [
+          "GET /groups/{group_id} (GroupsAPI.get)",
+          "POST /groups/{group_id}/students (GroupsAPI.addStudent)",
+          "POST /groups/{group_id}/students/bulk (GroupsAPI.addStudentsBulk)",
+          "DELETE /groups/{group_id}/students/{student_id} (GroupsAPI.removeStudent)",
+          "POST /groups/{group_id}/students/bulk-delete (GroupsAPI.removeStudentsBulk)",
+          "POST /groups/{group_id}/assign-subgroup (GroupsAPI.assignSubgroup)",
+          "POST /groups/{group_id}/clear-subgroups (GroupsAPI.clearSubgroups)",
+          "POST /groups/{group_id}/generate-codes (GroupsAPI.generateCodes)",
+          "POST /groups/{group_id}/regenerate-invite-code (GroupsAPI.regenerateGroupInviteCode)",
+          "POST /groups/users/{user_id}/regenerate-code (GroupsAPI.regenerateUserCode)"
+        ],
+        "imports": [
+          "react",
+          "next/navigation",
+          "lucide-react",
+          "motion/react",
+          "@/lib/api",
+          "@/components/ui/button",
+          "@/components/ui/sonner",
+          "@/components/ui/command",
+          "@/components/ui/dot-pattern",
+          "@/components/ui/tabs",
+          "@/components/admin/AddActivityDialog",
+          "./_components",
+          "./_components/GroupPageSkeleton"
+        ],
+        "lines": 396
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/reports/page.tsx",
+        "role": "страница управления публичными отчётами группы (создание, список, регенерация кода, деактивация)",
+        "functions": [
+          "загрузка данных группы",
+          "загрузка списка отчётов и фильтрация по group_id на клиенте",
+          "создание отчёта через CreateReportDialog",
+          "регенерация публичного кода отчёта",
+          "деактивация отчёта (delete)"
+        ],
+        "components_used": [
+          "Button",
+          "Card (+ subcomponents)",
+          "Badge",
+          "Table (+ subcomponents)",
+          "Skeleton",
+          "AlertDialog (+ subcomponents)",
+          "CreateReportDialog (локальный компонент папки reports)",
+          "ReportLinkCopy (локальный компонент папки reports)",
+          "ArrowLeft/Plus/Eye/EyeOff/Link2/BarChart3/RefreshCw/Trash2 (lucide-react icons)"
+        ],
+        "components_provided": ["GroupReportsPage (default export)"],
+        "api_calls": [
+          "GET /groups/{group_id} (GroupsAPI.get)",
+          "ReportsAPI.list (endpoint вне scope групп)",
+          "ReportsAPI.regenerate (endpoint вне scope групп)",
+          "ReportsAPI.delete (endpoint вне scope групп)"
+        ],
+        "imports": [
+          "react",
+          "next/navigation",
+          "lucide-react",
+          "@/components/ui/button",
+          "@/components/ui/card",
+          "@/components/ui/badge",
+          "@/components/ui/table",
+          "@/components/ui/sonner",
+          "@/components/ui/skeleton",
+          "@/components/ui/alert-dialog",
+          "@/lib/api",
+          "./components/CreateReportDialog",
+          "./components/ReportLinkCopy"
+        ],
+        "lines": 167
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/index.ts",
+        "role": "barrel-файл: реэкспорт табов и модалок для страницы группы",
+        "functions": [
+          "реэкспорт StudentsTab/SubgroupsTab/CodesTab/StatsTab",
+          "реэкспорт модалок из ./modals"
+        ],
+        "components_used": [],
+        "components_provided": [
+          "StudentsTab",
+          "SubgroupsTab",
+          "CodesTab",
+          "StatsTab",
+          "PasteStudentsModal",
+          "SubgroupModal",
+          "AddStudentDialog",
+          "DeleteStudentDialog"
+        ],
+        "api_calls": [],
+        "imports": [],
+        "lines": 6
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/GroupPageSkeleton.tsx",
+        "role": "skeleton-заглушка для страницы деталей группы во время загрузки",
+        "functions": ["рендер skeleton UI (header/tabs/table)"],
+        "components_used": ["Skeleton"],
+        "components_provided": ["GroupPageSkeleton"],
+        "api_calls": [],
+        "imports": ["@/components/ui/skeleton"],
+        "lines": 43
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/StudentsTab.tsx",
+        "role": "таб 'Студенты': таблица студентов, фильтрация, выбор и bulk-delete, переход к карточке студента",
+        "functions": [
+          "фильтрация и сортировка списка студентов",
+          "multi-select (Set) и toggle all",
+          "bulk delete через callback",
+          "удаление одного студента через callback",
+          "показ соц.ссылок Telegram/VK"
+        ],
+        "components_used": [
+          "Link (next/link)",
+          "Button",
+          "Checkbox",
+          "Trash2 (lucide-react icon)",
+          "IconBrandTelegram/IconBrandVk (@tabler/icons-react)"
+        ],
+        "components_provided": ["StudentsTab"],
+        "api_calls": [],
+        "imports": [
+          "react",
+          "next/link",
+          "lucide-react",
+          "@tabler/icons-react",
+          "@/components/ui/button",
+          "@/components/ui/checkbox",
+          "@/lib/api/types"
+        ],
+        "lines": 147
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/SubgroupsTab.tsx",
+        "role": "таб 'Подгруппы': отображение распределения по подгруппам и кнопки назначить/очистить",
+        "functions": [
+          "группировка студентов по subgroup (1/2/none)",
+          "вызов onAssignSubgroup(1|2)",
+          "вызов onClearSubgroups()"
+        ],
+        "components_used": ["Button", "Users2 (lucide-react icon)"],
+        "components_provided": ["SubgroupsTab"],
+        "api_calls": [],
+        "imports": ["lucide-react", "@/components/ui/button", "@/lib/api/types"],
+        "lines": 99
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/CodesTab.tsx",
+        "role": "таб 'Инвайт-коды': групповой код + индивидуальные коды студентов (копирование/регенерация/генерация)",
+        "functions": [
+          "копирование кода группы и кода студента",
+          "показ количества студентов без invite_code",
+          "вызов onGenerateCodes()",
+          "вызов onRegenerateGroupCode()",
+          "вызов onRegenerateCode(userId)"
+        ],
+        "components_used": [
+          "Button",
+          "MagicCard",
+          "toast (sonner)",
+          "Copy/RefreshCw/Key/Check/User (lucide-react icons)"
+        ],
+        "components_provided": ["CodesTab"],
+        "api_calls": [],
+        "imports": [
+          "react",
+          "lucide-react",
+          "@/components/ui/button",
+          "@/components/ui/magic-card",
+          "@/components/ui/sonner",
+          "@/lib/api/types"
+        ],
+        "lines": 189
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/StatsTab.tsx",
+        "role": "таб 'Статистика' (пока заглушка)",
+        "functions": ["рендер placeholder для будущей статистики"],
+        "components_used": ["BarChart3 (lucide-react icon)"],
+        "components_provided": ["StatsTab"],
+        "api_calls": [],
+        "imports": ["lucide-react"],
+        "lines": 14
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/modals/index.ts",
+        "role": "barrel-файл модалок для страницы группы",
+        "functions": ["реэкспорт PasteStudentsModal/SubgroupModal/AddStudentDialog/DeleteStudentDialog"],
+        "components_used": [],
+        "components_provided": [
+          "PasteStudentsModal",
+          "SubgroupModal",
+          "AddStudentDialog",
+          "DeleteStudentDialog"
+        ],
+        "api_calls": [],
+        "imports": [],
+        "lines": 5
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/modals/PasteStudentsModal.tsx",
+        "role": "модалка вставки списка студентов (bulk import UI)",
+        "functions": ["сбор текста", "submit через callback", "закрытие через callback"],
+        "components_used": ["Button"],
+        "components_provided": ["PasteStudentsModal"],
+        "api_calls": [],
+        "imports": ["@/components/ui/button"],
+        "lines": 50
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/modals/SubgroupModal.tsx",
+        "role": "модалка назначения подгруппы по списку ФИО (UI + отображение not_found)",
+        "functions": [
+          "сбор текста",
+          "submit через callback",
+          "рендер списка not_found при частичном матчинге"
+        ],
+        "components_used": ["Button"],
+        "components_provided": ["SubgroupModal"],
+        "api_calls": [],
+        "imports": ["@/components/ui/button"],
+        "lines": 70
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/modals/AddStudentDialog.tsx",
+        "role": "диалог добавления студента по ФИО",
+        "functions": ["ввод ФИО", "submit через callback", "закрытие/сброс"],
+        "components_used": ["AlertDialog (+ subcomponents)"],
+        "components_provided": ["AddStudentDialog"],
+        "api_calls": [],
+        "imports": ["@/components/ui/alert-dialog"],
+        "lines": 60
+      },
+      {
+        "file": "frontend/src/app/admin/groups/[id]/_components/modals/DeleteStudentDialog.tsx",
+        "role": "диалог подтверждения удаления студента из группы",
+        "functions": ["confirm/cancel UI", "submit через callback"],
+        "components_used": ["AlertDialog (+ subcomponents)"],
+        "components_provided": ["DeleteStudentDialog"],
+        "api_calls": [],
+        "imports": ["@/components/ui/alert-dialog"],
+        "lines": 47
+      },
+      {
+        "file": "frontend/src/lib/api/groups.ts",
+        "role": "клиентский API-слой для групп (обёртка над api client)",
+        "functions": [
+          "GroupsAPI.list",
+          "GroupsAPI.get",
+          "GroupsAPI.parseFile",
+          "GroupsAPI.create",
+          "GroupsAPI.delete",
+          "GroupsAPI.addStudent",
+          "GroupsAPI.addStudentsBulk",
+          "GroupsAPI.removeStudent",
+          "GroupsAPI.removeStudentsBulk",
+          "GroupsAPI.assignSubgroup",
+          "GroupsAPI.clearSubgroups",
+          "GroupsAPI.generateCodes",
+          "GroupsAPI.regenerateGroupInviteCode",
+          "GroupsAPI.regenerateUserCode",
+          "GroupsAPI.updateStudent"
+        ],
+        "components_used": [],
+        "components_provided": ["GroupsAPI"],
+        "api_calls": [
+          "GET /groups/",
+          "GET /groups/{group_id}",
+          "POST /groups/parse",
+          "POST /groups/",
+          "DELETE /groups/{group_id}",
+          "POST /groups/{group_id}/students",
+          "POST /groups/{group_id}/students/bulk",
+          "DELETE /groups/{group_id}/students/{student_id}",
+          "PATCH /groups/{group_id}/students/{student_id}",
+          "POST /groups/{group_id}/students/bulk-delete",
+          "POST /groups/{group_id}/assign-subgroup",
+          "POST /groups/{group_id}/clear-subgroups",
+          "POST /groups/{group_id}/generate-codes",
+          "POST /groups/{group_id}/regenerate-invite-code",
+          "POST /groups/users/{user_id}/regenerate-code"
+        ],
+        "imports": ["./client", "./types"],
+        "lines": 100
+      }
+    ],
+    "backend_files": [
+      {
+        "file": "backend/app/api/v1/endpoints/groups/crud.py",
+        "role": "CRUD групп + парсинг файла импорта студентов",
+        "endpoints": [
+          "GET /groups/",
+          "POST /groups/",
+          "GET /groups/{group_id}",
+          "DELETE /groups/{group_id}",
+          "POST /groups/parse"
+        ],
+        "imports": [
+          "fastapi",
+          "sqlalchemy",
+          "sqlalchemy.ext.asyncio",
+          "sqlalchemy.orm",
+          "app.schemas",
+          "app.models",
+          "app.api.deps",
+          "app.db.session.get_db",
+          "app.services.import_service.SmartImportService",
+          "app.services.group_service.GroupService",
+          "app.core.limiter.limiter",
+          "app.core.config.settings",
+          "logging",
+          "uuid"
+        ],
+        "services_used": ["GroupService", "SmartImportService", "limiter"],
+        "notes": [
+          "DELETE делает soft-delete: выставляет group.is_archived=True",
+          "read_group доступен teacher (deps.get_current_teacher), остальные админские методы - superuser"
+        ],
+        "lines": 143
+      },
+      {
+        "file": "backend/app/api/v1/endpoints/groups/students.py",
+        "role": "управление студентами внутри группы (add/bulk add/delete/bulk delete/update)",
+        "endpoints": [
+          "POST /groups/{group_id}/students",
+          "POST /groups/{group_id}/students/bulk",
+          "DELETE /groups/{group_id}/students/{student_id}",
+          "PATCH /groups/{group_id}/students/{student_id}",
+          "POST /groups/{group_id}/students/bulk-delete"
+        ],
+        "imports": [
+          "fastapi",
+          "pydantic",
+          "sqlalchemy",
+          "sqlalchemy.ext.asyncio",
+          "app.schemas",
+          "app.models",
+          "app.api.deps",
+          "app.db.session.get_db",
+          "app.core.limiter.limiter",
+          "app.core.config.settings",
+          "logging",
+          "uuid"
+        ],
+        "services_used": ["limiter", "settings"],
+        "notes": [
+          "удаление студента = hard delete записи пользователя",
+          "bulk add ограничен settings.MAX_STUDENTS_COUNT",
+          "в коде встречается models.user.UserRole.STUDENT (потенциально отличается от models.UserRole.STUDENT)"
+        ],
+        "lines": 210
+      },
+      {
+        "file": "backend/app/api/v1/endpoints/groups/subgroups.py",
+        "role": "назначение/очистка подгрупп для студентов группы",
+        "endpoints": [
+          "POST /groups/{group_id}/assign-subgroup",
+          "POST /groups/{group_id}/clear-subgroups"
+        ],
+        "imports": [
+          "fastapi",
+          "sqlalchemy",
+          "sqlalchemy.ext.asyncio",
+          "app.schemas",
+          "app.models",
+          "app.api.deps",
+          "app.db.session.get_db",
+          "app.utils.text.fio_matches",
+          "logging",
+          "uuid"
+        ],
+        "services_used": ["fio_matches"],
+        "notes": [
+          "assign-subgroup делает O(n*m) матчинг входных ФИО по списку студентов"
+        ],
+        "lines": 95
+      },
+      {
+        "file": "backend/app/api/v1/endpoints/groups/settings.py",
+        "role": "настройки группы и управление инвайт-кодами",
+        "endpoints": [
+          "PATCH /groups/{group_id}/lab-settings",
+          "POST /groups/{group_id}/regenerate-invite-code",
+          "POST /groups/{group_id}/generate-codes",
+          "POST /groups/users/{user_id}/regenerate-code"
+        ],
+        "imports": [
+          "fastapi",
+          "sqlalchemy",
+          "sqlalchemy.ext.asyncio",
+          "app.schemas",
+          "app.models",
+          "app.api.deps",
+          "app.db.session.get_db",
+          "app.services.group_service.GroupService",
+          "logging",
+          "uuid"
+        ],
+        "services_used": ["GroupService"],
+        "notes": [
+          "lab-settings не используется текущими admin/groups страницами, но лежит в groups/settings"
+        ],
+        "lines": 90
+      }
+    ],
+    "dependencies": {
+      "frontend_to_backend": {
+        "frontend/src/app/admin/groups/page.tsx": {
+          "calls": ["backend/app/api/v1/endpoints/groups/crud.py"],
+          "endpoints": ["GET /groups/", "DELETE /groups/{group_id}"]
+        },
+        "frontend/src/app/admin/groups/new/page.tsx": {
+          "calls": ["backend/app/api/v1/endpoints/groups/crud.py"],
+          "endpoints": ["POST /groups/parse", "POST /groups/"]
+        },
+        "frontend/src/app/admin/groups/[id]/page.tsx": {
+          "calls": [
+            "backend/app/api/v1/endpoints/groups/crud.py",
+            "backend/app/api/v1/endpoints/groups/students.py",
+            "backend/app/api/v1/endpoints/groups/subgroups.py",
+            "backend/app/api/v1/endpoints/groups/settings.py"
+          ],
+          "endpoints": [
+            "GET /groups/{group_id}",
+            "POST /groups/{group_id}/students",
+            "POST /groups/{group_id}/students/bulk",
+            "DELETE /groups/{group_id}/students/{student_id}",
+            "POST /groups/{group_id}/students/bulk-delete",
+            "POST /groups/{group_id}/assign-subgroup",
+            "POST /groups/{group_id}/clear-subgroups",
+            "POST /groups/{group_id}/generate-codes",
+            "POST /groups/{group_id}/regenerate-invite-code",
+            "POST /groups/users/{user_id}/regenerate-code"
+          ]
+        },
+        "frontend/src/app/admin/groups/[id]/reports/page.tsx": {
+          "calls": ["backend/app/api/v1/endpoints/groups/crud.py"],
+          "endpoints": ["GET /groups/{group_id}"],
+          "external_api_calls": ["ReportsAPI.* (backend file не в scope групп)"]
+        }
+      },
+      "internal_dependencies": {
+        "frontend/src/app/admin/groups/[id]/page.tsx": {
+          "imports": ["./_components", "./_components/GroupPageSkeleton"],
+          "uses": [
+            "frontend/src/app/admin/groups/[id]/_components/StudentsTab.tsx",
+            "frontend/src/app/admin/groups/[id]/_components/SubgroupsTab.tsx",
+            "frontend/src/app/admin/groups/[id]/_components/CodesTab.tsx",
+            "frontend/src/app/admin/groups/[id]/_components/StatsTab.tsx",
+            "frontend/src/app/admin/groups/[id]/_components/modals/PasteStudentsModal.tsx",
+            "frontend/src/app/admin/groups/[id]/_components/modals/SubgroupModal.tsx",
+            "frontend/src/app/admin/groups/[id]/_components/modals/AddStudentDialog.tsx",
+            "frontend/src/app/admin/groups/[id]/_components/modals/DeleteStudentDialog.tsx",
+            "frontend/src/app/admin/groups/[id]/_components/GroupPageSkeleton.tsx"
+          ]
+        },
+        "frontend/src/lib/api/groups.ts": {
+          "used_via": [
+            "@/lib/api (barrel)",
+            "GroupsAPI используется всеми admin/groups страницами"
+          ],
+          "backend_endpoint_owners": {
+            "GET /groups/": "backend/app/api/v1/endpoints/groups/crud.py",
+            "POST /groups/": "backend/app/api/v1/endpoints/groups/crud.py",
+            "GET /groups/{group_id}": "backend/app/api/v1/endpoints/groups/crud.py",
+            "DELETE /groups/{group_id}": "backend/app/api/v1/endpoints/groups/crud.py",
+            "POST /groups/parse": "backend/app/api/v1/endpoints/groups/crud.py",
+            "POST /groups/{group_id}/students": "backend/app/api/v1/endpoints/groups/students.py",
+            "POST /groups/{group_id}/students/bulk": "backend/app/api/v1/endpoints/groups/students.py",
+            "DELETE /groups/{group_id}/students/{student_id}": "backend/app/api/v1/endpoints/groups/students.py",
+            "PATCH /groups/{group_id}/students/{student_id}": "backend/app/api/v1/endpoints/groups/students.py",
+            "POST /groups/{group_id}/students/bulk-delete": "backend/app/api/v1/endpoints/groups/students.py",
+            "POST /groups/{group_id}/assign-subgroup": "backend/app/api/v1/endpoints/groups/subgroups.py",
+            "POST /groups/{group_id}/clear-subgroups": "backend/app/api/v1/endpoints/groups/subgroups.py",
+            "POST /groups/{group_id}/generate-codes": "backend/app/api/v1/endpoints/groups/settings.py",
+            "POST /groups/{group_id}/regenerate-invite-code": "backend/app/api/v1/endpoints/groups/settings.py",
+            "POST /groups/users/{user_id}/regenerate-code": "backend/app/api/v1/endpoints/groups/settings.py"
+          }
+        }
+      }
+    },
+    "violations": {
+      "oversized_files": [
+        {
+          "file": "frontend/src/app/admin/groups/[id]/page.tsx",
+          "lines": 396,
+          "recommendation": "Разбить: вынести API-хендлеры и state в hooks (useGroupDetail), вынести parseNames в util, вынести header/tabs в отдельные компоненты"
+        },
+        {
+          "file": "frontend/src/app/admin/groups/new/page.tsx",
+          "lines": 320,
+          "recommendation": "Разбить: Step1/Step2 компоненты, вынести парсинг ФИО в общий util (используется также в [id]/page.tsx), вынести Paste Modal в отдельный компонент"
+        }
+      ],
+      "monolithic_files": [
+        {
+          "file": "frontend/src/app/admin/groups/[id]/page.tsx",
+          "exports": 1,
+          "recommendation": "Смешаны ответственности (fetch + CRUD студентов + подгруппы + коды + модалки). Выделить слой действий (actions) и UI слои (tabs/modals)"
+        },
+        {
+          "file": "frontend/src/app/admin/groups/new/page.tsx",
+          "exports": 1,
+          "recommendation": "Смешаны ответственность формы и импорта. Вынести работу со списком студентов в отдельный компонент/хук"
+        }
+      ],
+      "missing_logs": [
+        {
+          "file": "frontend/src/app/admin/groups/[id]/reports/page.tsx",
+          "recommendation": "В catch-блоках нет console.error/logger (есть только toast). Добавить логирование ошибок для диагностики"
+        }
+      ]
+    },
+    "refactoring_priority": [
+      "frontend/src/app/admin/groups/[id]/page.tsx (396 lines) - HIGH",
+      "frontend/src/app/admin/groups/new/page.tsx (320 lines) - MEDIUM",
+      "backend/app/api/v1/endpoints/groups/subgroups.py (name matching O(n*m)) - MEDIUM"
+    ],
+    "risks": [
+      "backend/app/api/v1/endpoints/groups/crud.py: GET /groups/{group_id} защищён deps.get_current_teacher, а admin UI предполагает superuser; проверить что доступы согласованы",
+      "backend/app/api/v1/endpoints/groups/students.py: удаление студентов - hard delete (в отличие от soft-delete групп)",
+      "frontend/src/app/admin/groups/[id]/reports/page.tsx: ReportsAPI.list() грузит все отчёты и фильтрует на клиенте (потенциально много данных)",
+      "backend/app/api/v1/endpoints/groups/students.py: потенциальная несогласованность enum (models.user.UserRole vs models.UserRole)"
+    ]
+  }
+}

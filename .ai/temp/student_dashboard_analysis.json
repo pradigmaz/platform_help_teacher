@@ -1,0 +1,542 @@
+{
+  "student_dashboard": {
+    "description": "Дашборд студента (/dashboard): загружает профиль, посещаемость, лабораторные и аттестацию; отображает hero-статус аттестации, быстрые метрики и ближайшие дедлайны. В папке dashboard также лежат общие UI-компоненты окружения дашборда (sidebar, уведомления, баннер имперсонации).",
+    "analysis_scope": {
+      "frontend": [
+        "frontend/src/app/dashboard/page.tsx",
+        "frontend/src/components/dashboard/NotificationBell.tsx",
+        "frontend/src/components/dashboard/AceternitySidebar.tsx",
+        "frontend/src/components/dashboard/StatusHero.tsx",
+        "frontend/src/components/dashboard/ImpersonationBanner.tsx",
+        "frontend/src/components/dashboard/QuickStats.tsx",
+        "frontend/src/components/dashboard/types.ts",
+        "frontend/src/components/dashboard/DeadlinesList.tsx",
+        "frontend/src/components/dashboard/index.ts",
+        "frontend/src/components/dashboard/EmptyState.tsx",
+        "frontend/src/lib/api/student.ts"
+      ],
+      "backend": [
+        "backend/app/api/v1/endpoints/student/profile.py",
+        "backend/app/api/v1/endpoints/student/attendance.py",
+        "backend/app/api/v1/endpoints/student/attestation.py"
+      ]
+    },
+    "frontend_files": [
+      {
+        "path": "frontend/src/app/dashboard/page.tsx",
+        "lines": 98,
+        "purpose": "Next.js page-компонент для /dashboard (обзор): загружает данные студента и рендерит hero/статы/дедлайны.",
+        "exports": [
+          "default DashboardOverview()",
+          "(internal) DashboardSkeleton()"
+        ],
+        "imports": [
+          "react (useEffect, useState)",
+          "sonner (toast)",
+          "@/lib/api (StudentAPI, StudentProfile, StudentAttendance, StudentLab, StudentAttestation)",
+          "@/lib/utils (formatGroupCode)",
+          "@/components/animate-ui/primitives/effects/effect (Effect)",
+          "@/components/ui/skeleton (Skeleton)",
+          "@/components/dashboard (StatusHero, QuickStats, DeadlinesList)"
+        ],
+        "uses_components": [
+          "Effect",
+          "Skeleton",
+          "StatusHero",
+          "QuickStats",
+          "DeadlinesList"
+        ],
+        "calls_api": [
+          {
+            "client": "StudentAPI.getProfile()",
+            "http": "GET /student/profile"
+          },
+          {
+            "client": "StudentAPI.getAttendance()",
+            "http": "GET /student/attendance"
+          },
+          {
+            "client": "StudentAPI.getLabs()",
+            "http": "GET /student/labs"
+          },
+          {
+            "client": "StudentAPI.getAttestation('first')",
+            "http": "GET /student/attestation/first"
+          },
+          {
+            "client": "StudentAPI.getAttestation('second')",
+            "http": "GET /student/attestation/second"
+          }
+        ],
+        "notes": [
+          "Данные грузятся через Promise.all; при падении любого запроса страница теряет частичные результаты и показывает общий toast.error.",
+          "attestation выбирается как 'first', если нет att1.error, иначе берется 'second' (ожидается поле error в ответе).",
+          "firstName берется как 2-е слово из full_name (может быть некорректно для иных форматов ФИО)."
+        ]
+      },
+      {
+        "path": "frontend/src/components/dashboard/StatusHero.tsx",
+        "lines": 186,
+        "purpose": "Hero-блок с основным статусом аттестации: итоговые баллы, прогресс до зачета, grade и breakdown по лабам.",
+        "exports": [
+          "StatusHero(props)"
+        ],
+        "imports": [
+          "@/lib/utils (cn)",
+          "@/components/ui/badge (Badge)",
+          "@/components/ui/magic-card (MagicCard)",
+          "@/components/animate-ui/primitives/texts/sliding-number (SlidingNumber)",
+          "@/components/animate-ui/primitives/effects/effect (Effect)",
+          "@tabler/icons-react (IconCheck, IconX, IconAlertTriangle)",
+          "./types (StatusHeroProps, AttestationStatus)",
+          "./EmptyState (EmptyState)"
+        ],
+        "uses_components": [
+          "MagicCard",
+          "Badge",
+          "SlidingNumber",
+          "Effect",
+          "EmptyState"
+        ],
+        "calls_api": [],
+        "notes": [
+          "Статус вычисляется из attestation: error/null -> unavailable; is_passing -> passing; иначе borderline/failing по порогу pointsToPass.",
+          "Значения grade ожидаются как 'отл'/'хор'/'уд'/'неуд' для цветовой схемы; иные значения уйдут в дефолтный стиль."
+        ]
+      },
+      {
+        "path": "frontend/src/components/dashboard/QuickStats.tsx",
+        "lines": 158,
+        "purpose": "Набор карточек-метрик: лабораторные (кол-во/прогресс), посещаемость (процент и счетчики), ближайший дедлайн.",
+        "exports": [
+          "QuickStats(props)"
+        ],
+        "imports": [
+          "next/link (Link)",
+          "@/components/ui/magic-card (MagicCard)",
+          "@/components/ui/progress (Progress)",
+          "@/components/animate-ui/primitives/texts/sliding-number (SlidingNumber)",
+          "@/components/animate-ui/primitives/effects/effect (Effects)",
+          "@tabler/icons-react (IconFlask, IconCalendar, IconClock)",
+          "./types (QuickStatsProps)"
+        ],
+        "uses_components": [
+          "MagicCard",
+          "Progress",
+          "SlidingNumber",
+          "Effects",
+          "Link"
+        ],
+        "calls_api": [],
+        "notes": [
+          "Карточки ведут на /dashboard/labs и /dashboard/attendance.",
+          "Ближайший дедлайн вычисляется только по deadline_5_lessons; DeadlinesList уже использует новую систему lessons_until_deadline_5 + deadline_5_status (возможная рассинхронизация логики).",
+          "Фильтр дедлайнов: `.filter(l => l.deadline_5_lessons && ...)` исключает значение 0 (потенциально самый срочный дедлайн)."
+        ]
+      },
+      {
+        "path": "frontend/src/components/dashboard/DeadlinesList.tsx",
+        "lines": 171,
+        "purpose": "Список ближайших лабораторных дедлайнов; сортировка по срочности; визуальные индикаторы (soon/expired) и статус сдачи.",
+        "exports": [
+          "DeadlinesList(props)"
+        ],
+        "imports": [
+          "next/link (Link)",
+          "@/lib/utils (cn)",
+          "@/components/ui/badge (Badge)",
+          "@/components/animate-ui/primitives/effects/effect (Effect)",
+          "@tabler/icons-react (IconArrowRight, IconFlask)",
+          "./types (DeadlinesListProps, LabStatus)",
+          "./EmptyState (EmptyState)"
+        ],
+        "uses_components": [
+          "Effect",
+          "Badge",
+          "EmptyState",
+          "Link"
+        ],
+        "calls_api": [],
+        "notes": [
+          "Поддерживает новую модель: lessons_until_deadline_5 + deadline_5_status (expired), с fallback на старую deadline_5_lessons.",
+          "Ссылки: /dashboard/labs (в шапке) и /dashboard/labs/{lab.id} (элементы списка)."
+        ]
+      },
+      {
+        "path": "frontend/src/components/dashboard/EmptyState.tsx",
+        "lines": 36,
+        "purpose": "Переиспользуемый empty-state блок: иконка, заголовок, описание и опциональное действие.",
+        "exports": [
+          "EmptyState(props)"
+        ],
+        "imports": [
+          "@/lib/utils (cn)",
+          "./types (EmptyStateProps)"
+        ],
+        "uses_components": [],
+        "calls_api": []
+      },
+      {
+        "path": "frontend/src/components/dashboard/types.ts",
+        "lines": 40,
+        "purpose": "TypeScript типы пропсов для компонентов дашборда + enum-подобные union-типы статусов.",
+        "exports": [
+          "StatusHeroProps",
+          "QuickStatsProps",
+          "DeadlinesListProps",
+          "EmptyStateProps",
+          "LabStatus",
+          "AttestationStatus"
+        ],
+        "imports": [
+          "@/lib/api (type StudentLab, StudentAttestation, StudentAttendance)"
+        ],
+        "uses_components": [],
+        "calls_api": [],
+        "notes": [
+          "Используется React.ReactNode, но React не импортирован (может зависеть от настроек типов/tsconfig)."
+        ]
+      },
+      {
+        "path": "frontend/src/components/dashboard/index.ts",
+        "lines": 11,
+        "purpose": "Barrel-экспорт компонентов дашборда для удобного импорта через '@/components/dashboard'.",
+        "exports": [
+          "StatusHero",
+          "QuickStats",
+          "DeadlinesList",
+          "EmptyState",
+          "type * from ./types"
+        ],
+        "imports": [],
+        "uses_components": [],
+        "calls_api": []
+      },
+      {
+        "path": "frontend/src/components/dashboard/NotificationBell.tsx",
+        "lines": 195,
+        "purpose": "Колокольчик уведомлений/объявлений: Popover со списком, markdown-контент, счетчик непрочитанных, автообновление.",
+        "exports": [
+          "NotificationBell(props)",
+          "(internal) AnnouncementItem(props)"
+        ],
+        "imports": [
+          "react (useEffect, useState, useCallback)",
+          "@tabler/icons-react (IconBell, IconX, IconTrash)",
+          "date-fns (formatDistanceToNow)",
+          "date-fns/locale (ru)",
+          "react-markdown (ReactMarkdown)",
+          "remark-gfm (remarkGfm)",
+          "rehype-sanitize (rehypeSanitize)",
+          "@/components/ui/popover (Popover, PopoverContent, PopoverTrigger)",
+          "@/components/ui/scroll-area (ScrollArea)",
+          "@/components/ui/button (Button)",
+          "@/lib/utils (cn)",
+          "@/lib/api/announcements (AnnouncementsAPI, Announcement, getReadAnnouncementIds, markAnnouncementAsRead, getUnreadCount, clearAllAnnouncements)"
+        ],
+        "uses_components": [
+          "Popover",
+          "ScrollArea",
+          "Button",
+          "ReactMarkdown"
+        ],
+        "calls_api": [
+          {
+            "client": "AnnouncementsAPI.getAnnouncements(0, 10)",
+            "http": "(unknown here; defined in @/lib/api/announcements)"
+          }
+        ],
+        "notes": [
+          "Автообновление объявлений: setInterval каждые 5 минут.",
+          "Ошибки загрузки подавляются (catch без toast/log) — при проблемах будет тихо пустой список/старые данные."
+        ]
+      },
+      {
+        "path": "frontend/src/components/dashboard/AceternitySidebar.tsx",
+        "lines": 323,
+        "purpose": "Layout-обертка для дашборда: desktop sidebar (expand on hover), mobile sidebar (overlay), навигация, theme toggle, уведомления, logout и блок пользователя.",
+        "exports": [
+          "AceternitySidebarLayout(props)",
+          "(internal) NavLink(props)",
+          "(internal) Logo()",
+          "(internal) LogoIcon()"
+        ],
+        "imports": [
+          "react (React, useState)",
+          "next/link (Link)",
+          "@tabler/icons-react (IconLayoutDashboard, IconFlask, IconCalendar, IconSettings, IconLogout, IconSchool, IconStar, IconMenu2, IconX)",
+          "motion/react (motion, AnimatePresence)",
+          "@/lib/utils (cn)",
+          "next/navigation (useRouter, usePathname)",
+          "@/components/ui/animated-theme-toggler (AnimatedThemeToggler)",
+          "./NotificationBell (NotificationBell)",
+          "@/lib/api (default api client)"
+        ],
+        "uses_components": [
+          "Link",
+          "motion/AnimatePresence",
+          "AnimatedThemeToggler",
+          "NotificationBell"
+        ],
+        "calls_api": [
+          {
+            "client": "api.post('/auth/logout')",
+            "http": "POST /auth/logout"
+          }
+        ],
+        "notes": [
+          "Один state `open` используется и для desktop (hover-expand), и для mobile (меню) — потенциально хрупко при ресайзе.",
+          "Logo/LogoIcon используют <a href> вместо <Link>, что может вызвать full reload вместо client-side навигации.",
+          "Файл >300 строк и смешивает UI + навигацию + auth/logout (кандидат на декомпозицию)."
+        ]
+      },
+      {
+        "path": "frontend/src/components/dashboard/ImpersonationBanner.tsx",
+        "lines": 111,
+        "purpose": "Баннер админской имперсонации студента: проверяет cookie impersonating=true, показывает TTL, позволяет выйти из режима.",
+        "exports": [
+          "ImpersonationBanner()"
+        ],
+        "imports": [
+          "react (useState, useEffect, useCallback)",
+          "next/navigation (useRouter)",
+          "lucide-react (AlertTriangle, LogOut, Clock)",
+          "@/components/ui/button (Button)",
+          "sonner (toast)",
+          "@/lib/api (default api client)"
+        ],
+        "uses_components": [
+          "Button",
+          "useRouter"
+        ],
+        "calls_api": [
+          {
+            "client": "api.post('/admin/impersonate/exit')",
+            "http": "POST /admin/impersonate/exit"
+          }
+        ],
+        "notes": [
+          "Таймер TTL хранится в localStorage (impersonate_start), обновляется раз в секунду; при истечении редиректит на /auth/login.",
+          "Наличие режима определяется по cookie на момент монтирования; изменения cookie без перезагрузки не отслеживаются."
+        ]
+      },
+      {
+        "path": "frontend/src/lib/api/student.ts",
+        "lines": 69,
+        "purpose": "Клиентский слой StudentAPI: методы для получения профиля/посещаемости/лаб/аттестации и других student-операций.",
+        "exports": [
+          "StudentAPI"
+        ],
+        "imports": [
+          "./client (api)",
+          "./types (StudentProfile, StudentAttendance, StudentLab, StudentLabDetail, StudentAttestation, StudentTeacherContacts, RelinkTelegramResponse, StudentActivities)"
+        ],
+        "uses_components": [],
+        "calls_api": [
+          { "client": "StudentAPI.getProfile()", "http": "GET /student/profile" },
+          { "client": "StudentAPI.getAttendance()", "http": "GET /student/attendance" },
+          { "client": "StudentAPI.getLabs()", "http": "GET /student/labs" },
+          { "client": "StudentAPI.getLabDetail(labId)", "http": "GET /student/labs/{labId}" },
+          { "client": "StudentAPI.markLabReady(labId)", "http": "POST /student/labs/{labId}/ready" },
+          { "client": "StudentAPI.cancelLabReady(labId)", "http": "POST /student/labs/{labId}/cancel-ready" },
+          { "client": "StudentAPI.getAttestation(type)", "http": "GET /student/attestation/{type}" },
+          { "client": "StudentAPI.getTeacherContacts()", "http": "GET /student/teacher/contacts" },
+          { "client": "StudentAPI.relinkTelegram()", "http": "POST /users/me/relink-telegram" },
+          { "client": "StudentAPI.linkVk()", "http": "POST /users/me/link-vk" },
+          { "client": "StudentAPI.getActivities(attestationType)", "http": "GET /student/activities?attestation_type={attestationType}" }
+        ],
+        "notes": [
+          "Для /dashboard (обзор) используются: getProfile/getAttendance/getLabs/getAttestation(first|second). Остальные методы относятся к соседним разделам дашборда."
+        ]
+      }
+    ],
+    "backend_files": [
+      {
+        "path": "backend/app/api/v1/endpoints/student/profile.py",
+        "lines": 44,
+        "purpose": "GET /student/profile: возвращает профиль текущего студента + краткую информацию о группе.",
+        "exports": [
+          "router (APIRouter)",
+          "get_my_profile()"
+        ],
+        "imports": [
+          "typing (Any)",
+          "fastapi (APIRouter, Depends, Request)",
+          "sqlalchemy.ext.asyncio (AsyncSession)",
+          "app.api.deps (get_db, get_current_user)",
+          "app.models.user (User)",
+          "app.models.group (Group)",
+          "app.audit (audit_action, ActionType, EntityType)"
+        ],
+        "serves_api": [
+          {
+            "method": "GET",
+            "path": "/profile",
+            "mounted_under": "/student",
+            "full_path_expected_by_frontend": "/student/profile"
+          }
+        ],
+        "uses": [
+          "Depends(get_db) -> AsyncSession",
+          "Depends(get_current_user) -> User",
+          "db.get(Group, current_user.group_id)",
+          "audit_action(ActionType.VIEW, EntityType.PROFILE)"
+        ],
+        "notes": [
+          "Явно убраны telegram_id и vk_id из ответа; вместо этого возвращаются has_telegram/has_vk флаги."
+        ]
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/student/attendance.py",
+        "lines": 72,
+        "purpose": "GET /student/attendance: возвращает список посещаемости и агрегированную статистику (present/late/excused/absent, %).",
+        "exports": [
+          "router (APIRouter)",
+          "get_my_attendance()"
+        ],
+        "imports": [
+          "typing (Any, Optional)",
+          "fastapi (APIRouter, Depends, Request)",
+          "sqlalchemy (select, or_)",
+          "sqlalchemy.ext.asyncio (AsyncSession)",
+          "app.api.deps (get_db, get_current_user)",
+          "app.models.user (User)",
+          "app.models.attendance (Attendance, AttendanceStatus)",
+          "app.audit (audit_action, ActionType, EntityType)"
+        ],
+        "serves_api": [
+          {
+            "method": "GET",
+            "path": "/attendance",
+            "mounted_under": "/student",
+            "full_path_expected_by_frontend": "/student/attendance"
+          }
+        ],
+        "uses": [
+          "Depends(get_db) -> AsyncSession",
+          "Depends(get_current_user) -> User",
+          "select(Attendance).where(Attendance.student_id == current_user.id)",
+          "subgroup filtering: Attendance.subgroup is NULL OR == current_user.subgroup",
+          "audit_action(ActionType.VIEW, EntityType.ATTENDANCE)"
+        ],
+        "notes": [
+          "Optional импортирован, но не используется (косметика/линтер).",
+          "Сортировка: date DESC, затем lesson_number ASC."
+        ]
+      },
+      {
+        "path": "backend/app/api/v1/endpoints/student/attestation.py",
+        "lines": 87,
+        "purpose": "GET /student/attestation/{first|second}: считает баллы аттестации студента через сервис и возвращает total/grade/is_passing/max/min + breakdown.",
+        "exports": [
+          "router (APIRouter)",
+          "get_my_attestation()"
+        ],
+        "imports": [
+          "typing (Any)",
+          "fastapi (APIRouter, Depends, HTTPException, Request)",
+          "sqlalchemy.ext.asyncio (AsyncSession)",
+          "app.api.deps (get_db, get_current_user)",
+          "app.models.user (User)",
+          "app.models.attestation_settings (AttestationType)",
+          "app.services.attestation_service (AttestationService)",
+          "app.audit (audit_action, ActionType, EntityType)"
+        ],
+        "serves_api": [
+          {
+            "method": "GET",
+            "path": "/attestation/{attestation_type}",
+            "mounted_under": "/student",
+            "full_path_expected_by_frontend": "/student/attestation/{first|second}"
+          }
+        ],
+        "uses": [
+          "Depends(get_db) -> AsyncSession",
+          "Depends(get_current_user) -> User",
+          "AttestationService.calculate_student_score(student_id, group_id, attestation_type, activity_points=0)",
+          "audit_action(ActionType.VIEW, EntityType.ATTESTATION)"
+        ],
+        "notes": [
+          "attestation_type валидируется; иначе HTTP 400.",
+          "Если student не привязан к группе, возвращается тело с error (не HTTP ошибка) — фронт ожидает это поле.",
+          "Любая ошибка в сервисе перехватывается и возвращается как error: str(e) (HTTP 200)."
+        ]
+      }
+    ],
+    "dependencies": {
+      "frontend_to_frontend": {
+        "frontend/src/app/dashboard/page.tsx": [
+          "frontend/src/components/dashboard/index.ts",
+          "frontend/src/components/dashboard/StatusHero.tsx",
+          "frontend/src/components/dashboard/QuickStats.tsx",
+          "frontend/src/components/dashboard/DeadlinesList.tsx",
+          "frontend/src/lib/api/student.ts (через реэкспорт из @/lib/api)"
+        ],
+        "frontend/src/components/dashboard/AceternitySidebar.tsx": [
+          "frontend/src/components/dashboard/NotificationBell.tsx"
+        ],
+        "frontend/src/components/dashboard/StatusHero.tsx": [
+          "frontend/src/components/dashboard/types.ts",
+          "frontend/src/components/dashboard/EmptyState.tsx"
+        ],
+        "frontend/src/components/dashboard/QuickStats.tsx": [
+          "frontend/src/components/dashboard/types.ts"
+        ],
+        "frontend/src/components/dashboard/DeadlinesList.tsx": [
+          "frontend/src/components/dashboard/types.ts",
+          "frontend/src/components/dashboard/EmptyState.tsx"
+        ]
+      },
+      "frontend_to_backend": {
+        "GET /student/profile": "backend/app/api/v1/endpoints/student/profile.py",
+        "GET /student/attendance": "backend/app/api/v1/endpoints/student/attendance.py",
+        "GET /student/attestation/{first|second}": "backend/app/api/v1/endpoints/student/attestation.py",
+        "GET /student/labs": "(not in analysis scope)",
+        "POST /auth/logout": "(not in analysis scope)",
+        "POST /admin/impersonate/exit": "(not in analysis scope)",
+        "AnnouncementsAPI.*": "(not in analysis scope)"
+      },
+      "key_runtime_data_flow": {
+        "frontend/src/app/dashboard/page.tsx": {
+          "inputs": ["JWT/token via api client", "current user (backend get_current_user)"] ,
+          "outputs_to_ui": [
+            "profile -> greeting + group label",
+            "attendance -> QuickStats (rate + counters)",
+            "labs -> QuickStats + DeadlinesList",
+            "attestation -> StatusHero + QuickStats"
+          ]
+        }
+      }
+    },
+    "violations": {
+      "oversized_files": [
+        {
+          "file": "frontend/src/components/dashboard/AceternitySidebar.tsx",
+          "lines": 323,
+          "recommendation": "Разбить на подкомпоненты: DesktopSidebar, MobileSidebar, LinksConfig, UserSection, LogoutSection; вынести links-конфиг и логику logout в отдельные модули/хуки."
+        }
+      ],
+      "monolithic_files": [
+        {
+          "file": "frontend/src/components/dashboard/AceternitySidebar.tsx",
+          "exports": 1,
+          "recommendation": "Смешаны обязанности (layout + responsive + auth/logout + user UI + notifications). Выделить слои: UI-компоненты, конфиг навигации, side-effects (logout)."
+        }
+      ],
+      "missing_logs": [
+        {
+          "file": "frontend/src/app/dashboard/page.tsx",
+          "recommendation": "Добавить хотя бы диагностический лог (или отправку в Sentry) в catch, чтобы видеть причину падения загрузки (сейчас только toast без деталей)."
+        },
+        {
+          "file": "frontend/src/components/dashboard/NotificationBell.tsx",
+          "recommendation": "В loadAnnouncements catch сейчас полностью игнорирует ошибку; стоит логировать/репортить, иначе сбои остаются невидимыми."
+        }
+      ]
+    },
+    "refactoring_priority": [
+      "frontend/src/components/dashboard/AceternitySidebar.tsx (323 lines) - HIGH",
+      "frontend/src/components/dashboard/QuickStats.tsx (deadline fields mismatch vs DeadlinesList) - MEDIUM"
+    ]
+  }
+}
