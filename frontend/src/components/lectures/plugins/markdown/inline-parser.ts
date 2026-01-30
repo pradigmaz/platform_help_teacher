@@ -1,4 +1,4 @@
-import { $createTextNode, $createLineBreakNode } from 'lexical';
+import { $createTextNode, $createLineBreakNode, TextNode } from 'lexical';
 import { $createMathNode } from '../../nodes/MathNode';
 
 /**
@@ -37,11 +37,11 @@ export function $parseInlineMarkdown(text: string): import('lexical').LexicalNod
     while ((match = pattern.regex.exec(text)) !== null) {
       const start = match.index;
       const end = pattern.regex.lastIndex;
-      const content = match[(pattern as any).captureGroup || 1];
+      const content = match[(pattern as { captureGroup?: number }).captureGroup || 1];
       
       // Adjust start position for patterns with prefix capture groups
       let adjustedStart = start;
-      if ((pattern as any).captureGroup === 2) {
+      if ((pattern as { captureGroup?: number }).captureGroup === 2) {
         adjustedStart = start + match[1].length;
       }
       
@@ -82,7 +82,7 @@ export function $parseInlineMarkdown(text: string): import('lexical').LexicalNod
     // Apply formatting to non-math nodes
     for (const node of innerNodes) {
       if (node.getType() === 'text') {
-        (node as any).setFormat(outerMatch.format);
+        (node as TextNode).setFormat(outerMatch.format);
       }
       nodes.push(node);
     }
