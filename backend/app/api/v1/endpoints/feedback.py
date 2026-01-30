@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
@@ -59,6 +59,7 @@ def _build_response(
 @router.post("", response_model=FeedbackResponse)
 @limiter.limit("5/hour")
 async def create_feedback(
+    request: Request,
     data: FeedbackCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
