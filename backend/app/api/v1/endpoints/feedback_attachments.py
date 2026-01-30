@@ -37,7 +37,7 @@ def _validate_extension(filename: str) -> str:
 @router.post("/{feedback_id}/attachments", response_model=UploadUrlResponse)
 @limiter.limit("20/hour")
 async def create_attachment_upload_url(
-    _request: Request,
+    request: Request,
     feedback_id: UUID,
     filename: str = Query(..., max_length=255),
     content_type: str = Query(...),
@@ -125,7 +125,7 @@ async def create_attachment_upload_url(
 @router.post("/{feedback_id}/attachments/{attachment_id}/presign")
 @limiter.limit("30/hour")
 async def get_presigned_url_for_attachment(
-    _request: Request,
+    request: Request,
     feedback_id: UUID,
     attachment_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -186,7 +186,7 @@ async def get_presigned_url_for_attachment(
 @router.put("/{feedback_id}/attachments/{attachment_id}/mark-uploaded")
 @limiter.limit("30/hour")
 async def mark_attachment_uploaded(
-    _request: Request,
+    request: Request,
     feedback_id: UUID,
     attachment_id: UUID,
     db: AsyncSession = Depends(get_db),
