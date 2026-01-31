@@ -12,6 +12,38 @@ import { extractCustomBlocks, splitByPlaceholders, type CodeBlockData, type Imag
 import type { MarkdownTableData } from './markdown/table-parser';
 
 /**
+ * Удаляет дублирующийся текст, который часто появляется при копировании из PDF/Word
+ * Например: "БЛОК 1. ВведениеБЛОК 1. Введение" → "БЛОК 1. Введение"
+ */
+function removeDuplicateText(text: string): string {
+  // Обрабатываем каждую строку отдельно
+  const lines = text.split('\n');
+  const processedLines = lines.map(line => {
+    if (line.length < 20) return line; // Короткие строки не трогаем
+    
+    // Ищем повторяющийся паттерн в строке
+    // Пробуем разные длины от половины строки до 15 символов
+    const maxLen = Math.floor(line.length / 2);
+    
+    for (let len = maxLen; len >= 15; len--) {
+      const pattern = line.slice(0, len);
+      const rest = line.slice(len);
+      
+      // Если остаток начинается с того же паттерна — это дубль
+      if (rest.startsWith(pattern)) {
+        console.log('[MarkdownPaste] Found duplicate:', pattern.slice(0, 50) + '...');
+        // Рекурсивно проверяем, может быть больше 2 копий
+        return removeDuplicateText(pattern + rest.slice(pattern.length));
+      }
+    }
+    
+    return line;
+  });
+  
+  return processedLines.join('\n');
+}
+
+/**
  * Проверяет, содержит ли текст markdown-разметку
  */
 function detectMarkdown(text: string): boolean {
@@ -93,15 +125,8 @@ export function MarkdownPastePlugin(): null {
             .replace(/([^\n])(\n?\d+\.\s)/g, '$1\n$2');
         }
         
-        // Удаляем дублирующиеся заголовки (склеенные без пробела)
-        // Паттерн: "### БЛОК 1...### БЛОК 1..." или "**1.1. ...**1.1. ..."
-        normalizedText = normalizedText
-          // Дубли markdown заголовков: ### Title### Title → ### Title
-          .replace(/(#{1,6}\s+[^\n#]+?)(#{1,6}\s+)\1/g, '$1')
-          // Дубли жирных заголовков: **1.1. Text****1.1. Text** → **1.1. Text**
-          .replace(/(\*\*\d+\.\d+\.[^*]+\*\*)\1/g, '$1')
-          // Общий паттерн: любой текст повторённый дважды подряд (минимум 20 символов)
-          .replace(/(.{20,}?)\1/g, '$1');
+        // Удаляем дублирующийся текст (часто при копировании из PDF/Word)
+        normalizedText = removeDuplicateText(normalizedText);
         
         // Extract custom blocks (code, images, tables)
         const { processedText, blocks } = extractCustomBlocks(normalizedText);
@@ -150,6 +175,22 @@ export function MarkdownPastePlugin(): null {
           if (nodesToInsert.length > 0) {
             const selection = $getSelection();
             if (selection) {
+              // Очищаем текущий selection перед вставкой
+              const root = $getRoot();
+              
+              // Если редактор пустой — заменяем root children
+              if (root.getChildrenSize() === 1) {
+                const firstChild = root.getFirstChild();
+                if (firstChild && firstChild.getTextContent() === '') {
+                  root.clear();
+                  for (const node of nodesToInsert) {
+                    root.append(node);
+                  }
+                  return;
+                }
+              }
+              
+              // Иначе вставляем в текущую позицию
               selection.insertNodes(nodesToInsert);
             }
           }

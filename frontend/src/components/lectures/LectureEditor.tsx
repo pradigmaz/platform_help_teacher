@@ -247,7 +247,8 @@ export function LectureEditor({
             {onSave && !readOnly && <AutoSavePlugin onSave={handleAutoSave} interval={autoSaveInterval} />}
             {onSave && !readOnly && <KeyboardShortcutsPlugin onSave={handleSave} />}
             {!readOnly && <MarkdownPastePlugin />}
-            {!readOnly && <MarkdownShortcutPlugin transformers={LECTURE_TRANSFORMERS} />}
+            {/* MarkdownShortcutPlugin отключен — конфликтует с MarkdownPastePlugin */}
+            {/* {!readOnly && <MarkdownShortcutPlugin transformers={LECTURE_TRANSFORMERS} />} */}
           </div>
         </TooltipProvider>
       </LexicalComposer>
