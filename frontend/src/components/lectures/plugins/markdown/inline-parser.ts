@@ -166,8 +166,8 @@ function $parseTextWithMath(text: string, mathPatterns: Array<{regex: RegExp, ty
     }
   }
   
-  // If no math matches, return original text
-  if (mathMatches.length === 0 && text) {
+  // If no math matches AND no nodes added, return original text
+  if (mathMatches.length === 0 && nodes.length === 0 && text) {
     nodes.push($createTextNode(text));
   }
   
