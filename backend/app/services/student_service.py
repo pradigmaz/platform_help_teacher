@@ -1,12 +1,13 @@
 from uuid import UUID
-from datetime import datetime as dt, timezone
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.models import User, Group, Lab, Submission, SubmissionStatus
+from app.models import User, Group, Lab, Submission, SubmissionStatus, LessonGrade
 from app.schemas.student import StudentProfileOut, StudentStats, StudentLabSubmission
+
 
 class StudentService:
     def __init__(self, db: AsyncSession):
@@ -42,15 +43,18 @@ class StudentService:
         labs_result = await self.db.execute(select(Lab).order_by(Lab.created_at.desc()))
         labs = labs_result.scalars().all()
         
-        # Получаем сдачи студента
+        # Получаем сдачи студента из submissions
         subs_result = await self.db.execute(
             select(Submission).where(Submission.user_id == student_id)
         )
         submissions = subs_result.scalars().all()
         subs_map = {sub.lab_id: sub for sub in submissions}
         
+        # Получаем оценки из lesson_grades (журнал)
+        grades_map = await self._get_lesson_grades_map(student_id, labs)
+        
         # Собираем данные по лабам и статистику
-        labs_data, stats = self._calculate_stats(labs, subs_map)
+        labs_data, stats = self._calculate_stats(labs, subs_map, grades_map)
         
         # Рейтинг в группе
         if group_students:
@@ -111,7 +115,31 @@ class StudentService:
             stats=stats,
         )
 
-    def _calculate_stats(self, labs: List[Lab], subs_map: dict) -> Tuple[List[StudentLabSubmission], StudentStats]:
+    async def _get_lesson_grades_map(self, student_id: UUID, labs: List[Lab]) -> Dict[int, LessonGrade]:
+        """
+        Получить оценки из журнала (lesson_grades) для студента.
+        Возвращает dict: work_number -> LessonGrade (лучшая оценка)
+        """
+        # Получаем все оценки студента с загрузкой lesson
+        grades_result = await self.db.execute(
+            select(LessonGrade)
+            .options(selectinload(LessonGrade.lesson))
+            .where(LessonGrade.student_id == student_id)
+        )
+        grades = grades_result.scalars().all()
+        
+        # Группируем по work_number, берём лучшую оценку
+        grades_map: Dict[int, LessonGrade] = {}
+        for grade in grades:
+            work_num = grade.work_number
+            if work_num is None:
+                continue
+            if work_num not in grades_map or grade.grade > grades_map[work_num].grade:
+                grades_map[work_num] = grade
+        
+        return grades_map
+
+    def _calculate_stats(self, labs: List[Lab], subs_map: dict, grades_map: Dict[int, LessonGrade]) -> Tuple[List[StudentLabSubmission], StudentStats]:
         """
         Расчет статистики по лабам.
         """
@@ -121,33 +149,51 @@ class StudentService:
         
         for lab in labs:
             sub = subs_map.get(lab.id)
+            journal_grade = grades_map.get(lab.number)  # Оценка из журнала
+            
             # TODO: is_overdue теперь зависит от количества пар, не от даты
             # Для корректного расчёта нужен доступ к расписанию
             is_overdue = False
             
+            # Определяем статус и оценку (приоритет: submission > journal)
+            status = None
+            grade = None
+            submitted_at = None
+            feedback = None
+            
             if sub:
+                status = sub.status.value
+                grade = sub.grade
+                submitted_at = sub.created_at
+                feedback = sub.feedback
+            elif journal_grade:
+                # Есть оценка в журнале, но нет submission
+                status = "ACCEPTED"  # Считаем сданной
+                grade = journal_grade.grade
+                submitted_at = journal_grade.created_at
+            
+            if status:
                 stats.labs_submitted += 1
-                if sub.status.value == "ACCEPTED":
+                if status == "ACCEPTED":
                     stats.labs_accepted += 1
-                    stats.points_earned += sub.grade or 0
-                elif sub.status.value == "REJECTED":
+                    stats.points_earned += grade or 0
+                elif status == "REJECTED":
                     stats.labs_rejected += 1
-                elif sub.status.value in ("READY", "IN_REVIEW"):
+                elif status in ("READY", "IN_REVIEW"):
                     stats.labs_pending += 1
-                # NEW и REQ_CHANGES не считаются как pending
             
             stats.points_max += lab.max_grade
             
             labs_data.append(StudentLabSubmission(
                 lab_id=lab.id,
                 lab_title=lab.title,
-                status=sub.status.value if sub else None,
-                grade=sub.grade if sub else None,
+                status=status,
+                grade=grade,
                 max_grade=lab.max_grade,
                 deadline_5_lessons=lab.deadline_5_lessons,
                 deadline_4_lessons=lab.deadline_4_lessons,
-                submitted_at=sub.created_at if sub else None,
-                feedback=sub.feedback if sub else None,
+                submitted_at=submitted_at,
+                feedback=feedback,
                 is_overdue=is_overdue,
             ))
         
