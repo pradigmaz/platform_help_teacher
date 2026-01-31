@@ -171,6 +171,11 @@ export function MarkdownPastePlugin(): null {
           // Insert nodes
           console.log('[MarkdownPaste] Total nodes to insert:', nodesToInsert.length);
           console.log('[MarkdownPaste] Node types:', nodesToInsert.map(n => n.getType()));
+          // Детальный лог содержимого первых 5 нод
+          nodesToInsert.slice(0, 5).forEach((node, i) => {
+            const text = node.getTextContent();
+            console.log(`[MarkdownPaste] Node ${i} (${node.getType()}):`, text.slice(0, 100));
+          });
           
           if (nodesToInsert.length > 0) {
             const selection = $getSelection();
