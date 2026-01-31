@@ -11,6 +11,7 @@ from app.api.deps import get_db, get_current_user
 from app.models.user import User, UserRole
 from app.models.lab import Lab
 from app.models.submission import Submission, SubmissionStatus
+from app.models.lesson_grade import LessonGrade
 from app.audit import audit_action, audit_user, ActionType, EntityType
 from app.services.lab_visibility import LabVisibilityService
 from app.core.limiter import limiter
@@ -91,6 +92,16 @@ async def get_my_labs(
     )
     submissions = {s.lab_id: s for s in subs_result.scalars().all()}
     
+    # Получаем оценки из журнала (lesson_grades)
+    grades_result = await db.execute(
+        select(LessonGrade).where(LessonGrade.student_id == current_user.id)
+    )
+    journal_grades = {}
+    for g in grades_result.scalars().all():
+        if g.work_number is not None:
+            if g.work_number not in journal_grades or g.grade > journal_grades[g.work_number].grade:
+                journal_grades[g.work_number] = g
+    
     student_position = await _get_student_position(db, current_user)
     
     result = []
@@ -98,6 +109,7 @@ async def get_my_labs(
     
     for lab in visible_labs:
         sub = submissions.get(lab.id)
+        journal_grade = journal_grades.get(lab.number)
         is_available = prev_accepted or not lab.is_sequential
         
         variant_number = None
@@ -107,6 +119,21 @@ async def get_my_labs(
         
         # Получаем информацию о дедлайнах из batch-результата
         visibility_info = visibility_map.get(lab.number)
+        
+        # Формируем submission: приоритет submission > journal_grade
+        submission_data = None
+        if sub:
+            submission_data = _format_submission(sub)
+        elif journal_grade:
+            # Есть оценка в журнале — считаем сданной
+            submission_data = {
+                "id": str(journal_grade.id),
+                "status": "ACCEPTED",
+                "grade": journal_grade.grade,
+                "feedback": None,
+                "ready_at": None,
+                "accepted_at": journal_grade.created_at.isoformat() if journal_grade.created_at else None,
+            }
         
         result.append({
             "id": str(lab.id),
@@ -120,7 +147,7 @@ async def get_my_labs(
             "current_max_grade": visibility_info.current_max_grade if visibility_info else lab.max_grade,
             "is_available": is_available,
             "variant_number": variant_number,
-            "submission": _format_submission(sub) if sub else None,
+            "submission": submission_data,
             # Новые поля дедлайнов
             "visible_from": visibility_info.visible_from.isoformat() if visibility_info and visibility_info.visible_from else None,
             "deadline_active_from": visibility_info.deadline_active_from.isoformat() if visibility_info and visibility_info.deadline_active_from else None,
@@ -132,7 +159,9 @@ async def get_my_labs(
             "extension_bonus": visibility_info.extension_bonus if visibility_info else 0,
         })
         
-        if sub and sub.status.value == "ACCEPTED":
+        # Проверяем сдана ли лаба (submission или journal)
+        is_accepted = (sub and sub.status.value == "ACCEPTED") or journal_grade is not None
+        if is_accepted:
             prev_accepted = True
         elif lab.is_sequential:
             prev_accepted = False
