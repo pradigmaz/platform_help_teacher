@@ -2,7 +2,12 @@ import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
 
-export function useIsMobile() {
+/**
+ * Hook для определения мобильного устройства.
+ * Возвращает undefined до hydration, затем true/false.
+ * Это предотвращает hydration mismatch между сервером и клиентом.
+ */
+export function useIsMobile(): boolean | undefined {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
 
   React.useEffect(() => {
@@ -15,5 +20,5 @@ export function useIsMobile() {
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
-  return !!isMobile
+  return isMobile
 }
