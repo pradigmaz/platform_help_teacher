@@ -141,10 +141,15 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
       }
 
       if (message === 'Invalid or expired code') {
-        message = 'Неверный или истёкший код';
+        message = 'Код неверный или устарел. Запросите новый код у бота!';
+        toast.error(message, {
+          duration: 8000,
+          description: 'Код действует 5 минут. Получите новый командой /code в Telegram боте.',
+        });
+      } else {
+        toast.error(message);
       }
-
-      toast.error(message);
+      
       onError?.(message);
       setLoading(false);
     }

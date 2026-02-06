@@ -46,11 +46,19 @@ async def login_with_otp(
     Обмен OTP кода на HttpOnly Cookie.
     Поддерживает Telegram и VK.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     await csrf_protect.validate_csrf(request)
+    
+    # Логируем для отладки (маскируем код)
+    otp_masked = otp[:2] + "****" if len(otp) >= 2 else "***"
+    logger.info(f"OTP login attempt: code={otp_masked}, len={len(otp)}, repr={repr(otp)}")
     
     auth_data = await redis.get(f"auth:{otp}")
     
     if not auth_data:
+        logger.warning(f"OTP not found in Redis: code={otp_masked}")
         raise HTTPException(status_code=400, detail="Invalid or expired code")
     
     # Парсим данные (JSON с social_id и platform)
