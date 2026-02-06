@@ -74,7 +74,7 @@ export default function Stack({
   mobileClickOnly = false,
   mobileBreakpoint = 768
 }: StackProps) {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
@@ -87,7 +87,10 @@ export default function Stack({
     return () => window.removeEventListener('resize', checkMobile);
   }, [mobileBreakpoint]);
 
-  const shouldDisableDrag = mobileClickOnly && isMobile;
+  // Fallback to false until hydration completes
+  const isMobileResolved = isMobile ?? false;
+
+  const shouldDisableDrag = mobileClickOnly && isMobileResolved;
   const shouldEnableClick = sendToBackOnClick || shouldDisableDrag;
 
   const [stack, setStack] = useState<{ id: number; content: React.ReactNode }[]>(() => {
