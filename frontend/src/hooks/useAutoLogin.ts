@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { AuthAPI, ApiError } from '@/lib/api';
 import { ZodError } from 'zod';
 import { AxiosError } from 'axios';
+import { useAuthStore } from '@/stores';
 
 interface UseAutoLoginOptions {
   /** Redirect path after successful login (overrides role-based redirect) */
@@ -105,6 +106,10 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
 
     try {
       const data = await AuthAPI.login(otpCode, rememberDevice);
+
+      // Сохраняем пользователя в store
+      console.log('[Hook:useAutoLogin] Login successful, updating store', { user: data.user });
+      useAuthStore.getState().setUser(data.user);
 
       // Проверяем returnUrl из query params (после 401 редиректа)
       const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;

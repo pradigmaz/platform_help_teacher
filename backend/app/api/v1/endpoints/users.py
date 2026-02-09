@@ -2,9 +2,7 @@ from typing import Any, Optional
 import logging
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import SQLAlchemyError
 
 from app import schemas, models
 from app.api import deps
@@ -17,7 +15,7 @@ from app.schemas.user import (
     ContactVisibilitySettings,
     RelinkTelegramResponse,
 )
-from app.services import telegram_service
+from app.services.user_service import user_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -35,44 +33,8 @@ async def create_user(
     Create new user.
     SECURITY: Only admins can create users manually.
     """
-    # 1. Проверка существования
-    result = await db.execute(select(models.User).where(models.User.social_id == user_in.social_id))
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="User with this social ID already exists")
-
-    # 2. Поиск группы
-    group_id = None
-    if user_in.group_code:
-        group_res = await db.execute(select(models.Group).where(models.Group.code == user_in.group_code))
-        group = group_res.scalar_one_or_none()
-        if group:
-            group_id = group.id
-            
-    try:
-        # 3. Подготовка объекта
-        user = models.User(
-            social_id=user_in.social_id,
-            full_name=user_in.full_name,
-            username=user_in.username,
-            role=user_in.role,
-            group_id=group_id,
-            is_active=True
-        )
-        db.add(user)
-        
-        # 4. Фиксация транзакции
-        await db.commit()
-        await db.refresh(user)
-        return user
-        
-    except SQLAlchemyError as e:
-        # FIX: Явный откат при ошибке
-        await db.rollback()
-        logger.error(f"Error creating user: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database error during user creation"
-        )
+    logger.info(f"[users:create_user] Admin {current_user.id} creating user with social_id={user_in.social_id}")
+    return await user_service.create_user(db, user_in)
 
 @router.get("/me", response_model=schemas.UserResponse)
 async def read_user_me(
@@ -95,21 +57,18 @@ async def update_user_me(
     Update current user (onboarding_completed only).
     SECURITY: full_name change is forbidden for students.
     """
+    logger.info(f"[users:update_user_me] User {current_user.id} updating profile")
+    
     # Students cannot change their full_name
     if user_in.full_name is not None:
         if current_user.role == models.UserRole.STUDENT:
+            logger.warning(f"[users:update_user_me] Student {current_user.id} attempted to change full_name")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Students cannot change their name"
             )
-        current_user.full_name = user_in.full_name
     
-    if user_in.onboarding_completed is not None:
-        current_user.onboarding_completed = user_in.onboarding_completed
-    
-    await db.commit()
-    await db.refresh(current_user)
-    return current_user
+    return await user_service.update_user(db, current_user, user_in)
 
 
 @router.post("/me/relink-telegram", response_model=RelinkTelegramResponse)
@@ -196,15 +155,13 @@ async def update_my_contacts(
     """
     Обновить свои контакты (только для преподавателей).
     """
-    current_user.contacts = data.contacts.model_dump(exclude_none=True)
-    current_user.contact_visibility = data.visibility.model_dump()
+    logger.info(f"[users:update_my_contacts] Teacher {current_user.id} updating contacts")
     
-    await db.commit()
-    await db.refresh(current_user)
+    updated_user = await user_service.update_contacts(db, current_user, data)
     
     return TeacherContactsResponse(
-        contacts=TeacherContacts(**current_user.contacts),
-        visibility=ContactVisibilitySettings(**current_user.contact_visibility),
+        contacts=TeacherContacts(**updated_user.contacts),
+        visibility=ContactVisibilitySettings(**updated_user.contact_visibility),
     )
 
 
@@ -241,15 +198,15 @@ async def update_my_settings(
     """
     Обновить настройки преподавателя.
     """
-    settings = current_user.teacher_settings or {}
+    logger.info(f"[users:update_my_settings] Teacher {current_user.id} updating settings")
     
-    if data.hide_previous_semester is not None:
-        settings["hide_previous_semester"] = data.hide_previous_semester
+    updated_user = await user_service.update_settings(
+        db, 
+        current_user, 
+        hide_previous_semester=data.hide_previous_semester
+    )
     
-    current_user.teacher_settings = settings
-    await db.commit()
-    await db.refresh(current_user)
-    
+    settings = updated_user.teacher_settings or {}
     return TeacherSettingsResponse(
         hide_previous_semester=settings.get("hide_previous_semester", True),
     )

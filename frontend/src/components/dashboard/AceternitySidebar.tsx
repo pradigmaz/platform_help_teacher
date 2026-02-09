@@ -125,11 +125,15 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
   ];
 
   const handleLogout = async () => {
+    console.log('[Component:AceternitySidebar] Logout initiated');
     try {
       await api.post('/auth/logout');
     } catch {
       // ignore
     }
+    // Очищаем store
+    const { useAuthStore } = await import('@/stores');
+    useAuthStore.getState().logout();
     localStorage.removeItem("token");
     router.push("/");
   };

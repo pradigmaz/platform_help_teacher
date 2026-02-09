@@ -13,6 +13,7 @@ from app.models import User, Lesson
 from app.schemas.lesson_grade import BulkGradeCreate
 from app.core.limiter import limiter
 from app.services.attestation.deadline_validator import validate_grade_for_max
+from app.services.submission_journal_sync import journal_sync
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -88,6 +89,27 @@ async def bulk_update_grades(
         for g in data.grades
     ]
     updated = await bulk_upsert_lesson_grades(db, data.lesson_id, grades_data, created_by=current_user.id)
+    
+    # Синхронизация с work_submission для лаб
+    synced_count = 0
+    if lesson.lesson_type == 'LAB':
+        for grade_item in data.grades:
+            if grade_item.work_number:
+                await journal_sync.sync_from_journal(
+                    db,
+                    grade_item.student_id,
+                    lesson,
+                    grade_item.work_number,
+                    grade_item.grade,
+                    grade_item.comment,
+                    current_user.id
+                )
+                synced_count += 1
+        
+        logger.info(
+            f"[grades_bulk:bulk_update_grades] Synced {synced_count} submissions "
+            f"for lesson {data.lesson_id}"
+        )
     
     logger.info(f"Bulk updated {len(updated)} grades for lesson {data.lesson_id}")
     return {"updated": len(updated)}

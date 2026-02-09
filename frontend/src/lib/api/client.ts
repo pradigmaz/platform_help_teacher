@@ -131,6 +131,10 @@ api.interceptors.response.use(
     
     // 401 Unauthorized — редирект на логин
     if (status === 401 && typeof window !== 'undefined') {
+      // Очищаем auth store
+      const { useAuthStore } = await import('@/stores');
+      useAuthStore.getState().logout();
+      
       // Не редиректим если уже на странице авторизации
       const isAuthPage = window.location.pathname.startsWith('/auth');
       if (!isAuthPage) {

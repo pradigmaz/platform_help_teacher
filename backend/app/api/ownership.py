@@ -115,7 +115,7 @@ def check_student_access(
     raise OwnershipError("student data")
 
 
-def check_group_access(
+async def check_group_access(
     group_id: UUID,
     user: User,
     db: AsyncSession = None
@@ -124,7 +124,7 @@ def check_group_access(
     Проверяет доступ к группе.
     
     Студент может видеть только свою группу.
-    Преподаватель — группы своих предметов.
+    Преподаватель — группы своих предметов через teacher_subject_assignments.
     Админ — все группы.
     
     Args:
@@ -134,15 +134,43 @@ def check_group_access(
     
     Returns:
         True если доступ разрешён
+    
+    Raises:
+        OwnershipError: Если доступ запрещён
     """
     # Админы
     if user.role == UserRole.ADMIN:
         return True
     
-    # Преподаватели имеют доступ ко всем группам (упрощённо)
-    # TODO: Добавить проверку teacher_subject -> subject_group
+    # Преподаватели — проверяем через teacher_subject_assignments
     if user.role == UserRole.TEACHER:
-        return True
+        if db is None:
+            logger.error("check_group_access called without db session for teacher")
+            raise OwnershipError("group")
+        
+        from sqlalchemy import select, or_
+        from app.models.teacher_subject import TeacherSubjectAssignment
+        
+        result = await db.execute(
+            select(TeacherSubjectAssignment.id)
+            .where(
+                TeacherSubjectAssignment.teacher_id == user.id,
+                or_(
+                    TeacherSubjectAssignment.group_id == group_id,
+                    TeacherSubjectAssignment.group_id.is_(None),  # лекционный поток
+                ),
+                TeacherSubjectAssignment.is_active.is_(True),
+            )
+            .limit(1)
+        )
+        if result.scalar_one_or_none() is not None:
+            return True
+        
+        # Нет доступа — логируем IDOR попытку
+        logger.warning(
+            f"IDOR attempt: teacher={user.id} tried to access group={group_id}"
+        )
+        raise OwnershipError("group")
     
     # Студент — только своя группа
     if user.group_id == group_id:

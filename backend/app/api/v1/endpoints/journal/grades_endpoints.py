@@ -20,6 +20,7 @@ from app.crud import crud_lesson_grade
 from app.core.limiter import limiter
 from app.services.attestation.deadline_validator import get_max_allowed_grade, validate_grade_for_max
 from app.services.attestation.lab_slot_validator import validate_lab_submission
+from app.services import submission_journal_sync as journal_sync
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -96,6 +97,15 @@ async def create_grade(
         created_by=current_user.id,
         group_id=lesson.group_id
     )
+    
+    # Синхронизация с work_submission для лаб
+    if data.work_number and lesson.lesson_type == 'LAB':
+        logger.info(f"[grades_endpoints:create_grade] Syncing to work_submission: student={data.student_id}, work={data.work_number}, grade={data.grade}")
+        await journal_sync.sync_from_journal(
+            db, data.student_id, lesson, data.work_number,
+            data.grade, data.comment, current_user.id
+        )
+    
     return grade
 
 
@@ -136,6 +146,23 @@ async def update_grade(
     )
     if not grade:
         raise HTTPException(status_code=404, detail="Grade not found")
+    
+    # Синхронизация с work_submission для лаб
+    work_number = data.work_number if data.work_number is not None else existing.work_number
+    if work_number and existing.lesson and existing.lesson.lesson_type == 'LAB':
+        final_grade = data.grade if data.grade is not None else existing.grade
+        final_comment = data.comment if data.comment is not None else existing.comment
+        logger.info(f"[grades_endpoints:update_grade] Syncing to work_submission: student={existing.student_id}, work={work_number}, grade={final_grade}")
+        await journal_sync.sync_from_journal(
+            db,
+            existing.student_id,
+            existing.lesson,
+            work_number,
+            final_grade,
+            final_comment,
+            current_user.id
+        )
+    
     return grade
 
 

@@ -8,9 +8,10 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Submission, SubmissionStatus, Lab, LessonGrade, User, Lesson
+from app.models import Submission, SubmissionStatus, Lab, LessonGrade, User
 from app.services.attestation.deadline_validator import get_max_allowed_grade_for_lab
 from app.services.attestation.lab_slot_validator import get_grades_count_on_lesson, get_max_labs_per_lesson
+from app.services.submission_journal_sync import journal_sync
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ class SubmissionService:
         }]
         
         # Синхронизация с журналом
-        lesson_grade_synced = await self._sync_with_journal(
+        lesson_grade_synced = await journal_sync.sync_with_journal(
             db, submission, grade, comment, accepted_by
         )
         
@@ -135,8 +136,8 @@ class SubmissionService:
         if not lab or not lab.subject_id:
             return  # Нет привязки к предмету — нет ограничений
         
-        # Ищем занятие для студента (то же что в _sync_with_journal)
-        lesson = await self._find_lesson_for_student(db, lab, submission.user_id)
+        # Ищем занятие для студента
+        lesson = await journal_sync.find_lesson_for_student(db, lab, submission.user_id)
         if not lesson:
             return  # Нет занятия — нет ограничений
         
@@ -169,117 +170,6 @@ class SubmissionService:
                 raise ValueError(
                     f"Лимит лаб за занятие: {max_labs} (уже сдано: {current_count})"
                 )
-
-    async def _find_lesson_for_student(
-        self,
-        db: AsyncSession,
-        lab: Lab,
-        student_id: UUID
-    ) -> Optional[Lesson]:
-        """
-        Найти подходящее занятие для записи оценки.
-        Ищет ближайшее прошедшее или сегодняшнее LAB-занятие для группы/подгруппы студента.
-        
-        Важно: lesson.work_number может отличаться от lab.number (сдача долга).
-        Оценка ставится на текущее занятие, а work_number в lesson_grade = номер сдаваемой лабы.
-        """
-        from sqlalchemy import or_
-        from app.services.schedule_constants import today_msk
-        from app.models.schedule import LessonType
-        
-        # Загружаем студента с группой
-        student = await db.get(User, student_id)
-        if not student or not student.group_id:
-            return None
-        
-        # Если у лабы нет предмета — не можем найти занятие
-        if not lab.subject_id:
-            return None
-        
-        today = today_msk()
-        
-        # Ищем ближайшее LAB-занятие на сегодня или раньше
-        # НЕ фильтруем по work_number — студент может сдавать долг
-        query = (
-            select(Lesson)
-            .where(
-                Lesson.subject_id == lab.subject_id,
-                Lesson.group_id == student.group_id,
-                Lesson.lesson_type == LessonType.LAB,
-                Lesson.date <= today,
-                Lesson.is_cancelled == False,
-                # Подгруппа: либо совпадает, либо занятие для всех (NULL)
-                or_(
-                    Lesson.subgroup == student.subgroup,
-                    Lesson.subgroup.is_(None)
-                )
-            )
-            .order_by(Lesson.date.desc())  # Ближайшее к сегодня
-            .limit(1)
-        )
-        
-        result = await db.execute(query)
-        return result.scalar_one_or_none()
-
-    async def _sync_with_journal(
-        self,
-        db: AsyncSession,
-        submission: Submission,
-        grade: int,
-        comment: Optional[str],
-        created_by: UUID
-    ) -> bool:
-        """Синхронизировать оценку с журналом (LessonGrade)."""
-        # Нужно загрузить lab если не загружен
-        if not submission.lab:
-            result = await db.execute(
-                select(Lab).where(Lab.id == submission.lab_id)
-            )
-            lab = result.scalar_one_or_none()
-        else:
-            lab = submission.lab
-        
-        if not lab:
-            return False
-        
-        # Ищем подходящее занятие для студента
-        lesson = await self._find_lesson_for_student(db, lab, submission.user_id)
-        if not lesson:
-            logger.warning(
-                f"No lesson found for student {submission.user_id}, "
-                f"lab {lab.id}, subject {lab.subject_id}"
-            )
-            return False
-        
-        # Проверяем существующую оценку
-        existing = await db.execute(
-            select(LessonGrade).where(and_(
-                LessonGrade.lesson_id == lesson.id,
-                LessonGrade.student_id == submission.user_id,
-                LessonGrade.work_number == lab.number,
-            ))
-        )
-        lesson_grade = existing.scalar_one_or_none()
-        
-        if lesson_grade:
-            lesson_grade.grade = grade
-            lesson_grade.comment = comment
-        else:
-            lesson_grade = LessonGrade(
-                lesson_id=lesson.id,
-                student_id=submission.user_id,
-                work_number=lab.number,
-                grade=grade,
-                comment=comment,
-                created_by=created_by,
-            )
-            db.add(lesson_grade)
-        
-        logger.info(
-            f"Synced grade {grade} for student {submission.user_id} "
-            f"to lesson {lesson.id} (work #{lab.number})"
-        )
-        return True
 
 
 submission_service = SubmissionService()

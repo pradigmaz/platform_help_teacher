@@ -1,22 +1,31 @@
 """Student labs endpoints."""
 from typing import Any, Optional
 from uuid import UUID
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, get_current_user
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.models.lab import Lab
-from app.models.submission import Submission, SubmissionStatus
-from app.models.lesson_grade import LessonGrade
+from app.models.submission import Submission
 from app.audit import audit_action, audit_user, ActionType, EntityType
 from app.services.lab_visibility import LabVisibilityService
+from app.services.student_lab_service import student_lab_service
 from app.core.limiter import limiter
 
 router = APIRouter()
+
+
+def _format_submission(sub: Submission) -> dict:
+    return {
+        "id": str(sub.id),
+        "status": sub.status.value,
+        "grade": sub.grade,
+        "feedback": sub.feedback,
+        "ready_at": sub.ready_at.isoformat() if sub.ready_at else None,
+        "accepted_at": sub.accepted_at.isoformat() if sub.accepted_at else None,
+    }
 
 
 @router.get("/labs")
@@ -26,106 +35,62 @@ async def get_my_labs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
-    """Лабораторные работы студента со статусами сдачи.
-    
-    Лабы фильтруются по расписанию — видны только те, для которых
-    уже было занятие с соответствующим work_number.
-    """
+    """Лабораторные работы студента со статусами сдачи."""
     if not current_user.group_id:
         return []
-    
+
     visibility_service = LabVisibilityService(db)
-    
-    # Получаем видимые лабы по предметам {subject_id: [work_numbers]}
     visible_by_subject = await visibility_service.get_visible_lab_numbers_by_subject(
-        group_id=current_user.group_id,
-        subgroup=current_user.subgroup
+        group_id=current_user.group_id, subgroup=current_user.subgroup
     )
-    
-    # Получаем все опубликованные лабы
-    labs_result = await db.execute(
-        select(Lab)
-        .where(Lab.is_published.is_(True))
-        .where(Lab.deleted_at.is_(None))
-        .order_by(Lab.number.asc(), Lab.created_at.desc())
-    )
-    labs = labs_result.scalars().all()
-    
-    # Фильтруем по видимости с учётом subject_id
+
+    labs = await student_lab_service.get_published_labs(db)
+
     def is_lab_visible(lab: Lab) -> bool:
-        # Если у лабы есть subject_id — проверяем по этому предмету
         if lab.subject_id:
-            subject_labs = visible_by_subject.get(lab.subject_id, [])
-            return lab.number in subject_labs
-        # Если subject_id = NULL — проверяем по всем предметам
+            return lab.number in visible_by_subject.get(lab.subject_id, [])
         for work_numbers in visible_by_subject.values():
             if lab.number in work_numbers:
                 return True
         return False
-    
+
     visible_labs = [lab for lab in labs if is_lab_visible(lab)]
-    
-    # Batch-загрузка информации о дедлайнах (решает N+1)
-    labs_deadlines = {
-        lab.number: (lab.deadline_5_lessons, lab.deadline_4_lessons)
-        for lab in visible_labs
-    }
-    labs_subjects = {
-        lab.number: lab.subject_id
-        for lab in visible_labs
-    }
-    labs_ids = {
-        lab.number: lab.id
-        for lab in visible_labs
-    }
+
+    # Batch-загрузка дедлайнов
+    labs_deadlines = {l.number: (l.deadline_5_lessons, l.deadline_4_lessons) for l in visible_labs}
+    labs_subjects = {l.number: l.subject_id for l in visible_labs}
+    labs_ids = {l.number: l.id for l in visible_labs}
     visibility_map = await visibility_service.get_batch_visibility_info(
-        lab_numbers=[lab.number for lab in visible_labs],
+        lab_numbers=[l.number for l in visible_labs],
         group_id=current_user.group_id,
         subgroup=current_user.subgroup,
         labs_deadlines=labs_deadlines,
         labs_subjects=labs_subjects,
-        labs_ids=labs_ids
+        labs_ids=labs_ids,
     )
-    
-    subs_result = await db.execute(
-        select(Submission).where(Submission.user_id == current_user.id)
-    )
-    submissions = {s.lab_id: s for s in subs_result.scalars().all()}
-    
-    # Получаем оценки из журнала (lesson_grades)
-    grades_result = await db.execute(
-        select(LessonGrade).where(LessonGrade.student_id == current_user.id)
-    )
-    journal_grades = {}
-    for g in grades_result.scalars().all():
-        if g.work_number is not None:
-            if g.work_number not in journal_grades or g.grade > journal_grades[g.work_number].grade:
-                journal_grades[g.work_number] = g
-    
-    student_position = await _get_student_position(db, current_user)
-    
+
+    submissions = await student_lab_service.get_user_submissions(db, current_user.id)
+    journal_grades = await student_lab_service.get_user_journal_grades(db, current_user.id)
+    student_position = await student_lab_service.get_student_position(db, current_user)
+
     result = []
     prev_accepted = True
-    
+
     for lab in visible_labs:
         sub = submissions.get(lab.id)
         journal_grade = journal_grades.get(lab.number)
         is_available = prev_accepted or not lab.is_sequential
-        
+
         variant_number = None
         if lab.variants and student_position:
-            variants_count = len(lab.variants)
-            variant_number = ((student_position - 1) % variants_count) + 1
-        
-        # Получаем информацию о дедлайнах из batch-результата
+            variant_number = ((student_position - 1) % len(lab.variants)) + 1
+
         visibility_info = visibility_map.get(lab.number)
-        
-        # Формируем submission: приоритет submission > journal_grade
+
         submission_data = None
         if sub:
             submission_data = _format_submission(sub)
         elif journal_grade:
-            # Есть оценка в журнале — считаем сданной
             submission_data = {
                 "id": str(journal_grade.id),
                 "status": "ACCEPTED",
@@ -134,7 +99,7 @@ async def get_my_labs(
                 "ready_at": None,
                 "accepted_at": journal_grade.created_at.isoformat() if journal_grade.created_at else None,
             }
-        
+
         result.append({
             "id": str(lab.id),
             "number": lab.number,
@@ -148,7 +113,6 @@ async def get_my_labs(
             "is_available": is_available,
             "variant_number": variant_number,
             "submission": submission_data,
-            # Новые поля дедлайнов
             "visible_from": visibility_info.visible_from.isoformat() if visibility_info and visibility_info.visible_from else None,
             "deadline_active_from": visibility_info.deadline_active_from.isoformat() if visibility_info and visibility_info.deadline_active_from else None,
             "deadline_5_status": visibility_info.deadline_5_status if visibility_info else None,
@@ -158,14 +122,13 @@ async def get_my_labs(
             "has_extension": visibility_info.has_extension if visibility_info else False,
             "extension_bonus": visibility_info.extension_bonus if visibility_info else 0,
         })
-        
-        # Проверяем сдана ли лаба (submission или journal)
+
         is_accepted = (sub and sub.status.value == "ACCEPTED") or journal_grade is not None
         if is_accepted:
             prev_accepted = True
         elif lab.is_sequential:
             prev_accepted = False
-    
+
     return result
 
 
@@ -178,11 +141,12 @@ async def get_lab_detail(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Детали лабораторной работы с вариантом студента."""
-    lab = await db.get(Lab, lab_id)
+    lab = await student_lab_service.get_lab_by_id(db, lab_id)
     if not lab:
         raise HTTPException(status_code=404, detail="Lab not found")
-    
-    # Проверяем видимость по расписанию
+
+    visibility_info = None
+    visibility_service = None
     if current_user.group_id:
         visibility_service = LabVisibilityService(db)
         visibility_info = await visibility_service.get_visibility_info(
@@ -191,17 +155,14 @@ async def get_lab_detail(
             subgroup=current_user.subgroup,
             deadline_5_lessons=lab.deadline_5_lessons,
             deadline_4_lessons=lab.deadline_4_lessons,
-            subject_id=lab.subject_id
+            subject_id=lab.subject_id,
         )
-        
         if not visibility_info.is_visible:
             raise HTTPException(status_code=403, detail="Lab not available yet")
-    else:
-        visibility_info = None
-    
-    is_available = await _check_lab_availability(db, current_user.id, lab)
-    student_position = await _get_student_position(db, current_user)
-    
+
+    is_available = await student_lab_service.check_lab_availability(db, current_user.id, lab)
+    student_position = await student_lab_service.get_student_position(db, current_user)
+
     variant_number = None
     variant_data = None
     if lab.variants and student_position:
@@ -211,15 +172,9 @@ async def get_lab_detail(
             if v.get("number") == variant_number:
                 variant_data = v
                 break
-    
-    sub_result = await db.execute(
-        select(Submission).where(
-            Submission.user_id == current_user.id,
-            Submission.lab_id == lab_id,
-        ).order_by(Submission.created_at.desc()).limit(1)
-    )
-    sub = sub_result.scalar_one_or_none()
-    
+
+    sub = await student_lab_service.get_user_submission_for_lab(db, current_user.id, lab_id)
+
     response = {
         "id": str(lab.id),
         "number": lab.number,
@@ -238,8 +193,7 @@ async def get_lab_detail(
         "variant_data": variant_data,
         "submission": _format_submission(sub) if sub else None,
     }
-    
-    # Добавляем информацию о дедлайнах если есть
+
     if visibility_info:
         response.update({
             "visible_from": visibility_info.visible_from.isoformat() if visibility_info.visible_from else None,
@@ -249,17 +203,16 @@ async def get_lab_detail(
             "lessons_until_deadline_5": visibility_info.lessons_until_deadline_5,
             "lessons_until_deadline_4": visibility_info.lessons_until_deadline_4,
         })
-    
-    # Проверяем можно ли сейчас сдать (идёт ли пара)
+
     can_submit_now = False
-    if current_user.group_id:
+    if current_user.group_id and visibility_service:
         can_submit_now = await visibility_service.is_lab_session_now(
             group_id=current_user.group_id,
             subgroup=current_user.subgroup,
-            subject_id=lab.subject_id
+            subject_id=lab.subject_id,
         )
     response["can_submit_now"] = can_submit_now
-    
+
     return response
 
 
@@ -273,11 +226,10 @@ async def mark_lab_ready(
     current_user: User = Depends(audit_user),
 ) -> dict[str, Any]:
     """Отметить лабу как готовую к сдаче. Rate limit: 10/hour."""
-    lab = await db.get(Lab, lab_id)
+    lab = await student_lab_service.get_lab_by_id(db, lab_id)
     if not lab:
         raise HTTPException(status_code=404, detail="Lab not found")
-    
-    # Проверяем видимость по расписанию
+
     if current_user.group_id:
         visibility_service = LabVisibilityService(db)
         visibility_info = await visibility_service.get_visibility_info(
@@ -286,63 +238,33 @@ async def mark_lab_ready(
             subgroup=current_user.subgroup,
             deadline_5_lessons=lab.deadline_5_lessons,
             deadline_4_lessons=lab.deadline_4_lessons,
-            subject_id=lab.subject_id
+            subject_id=lab.subject_id,
         )
-        
         if not visibility_info.is_visible:
             raise HTTPException(status_code=403, detail="Lab not available yet by schedule")
-        
-        # Проверяем идёт ли сейчас пара
+
         is_session_now = await visibility_service.is_lab_session_now(
             group_id=current_user.group_id,
             subgroup=current_user.subgroup,
-            subject_id=lab.subject_id
+            subject_id=lab.subject_id,
         )
         if not is_session_now:
             raise HTTPException(status_code=403, detail="Сдача доступна только во время пары")
-    
-    is_available = await _check_lab_availability(db, current_user.id, lab)
+
+    is_available = await student_lab_service.check_lab_availability(db, current_user.id, lab)
     if not is_available:
         raise HTTPException(status_code=403, detail="Lab is not available yet")
-    
-    sub_result = await db.execute(
-        select(Submission).where(
-            Submission.user_id == current_user.id,
-            Submission.lab_id == lab_id,
-        ).order_by(Submission.created_at.desc()).limit(1)
-    )
-    sub = sub_result.scalar_one_or_none()
-    
-    if sub:
-        if sub.status.value == "READY":
-            raise HTTPException(status_code=400, detail="Already in queue")
-        if sub.status.value == "ACCEPTED":
-            raise HTTPException(status_code=400, detail="Lab already accepted")
-    
-    student_position = await _get_student_position(db, current_user)
+
+    student_position = await student_lab_service.get_student_position(db, current_user)
     variant_number = None
     if lab.variants and student_position:
-        variants_count = len(lab.variants)
-        variant_number = ((student_position - 1) % variants_count) + 1
-    
-    if sub:
-        sub.status = SubmissionStatus.READY
-        sub.ready_at = datetime.utcnow()
-        sub.variant_number = variant_number
-    else:
-        sub = Submission(
-            user_id=current_user.id,
-            lab_id=lab_id,
-            status=SubmissionStatus.READY,
-            is_manual=True,
-            variant_number=variant_number,
-            ready_at=datetime.utcnow(),
-        )
-        db.add(sub)
-    
-    await db.commit()
-    await db.refresh(sub)
-    
+        variant_number = ((student_position - 1) % len(lab.variants)) + 1
+
+    try:
+        sub = await student_lab_service.mark_ready(db, current_user.id, lab_id, variant_number)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     return {
         "status": "ready",
         "submission_id": str(sub.id),
@@ -360,78 +282,12 @@ async def cancel_lab_ready(
     current_user: User = Depends(audit_user),
 ) -> dict[str, Any]:
     """Отменить готовность к сдаче."""
-    sub_result = await db.execute(
-        select(Submission).where(
-            Submission.user_id == current_user.id,
-            Submission.lab_id == lab_id,
-        ).order_by(Submission.created_at.desc()).limit(1)
-    )
-    sub = sub_result.scalar_one_or_none()
-    
-    if not sub:
-        raise HTTPException(status_code=404, detail="Submission not found")
-    if sub.status.value != "READY":
-        raise HTTPException(status_code=400, detail="Not in queue")
-    
-    sub.status = SubmissionStatus.NEW
-    sub.ready_at = None
-    await db.commit()
-    
+    try:
+        await student_lab_service.cancel_ready(db, current_user.id, lab_id)
+    except ValueError as e:
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=404, detail=error_msg)
+        raise HTTPException(status_code=400, detail=error_msg)
+
     return {"status": "cancelled", "message": "Removed from queue"}
-
-
-# === Helpers ===
-
-def _format_submission(sub: Submission) -> dict:
-    return {
-        "id": str(sub.id),
-        "status": sub.status.value,
-        "grade": sub.grade,
-        "feedback": sub.feedback,
-        "ready_at": sub.ready_at.isoformat() if sub.ready_at else None,
-        "accepted_at": sub.accepted_at.isoformat() if sub.accepted_at else None,
-    }
-
-
-async def _get_student_position(db: AsyncSession, user: User) -> Optional[int]:
-    """Получить позицию студента в списке группы."""
-    if not user.group_id:
-        return None
-    
-    result = await db.execute(
-        select(User)
-        .where(User.group_id == user.group_id, User.role == UserRole.STUDENT)
-        .order_by(User.full_name.asc())
-    )
-    students = result.scalars().all()
-    
-    for i, student in enumerate(students):
-        if student.id == user.id:
-            return i + 1
-    return None
-
-
-async def _check_lab_availability(db: AsyncSession, user_id: UUID, lab: Lab) -> bool:
-    """Проверить доступность лабы."""
-    if lab.number == 1 or not lab.is_sequential:
-        return True
-    
-    prev_lab_result = await db.execute(
-        select(Lab).where(
-            Lab.subject_id == lab.subject_id,
-            Lab.number == lab.number - 1,
-        )
-    )
-    prev_lab = prev_lab_result.scalar_one_or_none()
-    
-    if not prev_lab:
-        return True
-    
-    prev_sub_result = await db.execute(
-        select(Submission).where(
-            Submission.user_id == user_id,
-            Submission.lab_id == prev_lab.id,
-            Submission.status == SubmissionStatus.ACCEPTED,
-        )
-    )
-    return prev_sub_result.scalar_one_or_none() is not None
