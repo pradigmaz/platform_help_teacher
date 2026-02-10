@@ -137,6 +137,7 @@ jobs:
 
       - name: Notify Telegram (success)
         if: success()
+        continue-on-error: true
         uses: appleboy/telegram-action@master
         with:
           to: ${{ secrets.TELEGRAM_DEPLOY_CHAT_ID }}
@@ -151,6 +152,7 @@ jobs:
 
       - name: Notify Telegram (failure)
         if: failure()
+        continue-on-error: true
         uses: appleboy/telegram-action@master
         with:
           to: ${{ secrets.TELEGRAM_DEPLOY_CHAT_ID }}
