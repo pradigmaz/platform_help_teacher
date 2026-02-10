@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, get_current_user
+from app.core import error_messages as em
 from app.models.user import User
 from app.models.lab import Lab
 from app.models.submission import Submission
@@ -143,7 +144,7 @@ async def get_lab_detail(
     """Детали лабораторной работы с вариантом студента."""
     lab = await student_lab_service.get_lab_by_id(db, lab_id)
     if not lab:
-        raise HTTPException(status_code=404, detail="Lab not found")
+        raise HTTPException(status_code=404, detail=em.LAB_NOT_FOUND)
 
     visibility_info = None
     visibility_service = None
@@ -158,7 +159,7 @@ async def get_lab_detail(
             subject_id=lab.subject_id,
         )
         if not visibility_info.is_visible:
-            raise HTTPException(status_code=403, detail="Lab not available yet")
+            raise HTTPException(status_code=403, detail=em.LAB_NOT_AVAILABLE_YET)
 
     is_available = await student_lab_service.check_lab_availability(db, current_user.id, lab)
     student_position = await student_lab_service.get_student_position(db, current_user)
@@ -228,7 +229,7 @@ async def mark_lab_ready(
     """Отметить лабу как готовую к сдаче. Rate limit: 10/hour."""
     lab = await student_lab_service.get_lab_by_id(db, lab_id)
     if not lab:
-        raise HTTPException(status_code=404, detail="Lab not found")
+        raise HTTPException(status_code=404, detail=em.LAB_NOT_FOUND)
 
     if current_user.group_id:
         visibility_service = LabVisibilityService(db)
@@ -241,7 +242,7 @@ async def mark_lab_ready(
             subject_id=lab.subject_id,
         )
         if not visibility_info.is_visible:
-            raise HTTPException(status_code=403, detail="Lab not available yet by schedule")
+            raise HTTPException(status_code=403, detail=em.LAB_NOT_AVAILABLE_BY_SCHEDULE)
 
         is_session_now = await visibility_service.is_lab_session_now(
             group_id=current_user.group_id,
@@ -253,7 +254,7 @@ async def mark_lab_ready(
 
     is_available = await student_lab_service.check_lab_availability(db, current_user.id, lab)
     if not is_available:
-        raise HTTPException(status_code=403, detail="Lab is not available yet")
+        raise HTTPException(status_code=403, detail=em.LAB_NOT_AVAILABLE_YET)
 
     student_position = await student_lab_service.get_student_position(db, current_user)
     variant_number = None

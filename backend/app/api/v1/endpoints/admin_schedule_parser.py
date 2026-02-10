@@ -21,6 +21,7 @@ from app.crud import crud_schedule_parser as crud
 from app.crud import crud_parse_history
 from app.services.schedule_import_service import ScheduleImportService
 from app.services.schedule_constants import today_msk
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ async def resolve_conflict(
     """Разрешить конфликт"""
     conflict = await crud.resolve_conflict(db, conflict_id, data.action)
     if not conflict:
-        raise HTTPException(status_code=404, detail="Conflict not found")
+        raise HTTPException(status_code=404, detail=em.CONFLICT_NOT_FOUND)
     return conflict
 
 
@@ -96,7 +97,7 @@ async def parse_now(
     """Запустить парсинг вручную"""
     config = await crud.get_parser_config(db, current_user.id)
     if not config:
-        raise HTTPException(status_code=400, detail="Parser config not found")
+        raise HTTPException(status_code=400, detail=em.PARSER_CONFIG_NOT_FOUND)
     
     service = ScheduleImportService(db)
     start_date = today_msk()

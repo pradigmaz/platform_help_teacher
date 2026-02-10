@@ -19,6 +19,7 @@ from app.schemas.schedule import (
     GenerateLessonsRequest, GenerateLessonsResponse
 )
 from app.core.limiter import limiter
+from app.core import error_messages as em
 
 router = APIRouter()
 
@@ -72,7 +73,7 @@ async def update_schedule_item(
     """Обновить элемент расписания."""
     item = await crud_schedule.get(db, item_id)
     if not item:
-        raise HTTPException(status_code=404, detail="Элемент расписания не найден")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     
     item = await crud_schedule.update(db, db_obj=item, **item_in.model_dump(exclude_unset=True))
     return item
@@ -87,7 +88,7 @@ async def delete_schedule_item(
     """Удалить элемент расписания."""
     deleted = await crud_schedule.delete(db, id=item_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Элемент расписания не найден")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     return {"status": "deleted"}
 
 
@@ -141,7 +142,7 @@ async def get_group_students(
     )
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
     
     students = sorted(
         [u for u in group.users if u.is_active],
@@ -175,7 +176,7 @@ async def get_lesson(
     """Получить занятие по ID."""
     lesson = await crud_lesson.get(db, lesson_id)
     if not lesson:
-        raise HTTPException(status_code=404, detail="Занятие не найдено")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     return lesson
 
 
@@ -189,7 +190,7 @@ async def update_lesson(
     """Обновить занятие."""
     lesson = await crud_lesson.get(db, lesson_id)
     if not lesson:
-        raise HTTPException(status_code=404, detail="Занятие не найдено")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     
     lesson = await crud_lesson.update(db, db_obj=lesson, **lesson_in.model_dump(exclude_unset=True))
     return lesson
@@ -205,7 +206,7 @@ async def cancel_lesson(
     """Отменить занятие."""
     lesson = await crud_lesson.get(db, lesson_id)
     if not lesson:
-        raise HTTPException(status_code=404, detail="Занятие не найдено")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     
     lesson = await crud_lesson.cancel(db, db_obj=lesson, reason=reason)
     return lesson
@@ -220,7 +221,7 @@ async def delete_lesson(
     """Удалить занятие."""
     deleted = await crud_lesson.delete(db, id=lesson_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Занятие не найдено")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     return {"status": "deleted"}
 
 

@@ -15,9 +15,10 @@ from app.api import deps
 from app.db.session import get_db
 from app.core.limiter import limiter
 from app.core.config import settings
+from app.core import error_messages as em
 from app.models import User, Group
 from app.models.group_report import GroupReport, ReportType
-from app.crud.crud_report import crud_report
+from app.crud.report import crud_report
 from app.schemas.report import (
     ReportCreate,
     ReportUpdate,
@@ -28,6 +29,7 @@ from app.schemas.report import (
     ReportViewRecord,
 )
 from app.services.reports import ReportService
+from app.core.time_constants import REPORT_RECENT_VIEWS_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +82,7 @@ async def _get_report_or_404(
     if not report:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Report not found"
+            detail=em.REPORT_NOT_FOUND
         )
     
     # Проверка владельца (только создатель или админ)
@@ -117,7 +119,7 @@ async def create_report(
     if not group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Group not found"
+            detail=em.GROUP_NOT_FOUND
         )
     
     # Создаём отчёт
@@ -298,7 +300,7 @@ async def get_report_views(
     service = ReportService(db)
     
     stats = await service.get_view_stats(report.id)
-    recent_views = await service.get_recent_views(report.id, limit=50)
+    recent_views = await service.get_recent_views(report.id, limit=REPORT_RECENT_VIEWS_LIMIT)
     
     return ReportViewsResponse(
         report_id=report.id,

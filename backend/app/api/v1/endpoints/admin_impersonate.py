@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.models import User, UserRole
 from app.services import session_service
 from app.audit.middleware import SESSION_COOKIE_NAME
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -39,7 +40,7 @@ async def exit_impersonation(
     if not original_token:
         raise HTTPException(
             status_code=400, 
-            detail="No admin session to restore. Please login again."
+            detail=em.INVALID_ADMIN_TOKEN
         )
     
     # Валидируем original_token и проверяем что это действительно админ
@@ -49,18 +50,18 @@ async def exit_impersonation(
         admin_role = payload.get("role")
         
         if not admin_id or admin_role != "admin":
-            raise HTTPException(status_code=403, detail="Invalid admin token")
+            raise HTTPException(status_code=403, detail=em.INVALID_ADMIN_TOKEN)
         
         # Проверяем что админ существует и активен
         result = await db.execute(select(User).where(User.id == UUID(admin_id)))
         admin_user = result.scalar_one_or_none()
         
         if not admin_user or not admin_user.is_active or admin_user.role != UserRole.ADMIN:
-            raise HTTPException(status_code=403, detail="Admin account not found or inactive")
+            raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN)
             
     except InvalidTokenError:
         response.delete_cookie(key=ADMIN_TOKEN_COOKIE)
-        raise HTTPException(status_code=401, detail="Invalid or expired admin token")
+        raise HTTPException(status_code=401, detail=em.INVALID_ADMIN_TOKEN)
     
     is_production = settings.ENVIRONMENT == "production"
     
@@ -102,14 +103,14 @@ async def impersonate_user(
     target_user = result.scalar_one_or_none()
     
     if not target_user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
     
     if not target_user.is_active:
-        raise HTTPException(status_code=400, detail="User is inactive")
+        raise HTTPException(status_code=400, detail=em.ACCESS_FORBIDDEN)
     
     # Don't allow impersonating other admins
     if target_user.role == UserRole.ADMIN and target_user.id != admin.id:
-        raise HTTPException(status_code=403, detail="Cannot impersonate other admins")
+        raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN)
     
     is_production = settings.ENVIRONMENT == "production"
     

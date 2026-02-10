@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api import deps
+from app.core import error_messages as em
 from app.crud.crud_activity import activity as crud_activity
 from app.schemas.activity import ActivityCreate, ActivityResponse, ActivityUpdate, ActivityWithStudentResponse
 from app.models.user import User, UserRole
@@ -26,7 +27,7 @@ async def list_all_activities(
     Get all activities with student/group info.
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail=em.NOT_ENOUGH_PERMISSIONS)
 
     # Query with student relationship loaded
     query = select(Activity).where(Activity.is_active == True)
@@ -73,7 +74,7 @@ async def create_activity(
     If student_id is provided, creates for single student.
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail=em.NOT_ENOUGH_PERMISSIONS)
 
     if activity_in.group_id:
         # Batch create for group
@@ -86,7 +87,7 @@ async def create_activity(
         students = result.scalars().all()
         
         if not students:
-            raise HTTPException(status_code=404, detail="No students found in group")
+            raise HTTPException(status_code=404, detail=em.NO_STUDENTS_IN_GROUP)
             
         batch_id = uuid4()
         activities = await crud_activity.create_batch(
@@ -109,7 +110,7 @@ async def create_activity(
         )
         return [activity]
     else:
-        raise HTTPException(status_code=400, detail="Either student_id or group_id must be provided")
+        raise HTTPException(status_code=400, detail=em.STUDENT_OR_GROUP_REQUIRED)
 
 @router.get("/activities/student/{student_id}", response_model=List[ActivityResponse])
 async def read_student_activities(
@@ -122,7 +123,7 @@ async def read_student_activities(
     """
     # Check permissions
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER] and str(current_user.id) != student_id:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail=em.NOT_ENOUGH_PERMISSIONS)
 
     activities = await crud_activity.get_by_student(db, student_id=student_id)
     return activities
@@ -138,11 +139,11 @@ async def update_activity(
     Update activity (e.g. deactivate).
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail=em.NOT_ENOUGH_PERMISSIONS)
 
     activity = await crud_activity.get(db, id=activity_id)
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise HTTPException(status_code=404, detail=em.ACTIVITY_NOT_FOUND)
         
     activity = await crud_activity.update(db, db_obj=activity, obj_in=activity_in)
     return activity
@@ -157,11 +158,11 @@ async def delete_activity(
     Delete (soft delete) activity.
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail=em.NOT_ENOUGH_PERMISSIONS)
 
     activity = await crud_activity.delete(db, id=activity_id)
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise HTTPException(status_code=404, detail=em.ACTIVITY_NOT_FOUND)
         
     return activity
 

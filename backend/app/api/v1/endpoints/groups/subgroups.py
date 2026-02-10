@@ -11,6 +11,7 @@ from app import schemas, models
 from app.api import deps
 from app.db.session import get_db
 from app.utils.text import fio_matches
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -33,7 +34,7 @@ async def assign_subgroup(
     students = list(result.scalars().all())
     
     if not students:
-        raise HTTPException(status_code=404, detail="No students in group")
+        raise HTTPException(status_code=404, detail=em.NO_STUDENTS_IN_GROUP)
     
     input_names = [name.strip() for name in request.names if name.strip()]
     
@@ -61,7 +62,7 @@ async def assign_subgroup(
     except SQLAlchemyError as e:
         await db.rollback()
         logger.error(f"Error assigning subgroups: {e}")
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
 
 
 @router.post("/{group_id}/clear-subgroups", response_model=schemas.ClearSubgroupsResponse)
@@ -91,4 +92,4 @@ async def clear_subgroups(
     except SQLAlchemyError as e:
         await db.rollback()
         logger.error(f"Error clearing subgroups: {e}")
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)

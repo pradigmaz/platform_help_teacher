@@ -26,6 +26,7 @@ from app.services.storage import StorageService
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.constants import LECTURE_PDF_TIMEOUT_MS
+from app.core.time_constants import MINIO_UPLOAD_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -255,7 +256,7 @@ async def upload_lecture_image(
         
         # Загружаем файл напрямую в MinIO через presigned URL
         import httpx
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=float(MINIO_UPLOAD_TIMEOUT_SECONDS)) as client:
             response = await client.put(
                 upload_url,
                 content=content,

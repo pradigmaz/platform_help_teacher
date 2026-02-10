@@ -22,6 +22,7 @@ from app.core.limiter import limiter
 from app.core.constants import RATE_LIMIT_BACKUP_CREATE, RATE_LIMIT_BACKUP_DELETE
 from app.audit.decorators import audit_action
 from app.audit.constants import ActionType, EntityType
+from app.core import error_messages as em
 from .deps import get_backup_service
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ async def delete_backup(
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Backup not found or delete failed",
+            detail=em.BACKUP_NOT_FOUND,
         )
     
     logger.info(f"Backup deleted by {current_user.id}: {backup_key}")
@@ -108,7 +109,7 @@ async def upload_backup(
     if not file.filename or not file.filename.endswith('.enc'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must have .enc extension"
+            detail=em.FILE_MUST_HAVE_ENC_EXTENSION
         )
     
     content = await file.read()
@@ -119,7 +120,7 @@ async def upload_backup(
         )
     
     if len(content) == 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.EMPTY_FILE)
     
     # SECURITY: Validate encrypted file format (magic bytes check)
     # Format v1: [version:1][salt:16][nonce:8]... minimum 25 bytes header
@@ -128,7 +129,7 @@ async def upload_backup(
     if len(content) < MIN_ENCRYPTED_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File too small to be a valid encrypted backup"
+            detail=em.FILE_TOO_SMALL
         )
     
     # Check format version byte
@@ -138,7 +139,7 @@ async def upload_backup(
         if len(content) < 25 + 16:  # header + minimum ciphertext with tag
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid v1 encrypted backup format"
+                detail=em.INVALID_BACKUP_FORMAT
             )
     elif version_byte <= 16:
         # Likely legacy format (first byte is part of salt)
@@ -146,7 +147,7 @@ async def upload_backup(
         if len(content) < 28 + 16:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid legacy encrypted backup format"
+                detail=em.INVALID_BACKUP_FORMAT
             )
     else:
         raise HTTPException(

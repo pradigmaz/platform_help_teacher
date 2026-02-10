@@ -13,6 +13,8 @@ from app.api.deps import get_current_active_superuser, get_db
 from app.models import User
 from app.services.security_monitor import get_security_detector, AttackType, StrikeLevel
 from app.core.redis import get_redis
+from app.core.time_constants import REDIS_SCAN_COUNT
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -136,7 +138,7 @@ async def list_active_bans(
     ban_keys = []
     
     while True:
-        cursor, keys = await redis.scan(cursor, match="sec:ban:*", count=100)
+        cursor, keys = await redis.scan(cursor, match="sec:ban:*", count=REDIS_SCAN_COUNT)
         ban_keys.extend(keys)
         if cursor == 0:
             break
@@ -176,7 +178,7 @@ async def get_security_stats(
     cursor = 0
     active_bans = 0
     while True:
-        cursor, keys = await redis.scan(cursor, match="sec:ban:*", count=100)
+        cursor, keys = await redis.scan(cursor, match="sec:ban:*", count=REDIS_SCAN_COUNT)
         active_bans += len(keys)
         if cursor == 0:
             break
@@ -187,7 +189,7 @@ async def get_security_stats(
     attack_types: dict = {}
     
     while True:
-        cursor, keys = await redis.scan(cursor, match="sec:strike_details:*", count=100)
+        cursor, keys = await redis.scan(cursor, match="sec:strike_details:*", count=REDIS_SCAN_COUNT)
         for key in keys:
             details = await redis.lrange(key, 0, -1)
             total_strikes += len(details)
@@ -235,13 +237,13 @@ async def get_user_info_for_security(
         from uuid import UUID
         uuid_obj = UUID(user_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid UUID format")
+        raise HTTPException(status_code=400, detail=em.INVALID_UUID_FORMAT)
     
     result = await db.execute(select(User).where(User.id == uuid_obj))
     user = result.scalar_one_or_none()
     
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
     
     group_name = None
     if user.group_id:

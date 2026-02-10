@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db, get_current_teacher
+from app.core import error_messages as em
 from app.models import User, Lesson, Attendance, AttendanceStatus
 from app.schemas.lesson_grade import BulkAttendanceUpdate
 from app.core.limiter import limiter
@@ -70,7 +71,7 @@ async def bulk_update_attendance(
     )
     lesson = lesson_result.scalar_one_or_none()
     if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     
     # Проверка принадлежности студентов к группе
     group_result = await db.execute(

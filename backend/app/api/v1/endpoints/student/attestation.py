@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.attestation_settings import AttestationType
 from app.services.attestation_service import AttestationService
 from app.audit import audit_action, ActionType, EntityType
+from app.core import error_messages as em
 
 router = APIRouter()
 
@@ -24,7 +25,7 @@ async def get_my_attestation(
     """Баллы аттестации студента."""
     
     if attestation_type not in ("first", "second"):
-        raise HTTPException(status_code=400, detail="Invalid attestation type")
+        raise HTTPException(status_code=400, detail=em.INVALID_ATTESTATION_TYPE)
     
     if not current_user.group_id:
         return {

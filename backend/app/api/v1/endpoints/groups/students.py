@@ -13,6 +13,7 @@ from app.api import deps
 from app.db.session import get_db
 from app.core.limiter import limiter
 from app.core.config import settings
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -48,7 +49,7 @@ async def add_student(
     result = await db.execute(select(models.Group).where(models.Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
     
     student = models.User(
         full_name=student_data.full_name,
@@ -65,7 +66,7 @@ async def add_student(
     except SQLAlchemyError as e:
         await db.rollback()
         logger.error(f"Error adding student: {e}")
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
 
 
 @router.post("/{group_id}/students/bulk", response_model=BulkStudentsResponse)
@@ -87,7 +88,7 @@ async def add_students_bulk(
     result = await db.execute(select(models.Group).where(models.Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
     
     added_students = []
     for name in data.names:
@@ -113,7 +114,7 @@ async def add_students_bulk(
     except SQLAlchemyError as e:
         await db.rollback()
         logger.error(f"Error bulk adding students: {e}")
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
 
 
 @router.delete("/{group_id}/students/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -134,14 +135,14 @@ async def remove_student(
     )
     student = result.scalar_one_or_none()
     if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
+        raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
     
     try:
         await db.delete(student)
         await db.commit()
     except SQLAlchemyError:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
 
 
 @router.patch("/{group_id}/students/{student_id}", response_model=schemas.StudentInGroupResponse)
@@ -161,7 +162,7 @@ async def update_student(
     )
     student = result.scalar_one_or_none()
     if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
+        raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
     
     try:
         if student_in.full_name is not None:
@@ -174,7 +175,7 @@ async def update_student(
     except SQLAlchemyError as e:
         await db.rollback()
         logger.error(f"Error updating student: {e}")
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
 
 
 @router.post("/{group_id}/students/bulk-delete", response_model=BulkDeleteResponse)
@@ -196,7 +197,7 @@ async def delete_students_bulk(
     students = list(result.scalars().all())
     
     if not students:
-        raise HTTPException(status_code=404, detail="Students not found")
+        raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
     
     try:
         for student in students:
@@ -206,4 +207,4 @@ async def delete_students_bulk(
     except SQLAlchemyError as e:
         await db.rollback()
         logger.error(f"Error bulk deleting students: {e}")
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)

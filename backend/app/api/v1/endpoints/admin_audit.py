@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db, get_current_active_superuser
 from app.core.limiter import limiter
+from app.core import error_messages as em
 from app.models.user import User
 from app.audit.models import StudentAuditLog
 from app.audit.schemas import AuditLogResponse, AuditLogListResponse, AuditStatsResponse
@@ -129,7 +130,7 @@ async def get_audit_log_detail(
     
     if not log:
         from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Audit log not found")
+        raise HTTPException(status_code=404, detail=em.AUDIT_LOG_NOT_FOUND)
     
     user_name = None
     if log.user_id:
@@ -318,7 +319,7 @@ async def clear_logs(
 ):
     """Удалить логи по фильтрам."""
     if not confirm:
-        raise HTTPException(status_code=400, detail="Confirmation required (confirm=true)")
+        raise HTTPException(status_code=400, detail=em.CONFIRMATION_REQUIRED)
     
     # Парсим статус коды
     codes_list = None
@@ -326,12 +327,12 @@ async def clear_logs(
         try:
             codes_list = [int(c.strip()) for c in status_codes.split(",") if c.strip()]
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid status_codes format")
+            raise HTTPException(status_code=400, detail=em.INVALID_STATUS_CODES_FORMAT)
     
     filters = _build_delete_filters(date_from, date_to, codes_list, action_type)
     
     if not filters:
-        raise HTTPException(status_code=400, detail="At least one filter is required")
+        raise HTTPException(status_code=400, detail=em.AT_LEAST_ONE_FILTER_REQUIRED)
     
     # Подсчёт перед удалением
     count_query = select(func.count(StudentAuditLog.id))

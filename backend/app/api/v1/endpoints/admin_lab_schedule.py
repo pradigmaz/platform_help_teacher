@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.api.deps import get_db, get_current_active_superuser
+from app.core import error_messages as em
 from app.models import User
 from app.models.lab import Lab
 from app.models.lesson import Lesson
@@ -70,7 +71,7 @@ async def get_schedule_slots(
     """Get available schedule slots for lab attachment."""
     lab = await db.get(Lab, lab_id)
     if not lab:
-        raise HTTPException(status_code=404, detail="Lab not found")
+        raise HTTPException(status_code=404, detail=em.LAB_NOT_FOUND)
     
     today = today_msk()
     end_date = today + timedelta(days=SCHEDULE_LOOKAHEAD_DAYS)
@@ -150,7 +151,7 @@ async def attach_to_lessons(
     """Attach lab to schedule lessons."""
     lab = await db.get(Lab, lab_id)
     if not lab:
-        raise HTTPException(status_code=404, detail="Lab not found")
+        raise HTTPException(status_code=404, detail=em.LAB_NOT_FOUND)
     
     if not data.lesson_ids:
         return AttachResponse(attached_count=0)
@@ -160,7 +161,7 @@ async def attach_to_lessons(
     # Получаем первое занятие для валидации
     first_lesson = await db.get(Lesson, lesson_uuids[0])
     if not first_lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     
     # Валидация: проверяем не активна ли предыдущая лаба
     validator = LabAttachmentValidator(db)
@@ -207,7 +208,7 @@ async def detach_from_lessons(
     """Detach lab from schedule lessons."""
     lab = await db.get(Lab, lab_id)
     if not lab:
-        raise HTTPException(status_code=404, detail="Lab not found")
+        raise HTTPException(status_code=404, detail=em.LAB_NOT_FOUND)
     
     if not data.lesson_ids:
         return AttachResponse(attached_count=0)

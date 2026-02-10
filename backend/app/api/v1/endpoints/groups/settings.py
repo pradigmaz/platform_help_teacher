@@ -11,6 +11,7 @@ from app import schemas, models
 from app.api import deps
 from app.db.session import get_db
 from app.services.group_service import GroupService
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -28,7 +29,7 @@ async def update_lab_settings(
     group = result.scalar_one_or_none()
     
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
     
     try:
         if lab_settings.labs_count is not None:
@@ -51,7 +52,7 @@ async def update_lab_settings(
     except SQLAlchemyError as e:
         await db.rollback()
         logger.error(f"Error updating lab settings: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
 
 
 @router.post("/{group_id}/regenerate-invite-code")

@@ -18,6 +18,7 @@ from app.models.schedule import LessonType
 from app.services.submission_service import submission_service
 from app.services.attestation.deadline_validator import get_max_allowed_grade_for_lab
 from app.services.schedule_constants import today_msk
+from app.core import error_messages as em
 
 router = APIRouter()
 
@@ -164,7 +165,7 @@ async def get_submission_detail(
     sub = result.scalar_one_or_none()
     
     if not sub:
-        raise HTTPException(status_code=404, detail="Submission not found")
+        raise HTTPException(status_code=404, detail=em.SUBMISSION_NOT_FOUND)
     
     lab = sub.lab
     student = sub.user
@@ -250,7 +251,7 @@ async def accept_submission(
     """
     sub = await submission_service.get_by_id(db, submission_id, load_relations=True)
     if not sub:
-        raise HTTPException(status_code=404, detail="Submission not found")
+        raise HTTPException(status_code=404, detail=em.SUBMISSION_NOT_FOUND)
     
     try:
         result = await submission_service.accept(
@@ -271,7 +272,7 @@ async def reject_submission(
     """Отклонить работу студента."""
     sub = await submission_service.get_by_id(db, submission_id)
     if not sub:
-        raise HTTPException(status_code=404, detail="Submission not found")
+        raise HTTPException(status_code=404, detail=em.SUBMISSION_NOT_FOUND)
     
     try:
         result = await submission_service.reject(

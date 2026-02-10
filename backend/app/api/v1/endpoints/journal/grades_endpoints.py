@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db, get_current_teacher
+from app.core import error_messages as em
 from app.models import User, Lesson, LessonGrade
 from app.schemas.lesson_grade import (
     LessonGradeCreate, LessonGradeUpdate, LessonGradeResponse, 
@@ -67,13 +68,13 @@ async def create_grade(
     lesson_result = await db.execute(select(Lesson).where(Lesson.id == data.lesson_id))
     lesson = lesson_result.scalar_one_or_none()
     if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     
     # Проверяем слоты (1 лаба = 1 пара, +1 для EXCUSED)
     if lesson.lesson_type == 'LAB':
         try:
             await validate_lab_submission(
-                db, data.student_id, data.lesson_id, lesson.subject_id, data.work_number
+                db, data.student_id, data.lesson_id, lesson.subject_id, data.work_number, lesson
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -124,7 +125,7 @@ async def update_grade(
     )
     existing = existing_result.scalar_one_or_none()
     if not existing:
-        raise HTTPException(status_code=404, detail="Grade not found")
+        raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
     
     if data.grade is not None and existing.lesson:
         max_allowed = await get_max_allowed_grade(
@@ -145,7 +146,7 @@ async def update_grade(
         comment=data.comment
     )
     if not grade:
-        raise HTTPException(status_code=404, detail="Grade not found")
+        raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
     
     # Синхронизация с work_submission для лаб
     work_number = data.work_number if data.work_number is not None else existing.work_number
@@ -175,7 +176,7 @@ async def delete_grade(
     """Удалить оценку."""
     success = await crud_lesson_grade.delete_lesson_grade(db, grade_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Grade not found")
+        raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
     return {"deleted": True}
 
 
@@ -213,7 +214,7 @@ async def get_lesson_max_grade(
     lesson_result = await db.execute(select(Lesson).where(Lesson.id == lesson_id))
     lesson = lesson_result.scalar_one_or_none()
     if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     
     max_allowed = await get_max_allowed_grade(db, lesson)
     return {"lesson_id": str(lesson_id), "max_allowed_grade": max_allowed}

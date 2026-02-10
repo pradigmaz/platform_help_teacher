@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.bots.telegram_bot import bot, dp
 from app.api import deps
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -27,7 +28,7 @@ async def telegram_webhook(
         logger.warning("Invalid secret token received (masked: ***)")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid secret token"
+            detail=em.INVALID_SECRET_TOKEN
         )
 
     try:
@@ -43,11 +44,11 @@ async def telegram_webhook(
     except ValueError as e:
         # Invalid JSON or Update format - client error, don't retry
         logger.warning(f"Invalid update format: {e}")
-        raise HTTPException(status_code=400, detail="Invalid update format")
+        raise HTTPException(status_code=400, detail=em.INVALID_UPDATE_FORMAT)
     except Exception as e:
         logger.error(f"Error processing telegram update: {e}", exc_info=True)
         # Return 500 so Telegram knows to retry
-        raise HTTPException(status_code=500, detail="Internal processing error")
+        raise HTTPException(status_code=500, detail=em.INTERNAL_PROCESSING_ERROR)
 
 @router.get("/status")
 async def get_webhook_status():
@@ -71,4 +72,4 @@ async def get_webhook_status():
         }
     except Exception as e:
         logger.error(f"Failed to get webhook info: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get webhook info")
+        raise HTTPException(status_code=500, detail=em.FAILED_TO_GET_WEBHOOK_INFO)

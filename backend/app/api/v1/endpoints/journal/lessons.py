@@ -6,13 +6,15 @@ from datetime import date
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db, get_current_teacher
 from app.models import User, Lesson, Attendance, AttendanceStatus, LessonGrade, Group
+from app.models.schedule import LessonType
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -153,4 +155,81 @@ async def get_journal_stats(
             "excused": attendance_stats.get(AttendanceStatus.EXCUSED, 0),
             "absent": attendance_stats.get(AttendanceStatus.ABSENT, 0),
         },
+    }
+
+
+
+class UpdateLabLimitRequest(BaseModel):
+    """Установить лимит лаб на занятие."""
+    max_labs: Optional[int] = Field(None, ge=1, le=10, description="Лимит лаб (null = стандартный)")
+
+
+@router.patch("/lessons/{lesson_id}/lab-limit")
+async def update_lesson_lab_limit(
+    lesson_id: UUID,
+    data: UpdateLabLimitRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_teacher)
+):
+    """
+    Установить лимит лаб на занятие (max_labs_override).
+    
+    Args:
+        lesson_id: ID занятия
+        data: Новый лимит (null = стандартная логика)
+    
+    Returns:
+        {"lesson_id": str, "max_labs_override": int | None}
+    
+    Raises:
+        HTTPException 404: Занятие не найдено
+        HTTPException 400: Занятие не является лабораторной
+    """
+    logger.info(
+        f"[lessons:update_lesson_lab_limit] Setting max_labs_override={data.max_labs} "
+        f"for lesson_id={lesson_id}, user_id={current_user.id}"
+    )
+    
+    # Найти занятие
+    result = await db.execute(
+        select(Lesson).where(Lesson.id == lesson_id)
+    )
+    lesson = result.scalar_one_or_none()
+    
+    if not lesson:
+        logger.warning(f"[lessons:update_lesson_lab_limit] Lesson not found: {lesson_id}")
+        raise HTTPException(status_code=404, detail="Занятие не найдено")
+    
+    # Проверить ownership
+    from app.api.ownership import check_group_access
+    await check_group_access(lesson.group_id, current_user, db)
+    
+    # Проверка ownership
+    from app.api.ownership import check_group_access
+    await check_group_access(lesson.group_id, current_user, db)
+    
+    # Проверить что это лабораторная
+    lesson_type_value = lesson.lesson_type.value if hasattr(lesson.lesson_type, 'value') else str(lesson.lesson_type)
+    if lesson_type_value.lower() != LessonType.LAB.value.lower():
+        logger.warning(
+            f"[lessons:update_lesson_lab_limit] Lesson is not LAB: {lesson_id}, "
+            f"type={lesson_type_value}"
+        )
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Занятие не является лабораторной (тип: {lesson_type_value})"
+        )
+    
+    # Установить лимит
+    lesson.max_labs_override = data.max_labs
+    await db.commit()
+    
+    logger.info(
+        f"[lessons:update_lesson_lab_limit] Successfully set max_labs_override={data.max_labs} "
+        f"for lesson_id={lesson_id}"
+    )
+    
+    return {
+        "lesson_id": str(lesson.id),
+        "max_labs_override": lesson.max_labs_override
     }

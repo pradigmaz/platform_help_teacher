@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, get_current_teacher
+from app.core import error_messages as em
 from app.models import User, Lesson
 from app.schemas.lesson_grade import BulkGradeCreate
 from app.core.limiter import limiter
@@ -31,7 +32,7 @@ async def bulk_update_grades(
     lesson_result = await db.execute(select(Lesson).where(Lesson.id == data.lesson_id))
     lesson = lesson_result.scalar_one_or_none()
     if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     
     # Группируем оценки по студентам для проверки слотов
     grades_by_student: dict[UUID, list] = {}
@@ -48,7 +49,7 @@ async def bulk_update_grades(
         student_ids = list(grades_by_student.keys())
         
         current_counts = await get_grades_count_on_lesson_batch(db, student_ids, data.lesson_id)
-        max_allowed_labs = await get_max_labs_per_lesson_batch(db, student_ids, lesson.subject_id)
+        max_allowed_labs = await get_max_labs_per_lesson_batch(db, student_ids, lesson.subject_id, lesson)
         
         for student_id, student_grades in grades_by_student.items():
             current_count = current_counts.get(student_id, 0)

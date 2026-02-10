@@ -22,6 +22,7 @@ from app.api.v1.endpoints import (
     lectures,
     admin_reports,
     public_reports,
+    public_semester,
     admin_lab_queue,
     admin_audit,
     admin_audit_export,
@@ -195,4 +196,7 @@ api_router.include_router(lectures.router, prefix="/lectures", tags=["lectures"]
 # Public endpoints (без авторизации)
 api_router.include_router(
     public_reports.router, prefix="/public", tags=["public_reports"]
+)
+api_router.include_router(
+    public_semester.router, prefix="/public", tags=["public_semester"]
 )

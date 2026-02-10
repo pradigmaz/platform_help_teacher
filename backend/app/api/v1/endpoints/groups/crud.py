@@ -15,6 +15,7 @@ from app.services.import_service import SmartImportService
 from app.services.group_service import GroupService
 from app.core.limiter import limiter
 from app.core.config import settings
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -84,7 +85,7 @@ async def read_group(
     group = result.scalar_one_or_none()
     
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
     
     students = group.users
     if active_only:
@@ -116,14 +117,14 @@ async def delete_group(
     result = await db.execute(select(models.Group).where(models.Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
     
     try:
         group.is_archived = True
         await db.commit()
     except SQLAlchemyError:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
 
 
 @router.post("/parse", response_model=List[schemas.StudentImport])
@@ -137,6 +138,6 @@ async def parse_students_file(
     file.file.seek(0)
     
     if size > settings.MAX_IMPORT_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+        raise HTTPException(status_code=400, detail=em.format_error(em.FILE_TOO_LARGE, max="5MB"))
 
     return await SmartImportService.parse_file(file)

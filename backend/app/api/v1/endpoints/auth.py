@@ -17,6 +17,7 @@ from app.audit import audit_action, ActionType, EntityType
 from app.audit.middleware import SESSION_COOKIE_NAME
 from app.audit.deps import set_audit_extra
 from app.services import session_service
+from app.core import error_messages as em
 
 router = APIRouter()
 
@@ -59,7 +60,7 @@ async def login_with_otp(
     
     if not auth_data:
         logger.warning(f"OTP not found in Redis: code={otp_masked}")
-        raise HTTPException(status_code=400, detail="Invalid or expired code")
+        raise HTTPException(status_code=400, detail=em.INVALID_OR_EXPIRED_CODE)
     
     # Парсим данные (JSON с social_id и platform)
     import json
@@ -69,7 +70,7 @@ async def login_with_otp(
         platform = data.get("platform", "telegram")
     except (json.JSONDecodeError, TypeError):
         await redis.delete(f"auth:{otp}")
-        raise HTTPException(status_code=400, detail="Invalid data format")
+        raise HTTPException(status_code=400, detail=em.INVALID_DATA_FORMAT)
 
     await redis.delete(f"auth:{otp}")
     
@@ -86,10 +87,10 @@ async def login_with_otp(
     user = result.scalar_one_or_none()
     
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
         
     if not user.is_active:
-         raise HTTPException(status_code=403, detail="User is inactive")
+         raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN)
         
     access_token = security.create_access_token(user.id, role=user.role.value)
     
