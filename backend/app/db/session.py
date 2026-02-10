@@ -2,15 +2,22 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
+from app.core.time_constants import (
+    DB_POOL_SIZE,
+    DB_POOL_MAX_OVERFLOW,
+    DB_POOL_TIMEOUT_SECONDS,
+    DB_SYNC_POOL_SIZE,
+    DB_SYNC_POOL_MAX_OVERFLOW,
+)
 
 # Async engine для FastAPI
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
     future=True,
-    pool_size=20,
-    max_overflow=10,
-    pool_timeout=30,
+    pool_size=DB_POOL_SIZE,
+    max_overflow=DB_POOL_MAX_OVERFLOW,
+    pool_timeout=DB_POOL_TIMEOUT_SECONDS,
     pool_pre_ping=True,
 )
 
@@ -19,9 +26,9 @@ sync_database_url = settings.DATABASE_URL.replace("+asyncpg", "")
 sync_engine = create_engine(
     sync_database_url,
     echo=False,
-    pool_size=5,
-    max_overflow=5,
-    pool_timeout=30,
+    pool_size=DB_SYNC_POOL_SIZE,
+    max_overflow=DB_SYNC_POOL_MAX_OVERFLOW,
+    pool_timeout=DB_POOL_TIMEOUT_SECONDS,
     pool_pre_ping=True,
 )
 

@@ -9,6 +9,7 @@ from typing import Optional, Tuple
 from fastapi import HTTPException
 
 from app.core.constants import ALLOWED_EXTENSIONS_SET, ALLOWED_MIME_TYPES_SET
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ def validate_magic_bytes(content: bytes, claimed_mime: Optional[str] = None) -> 
         HTTPException: Если тип не разрешён или не совпадает с заявленным
     """
     if len(content) < 4:
-        raise HTTPException(status_code=400, detail="File too small to validate")
+        raise HTTPException(status_code=400, detail=em.FILE_TOO_SMALL)
     
     # Используем python-magic для определения типа
     try:
@@ -61,14 +62,14 @@ def validate_magic_bytes(content: bytes, claimed_mime: Optional[str] = None) -> 
         detected_mime = _detect_by_signature(content)
     
     if not detected_mime:
-        raise HTTPException(status_code=400, detail="Could not determine file type")
+        raise HTTPException(status_code=400, detail=em.COULD_NOT_DETERMINE_FILE_TYPE)
     
     # Проверяем, что тип разрешён
     if detected_mime not in ALLOWED_MIME_TYPES_SET:
         logger.warning(f"Blocked file upload: detected={detected_mime}, claimed={claimed_mime}")
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{detected_mime}' not allowed"
+            detail=em.format_error(em.FILE_TYPE_NOT_ALLOWED, type=detected_mime)
         )
     
     # Если заявлен MIME — проверяем совпадение
@@ -80,7 +81,7 @@ def validate_magic_bytes(content: bytes, claimed_mime: Optional[str] = None) -> 
             )
             raise HTTPException(
                 status_code=400,
-                detail="File content does not match declared type"
+                detail=em.FILE_CONTENT_MISMATCH
             )
     
     return detected_mime
@@ -118,11 +119,11 @@ def validate_filename(filename: str) -> Tuple[str, str]:
         HTTPException: Если расширение опасное или не разрешено
     """
     if not filename:
-        raise HTTPException(status_code=400, detail="Filename required")
+        raise HTTPException(status_code=400, detail=em.FILENAME_REQUIRED)
     
     # Защита от path traversal
     if '..' in filename or '/' in filename or '\\' in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
+        raise HTTPException(status_code=400, detail=em.INVALID_FILENAME)
     
     path = Path(filename)
     ext = path.suffix.lower()
@@ -130,11 +131,11 @@ def validate_filename(filename: str) -> Tuple[str, str]:
     # Проверка на опасные расширения
     if ext in DANGEROUS_EXTENSIONS:
         logger.warning(f"Blocked dangerous file extension: {ext}")
-        raise HTTPException(status_code=400, detail=f"File type '{ext}' not allowed")
+        raise HTTPException(status_code=400, detail=em.format_error(em.FILE_TYPE_NOT_ALLOWED, type=ext))
     
     # Проверка на разрешённые расширения
     if ext not in ALLOWED_EXTENSIONS_SET:
-        raise HTTPException(status_code=400, detail=f"File type '{ext}' not allowed")
+        raise HTTPException(status_code=400, detail=em.format_error(em.FILE_TYPE_NOT_ALLOWED, type=ext))
     
     # Возвращаем безопасное имя (только basename)
     safe_name = path.name
@@ -161,9 +162,10 @@ def validate_file_upload(
     """
     # 1. Проверка размера
     if max_size and len(content) > max_size:
+        max_mb = max_size // (1024*1024)
         raise HTTPException(
             status_code=400,
-            detail=f"File too large (max {max_size // (1024*1024)}MB)"
+            detail=em.format_error(em.FILE_TOO_LARGE, max=f"{max_mb}MB")
         )
     
     # 2. Валидация имени файла

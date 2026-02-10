@@ -5,6 +5,11 @@ import os
 from celery import Celery
 from celery.schedules import crontab
 
+from app.core.time_constants import (
+    CELERY_TASK_TIME_LIMIT_SECONDS,
+    SCHEDULE_CHECK_INTERVAL_SECONDS,
+)
+
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 celery_app = Celery(
@@ -21,7 +26,7 @@ celery_app.conf.update(
     timezone="Europe/Moscow",
     enable_utc=True,
     task_track_started=True,
-    task_time_limit=600,  # 10 min max
+    task_time_limit=CELERY_TASK_TIME_LIMIT_SECONDS,
     worker_prefetch_multiplier=1,
     # Redis scheduler вместо файлового (решает проблему Permission denied)
     beat_scheduler="celery.beat:PersistentScheduler",
@@ -33,7 +38,7 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     "check-schedule-updates": {
         "task": "app.tasks.schedule_tasks.check_all_schedules",
-        "schedule": 900.0,  # Every 15 minutes
+        "schedule": float(SCHEDULE_CHECK_INTERVAL_SECONDS),
     },
     "create-daily-backup": {
         "task": "app.tasks.backup_tasks.create_scheduled_backup",

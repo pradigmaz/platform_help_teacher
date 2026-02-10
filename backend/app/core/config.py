@@ -4,6 +4,14 @@ from pydantic import field_validator, PostgresDsn, computed_field, AnyHttpUrl, F
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.time_constants import (
+    ACCESS_TOKEN_EXPIRE_MINUTES as DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS as DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS,
+    PRESIGNED_URL_EXPIRY_SECONDS,
+    BACKUP_RETENTION_DAYS as DEFAULT_BACKUP_RETENTION_DAYS,
+    MAX_FILE_SIZE_BYTES,
+)
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=[".env", "../deploy/.env"],
@@ -46,8 +54,8 @@ class Settings(BaseSettings):
     # SECURITY
     SECRET_KEY: str = Field(..., repr=False)
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 4  # 4 hours (reduced from 7 days)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES
+    REFRESH_TOKEN_EXPIRE_DAYS: int = DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS
     MAX_ACTIVE_SESSIONS: int = 5  # Per user
 
     @field_validator("SECRET_KEY")
@@ -102,11 +110,11 @@ class Settings(BaseSettings):
     MINIO_ROOT_USER: str
     MINIO_ROOT_PASSWORD: str = Field(..., repr=False)
     MINIO_BUCKET_NAME: str = "edu-uploads"
-    PRESIGNED_URL_EXPIRY: int = 300 # 5 minutes
+    PRESIGNED_URL_EXPIRY: int = PRESIGNED_URL_EXPIRY_SECONDS
 
     # Import Settings
     MAX_STUDENTS_COUNT: int = 150
-    MAX_IMPORT_FILE_SIZE: int = 5 * 1024 * 1024  # 5MB
+    MAX_IMPORT_FILE_SIZE: int = MAX_FILE_SIZE_BYTES
     MAX_IMAGE_SIZE: int = 10 * 1024 * 1024  # 10MB
     MAX_PIN_ATTEMPTS: int = 5
     NAME_SANITIZATION_REGEX: str = r'[\d\.\,\;\t]'
@@ -114,7 +122,7 @@ class Settings(BaseSettings):
     # Backup Settings
     BACKUP_ENCRYPTION_KEY: str = Field(default="", repr=False)
     BACKUP_STORAGE_BUCKET: str = "edu-backups"
-    BACKUP_RETENTION_DAYS: int = 30
+    BACKUP_RETENTION_DAYS: int = DEFAULT_BACKUP_RETENTION_DAYS
 
     @field_validator("BACKUP_ENCRYPTION_KEY")
     @classmethod

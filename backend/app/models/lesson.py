@@ -82,6 +82,9 @@ class Lesson(Base, TimestampMixin):
     
     # Отпустил раньше
     ended_early: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    
+    # Переопределение лимита лаб за занятие (null = стандартная логика: 1 или 2 для EXCUSED)
+    max_labs_override: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
 
     # Relationships
     schedule_item: Mapped[Optional["ScheduleItem"]] = relationship()
@@ -96,4 +99,5 @@ class Lesson(Base, TimestampMixin):
         Index('idx_lessons_date', 'date'),
         CheckConstraint('lesson_number >= 1 AND lesson_number <= 8', name='ck_lesson_lesson_number'),
         CheckConstraint('subgroup IS NULL OR subgroup IN (1, 2)', name='ck_lesson_subgroup'),
+        CheckConstraint('max_labs_override IS NULL OR (max_labs_override >= 1 AND max_labs_override <= 10)', name='ck_lesson_max_labs_override'),
     )

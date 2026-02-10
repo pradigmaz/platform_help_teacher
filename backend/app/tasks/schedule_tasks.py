@@ -17,6 +17,7 @@ from app.services.schedule_constants import MSK_TZ, today_msk
 from app.models.schedule_parser_config import ScheduleParserConfig
 from app.models.parse_history import ParseHistory
 from app.models.user import User
+from app.core.time_constants import TELEGRAM_SEND_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ def _send_notification_sync(user: User, message: str):
                 requests.post(url, json={
                     "chat_id": user.telegram_id,
                     "text": message
-                }, timeout=10)
+                }, timeout=TELEGRAM_SEND_TIMEOUT_SECONDS)
                 logger.info(f"Telegram notification sent to {user.telegram_id}")
         except Exception as e:
             logger.error(f"Failed to send Telegram notification: {e}")

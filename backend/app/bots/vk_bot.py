@@ -12,6 +12,7 @@ from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.services import bot_service
+from app.core.time_constants import VK_LONG_POLL_RETRY_DELAY_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +184,7 @@ async def _longpoll_loop():
         except Exception as e:
             logger.error(f"VK Long Poll loop error: {e}")
             if _running:
-                await asyncio.sleep(5)
+                await asyncio.sleep(VK_LONG_POLL_RETRY_DELAY_SECONDS)
 
 
 async def start_longpoll():
