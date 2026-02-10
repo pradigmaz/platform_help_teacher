@@ -6,11 +6,13 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from fastapi import HTTPException
 
 from app.models.lab import Lab
 from app.models.lab_deadline_extension import LabDeadlineExtension
 from app.models.group import Group
 from app.schemas.deadline_extension import DeadlineExtensionCreate, DeadlineExtensionUpdate
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +78,13 @@ class LabDeadlineService:
         lab = await db.get(Lab, ext_in.lab_id)
         if not lab:
             logger.error(f"[LabDeadlineService:create_deadline_extension] Lab {ext_in.lab_id} not found")
-            raise ValueError("Lab not found")
+            raise HTTPException(status_code=404, detail=em.LAB_NOT_FOUND)
         
         # Проверка существования группы
         group = await db.get(Group, ext_in.group_id)
         if not group:
             logger.error(f"[LabDeadlineService:create_deadline_extension] Group {ext_in.group_id} not found")
-            raise ValueError("Group not found")
+            raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
         
         # Проверка на дубликат
         existing = await db.execute(
@@ -93,7 +95,7 @@ class LabDeadlineService:
         )
         if existing.scalar_one_or_none():
             logger.error(f"[LabDeadlineService:create_deadline_extension] Extension already exists for lab {ext_in.lab_id} and group {ext_in.group_id}")
-            raise ValueError("Extension already exists for this lab and group")
+            raise HTTPException(status_code=400, detail="Продление уже существует для этой лабы и группы")
         
         extension = LabDeadlineExtension(
             lab_id=ext_in.lab_id,

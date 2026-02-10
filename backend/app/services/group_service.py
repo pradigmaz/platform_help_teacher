@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 from app import models, schemas
 from app.core.config import settings
+from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class GroupService:
         # Check if group exists
         result = await self.db.execute(select(models.Group).where(models.Group.code == group_in.code))
         if result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="Group with this code already exists")
+            raise HTTPException(status_code=400, detail=em.GROUP_CODE_EXISTS)
 
         try:
             group = models.Group(
@@ -72,7 +73,7 @@ class GroupService:
         except SQLAlchemyError as e:
             await self.db.rollback()
             logger.error(f"Error creating group: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Database error")
+            raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
     
     async def _generate_unique_invite_codes_batch(self, count: int) -> List[str]:
         """Генерирует уникальные коды пачкой."""
@@ -95,7 +96,7 @@ class GroupService:
             attempts += 1
             
         if len(unique_codes) < count:
-             raise HTTPException(status_code=500, detail="Could not generate unique invite codes")
+             raise HTTPException(status_code=500, detail=em.COULD_NOT_GENERATE_UNIQUE_CODE)
              
         return list(unique_codes)[:count]
 
@@ -109,7 +110,7 @@ class GroupService:
         result = await self.db.execute(select(models.User).where(models.User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
-             raise HTTPException(status_code=404, detail="User not found")
+             raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
         
         try:
             invite_code = await self._get_unique_invite_code()
@@ -119,14 +120,14 @@ class GroupService:
         except SQLAlchemyError as e:
             await self.db.rollback()
             logger.error(f"Error regenerating user code: {e}")
-            raise HTTPException(status_code=500, detail="Database error")
+            raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
 
     async def regenerate_group_invite_code(self, group_id: UUID) -> str:
         """Сгенерировать/обновить инвайт-код группы."""
         result = await self.db.execute(select(models.Group).where(models.Group.id == group_id))
         group = result.scalar_one_or_none()
         if not group:
-            raise HTTPException(status_code=404, detail="Group not found")
+            raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
         
         try:
             # Генерируем batch кодов и проверяем уникальность одним запросом
@@ -149,13 +150,13 @@ class GroupService:
                     await self.db.commit()
                     return available[0]
             
-            raise HTTPException(status_code=500, detail="Could not generate unique code")
+            raise HTTPException(status_code=500, detail=em.COULD_NOT_GENERATE_UNIQUE_CODE)
         except HTTPException:
             raise
         except SQLAlchemyError as e:
             await self.db.rollback()
             logger.error(f"Error regenerating group invite code: {e}")
-            raise HTTPException(status_code=500, detail="Database error")
+            raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
 
     async def regenerate_group_codes(self, group_id: UUID) -> dict:
         """Сгенерировать коды для всех студентов группы, у кого их нет."""
@@ -177,5 +178,5 @@ class GroupService:
         except SQLAlchemyError as e:
             await self.db.rollback()
             logger.error(f"Error regenerating group codes: {e}")
-            raise HTTPException(status_code=500, detail="Database error")
+            raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
 

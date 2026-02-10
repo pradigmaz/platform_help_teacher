@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.group_report import GroupReport
 from app.models.report_view import ReportView
 from app.schemas.report import ReportViewStats, ReportViewRecord
+from app.core.time_constants import AUDIT_REPORT_LOOKBACK_DAYS
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ class ReportAuditService:
         last_viewed_at = last_view_result.scalar()
         
         # Просмотры по датам (последние 30 дней)
-        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=AUDIT_REPORT_LOOKBACK_DAYS)
         views_by_date_query = (
             select(
                 func.date(ReportView.viewed_at).label('date'),

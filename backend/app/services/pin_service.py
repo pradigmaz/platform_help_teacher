@@ -5,10 +5,14 @@ import logging
 from typing import Optional
 from app.core.redis import get_redis
 from app.core.config import settings
+from app.core.time_constants import (
+    PIN_LOCKOUT_SECONDS as PIN_LOCKOUT_TIME,
+    CODE_ATTEMPTS_WINDOW_SECONDS,
+)
 
 logger = logging.getLogger(__name__)
 
-PIN_LOCKOUT_SECONDS = 900  # 15 минут
+PIN_LOCKOUT_SECONDS = PIN_LOCKOUT_TIME
 
 
 class PinService:
@@ -51,7 +55,7 @@ class PinService:
             
             attempts_key = self._attempts_key(code, ip)
             attempts = await redis.incr(attempts_key)
-            await redis.expire(attempts_key, 3600)
+            await redis.expire(attempts_key, CODE_ATTEMPTS_WINDOW_SECONDS)
             
             if attempts >= settings.MAX_PIN_ATTEMPTS:
                 await redis.setex(self._lockout_key(code, ip), PIN_LOCKOUT_SECONDS, "1")

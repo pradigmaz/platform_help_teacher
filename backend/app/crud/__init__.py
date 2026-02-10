@@ -30,7 +30,7 @@ from app.crud.crud_subject import (
     assign_teacher_to_subject,
     get_or_create_assignment_from_schedule,
 )
-from app.crud.crud_report import crud_report
+from app.crud.report import crud_report
 
 __all__ = [
     # User CRUD

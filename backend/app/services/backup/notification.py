@@ -12,6 +12,10 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from app.core.config import settings
+from app.core.time_constants import (
+    BACKUP_UPLOAD_TIMEOUT_SECONDS,
+    TELEGRAM_NOTIFICATION_TIMEOUT_SECONDS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -317,7 +321,7 @@ def send_backup_to_admin_sync(
                     "parse_mode": "HTML"
                 },
                 files={"document": (backup_name, f)},
-                timeout=120
+                timeout=BACKUP_UPLOAD_TIMEOUT_SECONDS
             )
         
         if response.status_code == 200:
@@ -359,7 +363,7 @@ def notify_backup_failure_sync(
                 "chat_id": telegram_id,
                 "text": text,
             },
-            timeout=30
+            timeout=TELEGRAM_NOTIFICATION_TIMEOUT_SECONDS
         )
         
         return response.status_code == 200

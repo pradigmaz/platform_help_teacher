@@ -130,14 +130,30 @@ async def get_grades_count_on_lesson(
 async def get_max_labs_per_lesson(
     db: AsyncSession,
     student_id: UUID,
-    subject_id: UUID
+    subject_id: UUID,
+    lesson: Optional["Lesson"] = None
 ) -> int:
     """
     Максимум лаб, которые студент может сдать за одно занятие.
     1 — обычно, 2 — если есть несданные EXCUSED-лабы.
+    
+    Args:
+        lesson: Если передан и имеет max_labs_override, используется это значение
     """
+    if lesson is not None and lesson.max_labs_override is not None:
+        logger.info(
+            f"[lab_slot_validator:get_max_labs_per_lesson] Using max_labs_override={lesson.max_labs_override} "
+            f"for lesson_id={lesson.id}, student_id={student_id}"
+        )
+        return lesson.max_labs_override
+    
     unsubmitted = await get_unsubmitted_excused_labs_count(db, student_id, subject_id)
-    return 2 if unsubmitted > 0 else 1
+    result = 2 if unsubmitted > 0 else 1
+    logger.info(
+        f"[lab_slot_validator:get_max_labs_per_lesson] student_id={student_id}, "
+        f"unsubmitted_excused={unsubmitted}, max_labs={result}"
+    )
+    return result
 
 
 async def validate_lab_submission(
@@ -145,13 +161,15 @@ async def validate_lab_submission(
     student_id: UUID,
     lesson_id: UUID,
     subject_id: UUID,
-    work_number: Optional[int] = None
+    work_number: Optional[int] = None,
+    lesson: Optional["Lesson"] = None
 ) -> None:
     """
     Проверить, может ли студент сдать ещё одну лабу на этом занятии.
     
     Args:
         work_number: Номер работы (для upsert — исключить из подсчёта)
+        lesson: Объект занятия (для учёта max_labs_override)
     
     Raises:
         ValueError: Если лимит исчерпан
@@ -169,7 +187,7 @@ async def validate_lab_submission(
             return  # Обновление существующей оценки — слоты не проверяем
     
     current_count = await get_grades_count_on_lesson(db, student_id, lesson_id)
-    max_allowed = await get_max_labs_per_lesson(db, student_id, subject_id)
+    max_allowed = await get_max_labs_per_lesson(db, student_id, subject_id, lesson)
     
     if current_count >= max_allowed:
         if max_allowed == 1:

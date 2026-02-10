@@ -6,6 +6,8 @@ import httpx
 from typing import Optional
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+from app.core.time_constants import KIS_API_TIMEOUT_SECONDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,4 +61,4 @@ class ExternalAPIClient:
 
 
 # Клиент для kis.vgltu.ru
-kis_client = ExternalAPIClient("https://kis.vgltu.ru", timeout=30.0)
+kis_client = ExternalAPIClient("https://kis.vgltu.ru", timeout=float(KIS_API_TIMEOUT_SECONDS))

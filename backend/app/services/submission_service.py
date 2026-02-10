@@ -164,7 +164,7 @@ class SubmissionService:
                 db, submission.user_id, lesson.id
             )
             max_labs = await get_max_labs_per_lesson(
-                db, submission.user_id, lesson.subject_id
+                db, submission.user_id, lesson.subject_id, lesson
             )
             if current_count >= max_labs:
                 raise ValueError(

@@ -49,14 +49,32 @@ async def get_grades_count_on_lesson_batch(
 async def get_max_labs_per_lesson_batch(
     db: AsyncSession,
     student_ids: List[UUID],
-    subject_id: UUID
+    subject_id: UUID,
+    lesson: Optional["Lesson"] = None
 ) -> Dict[UUID, int]:
     """
     Максимум лаб за занятие для списка студентов.
     1 — обычно, 2 — если есть несданные EXCUSED-лабы.
+    
+    Args:
+        db: Сессия БД
+        student_ids: Список ID студентов
+        subject_id: ID предмета
+        lesson: Занятие (для проверки max_labs_override)
+    
+    Returns:
+        Dict[student_id -> max_labs]
     """
     if not student_ids:
         return {}
+    
+    # Если у занятия установлен max_labs_override — используем его для всех студентов
+    if lesson and lesson.max_labs_override is not None:
+        logger.info(
+            f"[lab_slot_validator_batch:get_max_labs_per_lesson_batch] "
+            f"Using max_labs_override={lesson.max_labs_override} for lesson_id={lesson.id}"
+        )
+        return {sid: lesson.max_labs_override for sid in student_ids}
     
     # 1. Находим все LAB-занятия с EXCUSED для этих студентов
     excused_query = (

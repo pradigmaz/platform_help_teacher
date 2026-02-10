@@ -5,6 +5,12 @@ import re
 from enum import Enum
 from typing import NamedTuple, List, Pattern
 
+from app.core.time_constants import (
+    STRIKE_WINDOW_SECONDS,
+    BAN_DURATION_SECONDS,
+    MAX_STRIKES as MAX_STRIKES_LIMIT,
+)
+
 
 class AttackType(str, Enum):
     """Типы атак."""
@@ -90,9 +96,9 @@ REDIS_STRIKE_DETAILS = "sec:strike_details:{identifier}"
 REDIS_SECURITY_BAN = "sec:ban:{identifier}"
 
 # Настройки
-STRIKE_WINDOW = 3600  # 1 час — окно подсчёта страйков
-BAN_DURATION = 3600   # 1 час — длительность бана
-MAX_STRIKES = 3       # Страйков до бана
+STRIKE_WINDOW = STRIKE_WINDOW_SECONDS
+BAN_DURATION = BAN_DURATION_SECONDS
+MAX_STRIKES = MAX_STRIKES_LIMIT
 
 # Сообщения (ASCII для HTTP headers, русские для JSON body)
 MESSAGES = {

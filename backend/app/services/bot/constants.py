@@ -3,18 +3,25 @@ import re
 from typing import Literal
 
 from app.core.config import settings
+from app.core.time_constants import (
+    RELINK_TTL_SECONDS,
+    FSM_TTL_SECONDS,
+    OTP_TTL_SECONDS,
+    CODE_LOCKOUT_SECONDS as CODE_LOCKOUT_TIME,
+    CODE_ATTEMPTS_WINDOW_SECONDS,
+)
 
 Platform = Literal["telegram", "vk"]
 
-# TTL для временных данных (из config для гибкости)
-RELINK_TTL = 300  # 5 минут
-FSM_TTL = 600  # 10 минут для FSM состояния
-OTP_TTL = 300  # 5 минут
+# TTL для временных данных
+RELINK_TTL = RELINK_TTL_SECONDS
+FSM_TTL = FSM_TTL_SECONDS
+OTP_TTL = OTP_TTL_SECONDS
 
 # Rate limiting для команды /code
-MAX_CODE_ATTEMPTS = settings.MAX_PIN_ATTEMPTS  # Используем общую настройку
-CODE_LOCKOUT_SECONDS = 900  # 15 минут
-CODE_ATTEMPTS_WINDOW = 3600  # 1 час
+MAX_CODE_ATTEMPTS = settings.MAX_PIN_ATTEMPTS
+CODE_LOCKOUT_SECONDS = CODE_LOCKOUT_TIME
+CODE_ATTEMPTS_WINDOW = CODE_ATTEMPTS_WINDOW_SECONDS
 
 # Паттерн валидации кодов (6-8 символов, A-Z и 0-9)
 CODE_PATTERN = re.compile(r'^[A-Z0-9]{6,8}$')

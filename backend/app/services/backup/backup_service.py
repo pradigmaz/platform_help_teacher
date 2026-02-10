@@ -13,6 +13,7 @@ from typing import List, Optional
 from dataclasses import dataclass
 
 from app.core.config import settings
+from app.core.time_constants import BACKUP_DUMP_TIMEOUT_SECONDS
 from .encryption import BackupEncryption
 from .remote_storage import BackupStorage, BackupMetadata
 from .notification import get_notification_service
@@ -222,7 +223,8 @@ class BackupService:
     
     async def cleanup_old_backups(self, retention_days: int = None) -> int:
         """Delete backups older than retention period."""
-        retention = retention_days or settings.BACKUP_RETENTION_DAYS
+        from app.core.time_constants import BACKUP_RETENTION_DAYS
+        retention = retention_days or BACKUP_RETENTION_DAYS
         cutoff = datetime.now().timestamp() - (retention * 86400)
         
         backups = await self.list_backups()
@@ -337,7 +339,7 @@ class BackupService:
                 env=env,
                 capture_output=True,
                 text=True,
-                timeout=600
+                timeout=BACKUP_DUMP_TIMEOUT_SECONDS
             )
             
             if result.returncode != 0:
@@ -355,7 +357,8 @@ class BackupService:
     
     def cleanup_old_backups_sync(self, retention_days: int = None) -> int:
         """Синхронный cleanup для Celery."""
-        retention = retention_days or settings.BACKUP_RETENTION_DAYS
+        from app.core.time_constants import BACKUP_RETENTION_DAYS
+        retention = retention_days or BACKUP_RETENTION_DAYS
         cutoff = datetime.now().timestamp() - (retention * 86400)
         
         backups = self.list_backups_sync()

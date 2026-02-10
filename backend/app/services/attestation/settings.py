@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import get_redis
+from app.core.time_constants import CACHE_TTL_SECONDS as DEFAULT_CACHE_TTL
 from app.models.attestation_settings import AttestationSettings, AttestationType
 from app.schemas.attestation import (
     AttestationSettingsUpdate,
@@ -19,7 +20,7 @@ from app.schemas.attestation import (
 logger = logging.getLogger(__name__)
 
 CACHE_KEY_PREFIX = "attestation:settings"
-CACHE_TTL_SECONDS = 300
+CACHE_TTL_SECONDS = DEFAULT_CACHE_TTL
 
 
 def _get_cache_key(attestation_type: AttestationType) -> str:
