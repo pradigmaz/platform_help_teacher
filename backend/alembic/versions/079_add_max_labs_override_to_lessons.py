@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = "079_add_max_labs_override_to_lessons"
-down_revision = "078_lesson_grade_null_fix"
+down_revision = "078_fix_lesson_grade_null_constraint"
 branch_labels = None
 depends_on = None
 

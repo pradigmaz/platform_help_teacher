@@ -8,11 +8,12 @@ Revision ID: 078_fix_lesson_grade_null_constraint
 Revises: 077_add_uploaded_fields_to_attachments
 Create Date: 2026-01-30
 """
+
 from alembic import op
 
 # revision identifiers
-revision = '078_lesson_grade_null_fix'
-down_revision = '077_uploaded_fields'
+revision = "078_fix_lesson_grade_null_constraint"
+down_revision = "077_uploaded_fields"
 branch_labels = None
 depends_on = None
 
@@ -30,7 +31,7 @@ def upgrade() -> None:
           AND lg1.id != lg2.id
           AND (lg1.grade < lg2.grade OR (lg1.grade = lg2.grade AND lg1.created_at < lg2.created_at))
     """)
-    
+
     # Step 2: Create partial unique index for records where work_number IS NULL
     # This prevents duplicates like (lesson_id, student_id, NULL)
     op.execute("""
