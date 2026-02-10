@@ -37,7 +37,7 @@ disallow_untyped_defs = false
 exclude = ["alembic/", "tests/"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["backend/tests"]
 asyncio_mode = "auto"
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
