@@ -1,18 +1,17 @@
 """API эндпоинты для управления сдачей работ."""
-from typing import List, Optional
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
+from app.crud.crud_work import work as crud_work
+from app.crud.crud_work_submission import work_submission as crud_submission
 from app.db.session import get_db
 from app.models import User
 from app.models.work_type import WorkType
-from app.crud.crud_work import work as crud_work
-from app.crud.crud_work_submission import work_submission as crud_submission
 
 router = APIRouter()
 
@@ -20,24 +19,24 @@ router = APIRouter()
 class WorkSubmissionCreate(BaseModel):
     work_id: UUID
     user_id: UUID
-    grade: Optional[int] = Field(None, ge=0, le=100)
-    feedback: Optional[str] = None
-    s3_key: Optional[str] = None
+    grade: int | None = Field(None, ge=0, le=100)
+    feedback: str | None = None
+    s3_key: str | None = None
     is_manual: bool = False
 
 
 class WorkSubmissionUpdateGrade(BaseModel):
     grade: int = Field(..., ge=0, le=100)
-    feedback: Optional[str] = None
+    feedback: str | None = None
 
 
 class WorkSubmissionResponse(BaseModel):
     id: UUID
     work_id: UUID
     user_id: UUID
-    grade: Optional[int]
-    feedback: Optional[str]
-    s3_key: Optional[str]
+    grade: int | None
+    feedback: str | None
+    s3_key: str | None
     is_manual: bool
     created_at: datetime
     updated_at: datetime
@@ -57,14 +56,14 @@ async def create_submission(
     work_obj = await crud_work.get(db, submission_in.work_id)
     if not work_obj:
         raise HTTPException(status_code=404, detail="Работа не найдена")
-    
+
     # Проверяем, нет ли уже сдачи
     existing = await crud_submission.get_by_student_and_work(
         db, submission_in.user_id, submission_in.work_id
     )
     if existing:
         raise HTTPException(status_code=400, detail="Сдача уже существует, используйте PATCH для обновления")
-    
+
     submission = await crud_submission.create(
         db,
         work_id=submission_in.work_id,
@@ -77,10 +76,10 @@ async def create_submission(
     return submission
 
 
-@router.get("/work-submissions/student/{user_id}", response_model=List[WorkSubmissionResponse])
+@router.get("/work-submissions/student/{user_id}", response_model=list[WorkSubmissionResponse])
 async def get_student_submissions(
     user_id: UUID,
-    work_type: Optional[WorkType] = Query(None, description="Фильтр по типу работы"),
+    work_type: WorkType | None = Query(None, description="Фильтр по типу работы"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
@@ -89,7 +88,7 @@ async def get_student_submissions(
     return submissions
 
 
-@router.get("/work-submissions/work/{work_id}", response_model=List[WorkSubmissionResponse])
+@router.get("/work-submissions/work/{work_id}", response_model=list[WorkSubmissionResponse])
 async def get_work_submissions(
     work_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -111,7 +110,7 @@ async def update_submission_grade(
     submission = await crud_submission.get(db, submission_id)
     if not submission:
         raise HTTPException(status_code=404, detail="Сдача не найдена")
-    
+
     submission = await crud_submission.update_grade(
         db,
         db_obj=submission,

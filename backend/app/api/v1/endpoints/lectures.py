@@ -2,11 +2,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
-from app.crud.crud_lecture import crud_lecture
-from app.schemas.lecture import LectureResponse
+from app.audit import ActionType, EntityType, audit_action
 from app.core.limiter import limiter
-from app.audit import audit_action, ActionType, EntityType
+from app.crud.crud_lecture import crud_lecture
+from app.db.session import get_db
+from app.schemas.lecture import LectureResponse
 
 router = APIRouter()
 
@@ -23,8 +23,8 @@ async def get_public_lecture(
     lecture = await crud_lecture.get_by_public_code(db, code)
     if not lecture:
         raise HTTPException(status_code=404, detail="Лекция не найдена")
-    
+
     if not lecture.is_published:
         raise HTTPException(status_code=404, detail="Лекция не найдена")
-    
+
     return lecture

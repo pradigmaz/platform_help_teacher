@@ -1,19 +1,19 @@
 """Student labs endpoints."""
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_current_user, get_db
+from app.audit import ActionType, EntityType, audit_action, audit_user
 from app.core import error_messages as em
-from app.models.user import User
+from app.core.limiter import limiter
 from app.models.lab import Lab
 from app.models.submission import Submission
-from app.audit import audit_action, audit_user, ActionType, EntityType
+from app.models.user import User
 from app.services.lab_visibility import LabVisibilityService
 from app.services.student_lab_service import student_lab_service
-from app.core.limiter import limiter
 
 router = APIRouter()
 
@@ -50,10 +50,7 @@ async def get_my_labs(
     def is_lab_visible(lab: Lab) -> bool:
         if lab.subject_id:
             return lab.number in visible_by_subject.get(lab.subject_id, [])
-        for work_numbers in visible_by_subject.values():
-            if lab.number in work_numbers:
-                return True
-        return False
+        return any(lab.number in work_numbers for work_numbers in visible_by_subject.values())
 
     visible_labs = [lab for lab in labs if is_lab_visible(lab)]
 

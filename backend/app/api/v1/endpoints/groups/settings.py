@@ -1,17 +1,18 @@
 """Group settings and invite codes."""
-from typing import Any
 import logging
+from typing import Any
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import SQLAlchemyError
 
-from app import schemas, models
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app import models, schemas
 from app.api import deps
+from app.core import error_messages as em
 from app.db.session import get_db
 from app.services.group_service import GroupService
-from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -27,10 +28,10 @@ async def update_lab_settings(
     """Обновить настройки лабораторных для группы."""
     result = await db.execute(select(models.Group).where(models.Group.id == group_id))
     group = result.scalar_one_or_none()
-    
+
     if not group:
         raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
-    
+
     try:
         if lab_settings.labs_count is not None:
             group.labs_count = lab_settings.labs_count
@@ -38,14 +39,14 @@ async def update_lab_settings(
             group.grading_scale = lab_settings.grading_scale
         if lab_settings.default_max_grade is not None:
             group.default_max_grade = lab_settings.default_max_grade
-        
+
         await db.commit()
         await db.refresh(group)
-        
+
         count_query = select(func.count(models.User.id)).where(models.User.group_id == group_id)
         count_result = await db.execute(count_query)
         students_count = count_result.scalar() or 0
-        
+
         group_resp = schemas.GroupResponse.model_validate(group)
         group_resp.students_count = students_count
         return group_resp

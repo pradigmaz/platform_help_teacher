@@ -1,4 +1,3 @@
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,8 +7,10 @@ from app.api import deps
 from app.db.session import get_db
 from app.models import User
 from app.schemas.deadline_extension import (
-    DeadlineExtensionCreate, DeadlineExtensionUpdate,
-    DeadlineExtensionResponse, DeadlineExtensionListResponse
+    DeadlineExtensionCreate,
+    DeadlineExtensionListResponse,
+    DeadlineExtensionResponse,
+    DeadlineExtensionUpdate,
 )
 from app.services.lab_deadline_service import lab_deadline_service
 
@@ -38,9 +39,9 @@ def _build_extension_response(ext) -> DeadlineExtensionResponse:
 
 @router.get("/deadline-extensions", response_model=DeadlineExtensionListResponse)
 async def get_deadline_extensions(
-    lab_id: Optional[UUID] = Query(default=None),
-    group_id: Optional[UUID] = Query(default=None),
-    is_active: Optional[bool] = Query(default=None),
+    lab_id: UUID | None = Query(default=None),
+    group_id: UUID | None = Query(default=None),
+    is_active: bool | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):

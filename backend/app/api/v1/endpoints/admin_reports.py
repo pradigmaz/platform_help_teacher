@@ -4,7 +4,6 @@ Admin API endpoints для управления публичными отчёт�
 Требует авторизации преподавателя или администратора.
 """
 import logging
-from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -12,24 +11,22 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.db.session import get_db
-from app.core.limiter import limiter
-from app.core.config import settings
 from app.core import error_messages as em
-from app.models import User, Group
-from app.models.group_report import GroupReport, ReportType
+from app.core.config import settings
+from app.core.limiter import limiter
+from app.core.time_constants import REPORT_RECENT_VIEWS_LIMIT
 from app.crud.report import crud_report
+from app.db.session import get_db
+from app.models import Group, User
+from app.models.group_report import GroupReport, ReportType
 from app.schemas.report import (
     ReportCreate,
-    ReportUpdate,
-    ReportResponse,
     ReportListResponse,
+    ReportResponse,
+    ReportUpdate,
     ReportViewsResponse,
-    ReportViewStats,
-    ReportViewRecord,
 )
 from app.services.reports import ReportService
-from app.core.time_constants import REPORT_RECENT_VIEWS_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +45,7 @@ async def _report_to_response(report: GroupReport, db: AsyncSession) -> ReportRe
     group = report.group
     group_code = group.code if group else "N/A"
     group_name = group.name if group else None
-    
+
     return ReportResponse(
         id=report.id,
         code=report.code,
@@ -78,20 +75,20 @@ async def _get_report_or_404(
 ) -> GroupReport:
     """Получить отчёт по ID или вернуть 404."""
     report = await crud_report.get_by_id(db, report_id)
-    
+
     if not report:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=em.REPORT_NOT_FOUND
         )
-    
+
     # Проверка владельца (только создатель или админ)
     if report.created_by != current_user.id and current_user.role.value != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this report"
         )
-    
+
     return report
 
 
@@ -105,7 +102,7 @@ async def create_report(
 ):
     """
     Создать новый публичный отчёт для группы.
-    
+
     - **group_id**: ID группы
     - **report_type**: Тип отчёта (full, attestation_only, attendance_only)
     - **expires_in_days**: Срок действия в днях (null = бессрочно)
@@ -115,13 +112,13 @@ async def create_report(
     # Проверяем существование группы
     result = await db.execute(select(Group).where(Group.id == report_in.group_id))
     group = result.scalar_one_or_none()
-    
+
     if not group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=em.GROUP_NOT_FOUND
         )
-    
+
     # Создаём отчёт
     report = await crud_report.create(
         db,
@@ -136,29 +133,29 @@ async def create_report(
         show_notes=report_in.show_notes,
         show_rating=report_in.show_rating,
     )
-    
+
     logger.info(f"Teacher {current_user.id} created report {report.code} for group {group.code}")
-    
+
     return await _report_to_response(report, db)
 
 
 @router.get("/reports", response_model=ReportListResponse)
 async def list_reports(
-    group_id: Optional[UUID] = None,
+    group_id: UUID | None = None,
     include_inactive: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_teacher),
 ):
     """
     Получить список отчётов текущего преподавателя.
-    
+
     - **group_id**: Фильтр по группе (опционально)
     - **include_inactive**: Включать деактивированные отчёты
     """
     if group_id:
         reports = await crud_report.get_by_group(
-            db, 
-            group_id, 
+            db,
+            group_id,
             include_inactive=include_inactive
         )
         # Фильтруем по создателю (если не админ)
@@ -166,13 +163,13 @@ async def list_reports(
             reports = [r for r in reports if r.created_by == current_user.id]
     else:
         reports = await crud_report.get_by_teacher(
-            db, 
-            current_user.id, 
+            db,
+            current_user.id,
             include_inactive=include_inactive
         )
-    
+
     response_reports = [await _report_to_response(r, db) for r in reports]
-    
+
     return ReportListResponse(
         reports=response_reports,
         total=len(response_reports)
@@ -201,7 +198,7 @@ async def update_report(
 ):
     """
     Обновить настройки отчёта.
-    
+
     - **expires_in_days**: Новый срок действия
     - **pin_code**: Новый PIN-код
     - **remove_pin**: Удалить PIN-защиту
@@ -209,7 +206,7 @@ async def update_report(
     - **is_active**: Статус активности
     """
     report = await _get_report_or_404(db, report_id, current_user)
-    
+
     updated_report = await crud_report.update(
         db,
         report,
@@ -223,9 +220,9 @@ async def update_report(
         show_rating=report_in.show_rating,
         is_active=report_in.is_active,
     )
-    
+
     logger.info(f"Teacher {current_user.id} updated report {report.code}")
-    
+
     return await _report_to_response(updated_report, db)
 
 
@@ -239,16 +236,16 @@ async def deactivate_report(
 ):
     """
     Деактивировать отчёт.
-    
+
     Отчёт не удаляется физически, а помечается как неактивный.
     Доступ по ссылке будет заблокирован.
     """
     report = await _get_report_or_404(db, report_id, current_user)
-    
+
     await crud_report.deactivate(db, report)
-    
+
     logger.info(f"Teacher {current_user.id} deactivated report {report.code}")
-    
+
     return None
 
 
@@ -262,20 +259,20 @@ async def regenerate_report_code(
 ):
     """
     Сгенерировать новый код для отчёта.
-    
+
     Старый код становится недействительным.
     Полезно если ссылка была скомпрометирована.
     """
     report = await _get_report_or_404(db, report_id, current_user)
-    
+
     old_code = report.code
     updated_report = await crud_report.regenerate_code(db, report)
-    
+
     logger.info(
         f"Teacher {current_user.id} regenerated code for report: "
         f"{old_code} -> {updated_report.code}"
     )
-    
+
     return await _report_to_response(updated_report, db)
 
 
@@ -287,7 +284,7 @@ async def get_report_views(
 ):
     """
     Получить статистику просмотров отчёта.
-    
+
     Возвращает:
     - Общее количество просмотров
     - Количество уникальных IP
@@ -296,12 +293,12 @@ async def get_report_views(
     - Последние 50 просмотров с деталями
     """
     report = await _get_report_or_404(db, report_id, current_user)
-    
+
     service = ReportService(db)
-    
+
     stats = await service.get_view_stats(report.id)
     recent_views = await service.get_recent_views(report.id, limit=REPORT_RECENT_VIEWS_LIMIT)
-    
+
     return ReportViewsResponse(
         report_id=report.id,
         stats=stats,

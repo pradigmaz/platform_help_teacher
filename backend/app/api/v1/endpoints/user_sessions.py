@@ -1,37 +1,33 @@
 """User session management endpoints."""
 import json
 import logging
-import re
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.deps import get_current_user
-from app.audit import audit_action, ActionType, EntityType
+from app.audit import ActionType, EntityType, audit_action
 from app.audit.middleware import SESSION_COOKIE_NAME
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.models import User
-from app.schemas.session import (
-    SessionResponse, SessionListResponse, RevokeSessionsResponse, DeviceInfo
-)
+from app.schemas.session import DeviceInfo, RevokeSessionsResponse, SessionListResponse, SessionResponse
 from app.services import session_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _parse_device_info(fingerprint_str: Optional[str]) -> DeviceInfo:
+def _parse_device_info(fingerprint_str: str | None) -> DeviceInfo:
     """Parse device info from fingerprint JSON string."""
     if not fingerprint_str:
         return DeviceInfo()
-    
+
     try:
         fp = json.loads(fingerprint_str)
     except (json.JSONDecodeError, TypeError):
         return DeviceInfo()
-    
+
     # Platform
     platform = fp.get("platform", "")
     if "Win" in platform:
@@ -46,7 +42,7 @@ def _parse_device_info(fingerprint_str: Optional[str]) -> DeviceInfo:
         platform = "iOS"
     else:
         platform = platform or "Unknown"
-    
+
     # Browser from userAgent
     ua = fp.get("userAgent", "")
     browser = "Unknown"
@@ -60,7 +56,7 @@ def _parse_device_info(fingerprint_str: Optional[str]) -> DeviceInfo:
         browser = "Edge"
     elif "Opera" in ua or "OPR" in ua:
         browser = "Opera"
-    
+
     # Screen
     screen_info = fp.get("screen", {})
     screen = None
@@ -69,11 +65,11 @@ def _parse_device_info(fingerprint_str: Optional[str]) -> DeviceInfo:
         h = screen_info.get("height")
         if w and h:
             screen = f"{w}×{h}"
-    
+
     return DeviceInfo(platform=platform, browser=browser, screen=screen)
 
 
-def _mask_ip(ip: Optional[str]) -> Optional[str]:
+def _mask_ip(ip: str | None) -> str | None:
     """Mask IP address for privacy (show only first two octets)."""
     if not ip:
         return None
@@ -92,21 +88,21 @@ async def get_my_sessions(
     """Get all active sessions for current user."""
     current_session_id = request.cookies.get(SESSION_COOKIE_NAME)
     sessions_data = await session_service.get_user_sessions(current_user.id)
-    
+
     sessions = []
     for s in sessions_data:
         # Skip impersonation sessions
         if s.get("is_impersonation"):
             continue
-        
+
         session_id = s.get("session_id", "")
         created_at_str = s.get("created_at")
-        
+
         try:
             created_at = datetime.fromisoformat(created_at_str) if created_at_str else datetime.now()
         except ValueError:
             created_at = datetime.now()
-        
+
         sessions.append(SessionResponse(
             session_id=session_id,
             created_at=created_at,
@@ -114,10 +110,10 @@ async def get_my_sessions(
             device=_parse_device_info(s.get("device_fingerprint")),
             is_current=(session_id == current_session_id),
         ))
-    
+
     # Sort: current first, then by created_at desc
     sessions.sort(key=lambda x: (not x.is_current, x.created_at), reverse=True)
-    
+
     return SessionListResponse(
         sessions=sessions,
         total=len(sessions),
@@ -135,25 +131,25 @@ async def revoke_session(
 ) -> RevokeSessionsResponse:
     """Revoke a specific session (logout from device)."""
     current_session_id = request.cookies.get(SESSION_COOKIE_NAME)
-    
+
     # Can't revoke current session via this endpoint
     if session_id == current_session_id:
         raise HTTPException(
             status_code=400,
             detail="Нельзя завершить текущую сессию. Используйте выход из аккаунта."
         )
-    
+
     # Check ownership
     owner_id = await session_service.get_session_owner(session_id)
     if owner_id != str(current_user.id):
         raise HTTPException(status_code=404, detail="Сессия не найдена")
-    
+
     success = await session_service.revoke_session(session_id)
     if not success:
         raise HTTPException(status_code=404, detail="Сессия не найдена")
-    
+
     logger.info(f"User {current_user.id} revoked session {session_id[:8]}...")
-    
+
     return RevokeSessionsResponse(
         revoked_count=1,
         message="Сессия завершена"
@@ -169,17 +165,17 @@ async def revoke_all_sessions(
 ) -> RevokeSessionsResponse:
     """Revoke all sessions except current one."""
     current_session_id = request.cookies.get(SESSION_COOKIE_NAME)
-    
+
     if not current_session_id:
         raise HTTPException(status_code=400, detail="Текущая сессия не определена")
-    
+
     count = await session_service.revoke_all_except_current(
-        current_user.id, 
+        current_user.id,
         current_session_id
     )
-    
+
     logger.info(f"User {current_user.id} revoked {count} sessions (kept current)")
-    
+
     return RevokeSessionsResponse(
         revoked_count=count,
         message=f"Завершено сессий: {count}"

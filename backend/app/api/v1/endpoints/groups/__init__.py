@@ -2,9 +2,9 @@
 from fastapi import APIRouter
 
 from .crud import router as crud_router
+from .settings import router as settings_router
 from .students import router as students_router
 from .subgroups import router as subgroups_router
-from .settings import router as settings_router
 
 router = APIRouter()
 

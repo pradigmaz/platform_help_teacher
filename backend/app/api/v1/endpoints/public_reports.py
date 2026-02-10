@@ -4,28 +4,28 @@ Public API endpoints для публичных отчётов.
 Без авторизации. Rate limiting для защиты от brute-force.
 """
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
 from app.core.limiter import limiter
 from app.core.redis import get_redis
+from app.db.session import get_db
 from app.schemas.report import (
-    PublicReportData,
-    StudentDetailData,
     PinVerifyRequest,
     PinVerifyResponse,
+    PublicReportData,
+    StudentDetailData,
 )
+from app.services.pin_service import PIN_LOCKOUT_SECONDS, report_pin_service
 from app.services.reports import ReportService
-from app.services.pin_service import report_pin_service, PIN_LOCKOUT_SECONDS
 
 from .public_reports_helpers import (
+    check_pin_session,
     get_client_ip,
     get_valid_report,
-    check_pin_session,
 )
 
 logger = logging.getLogger(__name__)
@@ -204,7 +204,7 @@ async def check_report_status(
         }
 
     is_expired = False
-    if report.expires_at and datetime.now(timezone.utc) > report.expires_at:
+    if report.expires_at and datetime.now(UTC) > report.expires_at:
         is_expired = True
 
     return {

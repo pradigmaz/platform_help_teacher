@@ -1,16 +1,15 @@
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.db.session import get_db
 from app.core.limiter import limiter
-from app.models import User, Group, Lab
+from app.db.session import get_db
+from app.models import Group, Lab, User
 from app.models.lecture import Lecture
-from app.schemas import StudentProfileOut, StatsResponse
+from app.schemas import StatsResponse, StudentProfileOut
 from app.services.student_service import StudentService
 
 router = APIRouter()
@@ -31,7 +30,7 @@ async def get_stats(
 
     # Считаем количество групп (не архивных)
     groups_result = await db.execute(
-        select(func.count(Group.id)).where(Group.is_archived == False)
+        select(func.count(Group.id)).where(not Group.is_archived)
     )
     total_groups = groups_result.scalar() or 0
 
@@ -46,7 +45,7 @@ async def get_stats(
     # Считаем количество опубликованных лекций (не удалённых)
     lectures_result = await db.execute(
         select(func.count(Lecture.id)).where(
-            Lecture.is_published == True,
+            Lecture.is_published,
             Lecture.deleted_at.is_(None)
         )
     )
@@ -70,10 +69,10 @@ async def get_student_profile(
     """Получить профиль студента с его лабораторными работами и статистикой."""
     service = StudentService(db)
     profile = await service.get_profile(student_id)
-    
+
     if not profile:
         raise HTTPException(status_code=404, detail="Student not found")
-        
+
     return profile
 
 
@@ -89,26 +88,26 @@ async def reset_student_social(
     """Сбросить привязку социальных сетей у студента."""
     import logging
     logger = logging.getLogger(__name__)
-    
+
     result = await db.execute(select(User).where(User.id == student_id))
     student = result.scalar_one_or_none()
-    
+
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    
+
     logger.info(f"Resetting social for student {student_id}, platform={platform}")
     logger.info(f"Before: telegram_id={student.telegram_id}, vk_id={student.vk_id}")
-    
+
     if platform in ("telegram", "all"):
         student.telegram_id = None
     if platform in ("vk", "all"):
         student.vk_id = None
-    
+
     await db.commit()
     await db.refresh(student)
-    
+
     logger.info(f"After: telegram_id={student.telegram_id}, vk_id={student.vk_id}")
-    
+
     msg = "Все привязки сброшены" if platform == "all" else f"{platform.upper()} отвязан"
     return {"status": "success", "message": msg}
 
@@ -127,8 +126,8 @@ async def reset_student_telegram(
 
 
 # --- Transfer endpoints ---
+from app.schemas.transfer import StudentTransfersResponse, TransferRequest, TransferResponse
 from app.services.transfer_service import TransferService
-from app.schemas.transfer import TransferRequest, TransferResponse, StudentTransfersResponse
 
 
 @router.post("/students/{student_id}/transfer", response_model=TransferResponse)

@@ -1,22 +1,21 @@
-from typing import List, Optional
-from uuid import UUID
-import logging
 import json
+import logging
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import schemas
 from app.api import deps
-from app.db.session import get_db
+from app.core import error_messages as em
+from app.core.constants import RATE_LIMIT_LAB_CREATE, RATE_LIMIT_LAB_DELETE, RATE_LIMIT_LAB_PUBLISH
 from app.core.limiter import limiter
 from app.core.redis import get_redis
-from app.core.constants import RATE_LIMIT_LAB_CREATE, RATE_LIMIT_LAB_DELETE, RATE_LIMIT_LAB_PUBLISH
-from app.models import User, Lab
-from app.schemas.lab import LabCreate, LabUpdate, LabOut, LabDetailResponse, PublishLabResponse
+from app.db.session import get_db
+from app.models import Lab, User
+from app.schemas.lab import LabCreate, LabDetailResponse, LabOut, LabUpdate, PublishLabResponse
 from app.services.lab_service import lab_service
-from app import schemas
-from app.core import error_messages as em
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -26,7 +25,7 @@ LABS_CACHE_PREFIX = "labs:list"
 LABS_CACHE_TTL = 300  # 5 минут
 
 
-def _get_labs_cache_key(subject_id: Optional[UUID], skip: int, limit: int) -> str:
+def _get_labs_cache_key(subject_id: UUID | None, skip: int, limit: int) -> str:
     """Генерация ключа кэша для списка лаб."""
     subject_key = str(subject_id) if subject_id else "all"
     return f"{LABS_CACHE_PREFIX}:{subject_key}:{skip}:{limit}"
@@ -45,11 +44,11 @@ async def _invalidate_labs_cache() -> None:
         logger.warning(f"Redis labs cache invalidation error: {e}")
 
 
-@router.get("/labs", response_model=List[LabOut])
+@router.get("/labs", response_model=list[LabOut])
 async def get_all_labs(
     skip: int = Query(default=0, ge=0, description="Пропустить записей"),
     limit: int = Query(default=100, ge=1, le=500, description="Лимит записей"),
-    subject_id: Optional[UUID] = Query(default=None, description="Фильтр по предмету"),
+    subject_id: UUID | None = Query(default=None, description="Фильтр по предмету"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):

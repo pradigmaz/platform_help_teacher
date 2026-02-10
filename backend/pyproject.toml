@@ -22,6 +22,9 @@ ignore = [
     "B008",   # Depends() в аргументах — норма для FastAPI
     "B905",   # zip strict — не критично
     "UP007",  # X | Y union syntax — пока на 3.11
+    "B904",   # exception chaining - временно игнорируем
+    "E741",   # ambiguous variable name - временно игнорируем
+    "E402",   # module level import not at top - временно игнорируем
 ]
 
 [tool.ruff.lint.isort]

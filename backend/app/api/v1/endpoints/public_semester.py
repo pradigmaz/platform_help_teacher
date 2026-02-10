@@ -8,8 +8,8 @@ import logging
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
 from app.core.limiter import limiter
+from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +29,8 @@ async def get_semester_info(
     Возвращает semester_start_date и вычисленный семестр.
     """
     from app.services.reports.semester_helpers import (
-        get_semester_start_date,
         get_current_semester_from_settings,
+        get_semester_start_date,
     )
 
     semester_start = await get_semester_start_date(db)

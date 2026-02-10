@@ -3,16 +3,18 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.db.session import get_db
 from app.core.limiter import limiter
-from app.models import User, AttestationSettings
-from app.services.attestation_service import AttestationService
-from app.services.attestation.audit import AttestationAuditService
+from app.db.session import get_db
+from app.models import AttestationSettings, User
 from app.schemas.attestation import (
     AttestationSettingsResponse,
     AttestationSettingsUpdate,
+)
+from app.schemas.attestation import (
     AttestationType as AttestationTypeSchema,
 )
+from app.services.attestation.audit import AttestationAuditService
+from app.services.attestation_service import AttestationService
 
 router = APIRouter()
 
@@ -49,12 +51,12 @@ async def update_attestation_settings(
     """Обновить глобальные настройки аттестации."""
     service = AttestationService(db)
     audit_service = AttestationAuditService(db)
-    
+
     old_settings = await service.get_settings(settings_in.attestation_type)
-    
+
     try:
         settings = await service.update_settings(settings_in)
-        
+
         ip_address = request.client.host if request.client else None
         await audit_service.log_settings_change(
             attestation_type=settings_in.attestation_type,
@@ -65,7 +67,7 @@ async def update_attestation_settings(
             ip_address=ip_address
         )
         await db.commit()
-        
+
         return service.to_response(settings)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

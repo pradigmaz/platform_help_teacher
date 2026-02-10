@@ -2,26 +2,27 @@
 API для автопарсера расписания
 """
 import logging
-from datetime import date, timedelta
+from datetime import timedelta
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_teacher
+from app.api.deps import get_current_teacher, get_db
+from app.core import error_messages as em
+from app.crud import crud_parse_history
+from app.crud import crud_schedule_parser as crud
 from app.models.user import User
 from app.schemas.schedule_parser import (
-    ParserConfigCreate,
-    ParserConfigUpdate,
-    ParserConfigResponse,
-    ScheduleConflictResponse,
     ConflictResolveRequest,
-    ParseHistoryResponse
+    ParseHistoryResponse,
+    ParserConfigCreate,
+    ParserConfigResponse,
+    ParserConfigUpdate,
+    ScheduleConflictResponse,
 )
-from app.crud import crud_schedule_parser as crud
-from app.crud import crud_parse_history
-from app.services.schedule_import_service import ScheduleImportService
 from app.services.schedule_constants import today_msk
-from app.core import error_messages as em
+from app.services.schedule_import_service import ScheduleImportService
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ async def create_or_update_parser_config(
 ):
     """Создать или обновить настройки автопарсера"""
     existing = await crud.get_parser_config(db, current_user.id)
-    
+
     if existing:
         update_data = ParserConfigUpdate(**data.model_dump())
         return await crud.update_parser_config(db, existing, update_data)
@@ -98,11 +99,11 @@ async def parse_now(
     config = await crud.get_parser_config(db, current_user.id)
     if not config:
         raise HTTPException(status_code=400, detail=em.PARSER_CONFIG_NOT_FOUND)
-    
+
     service = ScheduleImportService(db)
     start_date = today_msk()
     end_date = start_date + timedelta(days=config.parse_days_ahead)
-    
+
     try:
         stats = await service.import_from_parser(
             teacher_name=config.teacher_name,
@@ -135,7 +136,7 @@ async def get_parse_status(
     last = await crud_parse_history.get_last_history(db, current_user.id)
     if not last:
         return {"is_running": False, "last_run": None}
-    
+
     return {
         "is_running": last.status == "running",
         "status": last.status,

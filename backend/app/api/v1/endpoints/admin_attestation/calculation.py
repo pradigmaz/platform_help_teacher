@@ -1,22 +1,23 @@
 """Attestation calculation endpoints."""
-from typing import Dict
+from datetime import UTC, datetime
 from uuid import UUID
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.db.session import get_db
 from app.core.limiter import limiter
-from app.models import User, Group, UserRole
-from app.services.attestation_service import AttestationService
+from app.db.session import get_db
+from app.models import Group, User, UserRole
 from app.schemas.attestation import (
     AttestationResultResponse,
     GroupAttestationResponse,
+)
+from app.schemas.attestation import (
     AttestationType as AttestationTypeSchema,
 )
+from app.services.attestation_service import AttestationService
 
 router = APIRouter()
 
@@ -38,9 +39,9 @@ async def calculate_student_attestation(
         raise HTTPException(status_code=404, detail="Студент не найден")
     if not student.group_id:
         raise HTTPException(status_code=400, detail="Студент не состоит в группе")
-    
+
     service = AttestationService(db)
-    
+
     try:
         result = await service.calculate_student_score(
             student_id=student_id,
@@ -67,26 +68,26 @@ async def calculate_group_attestation(
     group = group_result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail="Группа не найдена")
-    
+
     students_result = await db.execute(
         select(User).where(
             User.group_id == group_id,
             User.role == UserRole.STUDENT,
-            User.is_active == True
+            User.is_active
         )
     )
     students = list(students_result.scalars().all())
-    
+
     if not students:
         raise HTTPException(status_code=404, detail="В группе нет активных студентов")
-    
+
     service = AttestationService(db)
     results, errors = await service.calculate_group_scores_batch(
         group_id=group_id,
         attestation_type=attestation_type,
         students=students
     )
-    
+
     return _build_group_response(group_id, group.code, attestation_type, results, errors)
 
 
@@ -101,31 +102,31 @@ async def calculate_all_students_attestation(
     """Рассчитать баллы аттестации для всех студентов."""
     # Получаем все неархивированные группы с их студентами одним запросом (фикс N+1)
     from sqlalchemy.orm import selectinload
-    
+
     groups_result = await db.execute(
         select(Group)
         .options(selectinload(Group.users))
-        .where(Group.is_archived == False)
+        .where(not Group.is_archived)
     )
     groups = list(groups_result.scalars().all())
-    
+
     if not groups:
         raise HTTPException(status_code=404, detail="Нет активных групп")
-    
+
     service = AttestationService(db)
     all_results = []
     all_errors = []
-    
+
     for group in groups:
         # Фильтруем студентов из уже загруженных users
         students = [
-            u for u in group.users 
+            u for u in group.users
             if u.role == UserRole.STUDENT and u.is_active
         ]
-        
+
         if not students:
             continue
-        
+
         results, errors = await service.calculate_group_scores_batch(
             group_id=group.id,
             attestation_type=attestation_type,
@@ -133,29 +134,29 @@ async def calculate_all_students_attestation(
         )
         all_results.extend(results)
         all_errors.extend(errors)
-    
+
     if not all_results:
         raise HTTPException(status_code=404, detail="Нет активных студентов")
-    
+
     return _build_all_students_response(attestation_type, all_results, all_errors)
 
 
 def _build_group_response(group_id, group_code, attestation_type, results, errors):
     """Построить ответ для группы."""
     passing = sum(1 for r in results if r.is_passing)
-    
-    grade_dist: Dict[str, int] = {"неуд": 0, "уд": 0, "хор": 0, "отл": 0}
+
+    grade_dist: dict[str, int] = {"неуд": 0, "уд": 0, "хор": 0, "отл": 0}
     for r in results:
         if r.grade in grade_dist:
             grade_dist[r.grade] += 1
-    
+
     avg = sum(r.total_score for r in results) / len(results) if results else 0.0
-    
+
     return GroupAttestationResponse(
         group_id=group_id,
         group_code=group_code,
         attestation_type=attestation_type,
-        calculated_at=datetime.now(timezone.utc),
+        calculated_at=datetime.now(UTC),
         total_students=len(results),
         passing_students=passing,
         failing_students=len(results) - passing,
@@ -169,19 +170,19 @@ def _build_group_response(group_id, group_code, attestation_type, results, error
 def _build_all_students_response(attestation_type, results, errors):
     """Построить ответ для всех студентов."""
     passing = sum(1 for r in results if r.is_passing)
-    
-    grade_dist: Dict[str, int] = {"неуд": 0, "уд": 0, "хор": 0, "отл": 0}
+
+    grade_dist: dict[str, int] = {"неуд": 0, "уд": 0, "хор": 0, "отл": 0}
     for r in results:
         if r.grade in grade_dist:
             grade_dist[r.grade] += 1
-    
+
     avg = sum(r.total_score for r in results) / len(results) if results else 0.0
-    
+
     return GroupAttestationResponse(
         group_id=None,
         group_code="all",
         attestation_type=attestation_type,
-        calculated_at=datetime.now(timezone.utc),
+        calculated_at=datetime.now(UTC),
         total_students=len(results),
         passing_students=passing,
         failing_students=len(results) - passing,

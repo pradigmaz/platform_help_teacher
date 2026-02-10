@@ -1,35 +1,36 @@
 """Student management within groups."""
-from typing import Any, List
 import logging
+from typing import Any
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import schemas, models
+from app import models, schemas
 from app.api import deps
-from app.db.session import get_db
-from app.core.limiter import limiter
-from app.core.config import settings
 from app.core import error_messages as em
+from app.core.config import settings
+from app.core.limiter import limiter
+from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 class BulkStudentsRequest(BaseModel):
-    names: List[str] = Field(..., min_length=1, max_length=200)
+    names: list[str] = Field(..., min_length=1, max_length=200)
 
 
 class BulkStudentsResponse(BaseModel):
     added: int
-    students: List[schemas.StudentInGroupResponse]
+    students: list[schemas.StudentInGroupResponse]
 
 
 class BulkDeleteRequest(BaseModel):
-    student_ids: List[UUID] = Field(..., min_length=1, max_length=200)
+    student_ids: list[UUID] = Field(..., min_length=1, max_length=200)
 
 
 class BulkDeleteResponse(BaseModel):
@@ -50,7 +51,7 @@ async def add_student(
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
-    
+
     student = models.User(
         full_name=student_data.full_name,
         username=student_data.username,
@@ -58,7 +59,7 @@ async def add_student(
         role=models.user.UserRole.STUDENT,
     )
     db.add(student)
-    
+
     try:
         await db.commit()
         await db.refresh(student)
@@ -84,12 +85,12 @@ async def add_students_bulk(
             status_code=400,
             detail=f"Слишком много студентов (максимум {settings.MAX_STUDENTS_COUNT})"
         )
-    
+
     result = await db.execute(select(models.Group).where(models.Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
-    
+
     added_students = []
     for name in data.names:
         name = name.strip()
@@ -102,7 +103,7 @@ async def add_students_bulk(
         )
         db.add(student)
         added_students.append(student)
-    
+
     try:
         await db.commit()
         for s in added_students:
@@ -136,7 +137,7 @@ async def remove_student(
     student = result.scalar_one_or_none()
     if not student:
         raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
-    
+
     try:
         await db.delete(student)
         await db.commit()
@@ -163,7 +164,7 @@ async def update_student(
     student = result.scalar_one_or_none()
     if not student:
         raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
-    
+
     try:
         if student_in.full_name is not None:
             student.full_name = student_in.full_name
@@ -195,10 +196,10 @@ async def delete_students_bulk(
         )
     )
     students = list(result.scalars().all())
-    
+
     if not students:
         raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
-    
+
     try:
         for student in students:
             await db.delete(student)

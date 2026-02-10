@@ -3,20 +3,22 @@ Backup settings, health check, and bot status.
 """
 import logging
 import shutil
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_active_superuser
-from app.db.session import get_db
-from app.models import User, BackupSettings
 from app.core.config import settings
+from app.db.session import get_db
+from app.models import BackupSettings, User
 from app.schemas.backup import (
     BackupSettingsSchema,
     BackupSettingsUpdate,
     BotStatusResponse,
 )
 from app.services.backup import BackupService
+
 from .deps import get_backup_service
 
 logger = logging.getLogger(__name__)
@@ -31,10 +33,10 @@ async def get_backup_settings(
     """Get current backup settings."""
     result = await db.execute(select(BackupSettings).where(BackupSettings.id == 1))
     db_settings = result.scalar_one_or_none()
-    
+
     if not db_settings:
         return BackupSettingsSchema()
-    
+
     return BackupSettingsSchema.model_validate(db_settings)
 
 
@@ -47,18 +49,18 @@ async def update_backup_settings(
     """Update backup settings."""
     result = await db.execute(select(BackupSettings).where(BackupSettings.id == 1))
     db_settings = result.scalar_one_or_none()
-    
+
     if not db_settings:
         db_settings = BackupSettings(id=1)
         db.add(db_settings)
-    
+
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_settings, field, value)
-    
+
     await db.commit()
     await db.refresh(db_settings)
-    
+
     logger.info(f"Backup settings updated by {current_user.id}: {update_data}")
     return BackupSettingsSchema.model_validate(db_settings)
 
@@ -70,7 +72,7 @@ async def backup_health_check(
 ):
     """Health check for backup system."""
     health = {"status": "healthy", "checks": {}}
-    
+
     # 1. Check encryption key
     if not settings.BACKUP_ENCRYPTION_KEY or len(settings.BACKUP_ENCRYPTION_KEY) < 32:
         health["status"] = "unhealthy"
@@ -80,7 +82,7 @@ async def backup_health_check(
         }
     else:
         health["checks"]["encryption_key"] = {"status": "ok"}
-    
+
     # 2. Check MinIO connectivity
     try:
         await service.storage.ensure_bucket()
@@ -88,7 +90,7 @@ async def backup_health_check(
     except Exception as e:
         health["status"] = "unhealthy"
         health["checks"]["storage"] = {"status": "error", "message": str(e)[:100]}
-    
+
     # 3. Check pg_dump available
     pg_dump_path = shutil.which("pg_dump")
     if pg_dump_path:
@@ -96,7 +98,7 @@ async def backup_health_check(
     else:
         health["status"] = "unhealthy"
         health["checks"]["pg_dump"] = {"status": "error", "message": "pg_dump not found"}
-    
+
     # 4. Get backup stats
     try:
         backups = await service.list_backups()
@@ -107,7 +109,7 @@ async def backup_health_check(
         }
     except Exception as e:
         health["checks"]["backups"] = {"status": "warning", "message": str(e)[:100]}
-    
+
     return health
 
 
@@ -118,7 +120,7 @@ async def get_bot_status(
     """Get status of available notification bots."""
     telegram_available = bool(settings.TELEGRAM_BOT_TOKEN)
     vk_available = bool(settings.VK_BOT_TOKEN and settings.VK_GROUP_ID)
-    
+
     return BotStatusResponse(
         telegram_available=telegram_available,
         vk_available=vk_available,

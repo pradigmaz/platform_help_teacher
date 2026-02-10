@@ -1,38 +1,36 @@
-from typing import Any, List, Optional
-from uuid import UUID
 from datetime import date
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.db.session import get_db
 from app.core.limiter import limiter
+from app.crud.attendance import (
+    DuplicateAttendanceError,
+    FutureDateError,
+    StudentNotFoundError,
+    StudentNotInGroupError,
+    bulk_create_attendance,
+    create_attendance,
+    delete_attendance,
+    get_attendance_by_group_and_date,
+    get_attendance_by_group_date_range,
+    get_attendance_by_student,
+    update_attendance,
+)
+from app.db.session import get_db
 from app.models import User, UserRole
 from app.models.attendance import Attendance, AttendanceStatus
 from app.schemas.attendance import (
     AttendanceCreate,
-    AttendanceUpdate,
     AttendanceResponse,
-    BulkAttendanceCreate,
-    BulkAttendanceResponse,
     AttendanceStatsResponse,
     AttendanceStatusSchema,
-)
-from app.crud.attendance import (
-    create_attendance,
-    update_attendance,
-    get_attendance_by_student,
-    get_attendance_by_group_and_date,
-    get_attendance_by_group_date_range,
-    delete_attendance,
-    bulk_create_attendance,
-    AttendanceValidationError,
-    DuplicateAttendanceError,
-    StudentNotInGroupError,
-    StudentNotFoundError,
-    FutureDateError,
+    AttendanceUpdate,
+    BulkAttendanceCreate,
+    BulkAttendanceResponse,
 )
 
 router = APIRouter()
@@ -58,7 +56,7 @@ async def check_group_access(user: User, group_id: UUID) -> None:
     """
     if user.role == UserRole.ADMIN:
         return
-        
+
     # Placeholder for teacher access logic
     # if user.role == UserRole.TEACHER and user.group_id != group_id:
     #     raise HTTPException(status_code=403, detail="No access to this group")
@@ -77,18 +75,18 @@ async def create_attendance_record(
 ):
     """
     Создать запись посещаемости.
-    
+
     Requirements:
     - 8.1: store attendance records with student, group, date, and status
     - 8.3: validate student belongs to specified group
     - 8.4: prevent duplicate attendance records
-    
+
     Args:
         attendance_in: Данные для создания записи
-    
+
     Returns:
         AttendanceResponse с созданной записью
-    
+
     Raises:
         400: Если студент не принадлежит группе или запись уже существует
         404: Если студент не найден
@@ -98,7 +96,7 @@ async def create_attendance_record(
 
     # Конвертируем статус из схемы в модель
     model_status = AttendanceStatus(attendance_in.status.value)
-    
+
     try:
         attendance = await create_attendance(
             db=db,
@@ -110,7 +108,7 @@ async def create_attendance_record(
         )
         await db.commit()
         await db.refresh(attendance)
-        
+
         return to_attendance_response(attendance)
     except StudentNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -129,31 +127,31 @@ async def update_attendance_record(
 ):
     """
     Обновить статус посещаемости.
-    
+
     Args:
         attendance_id: ID записи посещаемости
         attendance_in: Новый статус
-    
+
     Returns:
         AttendanceResponse с обновлённой записью
-    
+
     Raises:
         404: Если запись не найдена
     """
     model_status = AttendanceStatus(attendance_in.status.value)
-    
+
     attendance = await update_attendance(
         db=db,
         attendance_id=attendance_id,
         status=model_status
     )
-    
+
     if not attendance:
         raise HTTPException(status_code=404, detail="Запись посещаемости не найдена")
-    
+
     await db.commit()
     await db.refresh(attendance)
-    
+
     return to_attendance_response(attendance)
 
 
@@ -167,12 +165,12 @@ async def create_bulk_attendance(
 ):
     """
     Массовое создание записей посещаемости для группы.
-    
+
     Валидирует каждого студента и пропускает невалидные записи.
-    
+
     Args:
         bulk_in: Данные для массового создания
-    
+
     Returns:
         BulkAttendanceResponse со статистикой и созданными записями
     """
@@ -183,7 +181,7 @@ async def create_bulk_attendance(
         (record.student_id, AttendanceStatus(record.status.value))
         for record in bulk_in.records
     ]
-    
+
     created_records = await bulk_create_attendance(
         db=db,
         group_id=bulk_in.group_id,
@@ -191,9 +189,9 @@ async def create_bulk_attendance(
         student_statuses=student_statuses,
         created_by=current_user.id
     )
-    
+
     await db.commit()
-    
+
     # Оптимизация: получаем все созданные записи одним запросом вместо цикла refresh
     response_records = []
     if created_records:
@@ -202,7 +200,7 @@ async def create_bulk_attendance(
         result = await db.execute(query)
         fetched_records = result.scalars().all()
         response_records = [to_attendance_response(r) for r in fetched_records]
-    
+
     return BulkAttendanceResponse(
         created_count=len(created_records),
         skipped_count=len(bulk_in.records) - len(created_records),
@@ -210,10 +208,10 @@ async def create_bulk_attendance(
     )
 
 
-@router.get("/attendance/student/{student_id}", response_model=List[AttendanceResponse])
+@router.get("/attendance/student/{student_id}", response_model=list[AttendanceResponse])
 async def get_student_attendance(
     student_id: UUID,
-    group_id: Optional[UUID] = Query(default=None, description="Фильтр по группе"),
+    group_id: UUID | None = Query(default=None, description="Фильтр по группе"),
     skip: int = Query(default=0, ge=0, description="Пропустить записей"),
     limit: int = Query(default=100, ge=1, le=1000, description="Лимит записей"),
     db: AsyncSession = Depends(get_db),
@@ -221,15 +219,15 @@ async def get_student_attendance(
 ):
     """
     Получить записи посещаемости студента.
-    
+
     Requirements: 8.5 - efficient querying of attendance data
-    
+
     Args:
         student_id: ID студента
         group_id: ID группы (опционально)
         skip: Смещение
         limit: Лимит
-    
+
     Returns:
         List[AttendanceResponse] с записями посещаемости
     """
@@ -240,19 +238,19 @@ async def get_student_attendance(
         student_id=student_id,
         group_id=group_id
     )
-    
+
     # Simple pagination implementation
     paginated_records = records[skip : skip + limit]
-    
+
     return [to_attendance_response(r) for r in paginated_records]
 
 
-@router.get("/attendance/group/{group_id}", response_model=List[AttendanceResponse])
+@router.get("/attendance/group/{group_id}", response_model=list[AttendanceResponse])
 async def get_group_attendance(
     group_id: UUID,
-    attendance_date: Optional[date] = Query(default=None, description="Фильтр по дате"),
-    start_date: Optional[date] = Query(default=None, description="Начало периода"),
-    end_date: Optional[date] = Query(default=None, description="Конец периода"),
+    attendance_date: date | None = Query(default=None, description="Фильтр по дате"),
+    start_date: date | None = Query(default=None, description="Начало периода"),
+    end_date: date | None = Query(default=None, description="Конец периода"),
     skip: int = Query(default=0, ge=0, description="Пропустить записей"),
     limit: int = Query(default=100, ge=1, le=1000, description="Лимит записей"),
     db: AsyncSession = Depends(get_db),
@@ -260,9 +258,9 @@ async def get_group_attendance(
 ):
     """
     Получить записи посещаемости группы.
-    
+
     Requirements: 8.5 - efficient querying (использует индекс idx_attendance_group_date)
-    
+
     Args:
         group_id: ID группы
         attendance_date: Конкретная дата (опционально)
@@ -270,7 +268,7 @@ async def get_group_attendance(
         end_date: Конец периода (опционально)
         skip: Смещение
         limit: Лимит
-    
+
     Returns:
         List[AttendanceResponse] с записями посещаемости
     """
@@ -299,27 +297,27 @@ async def get_group_attendance(
         records = list(result.scalars().all())
         # Since we use direct query with limit here, we don't need slicing
         return [to_attendance_response(r) for r in records]
-    
+
     # For other cases where we use crud functions that return all records
     paginated_records = records[skip : skip + limit]
-    
+
     return [to_attendance_response(r) for r in paginated_records]
 
 
 @router.get("/attendance/stats/{student_id}", response_model=AttendanceStatsResponse)
 async def get_student_attendance_stats(
     student_id: UUID,
-    group_id: Optional[UUID] = Query(default=None, description="Фильтр по группе"),
+    group_id: UUID | None = Query(default=None, description="Фильтр по группе"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """
     Получить статистику посещаемости студента.
-    
+
     Args:
         student_id: ID студента
         group_id: ID группы (опционально)
-    
+
     Returns:
         AttendanceStatsResponse со статистикой
     """
@@ -328,18 +326,18 @@ async def get_student_attendance_stats(
         student_id=student_id,
         group_id=group_id
     )
-    
+
     present_count = sum(1 for r in records if r.status == AttendanceStatus.PRESENT)
     late_count = sum(1 for r in records if r.status == AttendanceStatus.LATE)
     excused_count = sum(1 for r in records if r.status == AttendanceStatus.EXCUSED)
     absent_count = sum(1 for r in records if r.status == AttendanceStatus.ABSENT)
     total_classes = len(records)
-    
+
     # Процент посещаемости (присутствие + опоздание считаются как посещение)
     attendance_rate = 0.0
     if total_classes > 0:
         attendance_rate = round((present_count + late_count) / total_classes * 100, 1)
-    
+
     return AttendanceStatsResponse(
         student_id=student_id,
         total_classes=total_classes,
@@ -359,20 +357,20 @@ async def delete_attendance_record(
 ):
     """
     Удалить запись посещаемости.
-    
+
     Args:
         attendance_id: ID записи
-    
+
     Returns:
         Статус удаления
-    
+
     Raises:
         404: Если запись не найдена
     """
     deleted = await delete_attendance(db=db, attendance_id=attendance_id)
-    
+
     if not deleted:
         raise HTTPException(status_code=404, detail="Запись посещаемости не найдена")
-    
+
     await db.commit()
     return {"status": "deleted", "id": str(attendance_id)}

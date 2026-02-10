@@ -1,17 +1,18 @@
 """Subgroup assignment operations."""
-from typing import Any
 import logging
+from typing import Any
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import schemas, models
+from app import models, schemas
 from app.api import deps
+from app.core import error_messages as em
 from app.db.session import get_db
 from app.utils.text import fio_matches
-from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -32,15 +33,15 @@ async def assign_subgroup(
         )
     )
     students = list(result.scalars().all())
-    
+
     if not students:
         raise HTTPException(status_code=404, detail=em.NO_STUDENTS_IN_GROUP)
-    
+
     input_names = [name.strip() for name in request.names if name.strip()]
-    
+
     matched_students = []
     not_found = []
-    
+
     for input_name in input_names:
         found = False
         for student in students:
@@ -51,7 +52,7 @@ async def assign_subgroup(
                 break
         if not found:
             not_found.append(input_name)
-    
+
     try:
         await db.commit()
         return schemas.AssignSubgroupResponse(
@@ -79,13 +80,13 @@ async def clear_subgroups(
         )
     )
     students = list(result.scalars().all())
-    
+
     count = 0
     for student in students:
         if student.subgroup is not None:
             student.subgroup = None
             count += 1
-    
+
     try:
         await db.commit()
         return schemas.ClearSubgroupsResponse(cleared=count)

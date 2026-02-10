@@ -3,13 +3,13 @@ Student API endpoints - личный кабинет студента.
 """
 from fastapi import APIRouter
 
-from .profile import router as profile_router
-from .attendance import router as attendance_router
-from .labs import router as labs_router
-from .attestation import router as attestation_router
-from .misc import router as misc_router
 from .activities import router as activities_router
+from .attendance import router as attendance_router
+from .attestation import router as attestation_router
+from .labs import router as labs_router
+from .misc import router as misc_router
 from .notifications import router as notifications_router
+from .profile import router as profile_router
 
 router = APIRouter()
 

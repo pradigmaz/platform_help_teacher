@@ -4,8 +4,8 @@
 from fastapi import APIRouter
 
 from .attendance import router as attendance_router
-from .grades_endpoints import router as grades_router
 from .grades_bulk import router as grades_bulk_router
+from .grades_endpoints import router as grades_router
 
 router = APIRouter()
 

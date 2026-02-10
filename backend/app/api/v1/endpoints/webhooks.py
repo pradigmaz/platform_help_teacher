@@ -1,12 +1,13 @@
 import logging
-import ipaddress
-from fastapi import APIRouter, Header, HTTPException, Request, status, Depends
+
 from aiogram import types
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+
+from app.api import deps
+from app.bots.telegram_bot import bot, dp
+from app.core import error_messages as em
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.bots.telegram_bot import bot, dp
-from app.api import deps
-from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -34,12 +35,12 @@ async def telegram_webhook(
     try:
         # Обработка обновления
         update_data = await request.json()
-        
+
         update = types.Update(**update_data)
-        
+
         await dp.feed_webhook_update(bot, update)
         logger.info(f"Update {update.update_id} processed successfully")
-        
+
         return {"status": "ok"}
     except ValueError as e:
         # Invalid JSON or Update format - client error, don't retry

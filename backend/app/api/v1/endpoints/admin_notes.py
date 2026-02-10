@@ -1,23 +1,16 @@
 """API endpoints для заметок."""
-from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from sqlalchemy import select, and_
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.db.session import get_db
 from app.crud.crud_note import crud_note
+from app.db.session import get_db
 from app.models.note import Note
 from app.models.user import User
-from app.schemas.note import (
-    NoteCreate, 
-    NoteUpdate, 
-    NoteResponse, 
-    NotesListResponse,
-    EntityType
-)
+from app.schemas.note import EntityType, NoteCreate, NoteResponse, NotesListResponse, NoteUpdate
 
 router = APIRouter()
 
@@ -37,7 +30,7 @@ async def get_notes(
 @router.post("/batch")
 async def get_notes_batch(
     entity_type: EntityType = Query(...),
-    entity_ids: List[UUID] = Body(..., embed=True),
+    entity_ids: list[UUID] = Body(..., embed=True),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
@@ -47,7 +40,7 @@ async def get_notes_batch(
     """
     if len(entity_ids) > 100:
         raise HTTPException(status_code=400, detail="Максимум 100 сущностей за раз")
-    
+
     result = await db.execute(
         select(Note)
         .where(and_(
@@ -57,7 +50,7 @@ async def get_notes_batch(
         .order_by(Note.is_pinned.desc(), Note.created_at.desc())
     )
     notes = list(result.scalars().all())
-    
+
     # Группируем по entity_id
     grouped: dict[str, list] = {str(eid): [] for eid in entity_ids}
     for note in notes:
@@ -74,7 +67,7 @@ async def get_notes_batch(
                 "created_at": note.created_at.isoformat(),
                 "updated_at": note.updated_at.isoformat() if note.updated_at else note.created_at.isoformat(),
             })
-    
+
     return grouped
 
 
@@ -108,7 +101,7 @@ async def update_note(
     note = await crud_note.get(db, note_id)
     if not note:
         raise HTTPException(status_code=404, detail="Заметка не найдена")
-    
+
     note = await crud_note.update(
         db,
         note,

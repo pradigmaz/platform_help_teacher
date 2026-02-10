@@ -2,7 +2,6 @@
 API endpoints для управления предметами.
 """
 import logging
-from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -11,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.crud import crud_subject
-from app.models import Subject, TeacherSubjectAssignment
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -21,15 +19,15 @@ router = APIRouter()
 
 class SubjectCreate(BaseModel):
     name: str
-    code: Optional[str] = None
-    description: Optional[str] = None
+    code: str | None = None
+    description: str | None = None
 
 
 class SubjectResponse(BaseModel):
     id: UUID
     name: str
-    code: Optional[str]
-    description: Optional[str]
+    code: str | None
+    description: str | None
     is_active: bool
 
     class Config:
@@ -40,22 +38,22 @@ class TeacherSubjectResponse(BaseModel):
     id: UUID
     subject_id: UUID
     subject_name: str
-    group_id: Optional[UUID]
-    group_name: Optional[str]
-    semester: Optional[str]
+    group_id: UUID | None
+    group_name: str | None
+    semester: str | None
     is_active: bool
 
 
 class AssignTeacherRequest(BaseModel):
     teacher_id: UUID
     subject_id: UUID
-    group_id: Optional[UUID] = None
-    semester: Optional[str] = None
+    group_id: UUID | None = None
+    semester: str | None = None
 
 
 # === Endpoints ===
 
-@router.get("/", response_model=List[SubjectResponse])
+@router.get("/", response_model=list[SubjectResponse])
 async def list_subjects(
     active_only: bool = Query(True),
     db: AsyncSession = Depends(deps.get_db)
@@ -74,7 +72,7 @@ async def create_subject(
     existing = await crud_subject.get_subject_by_name(db, data.name)
     if existing:
         raise HTTPException(status_code=400, detail="Предмет с таким названием уже существует")
-    
+
     subject = await crud_subject.create_subject(
         db, data.name, data.code, data.description
     )
@@ -94,10 +92,10 @@ async def get_subject(
     return subject
 
 
-@router.get("/teacher/{teacher_id}", response_model=List[TeacherSubjectResponse])
+@router.get("/teacher/{teacher_id}", response_model=list[TeacherSubjectResponse])
 async def get_teacher_subjects(
     teacher_id: UUID,
-    semester: Optional[str] = Query(None),
+    semester: str | None = Query(None),
     active_only: bool = Query(True),
     db: AsyncSession = Depends(deps.get_db)
 ):
@@ -105,7 +103,7 @@ async def get_teacher_subjects(
     assignments = await crud_subject.get_teacher_subjects(
         db, teacher_id, semester, active_only
     )
-    
+
     result = []
     for a in assignments:
         result.append(TeacherSubjectResponse(

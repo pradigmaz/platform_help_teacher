@@ -6,24 +6,23 @@ module focused on feedback CRUD operations.
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.api.deps import get_db, get_current_user, get_current_active_superuser
+from app.api.deps import get_current_active_superuser, get_current_user, get_db
 from app.core.limiter import limiter
 from app.models import User
 from app.models.feedback import Feedback, FeedbackStatus
 from app.schemas.feedback import (
+    FeedbackAttachmentResponse,
     FeedbackCreate,
     FeedbackResponse,
     FeedbackUpdate,
-    FeedbackAttachmentResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -100,7 +99,7 @@ async def get_new_feedback_count(
     return {"count": result.scalar() or 0}
 
 
-@router.get("", response_model=List[FeedbackResponse])
+@router.get("", response_model=list[FeedbackResponse])
 async def list_feedback(
     status: FeedbackStatus | None = None,
     limit: int = Query(50, ge=1, le=100),
@@ -152,7 +151,7 @@ async def update_feedback(
     if data.status:
         feedback.status = data.status
         if data.status in (FeedbackStatus.RESOLVED, FeedbackStatus.CLOSED):
-            feedback.resolved_at = datetime.now(timezone.utc)
+            feedback.resolved_at = datetime.now(UTC)
 
     if data.admin_response is not None:
         feedback.admin_response = data.admin_response

@@ -4,25 +4,27 @@ Backup CRUD operations: create, list, delete, upload.
 import logging
 import tempfile
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 
 from app.api.deps import get_current_active_superuser
+from app.audit.constants import ActionType, EntityType
+from app.audit.decorators import audit_action
+from app.core import error_messages as em
+from app.core.constants import RATE_LIMIT_BACKUP_CREATE, RATE_LIMIT_BACKUP_DELETE
+from app.core.limiter import limiter
 from app.models import User
 from app.schemas.backup import (
+    MAX_BACKUP_UPLOAD_SIZE,
     BackupCreate,
+    BackupCreateResponse,
     BackupInfo,
     BackupListResponse,
-    BackupCreateResponse,
     UploadBackupResponse,
     validate_backup_key,
-    MAX_BACKUP_UPLOAD_SIZE,
 )
 from app.services.backup import BackupService
-from app.core.limiter import limiter
-from app.core.constants import RATE_LIMIT_BACKUP_CREATE, RATE_LIMIT_BACKUP_DELETE
-from app.audit.decorators import audit_action
-from app.audit.constants import ActionType, EntityType
-from app.core import error_messages as em
+
 from .deps import get_backup_service
 
 logger = logging.getLogger(__name__)
@@ -41,12 +43,12 @@ async def create_backup(
     """Create encrypted backup of the database."""
     name = data.name if data else None
     result = await service.create_backup(name)
-    
+
     if not result.success:
         logger.error(f"Backup failed by {current_user.id}: {result.error}")
     else:
         logger.info(f"Backup created by {current_user.id}: {result.backup_key}")
-    
+
     return BackupCreateResponse(
         success=result.success,
         backup_key=result.backup_key,
@@ -85,13 +87,13 @@ async def delete_backup(
     """Delete a backup."""
     backup_key = validate_backup_key(backup_key)
     success = await service.delete_backup(backup_key)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=em.BACKUP_NOT_FOUND,
         )
-    
+
     logger.info(f"Backup deleted by {current_user.id}: {backup_key}")
     return {"status": "deleted", "backup_key": backup_key}
 
@@ -111,17 +113,17 @@ async def upload_backup(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=em.FILE_MUST_HAVE_ENC_EXTENSION
         )
-    
+
     content = await file.read()
     if len(content) > MAX_BACKUP_UPLOAD_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File too large. Max size: {MAX_BACKUP_UPLOAD_SIZE // (1024*1024)}MB"
         )
-    
+
     if len(content) == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.EMPTY_FILE)
-    
+
     # SECURITY: Validate encrypted file format (magic bytes check)
     # Format v1: [version:1][salt:16][nonce:8]... minimum 25 bytes header
     # Format v0 (legacy): [salt:16][nonce:12]... minimum 28 bytes
@@ -131,7 +133,7 @@ async def upload_backup(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=em.FILE_TOO_SMALL
         )
-    
+
     # Check format version byte
     version_byte = content[0]
     if version_byte == 1:
@@ -154,21 +156,21 @@ async def upload_backup(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unknown encryption format version: {version_byte}"
         )
-    
+
     try:
         safe_filename = validate_backup_key(file.filename)
-        
+
         with tempfile.NamedTemporaryFile(delete=False, suffix='.enc') as tmp:
             tmp.write(content)
             tmp_path = Path(tmp.name)
-        
+
         try:
             await service.storage.upload(tmp_path, safe_filename)
             logger.info(f"Backup uploaded by {current_user.id}: {safe_filename} (v{version_byte if version_byte == 1 else 0})")
             return UploadBackupResponse(success=True, backup_key=safe_filename, size=len(content))
         finally:
             tmp_path.unlink(missing_ok=True)
-            
+
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:

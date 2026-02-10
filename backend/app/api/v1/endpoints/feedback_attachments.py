@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -234,7 +234,7 @@ async def mark_attachment_uploaded(
         )
 
     attachment.is_uploaded = True
-    attachment.uploaded_at = datetime.now(timezone.utc)
+    attachment.uploaded_at = datetime.now(UTC)
     await db.commit()
     logger.info(
         f"[Feedback] Attachment {attachment_id} marked as uploaded successfully at {attachment.uploaded_at}"

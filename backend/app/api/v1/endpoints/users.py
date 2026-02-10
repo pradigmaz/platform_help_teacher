@@ -1,19 +1,20 @@
-from typing import Any, Optional
 import logging
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import schemas, models
+from app import models, schemas
 from app.api import deps
-from app.db.session import get_db
 from app.core.limiter import limiter
+from app.db.session import get_db
 from app.schemas.user import (
-    TeacherContactsUpdate,
-    TeacherContactsResponse,
-    TeacherContacts,
     ContactVisibilitySettings,
     RelinkTelegramResponse,
+    TeacherContacts,
+    TeacherContactsResponse,
+    TeacherContactsUpdate,
 )
 from app.services.user_service import user_service
 
@@ -58,16 +59,15 @@ async def update_user_me(
     SECURITY: full_name change is forbidden for students.
     """
     logger.info(f"[users:update_user_me] User {current_user.id} updating profile")
-    
+
     # Students cannot change their full_name
-    if user_in.full_name is not None:
-        if current_user.role == models.UserRole.STUDENT:
-            logger.warning(f"[users:update_user_me] Student {current_user.id} attempted to change full_name")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Students cannot change their name"
-            )
-    
+    if user_in.full_name is not None and current_user.role == models.UserRole.STUDENT:
+        logger.warning(f"[users:update_user_me] Student {current_user.id} attempted to change full_name")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Students cannot change their name"
+        )
+
     return await user_service.update_user(db, current_user, user_in)
 
 
@@ -81,18 +81,18 @@ async def relink_telegram(
     """
     Получить код для перепривязки Telegram.
     Работает для всех ролей: студент, преподаватель, админ.
-    
+
     SECURITY: Код привязан к текущему telegram_id пользователя.
     Если у пользователя уже есть привязка, код может использовать только он.
     """
     from app.services import bot_service
     code = await bot_service.generate_relink_code(
-        db, 
-        current_user.id, 
+        db,
+        current_user.id,
         "telegram",
         current_social_id=current_user.telegram_id
     )
-    
+
     return RelinkTelegramResponse(
         code=code,
         expires_in=bot_service.RELINK_TTL,
@@ -109,18 +109,18 @@ async def link_vk(
     """
     Получить код для привязки VK.
     Работает для всех ролей: студент, преподаватель, админ.
-    
+
     SECURITY: Код привязан к текущему vk_id пользователя.
     Если у пользователя уже есть привязка, код может использовать только он.
     """
     from app.services import bot_service
     code = await bot_service.generate_relink_code(
-        db, 
-        current_user.id, 
+        db,
+        current_user.id,
         "vk",
         current_social_id=current_user.vk_id
     )
-    
+
     return RelinkTelegramResponse(
         code=code,
         expires_in=bot_service.RELINK_TTL,
@@ -139,7 +139,7 @@ async def get_my_contacts(
     """
     contacts_data = current_user.contacts or {}
     visibility_data = current_user.contact_visibility or {}
-    
+
     return TeacherContactsResponse(
         contacts=TeacherContacts(**contacts_data),
         visibility=ContactVisibilitySettings(**visibility_data),
@@ -156,9 +156,9 @@ async def update_my_contacts(
     Обновить свои контакты (только для преподавателей).
     """
     logger.info(f"[users:update_my_contacts] Teacher {current_user.id} updating contacts")
-    
+
     updated_user = await user_service.update_contacts(db, current_user, data)
-    
+
     return TeacherContactsResponse(
         contacts=TeacherContacts(**updated_user.contacts),
         visibility=ContactVisibilitySettings(**updated_user.contact_visibility),
@@ -173,7 +173,7 @@ class TeacherSettingsResponse(BaseModel):
 
 
 class TeacherSettingsUpdate(BaseModel):
-    hide_previous_semester: Optional[bool] = None
+    hide_previous_semester: bool | None = None
 
 
 @router.get("/profile/settings", response_model=TeacherSettingsResponse)
@@ -199,13 +199,13 @@ async def update_my_settings(
     Обновить настройки преподавателя.
     """
     logger.info(f"[users:update_my_settings] Teacher {current_user.id} updating settings")
-    
+
     updated_user = await user_service.update_settings(
-        db, 
-        current_user, 
+        db,
+        current_user,
         hide_previous_semester=data.hide_previous_semester
     )
-    
+
     settings = updated_user.teacher_settings or {}
     return TeacherSettingsResponse(
         hide_previous_semester=settings.get("hide_previous_semester", True),

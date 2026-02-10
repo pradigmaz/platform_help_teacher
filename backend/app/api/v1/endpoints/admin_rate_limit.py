@@ -1,24 +1,23 @@
 """
 Admin API для управления rate limit банами.
 """
-from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_active_superuser
+from app.api.deps import get_current_active_superuser, get_db
 from app.models.user import User
 from app.services.rate_limit.admin import (
     get_active_bans,
     get_warnings_history,
-    unban_by_warning_id,
     unban_by_user_id,
+    unban_by_warning_id,
 )
 from app.services.rate_limit.schemas import (
-    WarningListResponse,
     UnbanRequest,
     UnbanResponse,
+    WarningListResponse,
 )
 
 router = APIRouter()
@@ -39,8 +38,8 @@ async def list_active_bans(
 async def list_warnings_history(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_active_superuser),
-    user_id: Optional[UUID] = Query(None),
-    ip_address: Optional[str] = Query(None),
+    user_id: UUID | None = Query(None),
+    ip_address: str | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
 ):
@@ -57,10 +56,10 @@ async def unban_warning(
 ):
     """Разбанить по ID предупреждения."""
     success = await unban_by_warning_id(db, warning_id, admin.id, request.reason)
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="Warning not found")
-    
+
     return UnbanResponse(
         success=True,
         message="Пользователь разбанен",
@@ -77,7 +76,7 @@ async def unban_user(
 ):
     """Разбанить все активные баны пользователя."""
     count = await unban_by_user_id(db, user_id, admin.id, request.reason)
-    
+
     return UnbanResponse(
         success=True,
         message=f"Снято {count} банов",

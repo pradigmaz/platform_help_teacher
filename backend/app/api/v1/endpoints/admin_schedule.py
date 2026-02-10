@@ -1,25 +1,30 @@
 """API эндпоинты для управления расписанием и занятиями."""
-from typing import List, Optional
-from uuid import UUID
 from datetime import date
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
+from app.core import error_messages as em
+from app.core.limiter import limiter
+from app.crud.crud_schedule import lesson as crud_lesson
+from app.crud.crud_schedule import schedule as crud_schedule
 from app.db.session import get_db
 from app.models import User
-from app.models.schedule import DayOfWeek, LessonType, WeekParity
-from app.crud.crud_schedule import schedule as crud_schedule, lesson as crud_lesson
+from app.models.schedule import LessonType
+from app.schemas.schedule import (
+    GenerateLessonsRequest,
+    GenerateLessonsResponse,
+    LessonCreate,
+    LessonResponse,
+    LessonUpdate,
+    ScheduleItemCreate,
+    ScheduleItemResponse,
+    ScheduleItemUpdate,
+)
 from app.services.lesson_generator import lesson_generator
 from app.services.schedule_constants import today_msk
-from app.schemas.schedule import (
-    ScheduleItemCreate, ScheduleItemUpdate, ScheduleItemResponse,
-    LessonCreate, LessonUpdate, LessonResponse,
-    GenerateLessonsRequest, GenerateLessonsResponse
-)
-from app.core.limiter import limiter
-from app.core import error_messages as em
 
 router = APIRouter()
 
@@ -51,7 +56,7 @@ async def create_schedule_item(
     return item
 
 
-@router.get("/groups/{group_id}/schedule", response_model=List[ScheduleItemResponse])
+@router.get("/groups/{group_id}/schedule", response_model=list[ScheduleItemResponse])
 async def get_schedule(
     group_id: UUID,
     active_only: bool = Query(True),
@@ -74,7 +79,7 @@ async def update_schedule_item(
     item = await crud_schedule.get(db, item_id)
     if not item:
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
-    
+
     item = await crud_schedule.update(db, db_obj=item, **item_in.model_dump(exclude_unset=True))
     return item
 
@@ -135,15 +140,16 @@ async def get_group_students(
     """Получить студентов группы для журнала."""
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
+
     from app.models.group import Group
-    
+
     result = await db.execute(
         select(Group).options(selectinload(Group.users)).where(Group.id == group_id)
     )
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
-    
+
     students = sorted(
         [u for u in group.users if u.is_active],
         key=lambda u: u.full_name
@@ -151,12 +157,12 @@ async def get_group_students(
     return [{"id": str(s.id), "full_name": s.full_name} for s in students]
 
 
-@router.get("/groups/{group_id}/lessons", response_model=List[LessonResponse])
+@router.get("/groups/{group_id}/lessons", response_model=list[LessonResponse])
 async def get_lessons(
     group_id: UUID,
     start_date: date = Query(...),
     end_date: date = Query(...),
-    lesson_type: Optional[LessonType] = Query(None),
+    lesson_type: LessonType | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
@@ -191,7 +197,7 @@ async def update_lesson(
     lesson = await crud_lesson.get(db, lesson_id)
     if not lesson:
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
-    
+
     lesson = await crud_lesson.update(db, db_obj=lesson, **lesson_in.model_dump(exclude_unset=True))
     return lesson
 
@@ -199,7 +205,7 @@ async def update_lesson(
 @router.post("/lessons/{lesson_id}/cancel", response_model=LessonResponse)
 async def cancel_lesson(
     lesson_id: UUID,
-    reason: Optional[str] = Query(None),
+    reason: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
@@ -207,7 +213,7 @@ async def cancel_lesson(
     lesson = await crud_lesson.get(db, lesson_id)
     if not lesson:
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
-    
+
     lesson = await crud_lesson.cancel(db, db_obj=lesson, reason=reason)
     return lesson
 
@@ -247,6 +253,7 @@ async def generate_lessons(
 # === Schedule Parser ===
 
 from pydantic import BaseModel
+
 from app.services.schedule_import_service import ScheduleImportService
 
 
@@ -254,7 +261,7 @@ class ParseScheduleRequest(BaseModel):
     """Запрос на парсинг расписания"""
     teacher_name: str
     start_date: date
-    end_date: Optional[date] = None  # По умолчанию - сегодня
+    end_date: date | None = None  # По умолчанию - сегодня
 
 
 class ParseScheduleResponse(BaseModel):
@@ -263,7 +270,7 @@ class ParseScheduleResponse(BaseModel):
     groups_created: int
     lessons_created: int
     lessons_skipped: int
-    groups: List[str]
+    groups: list[str]
 
 
 @router.post("/schedule/parse", response_model=ParseScheduleResponse)
@@ -279,20 +286,20 @@ async def parse_schedule(
     Автоматически создаёт группы и занятия.
     """
     end_date = data.end_date or today_msk()
-    
+
     if data.start_date > end_date:
         raise HTTPException(status_code=400, detail="start_date должна быть раньше end_date")
-    
+
     import_service = ScheduleImportService(db)
-    
+
     try:
         stats = await import_service.import_from_parser(
             teacher_name=data.teacher_name,
             start_date=data.start_date,
             end_date=end_date
         )
-        
+
         return ParseScheduleResponse(**stats)
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка парсинга: {str(e)}")

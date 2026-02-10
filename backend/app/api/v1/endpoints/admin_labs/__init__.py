@@ -1,9 +1,9 @@
 """Admin labs API endpoints."""
 from fastapi import APIRouter
 
-from .labs_crud import router as labs_crud_router
-from .lab_settings import router as lab_settings_router
 from .deadline_extensions import router as deadline_extensions_router
+from .lab_settings import router as lab_settings_router
+from .labs_crud import router as labs_crud_router
 
 router = APIRouter()
 

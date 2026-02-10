@@ -4,10 +4,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_user
-from app.models.user import User
+from app.api.deps import get_current_user, get_db
+from app.audit import ActionType, EntityType, audit_action
 from app.models.group import Group
-from app.audit import audit_action, ActionType, EntityType
+from app.models.user import User
 
 router = APIRouter()
 
@@ -20,7 +20,7 @@ async def get_my_profile(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Профиль студента с информацией о группе."""
-    
+
     group_info = None
     if current_user.group_id:
         group = await db.get(Group, current_user.group_id)
@@ -30,7 +30,7 @@ async def get_my_profile(
                 "name": group.name,
                 "code": group.code,
             }
-    
+
     return {
         "id": str(current_user.id),
         "full_name": current_user.full_name,

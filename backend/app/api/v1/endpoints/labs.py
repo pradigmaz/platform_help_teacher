@@ -1,16 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List, Any
+from typing import Any
 
-from app.api.deps import get_db, get_current_user
-from app.models.user import User
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_user, get_db
+from app.audit import ActionType, EntityType, audit_action
+from app.core.limiter import limiter
 from app.models.lab import Lab
 from app.models.submission import Submission
+from app.models.user import User
 from app.schemas.lab import LabResponse
 from app.services.lab_service import lab_service
-from app.core.limiter import limiter
-from app.audit import audit_action, ActionType, EntityType
 
 router = APIRouter()
 
@@ -27,11 +28,11 @@ async def get_public_lab(
     lab = await lab_service.get_by_public_code(db, code)
     if not lab:
         raise HTTPException(status_code=404, detail="Лабораторная не найдена")
-    
+
     return lab
 
 
-@router.get("/", response_model=List[LabResponse])
+@router.get("/", response_model=list[LabResponse])
 async def get_labs_with_status(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=1000),
@@ -49,7 +50,7 @@ async def get_labs_with_status(
     stmt_subs = select(Submission).where(Submission.user_id == current_user.id)
     result_subs = await db.execute(stmt_subs)
     submissions = result_subs.scalars().all()
-    
+
     # 3. Мапим submissions по lab_id для быстрого поиска
     subs_map = {sub.lab_id: sub for sub in submissions}
 
@@ -59,5 +60,5 @@ async def get_labs_with_status(
         lab_dto = LabResponse.model_validate(lab)
         lab_dto.my_submission = subs_map.get(lab.id)
         response.append(lab_dto)
-        
+
     return response

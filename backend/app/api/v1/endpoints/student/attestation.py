@@ -4,12 +4,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_user
-from app.models.user import User
-from app.models.attestation_settings import AttestationType
-from app.services.attestation_service import AttestationService
-from app.audit import audit_action, ActionType, EntityType
+from app.api.deps import get_current_user, get_db
+from app.audit import ActionType, EntityType, audit_action
 from app.core import error_messages as em
+from app.models.attestation_settings import AttestationType
+from app.models.user import User
+from app.services.attestation_service import AttestationService
 
 router = APIRouter()
 
@@ -23,10 +23,10 @@ async def get_my_attestation(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Баллы аттестации студента."""
-    
+
     if attestation_type not in ("first", "second"):
         raise HTTPException(status_code=400, detail=em.INVALID_ATTESTATION_TYPE)
-    
+
     if not current_user.group_id:
         return {
             "attestation_type": attestation_type,
@@ -35,10 +35,10 @@ async def get_my_attestation(
             "grade": "-",
             "is_passing": False,
         }
-    
+
     try:
         att_type = AttestationType.FIRST if attestation_type == "first" else AttestationType.SECOND
-        
+
         service = AttestationService(db)
         result = await service.calculate_student_score(
             student_id=current_user.id,
@@ -46,7 +46,7 @@ async def get_my_attestation(
             attestation_type=att_type,
             activity_points=0,
         )
-        
+
         b = result.breakdown
         return {
             "attestation_type": attestation_type,

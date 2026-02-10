@@ -4,9 +4,9 @@ API endpoints для журнала посещаемости и оценок.
 """
 from fastapi import APIRouter
 
-from .journal.lessons import router as lessons_router
-from .journal.grades import router as grades_router
 from .journal.export import router as export_router
+from .journal.grades import router as grades_router
+from .journal.lessons import router as lessons_router
 
 router = APIRouter()
 

@@ -5,8 +5,7 @@ Honeypot-защита, валидация отчётов, PIN-сессии.
 """
 import json
 import logging
-from typing import Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +15,8 @@ from app.models.group_report import GroupReport
 from app.services.reports import ReportService
 from app.services.security_monitor import AttackType
 from app.services.security_monitor.constants import (
-    REDIS_SECURITY_BAN, BAN_DURATION,
+    BAN_DURATION,
+    REDIS_SECURITY_BAN,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ async def check_honeypot(code: str, request: Request) -> None:
 
         details_key = f"sec:strike_details:{identifier}"
         detail = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "url": f"/public/report/{code}",
             "attack_type": AttackType.HONEYPOT.value,
             "description": "Report honeypot code triggered",
@@ -73,7 +73,7 @@ async def check_honeypot(code: str, request: Request) -> None:
 async def get_valid_report(
     db: AsyncSession,
     code: str,
-    request: Optional[Request] = None,
+    request: Request | None = None,
 ) -> GroupReport:
     """
     Получить валидный отчёт по коду.
@@ -98,7 +98,7 @@ async def get_valid_report(
             detail="Report not available",
         )
 
-    if report.expires_at and datetime.now(timezone.utc) > report.expires_at:
+    if report.expires_at and datetime.now(UTC) > report.expires_at:
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
             detail="Report expired",

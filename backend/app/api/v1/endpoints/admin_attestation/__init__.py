@@ -1,9 +1,9 @@
 """Admin attestation API endpoints."""
 from fastapi import APIRouter
 
-from .settings import router as settings_router
-from .calculation import router as calculation_router
 from .audit import router as audit_router
+from .calculation import router as calculation_router
+from .settings import router as settings_router
 
 router = APIRouter()
 

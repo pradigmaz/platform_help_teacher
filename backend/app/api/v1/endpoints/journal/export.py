@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_teacher
+from app.api.deps import get_current_teacher, get_db
 from app.core.limiter import limiter
 from app.models import User
-from app.schemas.export import ExportPeriodType, ExportFormat
+from app.schemas.export import ExportFormat, ExportPeriodType
 from app.services.export import ExportService
 
 logger = logging.getLogger(__name__)
@@ -40,10 +40,10 @@ async def export_journal(
 ):
     """
     Экспорт журнала группы.
-    
+
     Возвращает файл в указанном формате с данными посещаемости и/или оценок
     за выбранный период.
-    
+
     Периоды:
     - day: конкретный день (2025-01-22)
     - week: ISO неделя (2025-W04)
@@ -53,7 +53,7 @@ async def export_journal(
     """
     # TODO: Проверка ownership (преподаватель имеет доступ к группе)
     # await verify_group_access(db, group_id, current_user)
-    
+
     service = ExportService(db)
     content, filename, media_type = await service.export_journal(
         group_id=group_id,
@@ -63,12 +63,12 @@ async def export_journal(
         include_attendance=include_attendance,
         include_grades=include_grades,
     )
-    
+
     logger.info(
         "Экспорт журнала: user=%s, group=%s, file=%s",
         current_user.id, group_id, filename
     )
-    
+
     return Response(
         content=content,
         media_type=media_type,

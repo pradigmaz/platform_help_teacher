@@ -1,17 +1,16 @@
 """API эндпоинты для управления работами (контрольные, самостоятельные, коллоквиумы, проекты)."""
-from typing import List, Optional
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
+from app.crud.crud_work import work as crud_work
 from app.db.session import get_db
 from app.models import User
 from app.models.work_type import WorkType
-from app.crud.crud_work import work as crud_work
 
 router = APIRouter()
 
@@ -19,28 +18,28 @@ router = APIRouter()
 class WorkCreate(BaseModel):
     title: str = Field(..., max_length=200)
     work_type: WorkType
-    description: Optional[str] = None
+    description: str | None = None
     max_grade: int = Field(default=10, ge=1, le=100)
-    deadline: Optional[datetime] = None
-    s3_key: Optional[str] = None
+    deadline: datetime | None = None
+    s3_key: str | None = None
 
 
 class WorkUpdate(BaseModel):
-    title: Optional[str] = Field(None, max_length=200)
-    description: Optional[str] = None
-    max_grade: Optional[int] = Field(None, ge=1, le=100)
-    deadline: Optional[datetime] = None
-    s3_key: Optional[str] = None
+    title: str | None = Field(None, max_length=200)
+    description: str | None = None
+    max_grade: int | None = Field(None, ge=1, le=100)
+    deadline: datetime | None = None
+    s3_key: str | None = None
 
 
 class WorkResponse(BaseModel):
     id: UUID
     title: str
     work_type: WorkType
-    description: Optional[str]
+    description: str | None
     max_grade: int
-    deadline: Optional[datetime]
-    s3_key: Optional[str]
+    deadline: datetime | None
+    s3_key: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -67,9 +66,9 @@ async def create_work(
     return work_obj
 
 
-@router.get("/works", response_model=List[WorkResponse])
+@router.get("/works", response_model=list[WorkResponse])
 async def get_works(
-    work_type: Optional[WorkType] = Query(None, description="Фильтр по типу работы"),
+    work_type: WorkType | None = Query(None, description="Фильтр по типу работы"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -107,7 +106,7 @@ async def update_work(
     work_obj = await crud_work.get(db, work_id)
     if not work_obj:
         raise HTTPException(status_code=404, detail="Работа не найдена")
-    
+
     work_obj = await crud_work.update(
         db,
         db_obj=work_obj,

@@ -1,5 +1,4 @@
 """Attestation audit endpoints."""
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,27 +6,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.db.session import get_db
 from app.models import User
-from app.services.attestation.audit import AttestationAuditService
 from app.schemas.attestation import AttestationType as AttestationTypeSchema
+from app.services.attestation.audit import AttestationAuditService
 
 router = APIRouter()
 
 
 @router.get("/attestation/settings/audit")
 async def get_settings_audit_history(
-    attestation_type: Optional[AttestationTypeSchema] = Query(default=None),
+    attestation_type: AttestationTypeSchema | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Получить историю изменений настроек аттестации."""
     audit_service = AttestationAuditService(db)
-    
+
     logs = await audit_service.get_audit_history(
         attestation_type=attestation_type,
         limit=limit
     )
-    
+
     return [
         {
             "id": str(log.id),

@@ -678,3 +678,64 @@ aiogram.exceptions.TelegramNetworkError: HTTP Client says - ClientConnectorDNSEr
 2026-02-10 21:53:09,022 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzYzOTYzODU0MzIyODQ4fQ.uUdA4-RCpisARzPfWtmJUIlhNK8GAFMd_PrzxO3v0zwGu0HTZI5cqr4pNUhKuV_eup8YcALkCsOBbvVdhj4jCg&ts=56&wait=25 HTTP/1.1" 200 26
 2026-02-10 21:53:34,050 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzYzOTYzODU0MzIyODQ4fQ.uUdA4-RCpisARzPfWtmJUIlhNK8GAFMd_PrzxO3v0zwGu0HTZI5cqr4pNUhKuV_eup8YcALkCsOBbvVdhj4jCg&ts=56&wait=25 HTTP/1.1" 200 26
 2026-02-10 21:53:59,078 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzYzOTYzODU0MzIyODQ4fQ.uUdA4-RCpisARzPfWtmJUIlhNK8GAFMd_PrzxO3v0zwGu0HTZI5cqr4pNUhKuV_eup8YcALkCsOBbvVdhj4jCg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:54:24,107 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzYzOTYzODU0MzIyODQ4fQ.uUdA4-RCpisARzPfWtmJUIlhNK8GAFMd_PrzxO3v0zwGu0HTZI5cqr4pNUhKuV_eup8YcALkCsOBbvVdhj4jCg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:54:49,134 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzYzOTYzODU0MzIyODQ4fQ.uUdA4-RCpisARzPfWtmJUIlhNK8GAFMd_PrzxO3v0zwGu0HTZI5cqr4pNUhKuV_eup8YcALkCsOBbvVdhj4jCg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:55:14,161 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzYzOTYzODU0MzIyODQ4fQ.uUdA4-RCpisARzPfWtmJUIlhNK8GAFMd_PrzxO3v0zwGu0HTZI5cqr4pNUhKuV_eup8YcALkCsOBbvVdhj4jCg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:55:39,188 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzYzOTYzODU0MzIyODQ4fQ.uUdA4-RCpisARzPfWtmJUIlhNK8GAFMd_PrzxO3v0zwGu0HTZI5cqr4pNUhKuV_eup8YcALkCsOBbvVdhj4jCg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:55:59,571 - app.main - INFO - 🛑 Application shutting down...
+2026-02-10 21:55:59,571 - app.bots.vk_bot - INFO - VK Long Poll stopped
+2026-02-10 21:56:08,469 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-10 21:56:08,469 - app.main - INFO - 🚀 Application starting...
+2026-02-10 21:56:08,721 - app.main - INFO - Webhook registered successfully.
+2026-02-10 21:56:08,723 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-10 21:56:08,869 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 260
+2026-02-10 21:56:08,871 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-10 21:56:08,872 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-10 21:56:08,878 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-10 21:56:08,881 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-10 21:56:09,101 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-10 21:56:32,077 - app.main - INFO - 🛑 Application shutting down...
+2026-02-10 21:56:32,078 - app.bots.vk_bot - INFO - VK Long Poll stopped
+2026-02-10 21:56:40,430 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-10 21:56:40,430 - app.main - INFO - 🚀 Application starting...
+2026-02-10 21:56:41,317 - app.main - INFO - Webhook registered successfully.
+2026-02-10 21:56:41,320 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-10 21:56:41,456 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 259
+2026-02-10 21:56:41,457 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-10 21:56:41,457 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-10 21:56:41,462 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-10 21:56:41,464 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-10 21:56:41,694 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-10 21:56:48,767 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-10 21:56:48,767 - app.main - INFO - 🚀 Application starting...
+2026-02-10 21:56:49,289 - app.main - INFO - Webhook registered successfully.
+2026-02-10 21:56:49,292 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-10 21:56:49,423 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 259
+2026-02-10 21:56:49,425 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-10 21:56:49,425 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-10 21:56:49,429 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-10 21:56:49,431 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-10 21:56:49,661 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-10 21:56:56,689 - app.main - INFO - 🛑 Application shutting down...
+2026-02-10 21:56:56,689 - app.bots.vk_bot - INFO - VK Long Poll stopped
+2026-02-10 21:57:03,889 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-10 21:57:03,889 - app.main - INFO - 🚀 Application starting...
+2026-02-10 21:57:04,439 - app.main - INFO - Webhook registered successfully.
+2026-02-10 21:57:04,442 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-10 21:57:04,575 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 260
+2026-02-10 21:57:04,576 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-10 21:57:04,577 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-10 21:57:04,580 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-10 21:57:04,585 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-10 21:57:04,795 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-10 21:57:29,719 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:57:54,745 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:58:19,769 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:58:44,793 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:59:09,816 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:59:34,840 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 21:59:59,865 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 22:00:24,890 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 22:00:49,914 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 22:01:14,938 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-10 22:01:39,961 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzY0MjI0NTUzMDQxODQwfQ.YOf59ao8RTTxWHBv_iuqpVi6Xgj9HVO4-Rf2AuMlkk1EayL2GawgHhVP32C1bdC5BJG1rbDD3qEUjV6R94oXBg&ts=56&wait=25 HTTP/1.1" 200 26
