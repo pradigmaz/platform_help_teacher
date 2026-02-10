@@ -3,7 +3,9 @@ Telegram-specific сервис.
 Делегирует основную логику в bot_service.
 """
 from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.services import bot_service
 
 # Re-export для обратной совместимости

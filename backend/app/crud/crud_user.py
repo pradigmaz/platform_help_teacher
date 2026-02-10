@@ -1,17 +1,18 @@
-from typing import Optional
 from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models import User, UserRole
 
 
-async def get_user_by_id(db: AsyncSession, user_id: UUID) -> Optional[User]:
+async def get_user_by_id(db: AsyncSession, user_id: UUID) -> User | None:
     """Получение пользователя по ID"""
     result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
 
 
-async def get_by_social_id(db: AsyncSession, social_id: int) -> Optional[User]:
+async def get_by_social_id(db: AsyncSession, social_id: int) -> User | None:
     """
     Получение пользователя по telegram_id (social_id)
     """
@@ -19,10 +20,10 @@ async def get_by_social_id(db: AsyncSession, social_id: int) -> Optional[User]:
     return result.scalar_one_or_none()
 
 async def upsert_user(
-    db: AsyncSession, 
-    social_id: int, 
-    full_name: str, 
-    username: Optional[str], 
+    db: AsyncSession,
+    social_id: int,
+    full_name: str,
+    username: str | None,
     group_id: UUID,
     role: UserRole = UserRole.STUDENT
 ) -> User:
@@ -31,7 +32,7 @@ async def upsert_user(
     ВНИМАНИЕ: Не делает commit! Это должен делать вызывающий код.
     """
     user = await get_by_social_id(db, social_id)
-    
+
     if user:
         # Обновляем существующего пользователя
         user.full_name = full_name
@@ -49,7 +50,7 @@ async def upsert_user(
             is_active=True
         )
         db.add(user)
-    
+
     # FIX: Удален db.commit(). Обеспечиваем атомарность на уровне сервиса/роутера.
     # Если нужен ID сразу, можно использовать await db.flush(), но лучше комитить в конце.
     return user

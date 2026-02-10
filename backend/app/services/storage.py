@@ -1,11 +1,12 @@
 import contextlib
 import logging
-from pathlib import Path
+
 from aioboto3 import Session
 from fastapi import HTTPException
+
 from app.core.config import settings
-from app.core.constants import ALLOWED_EXTENSIONS_SET, ALLOWED_MIME_TYPES_SET
-from app.utils.file_validation import validate_magic_bytes, validate_filename
+from app.core.constants import ALLOWED_MIME_TYPES_SET
+from app.utils.file_validation import validate_filename, validate_magic_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +105,8 @@ class StorageService:
             params["ContentType"] = content_type
 
         # Добавляем условие Content-Length если указан max_size
-        conditions = None
         if max_size:
-            conditions = [["content-length-range", 0, max_size]]
+            pass
 
         async with self.get_client() as client:
             url = await client.generate_presigned_url(

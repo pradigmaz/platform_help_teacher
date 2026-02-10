@@ -1,9 +1,9 @@
 """CRUD операции для модели Work."""
 import logging
-from typing import List, Optional
 from uuid import UUID
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.work import Work
 from app.models.work_type import WorkType
@@ -19,9 +19,9 @@ class CRUDWork:
         title: str,
         work_type: WorkType,
         max_grade: int = 10,
-        description: Optional[str] = None,
-        deadline: Optional[str] = None,
-        s3_key: Optional[str] = None
+        description: str | None = None,
+        deadline: str | None = None,
+        s3_key: str | None = None
     ) -> Work:
         db_obj = Work(
             title=title,
@@ -37,7 +37,7 @@ class CRUDWork:
         logger.info(f"Created work: {db_obj.id} ({work_type})")
         return db_obj
 
-    async def get(self, db: AsyncSession, id: UUID) -> Optional[Work]:
+    async def get(self, db: AsyncSession, id: UUID) -> Work | None:
         result = await db.execute(select(Work).where(Work.id == id))
         return result.scalar_one_or_none()
 
@@ -47,7 +47,7 @@ class CRUDWork:
         work_type: WorkType,
         limit: int = 100,
         offset: int = 0
-    ) -> List[Work]:
+    ) -> list[Work]:
         query = (
             select(Work)
             .where(Work.work_type == work_type)
@@ -63,7 +63,7 @@ class CRUDWork:
         db: AsyncSession,
         limit: int = 100,
         offset: int = 0
-    ) -> List[Work]:
+    ) -> list[Work]:
         query = (
             select(Work)
             .order_by(Work.created_at.desc())
@@ -78,11 +78,11 @@ class CRUDWork:
         db: AsyncSession,
         *,
         db_obj: Work,
-        title: Optional[str] = None,
-        description: Optional[str] = None,
-        max_grade: Optional[int] = None,
-        deadline: Optional[str] = None,
-        s3_key: Optional[str] = None
+        title: str | None = None,
+        description: str | None = None,
+        max_grade: int | None = None,
+        deadline: str | None = None,
+        s3_key: str | None = None
     ) -> Work:
         if title is not None:
             db_obj.title = title

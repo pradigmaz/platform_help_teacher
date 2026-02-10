@@ -6,7 +6,6 @@
 """
 import secrets
 import string
-from typing import Optional
 
 # Алфавиты для разных типов кодов
 ALPHANUMERIC_UPPER = string.ascii_uppercase + string.digits  # A-Z, 0-9
@@ -21,11 +20,11 @@ def generate_code(
 ) -> str:
     """
     Генерирует криптографически безопасный код.
-    
+
     Args:
         length: Длина кода
         alphabet: Алфавит символов
-    
+
     Returns:
         Сгенерированный код
     """
@@ -60,11 +59,11 @@ def generate_report_code(length: int = 8) -> str:
 def mask_code(code: str, visible_chars: int = 2) -> str:
     """
     Маскирует код для логирования.
-    
+
     Args:
         code: Исходный код
         visible_chars: Количество видимых символов в начале
-    
+
     Returns:
         Замаскированный код (например: "AB***")
     """

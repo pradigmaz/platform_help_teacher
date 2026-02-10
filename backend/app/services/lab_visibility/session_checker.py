@@ -1,21 +1,21 @@
 """Проверка текущей лабораторной сессии по расписанию."""
-from datetime import datetime, time as dt_time
-from typing import Optional
+from datetime import datetime
+from datetime import time as dt_time
 from uuid import UUID
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lesson import Lesson
 from app.models.schedule import LessonType
-from app.services.schedule_constants import TIME_TO_LESSON_NUMBER, MSK_TZ
+from app.services.schedule_constants import MSK_TZ, TIME_TO_LESSON_NUMBER
 
 
 async def is_lab_session_now(
     db: AsyncSession,
     group_id: UUID,
-    subgroup: Optional[int],
-    subject_id: Optional[UUID] = None
+    subgroup: int | None,
+    subject_id: UUID | None = None
 ) -> bool:
     """
     Проверить идёт ли сейчас лабораторное занятие для студента.
@@ -54,11 +54,11 @@ async def is_lab_session_now(
         Lesson.date == today,
         Lesson.lesson_number == current_lesson_number,
         Lesson.lesson_type == LessonType.LAB,
-        Lesson.is_cancelled == False,
+        not Lesson.is_cancelled,
     ]
 
     if subgroup is not None:
-        filters.append((Lesson.subgroup == None) | (Lesson.subgroup == subgroup))
+        filters.append((Lesson.subgroup is None) | (Lesson.subgroup == subgroup))
 
     if subject_id:
         filters.append(Lesson.subject_id == subject_id)

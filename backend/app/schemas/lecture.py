@@ -1,7 +1,8 @@
-from datetime import datetime
-from typing import List, Dict, Any, Optional
-from uuid import UUID
 import json
+from datetime import datetime
+from typing import Any
+from uuid import UUID
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.constants import LECTURE_MAX_IMAGES_RESPONSE
@@ -42,7 +43,7 @@ class LectureImageResponse(BaseModel):
 class SubjectBrief(BaseModel):
     id: UUID
     name: str
-    code: Optional[str] = None
+    code: str | None = None
 
     class Config:
         from_attributes = True
@@ -50,12 +51,12 @@ class SubjectBrief(BaseModel):
 
 class LectureCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=300)
-    content: Dict[str, Any] = Field(default_factory=dict)
-    subject_id: Optional[UUID] = None
+    content: dict[str, Any] = Field(default_factory=dict)
+    subject_id: UUID | None = None
 
     @field_validator('content')
     @classmethod
-    def validate_content(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_content(cls, v: dict[str, Any]) -> dict[str, Any]:
         # Проверка размера
         content_str = json.dumps(v, ensure_ascii=False)
         if len(content_str.encode('utf-8')) > MAX_CONTENT_SIZE_BYTES:
@@ -68,13 +69,13 @@ class LectureCreate(BaseModel):
 
 
 class LectureUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=1, max_length=300)
-    content: Optional[Dict[str, Any]] = None
-    subject_id: Optional[UUID] = None
+    title: str | None = Field(None, min_length=1, max_length=300)
+    content: dict[str, Any] | None = None
+    subject_id: UUID | None = None
 
     @field_validator('content')
     @classmethod
-    def validate_content(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def validate_content(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         if v is None:
             return v
         content_str = json.dumps(v, ensure_ascii=False)
@@ -89,15 +90,15 @@ class LectureUpdate(BaseModel):
 class LectureResponse(BaseModel):
     id: UUID
     title: str
-    content: Dict[str, Any]
+    content: dict[str, Any]
     is_published: bool
-    public_code: Optional[str] = None
-    subject_id: Optional[UUID] = None
-    subject: Optional[SubjectBrief] = None
+    public_code: str | None = None
+    subject_id: UUID | None = None
+    subject: SubjectBrief | None = None
     created_at: datetime
     updated_at: datetime
-    images: List[LectureImageResponse] = Field(default_factory=list)
-    images_total: Optional[int] = None
+    images: list[LectureImageResponse] = Field(default_factory=list)
+    images_total: int | None = None
 
     class Config:
         from_attributes = True
@@ -114,9 +115,9 @@ class LectureListResponse(BaseModel):
     id: UUID
     title: str
     is_published: bool
-    public_code: Optional[str] = None
-    subject_id: Optional[UUID] = None
-    subject: Optional[SubjectBrief] = None
+    public_code: str | None = None
+    subject_id: UUID | None = None
+    subject: SubjectBrief | None = None
     created_at: datetime
     updated_at: datetime
 

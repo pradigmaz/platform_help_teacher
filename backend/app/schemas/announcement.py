@@ -1,7 +1,7 @@
 """Pydantic schemas for announcements."""
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 
@@ -11,18 +11,18 @@ class AnnouncementCreate(BaseModel):
 
 
 class AnnouncementUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=3, max_length=200)
-    content: Optional[str] = Field(None, min_length=10, max_length=50000)
+    title: str | None = Field(None, min_length=3, max_length=200)
+    content: str | None = Field(None, min_length=10, max_length=50000)
 
 
 class AnnouncementResponse(BaseModel):
     id: UUID
     title: str
     content: str
-    created_by: Optional[UUID] = None
-    author_name: Optional[str] = None
+    created_by: UUID | None = None
+    author_name: str | None = None
     is_draft: bool
-    published_at: Optional[datetime] = None
+    published_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -34,7 +34,7 @@ class AnnouncementListResponse(BaseModel):
     title: str
     content: str
     is_draft: bool
-    published_at: Optional[datetime] = None
+    published_at: datetime | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

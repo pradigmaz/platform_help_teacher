@@ -2,7 +2,6 @@
 Константы для системы аудита.
 """
 import enum
-from typing import Set, FrozenSet
 
 
 class ActionType(str, enum.Enum):
@@ -48,7 +47,7 @@ class EntityType(str, enum.Enum):
 
 
 # Поля, которые нужно маскировать в логах
-SENSITIVE_FIELDS: Set[str] = {
+SENSITIVE_FIELDS: set[str] = {
     "password",
     "token",
     "access_token",
@@ -62,7 +61,7 @@ SENSITIVE_FIELDS: Set[str] = {
 
 # Поля, которые РАЗРЕШЕНО сохранять в request_body (whitelist)
 # Все остальные поля будут отфильтрованы
-ALLOWED_BODY_FIELDS: Set[str] = {
+ALLOWED_BODY_FIELDS: set[str] = {
     # Auth
     "otp",  # Будет замаскирован как [REDACTED]
     # Labs
@@ -74,7 +73,7 @@ ALLOWED_BODY_FIELDS: Set[str] = {
 }
 
 # Пути, которые НЕ нужно логировать
-EXCLUDED_PATHS: Set[str] = {
+EXCLUDED_PATHS: set[str] = {
     "/health",
     "/docs",
     "/redoc",
@@ -95,7 +94,7 @@ AUDIT_PATH_PREFIXES = (
 MAX_BODY_SIZE = 10 * 1024  # 10KB
 
 # Security-critical actions requiring synchronous write with retry
-SECURITY_CRITICAL_ACTIONS: FrozenSet[str] = frozenset({
+SECURITY_CRITICAL_ACTIONS: frozenset[str] = frozenset({
     ActionType.AUTH_LOGIN.value,
     ActionType.AUTH_LOGOUT.value,
     ActionType.BACKUP_CREATE.value,

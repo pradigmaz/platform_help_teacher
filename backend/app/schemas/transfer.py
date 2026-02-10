@@ -1,9 +1,9 @@
 """Схемы для перевода студентов"""
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import date
-from uuid import UUID
 from enum import Enum
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class AttestationType(str, Enum):
@@ -24,14 +24,14 @@ class AttendanceSnapshot(BaseModel):
 class LabGradeSnapshot(BaseModel):
     work_number: int
     grade: int
-    lesson_id: Optional[str] = None
+    lesson_id: str | None = None
 
 
 # Запрос на перевод
 class TransferRequest(BaseModel):
     to_group_id: UUID
-    to_subgroup: Optional[int] = None
-    transfer_date: Optional[date] = None  # default: today
+    to_subgroup: int | None = None
+    transfer_date: date | None = None  # default: today
     attestation_type: AttestationType = AttestationType.FIRST
 
 
@@ -40,16 +40,16 @@ class TransferResponse(BaseModel):
     id: UUID
     student_id: UUID
     student_name: str
-    from_group_id: Optional[UUID] = None
-    from_group_name: Optional[str] = None
-    from_subgroup: Optional[int] = None
-    to_group_id: Optional[UUID] = None
-    to_group_name: Optional[str] = None
-    to_subgroup: Optional[int] = None
+    from_group_id: UUID | None = None
+    from_group_name: str | None = None
+    from_subgroup: int | None = None
+    to_group_id: UUID | None = None
+    to_group_name: str | None = None
+    to_subgroup: int | None = None
     transfer_date: date
     attestation_type: AttestationType
     attendance_data: AttendanceSnapshot
-    lab_grades_data: List[LabGradeSnapshot]
+    lab_grades_data: list[LabGradeSnapshot]
     activity_points: float
     created_at: str
 
@@ -60,10 +60,10 @@ class TransferResponse(BaseModel):
 # Краткая информация о переводе для списка
 class TransferSummary(BaseModel):
     id: UUID
-    from_group_name: Optional[str] = None
-    from_subgroup: Optional[int] = None
-    to_group_name: Optional[str] = None
-    to_subgroup: Optional[int] = None
+    from_group_name: str | None = None
+    from_subgroup: int | None = None
+    to_group_name: str | None = None
+    to_subgroup: int | None = None
     transfer_date: date
     attestation_type: AttestationType
 
@@ -75,4 +75,4 @@ class TransferSummary(BaseModel):
 class StudentTransfersResponse(BaseModel):
     student_id: UUID
     student_name: str
-    transfers: List[TransferSummary]
+    transfers: list[TransferSummary]

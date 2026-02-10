@@ -1,8 +1,7 @@
 """Схемы для заметок."""
 from datetime import datetime
-from typing import Optional, List
-from uuid import UUID
 from enum import Enum
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -34,9 +33,9 @@ class NoteCreate(BaseModel):
 
 
 class NoteUpdate(BaseModel):
-    content: Optional[str] = Field(None, min_length=1, max_length=2000)
-    color: Optional[NoteColor] = None
-    is_pinned: Optional[bool] = None
+    content: str | None = Field(None, min_length=1, max_length=2000)
+    color: NoteColor | None = None
+    is_pinned: bool | None = None
 
 
 class NoteResponse(BaseModel):
@@ -46,7 +45,7 @@ class NoteResponse(BaseModel):
     content: str
     color: str
     is_pinned: bool
-    author_id: Optional[UUID]
+    author_id: UUID | None
     created_at: datetime
     updated_at: datetime
 
@@ -55,5 +54,5 @@ class NoteResponse(BaseModel):
 
 
 class NotesListResponse(BaseModel):
-    notes: List[NoteResponse]
+    notes: list[NoteResponse]
     count: int

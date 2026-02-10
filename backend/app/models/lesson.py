@@ -2,24 +2,24 @@
 Модель конкретного занятия (инстанс из расписания).
 """
 from datetime import date
-from typing import Optional, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
-from sqlalchemy import ForeignKey, Date, String, Boolean, Integer, Index, CheckConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Index, Integer, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
 from .schedule import LessonType
-from sqlalchemy import Enum as SAEnum
 
 if TYPE_CHECKING:
     from .group import Group
-    from .schedule import ScheduleItem
-    from .work import Work
-    from .subject import Subject
     from .lesson_grade import LessonGrade
+    from .schedule import ScheduleItem
     from .schedule_conflict import ScheduleConflict
+    from .subject import Subject
+    from .work import Work
 
 
 class Lesson(Base, TimestampMixin):
@@ -30,69 +30,69 @@ class Lesson(Base, TimestampMixin):
     __tablename__ = "lessons"
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    
+
     # Связь с расписанием (null если создано вручную)
-    schedule_item_id: Mapped[Optional[UUID]] = mapped_column(
+    schedule_item_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("schedule_items.id", ondelete="SET NULL"),
         nullable=True
     )
-    
+
     group_id: Mapped[UUID] = mapped_column(
         ForeignKey("groups.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
-    
+
     # Связь с предметом
-    subject_id: Mapped[Optional[UUID]] = mapped_column(
+    subject_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("subjects.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
-    
+
     # Когда
     date: Mapped[date] = mapped_column(Date, nullable=False)
     lesson_number: Mapped[int] = mapped_column(Integer, nullable=False)  # Номер пары
-    
+
     # Что
     lesson_type: Mapped[LessonType] = mapped_column(
         SAEnum(LessonType, name="lessontype", create_constraint=False, native_enum=False),
         nullable=False
     )
-    topic: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    
+    topic: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     # Номер лабы/практики (1, 2, 3...)
-    work_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    
+    work_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Тип контрольной на лекции (quiz/selfwork)
-    lecture_work_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    
+    lecture_work_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
     # Связь с работой (если на этом занятии была контрольная/лаба)
-    work_id: Mapped[Optional[UUID]] = mapped_column(
+    work_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("works.id", ondelete="SET NULL"),
         nullable=True
     )
-    
+
     # Подгруппа (null = вся группа)
-    subgroup: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    
+    subgroup: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Отмена
     is_cancelled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    cancellation_reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    
+    cancellation_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     # Отпустил раньше
     ended_early: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    
+
     # Переопределение лимита лаб за занятие (null = стандартная логика: 1 или 2 для EXCUSED)
-    max_labs_override: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
+    max_labs_override: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
 
     # Relationships
     schedule_item: Mapped[Optional["ScheduleItem"]] = relationship()
     group: Mapped["Group"] = relationship()
     work: Mapped[Optional["Work"]] = relationship()
     subject: Mapped[Optional["Subject"]] = relationship()
-    grades: Mapped[List["LessonGrade"]] = relationship(back_populates="lesson")
-    conflicts: Mapped[List["ScheduleConflict"]] = relationship(back_populates="lesson")
+    grades: Mapped[list["LessonGrade"]] = relationship(back_populates="lesson")
+    conflicts: Mapped[list["ScheduleConflict"]] = relationship(back_populates="lesson")
 
     __table_args__ = (
         Index('idx_lessons_group_date', 'group_id', 'date'),

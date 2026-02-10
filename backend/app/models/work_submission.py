@@ -1,7 +1,8 @@
-from sqlalchemy import String, Integer, ForeignKey, Text, Boolean, CheckConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
-from typing import Optional, TYPE_CHECKING
+
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
 
@@ -32,9 +33,9 @@ class WorkSubmission(Base, TimestampMixin):
         ForeignKey("works.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
-    grade: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    feedback: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    s3_key: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    grade: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    s3_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_manual: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Связи

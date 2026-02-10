@@ -2,9 +2,9 @@
 Абстракция для внешних API с retry и circuit breaker.
 """
 import logging
+
 import httpx
-from typing import Optional
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.core.time_constants import KIS_API_TIMEOUT_SECONDS
 
@@ -18,33 +18,33 @@ class ExternalAPIError(Exception):
 
 class ExternalAPIClient:
     """Клиент для внешних API с retry логикой."""
-    
+
     def __init__(self, base_url: str, timeout: float = 30.0):
         self.base_url = base_url
         self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
-    
+        self._client: httpx.AsyncClient | None = None
+
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=self.timeout)
         return self._client
-    
+
     async def close(self) -> None:
         if self._client:
             await self._client.aclose()
             self._client = None
-    
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
         reraise=True
     )
-    async def get(self, path: str, params: Optional[dict] = None) -> str:
+    async def get(self, path: str, params: dict | None = None) -> str:
         """GET запрос с retry."""
         client = await self._get_client()
         url = f"{self.base_url}{path}"
-        
+
         try:
             response = await client.get(url, params=params)
             response.raise_for_status()

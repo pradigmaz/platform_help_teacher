@@ -3,11 +3,14 @@
 """
 import re
 from enum import Enum
-from typing import NamedTuple, List, Pattern
+from re import Pattern
+from typing import NamedTuple
 
 from app.core.time_constants import (
-    STRIKE_WINDOW_SECONDS,
     BAN_DURATION_SECONDS,
+    STRIKE_WINDOW_SECONDS,
+)
+from app.core.time_constants import (
     MAX_STRIKES as MAX_STRIKES_LIMIT,
 )
 
@@ -41,7 +44,7 @@ class AttackPattern(NamedTuple):
 # Паттерны для детекции (компилируем заранее)
 # ВАЖНО: severity снижен, чтобы избежать мгновенных банов за false positives
 # severity=1: предупреждение, severity=2: 2 страйка, severity=3: мгновенный бан
-ATTACK_PATTERNS: List[AttackPattern] = [
+ATTACK_PATTERNS: list[AttackPattern] = [
     # SQL Injection — только явные атаки
     # УБРАНО: r"['\"](\s*(OR|AND)\s*['\"]?\d|--|;)" — слишком много false positives
     # Срабатывал на легитимные запросы с кавычками в тексте
@@ -59,7 +62,7 @@ ATTACK_PATTERNS: List[AttackPattern] = [
         "Null byte injection",
         severity=2  # Было 3
     ),
-    
+
     # Path Traversal
     AttackPattern(
         re.compile(r"\.\.(/|\\|%2f|%5c)", re.IGNORECASE),
@@ -73,7 +76,7 @@ ATTACK_PATTERNS: List[AttackPattern] = [
         "Path traversal: URL-encoded",
         severity=2  # Было 3
     ),
-    
+
     # XSS
     AttackPattern(
         re.compile(r"<script[^>]*>|javascript:", re.IGNORECASE),

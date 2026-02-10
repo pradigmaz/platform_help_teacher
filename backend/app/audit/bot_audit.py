@@ -2,13 +2,14 @@
 Аудит для бот-взаимодействий (Telegram/VK).
 """
 import logging
-from typing import Optional, Literal
+from typing import Literal
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User
+
 from .constants import ActionType, EntityType
 from .schemas import AuditContext
 from .service import get_audit_service
@@ -22,7 +23,7 @@ async def _resolve_user_id(
     db: AsyncSession,
     social_id: int,
     platform: Platform
-) -> Optional[UUID]:
+) -> UUID | None:
     """Резолвит user_id по social_id."""
     field = User.telegram_id if platform == "telegram" else User.vk_id
     result = await db.execute(select(User.id).where(field == social_id))
@@ -35,13 +36,13 @@ async def log_bot_action(
     action_type: ActionType,
     social_id: int,
     platform: Platform,
-    username: Optional[str] = None,
-    extra_data: Optional[dict] = None,
-    user_id: Optional[UUID] = None,
+    username: str | None = None,
+    extra_data: dict | None = None,
+    user_id: UUID | None = None,
 ) -> None:
     """
     Логирует действие бота в аудит.
-    
+
     Args:
         db: Сессия БД
         action_type: Тип действия (BOT_START, BOT_AUTH, etc.)
@@ -54,7 +55,7 @@ async def log_bot_action(
     # Резолвим user_id если не передан
     if user_id is None:
         user_id = await _resolve_user_id(db, social_id, platform)
-    
+
     context = AuditContext(
         request_id=str(uuid4()),
         user_id=user_id,
@@ -70,7 +71,7 @@ async def log_bot_action(
             **(extra_data or {}),
         },
     )
-    
+
     audit_service = get_audit_service()
     await audit_service.write_log(context)
 
@@ -79,8 +80,8 @@ async def log_bot_start(
     db: AsyncSession,
     social_id: int,
     platform: Platform,
-    username: Optional[str] = None,
-    args: Optional[str] = None,
+    username: str | None = None,
+    args: str | None = None,
 ) -> None:
     """Логирует /start команду."""
     await log_bot_action(
@@ -98,7 +99,7 @@ async def log_bot_auth(
     social_id: int,
     platform: Platform,
     user_id: UUID,
-    username: Optional[str] = None,
+    username: str | None = None,
 ) -> None:
     """Логирует генерацию OTP для входа."""
     await log_bot_action(
@@ -116,7 +117,7 @@ async def log_bot_bind(
     social_id: int,
     platform: Platform,
     user_id: UUID,
-    username: Optional[str] = None,
+    username: str | None = None,
     bind_type: str = "new",  # "new", "relink", "invite"
 ) -> None:
     """Логирует привязку аккаунта."""
@@ -137,8 +138,8 @@ async def log_bot_message(
     social_id: int,
     platform: Platform,
     text: str,
-    username: Optional[str] = None,
-    context_type: Optional[str] = None,  # "fio_input", "relink", etc.
+    username: str | None = None,
+    context_type: str | None = None,  # "fio_input", "relink", etc.
 ) -> None:
     """Логирует текстовое сообщение."""
     await log_bot_action(

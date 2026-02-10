@@ -1,21 +1,18 @@
 """Сервис для работы с объявлениями и рассылкой уведомлений."""
 import logging
-from typing import List
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.announcement import Announcement
-from app.models.user import User, UserRole
 from app.models.notification_settings import NotificationSettings
-from app.crud.crud_announcement import crud_announcement
+from app.models.user import User, UserRole
 from app.services.notification_service import _send_telegram, _send_vk
 
 logger = logging.getLogger(__name__)
 
 
-async def get_students_for_notification(db: AsyncSession) -> List[User]:
+async def get_students_for_notification(db: AsyncSession) -> list[User]:
     """Получить студентов с настройками уведомлений."""
     result = await db.execute(
         select(User, NotificationSettings)
@@ -34,21 +31,21 @@ async def send_announcement_to_students(
     Учитывает настройки каждого студента.
     """
     stats = {"telegram_sent": 0, "vk_sent": 0, "skipped": 0, "errors": 0}
-    
+
     message = format_announcement_message(announcement)
     students_data = await get_students_for_notification(db)
-    
+
     for user, settings in students_data:
         # Если нет настроек — используем дефолты (боты выключены)
         if not settings:
             stats["skipped"] += 1
             continue
-        
+
         # Проверяем, включены ли уведомления об объявлениях
         if not settings.notify_announcements:
             stats["skipped"] += 1
             continue
-        
+
         # Telegram
         if settings.channel_telegram and user.telegram_id:
             try:
@@ -57,7 +54,7 @@ async def send_announcement_to_students(
             except Exception as e:
                 logger.error(f"Failed to send to telegram {user.id}: {e}")
                 stats["errors"] += 1
-        
+
         # VK
         if settings.channel_vk and user.vk_id:
             try:
@@ -66,7 +63,7 @@ async def send_announcement_to_students(
             except Exception as e:
                 logger.error(f"Failed to send to vk {user.id}: {e}")
                 stats["errors"] += 1
-    
+
     logger.info(f"Announcement {announcement.id} sent: {stats}")
     return stats
 

@@ -2,11 +2,10 @@
 Калькулятор баллов за посещаемость.
 Фиксированные баллы за занятие: points_per_lesson = max_attendance / expected_lessons
 """
-from typing import List
 from dataclasses import dataclass
 
-from app.models.attestation_settings import AttestationSettings
 from app.models.attendance import Attendance, AttendanceStatus
+from app.models.attestation_settings import AttestationSettings
 
 
 @dataclass
@@ -25,33 +24,33 @@ class AttendanceScoreResult:
 
 class AttendanceScoreCalculator:
     """Калькулятор баллов за посещаемость (фиксированные баллы за занятие)"""
-    
+
     def calculate(
         self,
-        attendance_records: List[Attendance],
+        attendance_records: list[Attendance],
         settings: AttestationSettings,
         expected_lessons: int,
         transfer_attendance: dict = None
     ) -> AttendanceScoreResult:
         """
         Расчёт баллов за посещаемость.
-        
+
         Формула:
         - points_per_lesson = max_attendance / expected_lessons
         - score = (present + late * late_coef) * points_per_lesson
-        
+
         Args:
             expected_lessons: Ожидаемое количество занятий (из Lesson или настроек)
             transfer_attendance: Снапшот посещаемости из переводов
         """
         max_score = settings.get_max_component_points(settings.attendance_weight)
-        
+
         # Подсчёт из текущих записей
         present_count = 0
         late_count = 0
         excused_count = 0
         absent_count = 0
-        
+
         for record in attendance_records:
             if record.status == AttendanceStatus.PRESENT:
                 present_count += 1
@@ -61,16 +60,16 @@ class AttendanceScoreCalculator:
                 excused_count += 1
             elif record.status == AttendanceStatus.ABSENT:
                 absent_count += 1
-        
+
         # Добавляем данные из снапшотов переводов
         if transfer_attendance:
             present_count += transfer_attendance.get("present", 0)
             late_count += transfer_attendance.get("late", 0)
             excused_count += transfer_attendance.get("excused", 0)
             absent_count += transfer_attendance.get("absent", 0)
-        
+
         total_classes = present_count + late_count + excused_count + absent_count
-        
+
         # Фиксированные баллы за занятие
         if expected_lessons <= 0:
             points_per_lesson = 0.0
@@ -88,16 +87,13 @@ class AttendanceScoreCalculator:
             # Ratio — реальный процент посещаемости с учётом коэффициентов
             # Максимум = количество отмеченных занятий (если бы все были PRESENT)
             counted = present_count + late_count + absent_count
-            if counted > 0:
-                ratio = effective_attendance / counted
-            else:
-                ratio = 0.0
-        
+            ratio = effective_attendance / counted if counted > 0 else 0.0
+
         # Cap: минимум 0, максимум max_score
         score = max(0, min(score, max_score))
         # Ratio: ограничиваем 0-1, может быть отрицательным при absent_coef < 0
         ratio = max(0, min(ratio, 1.0))
-        
+
         return AttendanceScoreResult(
             score=round(score, 2),
             max_score=max_score,

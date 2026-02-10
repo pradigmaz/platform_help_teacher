@@ -1,20 +1,20 @@
 """CRUD операции для Schedule и Lesson."""
 import logging
-from datetime import date, timedelta
-from typing import List, Optional
+from datetime import date
 from uuid import UUID
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 
-from app.models.schedule import ScheduleItem, DayOfWeek, LessonType, WeekParity
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.lesson import Lesson
+from app.models.schedule import DayOfWeek, LessonType, ScheduleItem, WeekParity
 
 logger = logging.getLogger(__name__)
 
 
 class CRUDSchedule:
     """CRUD для расписания"""
-    
+
     async def create(
         self,
         db: AsyncSession,
@@ -24,12 +24,12 @@ class CRUDSchedule:
         lesson_number: int,
         lesson_type: LessonType,
         start_date: date,
-        subject: Optional[str] = None,
-        room: Optional[str] = None,
-        teacher_id: Optional[UUID] = None,
-        end_date: Optional[date] = None,
-        week_parity: Optional[WeekParity] = None,
-        subgroup: Optional[int] = None
+        subject: str | None = None,
+        room: str | None = None,
+        teacher_id: UUID | None = None,
+        end_date: date | None = None,
+        week_parity: WeekParity | None = None,
+        subgroup: int | None = None
     ) -> ScheduleItem:
         db_obj = ScheduleItem(
             group_id=group_id,
@@ -50,7 +50,7 @@ class CRUDSchedule:
         logger.info(f"Created schedule item: {db_obj.id}")
         return db_obj
 
-    async def get(self, db: AsyncSession, id: UUID) -> Optional[ScheduleItem]:
+    async def get(self, db: AsyncSession, id: UUID) -> ScheduleItem | None:
         result = await db.execute(select(ScheduleItem).where(ScheduleItem.id == id))
         return result.scalar_one_or_none()
 
@@ -59,10 +59,10 @@ class CRUDSchedule:
         db: AsyncSession,
         group_id: UUID,
         active_only: bool = True
-    ) -> List[ScheduleItem]:
+    ) -> list[ScheduleItem]:
         query = select(ScheduleItem).where(ScheduleItem.group_id == group_id)
         if active_only:
-            query = query.where(ScheduleItem.is_active == True)
+            query = query.where(ScheduleItem.is_active)
         query = query.order_by(ScheduleItem.day_of_week, ScheduleItem.lesson_number)
         result = await db.execute(query)
         return list(result.scalars().all())
@@ -96,17 +96,17 @@ class CRUDSchedule:
         db: AsyncSession,
         teacher_id: UUID,
         active_only: bool = True
-    ) -> List[ScheduleItem]:
+    ) -> list[ScheduleItem]:
         """Получить расписание преподавателя."""
         from sqlalchemy.orm import selectinload
-        
+
         query = select(ScheduleItem).where(
             ScheduleItem.teacher_id == teacher_id
         ).options(selectinload(ScheduleItem.group))
-        
+
         if active_only:
-            query = query.where(ScheduleItem.is_active == True)
-        
+            query = query.where(ScheduleItem.is_active)
+
         query = query.order_by(ScheduleItem.day_of_week, ScheduleItem.lesson_number)
         result = await db.execute(query)
         return list(result.scalars().all())
@@ -114,7 +114,7 @@ class CRUDSchedule:
 
 class CRUDLesson:
     """CRUD для занятий"""
-    
+
     async def create(
         self,
         db: AsyncSession,
@@ -123,10 +123,10 @@ class CRUDLesson:
         date: date,
         lesson_number: int,
         lesson_type: LessonType,
-        schedule_item_id: Optional[UUID] = None,
-        topic: Optional[str] = None,
-        work_id: Optional[UUID] = None,
-        subgroup: Optional[int] = None
+        schedule_item_id: UUID | None = None,
+        topic: str | None = None,
+        work_id: UUID | None = None,
+        subgroup: int | None = None
     ) -> Lesson:
         db_obj = Lesson(
             group_id=group_id,
@@ -152,11 +152,11 @@ class CRUDLesson:
         date: date,
         lesson_number: int,
         lesson_type: LessonType,
-        schedule_item_id: Optional[UUID] = None,
-        topic: Optional[str] = None,
-        work_id: Optional[UUID] = None,
-        subgroup: Optional[int] = None
-    ) -> Optional[Lesson]:
+        schedule_item_id: UUID | None = None,
+        topic: str | None = None,
+        work_id: UUID | None = None,
+        subgroup: int | None = None
+    ) -> Lesson | None:
         """Получить существующее занятие или создать новое. Возвращает None если уже существует."""
         existing = await db.execute(
             select(Lesson).where(
@@ -168,7 +168,7 @@ class CRUDLesson:
         )
         if existing.scalar_one_or_none():
             return None  # Уже существует
-        
+
         return await self.create(
             db,
             group_id=group_id,
@@ -181,7 +181,7 @@ class CRUDLesson:
             subgroup=subgroup
         )
 
-    async def get(self, db: AsyncSession, id: UUID) -> Optional[Lesson]:
+    async def get(self, db: AsyncSession, id: UUID) -> Lesson | None:
         result = await db.execute(select(Lesson).where(Lesson.id == id))
         return result.scalar_one_or_none()
 
@@ -191,8 +191,8 @@ class CRUDLesson:
         group_id: UUID,
         start_date: date,
         end_date: date,
-        lesson_type: Optional[LessonType] = None
-    ) -> List[Lesson]:
+        lesson_type: LessonType | None = None
+    ) -> list[Lesson]:
         query = select(Lesson).where(
             and_(
                 Lesson.group_id == group_id,
@@ -226,7 +226,7 @@ class CRUDLesson:
         db: AsyncSession,
         *,
         db_obj: Lesson,
-        reason: Optional[str] = None
+        reason: str | None = None
     ) -> Lesson:
         db_obj.is_cancelled = True
         db_obj.cancellation_reason = reason
@@ -250,15 +250,14 @@ class CRUDLesson:
         db: AsyncSession,
         start_date: date,
         end_date: date
-    ) -> List[dict]:
+    ) -> list[dict]:
         """
         Получить лекции сгруппированные по (дата + пара + предмет).
         Возвращает список с группами для каждой лекции.
         """
         from sqlalchemy.orm import selectinload
-        from app.models.group import Group
-        from app.models.subject import Subject
-        
+
+
         query = (
             select(Lesson)
             .options(selectinload(Lesson.group), selectinload(Lesson.subject))
@@ -273,7 +272,7 @@ class CRUDLesson:
         )
         result = await db.execute(query)
         lessons = list(result.scalars().all())
-        
+
         # Группируем по (date, lesson_number, subject_id)
         grouped: dict = {}
         for lesson in lessons:
@@ -294,7 +293,7 @@ class CRUDLesson:
                 "name": lesson.group.name,
                 "lesson_id": str(lesson.id)
             })
-        
+
         return list(grouped.values())
 
 

@@ -3,7 +3,6 @@
 Единая точка для нормализации ФИО и других текстовых операций.
 """
 import re
-from typing import Optional
 
 
 def normalize_fio(text: str) -> str:
@@ -25,19 +24,19 @@ def normalize_fio_for_comparison(text: str) -> str:
     return ' '.join(text.lower().split())
 
 
-def sanitize_name(raw_name: str, pattern: str = r'[^а-яёА-ЯЁa-zA-Z\s\-]') -> Optional[str]:
+def sanitize_name(raw_name: str, pattern: str = r'[^а-яёА-ЯЁa-zA-Z\s\-]') -> str | None:
     """
     Очищает имя от мусора (цифры, спецсимволы).
     Возвращает None если результат невалидный.
     """
     if not isinstance(raw_name, str):
         return None
-    
+
     clean = re.sub(pattern, ' ', raw_name)
     clean = " ".join(clean.split())
-    
+
     parts = [p.strip().capitalize() for p in clean.split() if len(p.strip()) > 1]
-    
+
     if len(parts) >= 2:
         return " ".join(parts[:3])
     return None
@@ -54,27 +53,27 @@ def fio_matches(name1: str, name2: str, threshold: float = 0.85) -> bool:
     """
     n1 = normalize_fio_for_comparison(name1)
     n2 = normalize_fio_for_comparison(name2)
-    
+
     if not n1 or not n2:
         return False
-    
+
     if n1 == n2:
         return True
-    
+
     parts1 = n1.split()
     parts2 = n2.split()
-    
+
     if not parts1 or not parts2:
         return False
-    
+
     surname1, surname2 = parts1[0], parts2[0]
-    
+
     # Фамилия должна совпадать (или быть очень похожей)
     if surname1 != surname2:
         # Допускаем 1 опечатку в фамилии
         if _levenshtein_distance(surname1, surname2) > 1:
             return False
-    
+
     # Если есть имя — проверяем
     if len(parts1) >= 2 and len(parts2) >= 2:
         name1_first, name2_first = parts1[1], parts2[1]
@@ -88,7 +87,7 @@ def fio_matches(name1: str, name2: str, threshold: float = 0.85) -> bool:
         # Допускаем 1 опечатку в имени
         if _levenshtein_distance(name1_first, name2_first) <= 1:
             return True
-    
+
     # Если только фамилия совпала точно — тоже ок
     return surname1 == surname2
 
@@ -97,10 +96,10 @@ def _levenshtein_distance(s1: str, s2: str) -> int:
     """Вычисляет расстояние Левенштейна между двумя строками."""
     if len(s1) < len(s2):
         return _levenshtein_distance(s2, s1)
-    
+
     if len(s2) == 0:
         return len(s1)
-    
+
     previous_row = range(len(s2) + 1)
     for i, c1 in enumerate(s1):
         current_row = [i + 1]
@@ -110,7 +109,7 @@ def _levenshtein_distance(s1: str, s2: str) -> int:
             substitutions = previous_row[j] + (c1 != c2)
             current_row.append(min(insertions, deletions, substitutions))
         previous_row = current_row
-    
+
     return previous_row[-1]
 
 

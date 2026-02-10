@@ -1,16 +1,16 @@
 """
 HTML парсер расписания ВГЛТУ
 """
+import html
 import logging
 import re
-import html
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Optional
-from dataclasses import dataclass, field
 
 from bs4 import BeautifulSoup
 
-from app.services.schedule_constants import TIME_TO_LESSON_NUMBER, LESSON_TYPE_TEXT_MAP
+from app.services.schedule_constants import LESSON_TYPE_TEXT_MAP, TIME_TO_LESSON_NUMBER
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +55,8 @@ class ParsedLesson:
     lesson_type: str  # lecture, lab, practice
     subject: str
     groups: list[str]
-    subgroup: Optional[int]  # 1, 2 или None (вся группа)
-    room: Optional[str]
+    subgroup: int | None  # 1, 2 или None (вся группа)
+    room: str | None
 
 
 @dataclass
@@ -65,32 +65,32 @@ class ParseResult:
     lessons: list[ParsedLesson] = field(default_factory=list)
     is_empty: bool = False
     structure_changed: bool = False
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class ScheduleHtmlParser:
     """Парсер HTML расписания"""
-    
+
     def parse(self, html_content: str) -> list[ParsedLesson]:
         """Парсинг HTML расписания (legacy interface)"""
         result = self.parse_with_metadata(html_content)
         return result.lessons
-    
+
     def parse_with_metadata(self, html_content: str) -> ParseResult:
         """Парсинг HTML расписания с метаданными"""
         if not html_content or not html_content.strip():
             return ParseResult(is_empty=True)
-        
+
         soup = BeautifulSoup(html_content, 'html.parser')
-        
+
         # Fix #18: Fallback стратегии для поиска контейнера
         table_div = self._find_schedule_container(soup)
         if not table_div:
             logger.error("Schedule container not found - HTML structure may have changed")
             return ParseResult(structure_changed=True, error="Schedule container not found")
-        
+
         day_blocks = self._find_day_blocks(table_div)
-        
+
         # Fix #20: Различаем пустое расписание и ошибку парсинга
         if not day_blocks:
             # Проверяем есть ли вообще контент
@@ -98,38 +98,38 @@ class ScheduleHtmlParser:
                 logger.warning("Day blocks not found but container has content - structure changed?")
                 return ParseResult(structure_changed=True, error="Day blocks not found")
             return ParseResult(is_empty=True)
-        
+
         logger.info(f"Found {len(day_blocks)} day blocks")
-        
+
         lessons = []
         for day_block in day_blocks:
             date_elem = day_block.find('strong')
             if not date_elem:
                 continue
-            
+
             date_text = html.unescape(date_elem.get_text(strip=True))
             lesson_date = self._parse_date(date_text)
             if not lesson_date:
                 continue
-            
+
             table = day_block.find('table')
             if not table:
                 continue
-            
+
             for row in table.find_all('tr'):
                 parsed = self._parse_row(row, lesson_date)
                 if parsed:
                     lessons.append(parsed)
-        
+
         return ParseResult(lessons=lessons, is_empty=len(lessons) == 0)
-    
+
     def _find_schedule_container(self, soup) -> Optional:
         """Fix #18: Найти контейнер расписания с fallback стратегиями"""
         # Стратегия 1: div.table (основная)
         container = soup.find('div', class_='table')
         if container:
             return container
-        
+
         # Стратегия 2: div с таблицами внутри
         for div in soup.find_all('div'):
             if div.find('table'):
@@ -137,46 +137,46 @@ class ScheduleHtmlParser:
                 if len(tables) >= 1:
                     logger.warning("Using fallback: found div with tables")
                     return div
-        
+
         # Стратегия 3: body если есть таблицы
         if soup.find('table'):
             logger.warning("Using fallback: searching in body")
             return soup.body or soup
-        
+
         return None
-    
+
     def _find_day_blocks(self, table_div) -> list:
         """Найти блоки дней в HTML с fallback"""
         day_blocks = []
-        
+
         # Стратегия 1: div с margin-bottom: 25px
         for child in table_div.children:
             if hasattr(child, 'name') and child.name == 'div':
                 style = child.get('style', '')
                 if 'margin-bottom' in style:
                     day_blocks.append(child)
-        
+
         if day_blocks:
             return day_blocks
-        
+
         # Стратегия 2: div содержащие strong (дату) и table
         for div in table_div.find_all('div', recursive=False):
             if div.find('strong') and div.find('table'):
                 day_blocks.append(div)
-        
+
         return day_blocks
-    
-    def _parse_row(self, row, lesson_date: date) -> Optional[ParsedLesson]:
+
+    def _parse_row(self, row, lesson_date: date) -> ParsedLesson | None:
         """Парсинг строки таблицы"""
         cells = row.find_all('td')
         if len(cells) < 2:
             return None
-        
+
         time_text = cells[0].get_text(strip=True)
         info_lines = self._extract_info_lines(cells[1])
-        
+
         return self._parse_lesson_row(time_text, info_lines, lesson_date)
-    
+
     def _extract_info_lines(self, info_cell) -> list[str]:
         """Извлечь строки информации из ячейки"""
         info_lines = []
@@ -190,46 +190,46 @@ class ScheduleHtmlParser:
                 if text:
                     info_lines.append(text)
         return info_lines
-    
-    def _parse_date(self, date_text: str) -> Optional[date]:
+
+    def _parse_date(self, date_text: str) -> date | None:
         """Парсинг даты вида '01 сентября 2025'"""
         match = re.match(r'(\d{1,2})\s+(\w+)\s+(\d{4})', date_text)
         if not match:
             return None
-        
+
         day = int(match.group(1))
         month_name = match.group(2).lower()
         year = int(match.group(3))
-        
+
         month = MONTHS.get(month_name)
         if not month:
             return None
-        
+
         try:
             return date(year, month, day)
         except ValueError:
             return None
-    
-    def _parse_lesson_row(self, time_text: str, info_lines: list[str], lesson_date: date) -> Optional[ParsedLesson]:
+
+    def _parse_lesson_row(self, time_text: str, info_lines: list[str], lesson_date: date) -> ParsedLesson | None:
         """Парсинг строки с информацией о паре"""
         lesson_number = TIME_TO_LESSON_NUMBER.get(time_text, 0)
         if not lesson_number:
             return None
-        
+
         lines = [line.strip() for line in info_lines if line.strip()]
         if not lines:
             return None
-        
+
         logger.debug(f"Parsing lesson: {lines}")
-        
+
         lesson_type, subject = self._parse_type_and_subject(lines[0])
         subgroup, lines = self._extract_subgroup(lines)
         groups, room = self._extract_groups_and_room(lines[1:])
-        
+
         if not groups:
             logger.debug(f"No groups found in lines: {lines}")
             return None
-        
+
         return ParsedLesson(
             date=lesson_date,
             lesson_number=lesson_number,
@@ -239,7 +239,7 @@ class ScheduleHtmlParser:
             subgroup=subgroup,
             room=room
         )
-    
+
     def _parse_type_and_subject(self, first_line: str) -> tuple[str, str]:
         """Извлечь тип занятия и предмет"""
         for key, value in LESSON_TYPE_TEXT_MAP.items():
@@ -247,8 +247,8 @@ class ScheduleHtmlParser:
                 subject = first_line[len(key):].lstrip('. ')
                 return value, subject
         return "lecture", first_line
-    
-    def _extract_subgroup(self, lines: list[str]) -> tuple[Optional[int], list[str]]:
+
+    def _extract_subgroup(self, lines: list[str]) -> tuple[int | None, list[str]]:
         """Fix #19: Извлечь подгруппу с расширенными паттернами"""
         subgroup = None
         for i, line in enumerate(lines):
@@ -258,17 +258,17 @@ class ScheduleHtmlParser:
                     lines[i] = re.sub(pattern, '', line, flags=re.IGNORECASE).strip()
                     return subgroup, lines
         return subgroup, lines
-    
-    def _extract_groups_and_room(self, lines: list[str]) -> tuple[list[str], Optional[str]]:
+
+    def _extract_groups_and_room(self, lines: list[str]) -> tuple[list[str], str | None]:
         """Fix #21: Извлечь группы с поддержкой разных факультетов"""
         groups = []
         room = None
-        
+
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-            
+
             # Проверяем все паттерны групп
             is_group = False
             for pattern in GROUP_PATTERNS:
@@ -276,10 +276,10 @@ class ScheduleHtmlParser:
                     groups.append(line)
                     is_group = True
                     break
-            
+
             # Если не группа и содержит цифры — возможно аудитория
             if not is_group and any(c.isdigit() for c in line):
                 if 'п.г' not in line.lower() and 'п/г' not in line.lower():
                     room = line
-        
+
         return groups, room

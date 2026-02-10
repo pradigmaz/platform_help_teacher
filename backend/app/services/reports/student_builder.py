@@ -1,7 +1,7 @@
 """
 Построение данных студентов для отчётов.
 """
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from app.models.group_report import GroupReport
 from app.models.user import User
@@ -9,16 +9,16 @@ from app.schemas.report import PublicStudentData
 
 
 def build_student_data(
-    student: User, 
-    result: Any, 
-    att_stats: Dict,
-    lab_stats: Dict, 
-    notes: List[str], 
+    student: User,
+    result: Any,
+    att_stats: dict,
+    lab_stats: dict,
+    notes: list[str],
     report: GroupReport
 ) -> PublicStudentData:
     """Построить данные студента."""
     is_passing = result.is_passing if result else False
-    
+
     return PublicStudentData(
         id=student.id,
         name=student.full_name if report.show_names else None,
@@ -42,15 +42,15 @@ def build_student_data(
 
 
 def process_students(
-    students: List[User],
-    results_map: Dict,
-    attendance_data: Dict,
-    labs_data: Dict,
-    notes_map: Dict,
+    students: list[User],
+    results_map: dict,
+    attendance_data: dict,
+    labs_data: dict,
+    notes_map: dict,
     report: GroupReport
-) -> Tuple[List[PublicStudentData], int, int, float]:
+) -> tuple[list[PublicStudentData], int, int, float]:
     """Обработка данных студентов.
-    
+
     Returns:
         Tuple[students_data, passing_count, failing_count, total_score_sum]
     """
@@ -58,25 +58,25 @@ def process_students(
     passing_count = 0
     failing_count = 0
     total_score_sum = 0.0
-    
+
     for student in students:
         result = results_map.get(student.id)
         att_stats = attendance_data.get(student.id, {})
         lab_stats = labs_data.get(student.id, {})
-        
+
         is_passing = result.is_passing if result else False
         if is_passing:
             passing_count += 1
         else:
             failing_count += 1
-        
+
         if result:
             total_score_sum += result.total_score
-        
+
         student_data = build_student_data(
             student, result, att_stats, lab_stats,
             notes_map.get(student.id, []), report
         )
         students_data.append(student_data)
-    
+
     return students_data, passing_count, failing_count, total_score_sum

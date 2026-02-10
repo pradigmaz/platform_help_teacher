@@ -1,16 +1,24 @@
 import os
-from typing import Optional, List, Union
-from pydantic import field_validator, PostgresDsn, computed_field, AnyHttpUrl, Field
+from typing import Union
+
+from pydantic import Field, computed_field, field_validator
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.time_constants import (
     ACCESS_TOKEN_EXPIRE_MINUTES as DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES,
-    REFRESH_TOKEN_EXPIRE_DAYS as DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS,
-    PRESIGNED_URL_EXPIRY_SECONDS,
-    BACKUP_RETENTION_DAYS as DEFAULT_BACKUP_RETENTION_DAYS,
-    MAX_FILE_SIZE_BYTES,
 )
+from app.core.time_constants import (
+    BACKUP_RETENTION_DAYS as DEFAULT_BACKUP_RETENTION_DAYS,
+)
+from app.core.time_constants import (
+    MAX_FILE_SIZE_BYTES,
+    PRESIGNED_URL_EXPIRY_SECONDS,
+)
+from app.core.time_constants import (
+    REFRESH_TOKEN_EXPIRE_DAYS as DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS,
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -23,32 +31,31 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Edu Platform API"
-    
+
     # URLS
     BACKEND_URL: str = "http://localhost:8000"
     FRONTEND_URL: str = "http://localhost:3000"
-    
+
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"] # Default safe
-    
+    CORS_ORIGINS: list[str] = ["http://localhost:3000"] # Default safe
+
     # Cookie domain (None = текущий домен, ".example.com" для поддоменов)
-    COOKIE_DOMAIN: Optional[str] = None
+    COOKIE_DOMAIN: str | None = None
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
-    def assemble_cors_origins(cls, v: Union[str, List[str]], info) -> Union[List[str], str]:
+    def assemble_cors_origins(cls, v: Union[str, list[str]], info) -> Union[list[str], str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         return v
-    
+
     @field_validator("CORS_ORIGINS")
     @classmethod
-    def validate_cors_production(cls, v: List[str], info) -> List[str]:
+    def validate_cors_production(cls, v: list[str], info) -> list[str]:
         # В продакшене нельзя использовать '*'
         env = os.getenv("ENVIRONMENT", "development")
-        if env == "production":
-            if "*" in v:
-                 raise ValueError("Wildcard CORS (*) is not allowed in production!")
+        if env == "production" and "*" in v:
+             raise ValueError("Wildcard CORS (*) is not allowed in production!")
         return v
 
     # SECURITY
@@ -88,25 +95,25 @@ class Settings(BaseSettings):
         )
 
     # AUTO-ADMIN SEEDING
-    FIRST_SUPERUSER_ID: Optional[int] = None
+    FIRST_SUPERUSER_ID: int | None = None
     FIRST_SUPERUSER_USERNAME: str = "admin"
 
     # TELEGRAM
     TELEGRAM_BOT_TOKEN: str = Field(..., repr=False)
     TELEGRAM_WEBHOOK_SECRET: str = Field(..., repr=False)
-    TELEGRAM_WEBHOOK_URL: Optional[str] = None
+    TELEGRAM_WEBHOOK_URL: str | None = None
 
     # VK (Long Poll - не требует внешнего URL)
-    VK_BOT_TOKEN: Optional[str] = Field(default=None, repr=False)
-    VK_GROUP_ID: Optional[int] = None
+    VK_BOT_TOKEN: str | None = Field(default=None, repr=False)
+    VK_GROUP_ID: int | None = None
 
     # REDIS
     REDIS_URL: str = "redis://redis:6379/0"
-    REDIS_PASSWORD: Optional[str] = Field(default=None, repr=False)
-    REDIS_SSL: bool = False 
-    
+    REDIS_PASSWORD: str | None = Field(default=None, repr=False)
+    REDIS_SSL: bool = False
+
     # MinIO (S3)
-    MINIO_ENDPOINT: str = "minio:9000" 
+    MINIO_ENDPOINT: str = "minio:9000"
     MINIO_ROOT_USER: str
     MINIO_ROOT_PASSWORD: str = Field(..., repr=False)
     MINIO_BUCKET_NAME: str = "edu-uploads"

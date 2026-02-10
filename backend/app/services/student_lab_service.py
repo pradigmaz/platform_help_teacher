@@ -1,16 +1,15 @@
 """Сервис бизнес-логики для студенческих лабораторных работ."""
 import logging
-from typing import Optional, Dict, List
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.user import User, UserRole
 from app.models.lab import Lab
-from app.models.submission import Submission, SubmissionStatus
 from app.models.lesson_grade import LessonGrade
+from app.models.submission import Submission, SubmissionStatus
+from app.models.user import User, UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 class StudentLabService:
     """Сервис для работы студентов с лабораторными."""
 
-    async def get_published_labs(self, db: AsyncSession) -> List[Lab]:
+    async def get_published_labs(self, db: AsyncSession) -> list[Lab]:
         """Получить все опубликованные лабы."""
         result = await db.execute(
             select(Lab)
@@ -28,13 +27,13 @@ class StudentLabService:
         )
         return list(result.scalars().all())
 
-    async def get_lab_by_id(self, db: AsyncSession, lab_id: UUID) -> Optional[Lab]:
+    async def get_lab_by_id(self, db: AsyncSession, lab_id: UUID) -> Lab | None:
         """Получить лабу по ID."""
         return await db.get(Lab, lab_id)
 
     async def get_user_submissions(
         self, db: AsyncSession, user_id: UUID
-    ) -> Dict[UUID, Submission]:
+    ) -> dict[UUID, Submission]:
         """Получить все submissions пользователя как dict {lab_id: submission}."""
         result = await db.execute(
             select(Submission).where(Submission.user_id == user_id)
@@ -43,7 +42,7 @@ class StudentLabService:
 
     async def get_user_submission_for_lab(
         self, db: AsyncSession, user_id: UUID, lab_id: UUID
-    ) -> Optional[Submission]:
+    ) -> Submission | None:
         """Получить последнюю submission пользователя для конкретной лабы."""
         result = await db.execute(
             select(Submission).where(
@@ -55,12 +54,12 @@ class StudentLabService:
 
     async def get_user_journal_grades(
         self, db: AsyncSession, student_id: UUID
-    ) -> Dict[int, LessonGrade]:
+    ) -> dict[int, LessonGrade]:
         """Получить лучшие оценки из журнала по work_number."""
         result = await db.execute(
             select(LessonGrade).where(LessonGrade.student_id == student_id)
         )
-        journal_grades: Dict[int, LessonGrade] = {}
+        journal_grades: dict[int, LessonGrade] = {}
         for g in result.scalars().all():
             if g.work_number is not None:
                 if g.work_number not in journal_grades or g.grade > journal_grades[g.work_number].grade:
@@ -69,7 +68,7 @@ class StudentLabService:
 
     async def get_student_position(
         self, db: AsyncSession, user: User
-    ) -> Optional[int]:
+    ) -> int | None:
         """Получить позицию студента в списке группы."""
         if not user.group_id:
             return None
@@ -113,7 +112,7 @@ class StudentLabService:
         db: AsyncSession,
         user_id: UUID,
         lab_id: UUID,
-        variant_number: Optional[int],
+        variant_number: int | None,
     ) -> Submission:
         """Поставить submission в очередь на сдачу."""
         sub = await self.get_user_submission_for_lab(db, user_id, lab_id)

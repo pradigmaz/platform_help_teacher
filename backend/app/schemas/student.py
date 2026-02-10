@@ -1,18 +1,19 @@
-from typing import List, Optional
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
 from pydantic import BaseModel
+
 
 class StudentLabSubmission(BaseModel):
     lab_id: UUID
     lab_title: str
-    status: Optional[str] = None
-    grade: Optional[int] = None
+    status: str | None = None
+    grade: int | None = None
     max_grade: int
-    deadline_5_lessons: Optional[int] = None
-    deadline_4_lessons: Optional[int] = None
-    submitted_at: Optional[datetime] = None
-    feedback: Optional[str] = None
+    deadline_5_lessons: int | None = None
+    deadline_4_lessons: int | None = None
+    submitted_at: datetime | None = None
+    feedback: str | None = None
     is_overdue: bool = False  # Просрочено
 
 class StudentStats(BaseModel):
@@ -22,27 +23,27 @@ class StudentStats(BaseModel):
     labs_rejected: int = 0
     labs_pending: int = 0
     labs_overdue: int = 0
-    
+
     points_earned: int = 0
     points_max: int = 0
     points_percent: float = 0.0
-    
+
     # Рейтинг в группе
-    group_rank: Optional[int] = None
+    group_rank: int | None = None
     group_total: int = 0  # Всего студентов в группе
-    group_percentile: Optional[float] = None  # Процентиль в группе
+    group_percentile: float | None = None  # Процентиль в группе
 
 class StudentProfileOut(BaseModel):
     id: UUID
     full_name: str
-    username: Optional[str] = None
-    telegram_id: Optional[int] = None
-    vk_id: Optional[int] = None
-    group_name: Optional[str] = None
-    group_id: Optional[UUID] = None
+    username: str | None = None
+    telegram_id: int | None = None
+    vk_id: int | None = None
+    group_name: str | None = None
+    group_id: UUID | None = None
     is_active: bool
     created_at: datetime
-    labs: List[StudentLabSubmission] = []
+    labs: list[StudentLabSubmission] = []
     stats: StudentStats = StudentStats()
 
     class Config:

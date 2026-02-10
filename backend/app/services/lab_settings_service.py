@@ -1,6 +1,5 @@
 """Сервис для работы с настройками лабораторных работ."""
 import logging
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +15,7 @@ class LabSettingsService:
     async def get_lab_settings(
         self,
         db: AsyncSession
-    ) -> Optional[LabSettings]:
+    ) -> LabSettings | None:
         """[LabSettingsService:get_lab_settings] Получить глобальные настройки лаб."""
         result = await db.execute(select(LabSettings).limit(1))
         settings = result.scalar_one_or_none()
@@ -31,17 +30,17 @@ class LabSettingsService:
         """[LabSettingsService:update_lab_settings] Обновить или создать настройки лаб."""
         result = await db.execute(select(LabSettings).limit(1))
         settings = result.scalar_one_or_none()
-        
+
         if not settings:
             settings = LabSettings(labs_count=10, default_max_grade=10)
             db.add(settings)
             await db.flush()
             logger.info("[LabSettingsService:update_lab_settings] Created new settings")
-        
+
         update_data = settings_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(settings, field, value)
-        
+
         await db.commit()
         await db.refresh(settings)
         logger.info(f"[LabSettingsService:update_lab_settings] Settings updated: {update_data}")

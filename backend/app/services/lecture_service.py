@@ -1,16 +1,15 @@
 """Сервис бизнес-логики для лекций."""
+import logging
 import secrets
 import string
-import logging
-from typing import Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.lecture import Lecture
 from app.core.constants import LECTURE_PUBLIC_CODE_LENGTH, LECTURE_PUBLIC_CODE_MAX_ATTEMPTS
+from app.models.lecture import Lecture
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,7 @@ class LectureService:
         self,
         db: AsyncSession,
         public_code: str
-    ) -> Optional[Lecture]:
+    ) -> Lecture | None:
         """Получить лекцию по публичному коду."""
         result = await db.execute(
             select(Lecture)
@@ -80,7 +79,7 @@ class LectureService:
         lecture: Lecture
     ) -> None:
         """Мягкое удаление лекции."""
-        lecture.deleted_at = datetime.now(timezone.utc)
+        lecture.deleted_at = datetime.now(UTC)
         await db.commit()
         logger.info(f"Lecture {lecture.id} soft-deleted")
 

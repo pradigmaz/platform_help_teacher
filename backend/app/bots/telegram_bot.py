@@ -1,8 +1,10 @@
 import logging
+
 from aiogram import Bot, Dispatcher, Router, types
-from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart, CommandObject, Command
 from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+from aiogram.filters import Command, CommandObject, CommandStart
+
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.services import telegram_service
@@ -109,7 +111,7 @@ async def command_schedule_handler(message: types.Message) -> None:
     Расписание преподавателя.
     """
     social_id = message.from_user.id
-    
+
     try:
         async with AsyncSessionLocal() as db:
             response_text = await telegram_service.process_schedule_command(

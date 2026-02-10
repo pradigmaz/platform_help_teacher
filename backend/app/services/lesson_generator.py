@@ -3,14 +3,15 @@
 """
 import logging
 from datetime import date, timedelta
-from typing import List
 from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.schedule import ScheduleItem, DayOfWeek, WeekParity
+from app.crud.crud_schedule import lesson as lesson_crud
+from app.crud.crud_schedule import schedule as schedule_crud
 from app.models.lesson import Lesson
-from app.services.schedule_constants import PARSE_STEP_DAYS, WEEKDAY_SUNDAY
-from app.crud.crud_schedule import schedule as schedule_crud, lesson as lesson_crud
+from app.models.schedule import DayOfWeek, WeekParity
+from app.services.schedule_constants import WEEKDAY_SUNDAY
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +28,14 @@ WEEKDAY_MAP = {
 
 class LessonGenerator:
     """Генерация занятий из расписания"""
-    
+
     async def generate_lessons_for_period(
         self,
         db: AsyncSession,
         group_id: UUID,
         start_date: date,
         end_date: date
-    ) -> List[Lesson]:
+    ) -> list[Lesson]:
         """
         Генерирует занятия на период по расписанию.
         Учитывает:
@@ -43,44 +44,44 @@ class LessonGenerator:
         - Период действия расписания
         """
         schedule_items = await schedule_crud.get_by_group(db, group_id, active_only=True)
-        
+
         if not schedule_items:
             logger.warning(f"No schedule items for group {group_id}")
             return []
-        
+
         lessons = []
         current = start_date
-        
+
         while current <= end_date:
             weekday = current.weekday()
             if weekday > WEEKDAY_SUNDAY - 1:  # Воскресенье пропускаем
                 current += timedelta(days=1)
                 continue
-            
+
             day_of_week = WEEKDAY_MAP.get(weekday)
             if not day_of_week:
                 current += timedelta(days=1)
                 continue
-            
+
             # Определяем чётность недели
             week_number = current.isocalendar()[1]
             week_parity = WeekParity.ODD if week_number % 2 else WeekParity.EVEN
-            
+
             for item in schedule_items:
                 # Проверяем день недели
                 if item.day_of_week != day_of_week:
                     continue
-                
+
                 # Проверяем чётность недели
                 if item.week_parity and item.week_parity != week_parity:
                     continue
-                
+
                 # Проверяем период действия
                 if item.start_date > current:
                     continue
                 if item.end_date and item.end_date < current:
                     continue
-                
+
                 # Создаём занятие (если не существует)
                 lesson = await lesson_crud.get_or_create(
                     db,
@@ -93,9 +94,9 @@ class LessonGenerator:
                 )
                 if lesson:
                     lessons.append(lesson)
-            
+
             current += timedelta(days=1)
-        
+
         logger.info(f"Generated {len(lessons)} lessons for group {group_id}")
         return lessons
 

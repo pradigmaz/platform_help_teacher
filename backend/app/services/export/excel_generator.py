@@ -1,17 +1,12 @@
 """Генератор Excel файлов для экспорта журнала."""
 import logging
 from io import BytesIO
-from typing import List, Dict
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-from openpyxl.utils import get_column_letter
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 from app.schemas.export import (
     JournalExportData,
-    LessonExportColumn,
-    AttendanceExportRow,
-    GradeExportRow,
 )
 
 logger = logging.getLogger(__name__)

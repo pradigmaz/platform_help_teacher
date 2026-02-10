@@ -5,11 +5,12 @@ Requirements:
 - 8.1: store attendance records with student, group, date, and status
 - 8.2: support attendance status types: PRESENT, ABSENT, LATE, EXCUSED
 """
-from typing import Optional, List
+from datetime import date as date_type
+from datetime import datetime
 from uuid import UUID
-from datetime import date as date_type, datetime
+
 from pydantic import BaseModel, Field, field_validator
-from enum import Enum
+
 from app.models.attendance import AttendanceStatus as AttendanceStatusSchema
 
 
@@ -43,7 +44,7 @@ class AttendanceResponse(BaseModel):
     group_id: UUID
     date: date_type
     status: AttendanceStatusSchema
-    created_by: Optional[UUID] = None
+    created_by: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -61,7 +62,7 @@ class BulkAttendanceCreate(BaseModel):
     """Схема массового создания записей посещаемости"""
     group_id: UUID = Field(description="ID группы")
     date: date_type = Field(description="Дата занятия")
-    records: List[BulkAttendanceItem] = Field(description="Список записей")
+    records: list[BulkAttendanceItem] = Field(description="Список записей")
 
     @field_validator("date")
     @classmethod
@@ -75,7 +76,7 @@ class BulkAttendanceResponse(BaseModel):
     """Ответ на массовое создание посещаемости"""
     created_count: int = Field(description="Количество созданных записей")
     skipped_count: int = Field(description="Количество пропущенных записей")
-    records: List[AttendanceResponse] = Field(description="Созданные записи")
+    records: list[AttendanceResponse] = Field(description="Созданные записи")
 
 
 class AttendanceStatsResponse(BaseModel):

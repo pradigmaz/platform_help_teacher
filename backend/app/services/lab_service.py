@@ -1,17 +1,16 @@
 """Сервис бизнес-логики для лабораторных работ."""
-import secrets
 import logging
-from typing import Optional
-from datetime import datetime, timezone
+import secrets
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import LAB_PUBLIC_CODE_LENGTH, LAB_PUBLIC_CODE_MAX_ATTEMPTS
 from app.models.lab import Lab
 from app.models.lesson import Lesson
 from app.schemas.lab import LabCreate, LabUpdate
-from app.core.constants import LAB_PUBLIC_CODE_LENGTH, LAB_PUBLIC_CODE_MAX_ATTEMPTS
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +26,8 @@ class LabService:
     async def _sync_subject_from_lesson(
         self,
         db: AsyncSession,
-        lesson_id: Optional[UUID]
-    ) -> Optional[UUID]:
+        lesson_id: UUID | None
+    ) -> UUID | None:
         """Получить subject_id из занятия для автоматической привязки."""
         if not lesson_id:
             return None
@@ -39,7 +38,7 @@ class LabService:
         self,
         db: AsyncSession,
         lab_id,
-    ) -> Optional[Lab]:
+    ) -> Lab | None:
         """Получить лабу по ID."""
         result = await db.execute(
             select(Lab).where(Lab.id == lab_id, Lab.deleted_at.is_(None))
@@ -50,7 +49,7 @@ class LabService:
         self,
         db: AsyncSession,
         public_code: str
-    ) -> Optional[Lab]:
+    ) -> Lab | None:
         """Получить лабу по публичному коду."""
         result = await db.execute(
             select(Lab)
@@ -67,11 +66,11 @@ class LabService:
     ) -> Lab:
         """Создать лабораторную работу."""
         data = lab_in.model_dump()
-        
+
         # Автоматически подтягиваем subject_id из занятия
         if data.get('lesson_id') and not data.get('subject_id'):
             data['subject_id'] = await self._sync_subject_from_lesson(db, data['lesson_id'])
-        
+
         lab = Lab(**data)
         db.add(lab)
         await db.commit()
@@ -87,7 +86,7 @@ class LabService:
     ) -> Lab:
         """Обновить лабораторную работу."""
         update_data = lab_in.model_dump(exclude_unset=True)
-        
+
         # Автоматически синхронизируем subject_id при изменении lesson_id
         if 'lesson_id' in update_data:
             new_lesson_id = update_data['lesson_id']
@@ -95,7 +94,7 @@ class LabService:
                 subject_id = await self._sync_subject_from_lesson(db, new_lesson_id)
                 if subject_id:
                     update_data['subject_id'] = subject_id
-        
+
         for field, value in update_data.items():
             setattr(lab, field, value)
         await db.commit()
@@ -146,7 +145,7 @@ class LabService:
         lab: Lab
     ) -> None:
         """Мягкое удаление лабы (submissions сохраняются)."""
-        lab.deleted_at = datetime.now(timezone.utc)
+        lab.deleted_at = datetime.now(UTC)
         lab.is_published = False
         lab.public_code = None
         await db.commit()

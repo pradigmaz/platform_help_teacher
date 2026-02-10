@@ -1,14 +1,14 @@
 """Сервис бизнес-логики для сдачи лабораторных работ."""
 import logging
-from typing import Optional, Any
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Submission, SubmissionStatus, Lab, LessonGrade, User
+from app.models import Lab, LessonGrade, Submission, SubmissionStatus, User
 from app.services.attestation.deadline_validator import get_max_allowed_grade_for_lab
 from app.services.attestation.lab_slot_validator import get_grades_count_on_lesson, get_max_labs_per_lesson
 from app.services.submission_journal_sync import journal_sync
@@ -24,7 +24,7 @@ class SubmissionService:
         db: AsyncSession,
         submission_id: UUID,
         load_relations: bool = False
-    ) -> Optional[Submission]:
+    ) -> Submission | None:
         """Получить сдачу по ID."""
         query = select(Submission).where(Submission.id == submission_id)
         if load_relations:
@@ -40,7 +40,7 @@ class SubmissionService:
         db: AsyncSession,
         submission: Submission,
         grade: int,
-        comment: Optional[str],
+        comment: str | None,
         accepted_by: UUID
     ) -> dict[str, Any]:
         """
@@ -50,18 +50,18 @@ class SubmissionService:
         """
         if submission.status != SubmissionStatus.READY:
             raise ValueError(f"Cannot accept submission with status {submission.status.value}")
-        
+
         # Валидация дедлайна и слотов
         await self._validate_grade_constraints(db, submission, grade)
 
-        now = datetime.now(timezone.utc)
-        
+        now = datetime.now(UTC)
+
         # Обновляем Submission
         submission.status = SubmissionStatus.ACCEPTED
         submission.grade = grade
         submission.feedback = comment
         submission.accepted_at = now
-        
+
         # Добавляем в историю
         submission.history = submission.history + [{
             "action": "accepted",
@@ -70,15 +70,15 @@ class SubmissionService:
             "by": str(accepted_by),
             "at": now.isoformat(),
         }]
-        
+
         # Синхронизация с журналом
         lesson_grade_synced = await journal_sync.sync_with_journal(
             db, submission, grade, comment, accepted_by
         )
-        
+
         await db.commit()
         logger.info(f"Submission {submission.id} accepted with grade {grade}")
-        
+
         return {
             "status": "accepted",
             "submission_id": str(submission.id),
@@ -97,11 +97,11 @@ class SubmissionService:
         if submission.status != SubmissionStatus.READY:
             raise ValueError(f"Cannot reject submission with status {submission.status.value}")
 
-        now = datetime.now(timezone.utc)
-        
+        now = datetime.now(UTC)
+
         submission.status = SubmissionStatus.REJECTED
         submission.feedback = comment
-        
+
         # Добавляем в историю
         submission.history = submission.history + [{
             "action": "rejected",
@@ -109,10 +109,10 @@ class SubmissionService:
             "by": str(rejected_by),
             "at": now.isoformat(),
         }]
-        
+
         await db.commit()
         logger.info(f"Submission {submission.id} rejected")
-        
+
         return {
             "status": "rejected",
             "submission_id": str(submission.id),
@@ -132,15 +132,15 @@ class SubmissionService:
             lab = result.scalar_one_or_none()
         else:
             lab = submission.lab
-        
+
         if not lab or not lab.subject_id:
             return  # Нет привязки к предмету — нет ограничений
-        
+
         # Ищем занятие для студента
         lesson = await journal_sync.find_lesson_for_student(db, lab, submission.user_id)
         if not lesson:
             return  # Нет занятия — нет ограничений
-        
+
         # Проверяем дедлайн
         max_allowed = await get_max_allowed_grade_for_lab(
             db, lab, lesson, submission.user_id
@@ -149,7 +149,7 @@ class SubmissionService:
             raise ValueError(
                 f"Максимальная оценка для этой работы: {max_allowed} (просрочка дедлайна)"
             )
-        
+
         # Проверяем слоты (только для новых оценок)
         existing = await db.execute(
             select(LessonGrade).where(and_(

@@ -2,7 +2,8 @@
 Константы для модуля расписания.
 Единый источник истины для backend.
 """
-from datetime import timezone, timedelta
+from datetime import timedelta, timezone
+
 from app.models.schedule import LessonType
 
 # Московская таймзона (UTC+3)

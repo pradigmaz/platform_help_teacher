@@ -2,7 +2,7 @@
 
 # Веса для scoring
 SCORE_WEBGL = 40        # WebGL vendor+renderer — очень стабильный
-SCORE_SCREEN = 25       # Screen resolution — стабильный  
+SCORE_SCREEN = 25       # Screen resolution — стабильный
 SCORE_PLATFORM = 20     # Platform + cores — стабильный
 SCORE_CANVAS = 15       # Canvas — может меняться
 SCORE_IP = 30           # IP match

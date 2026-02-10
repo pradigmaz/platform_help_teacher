@@ -127,14 +127,14 @@ FAILED_TO_GET_WEBHOOK_INFO = "Не удалось получить информ�
 def format_error(message: str, **kwargs) -> str:
     """
     Форматирует сообщение об ошибке с подстановкой параметров.
-    
+
     Args:
         message: Шаблон сообщения с плейсхолдерами {key}
         **kwargs: Параметры для подстановки
-        
+
     Returns:
         Отформатированное сообщение
-        
+
     Example:
         >>> format_error(FILE_TYPE_NOT_ALLOWED, type="exe")
         "Тип файла 'exe' не разрешён"

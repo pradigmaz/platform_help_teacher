@@ -1,21 +1,21 @@
 """Модели данных для suspicion detection."""
-from typing import Optional, Dict, Any, List
+from typing import Any
 
 
 class SuspicionMatch:
     """Результат анализа подозрения."""
-    
+
     def __init__(self):
-        self.fingerprint_match: Optional[Dict[str, Any]] = None
-        self.ip_match: Optional[Dict[str, Any]] = None
-        self.timing_match: Optional[Dict[str, Any]] = None
-        self.inconsistencies: List[str] = []
-        self.component_matches: List[str] = []
+        self.fingerprint_match: dict[str, Any] | None = None
+        self.ip_match: dict[str, Any] | None = None
+        self.timing_match: dict[str, Any] | None = None
+        self.inconsistencies: list[str] = []
+        self.component_matches: list[str] = []
         self.total_score: int = 0
         self.confidence: str = "none"
         self.has_suspicion: bool = False
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         result = {
             "has_suspicion": self.has_suspicion,
             "score": self.total_score,

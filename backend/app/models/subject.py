@@ -1,12 +1,12 @@
 """
 Модель предмета (дисциплины).
 """
-from typing import Optional, List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import String, Text, Boolean, Index
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Boolean, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
 
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class Subject(Base, TimestampMixin):
     """
     Справочник предметов (дисциплин).
-    
+
     Примеры:
     - Компьютерные сети
     - Численные методы
@@ -27,12 +27,12 @@ class Subject(Base, TimestampMixin):
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    code: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # КС, ЧМ, ТИС
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    code: Mapped[str | None] = mapped_column(String(50), nullable=True)  # КС, ЧМ, ТИС
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
-    teacher_assignments: Mapped[List["TeacherSubjectAssignment"]] = relationship(
+    teacher_assignments: Mapped[list["TeacherSubjectAssignment"]] = relationship(
         back_populates="subject",
         cascade="all, delete-orphan"
     )

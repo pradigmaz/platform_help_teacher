@@ -2,12 +2,11 @@
 Схемы для расписания и занятий.
 """
 from datetime import date
-from typing import Optional, List
 from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 from app.models.schedule import DayOfWeek, LessonType, WeekParity
-
 
 # === ScheduleItem ===
 
@@ -15,13 +14,13 @@ class ScheduleItemBase(BaseModel):
     day_of_week: DayOfWeek
     lesson_number: int = Field(ge=1, le=8)
     lesson_type: LessonType
-    subject: Optional[str] = None
-    room: Optional[str] = None
-    teacher_id: Optional[UUID] = None
+    subject: str | None = None
+    room: str | None = None
+    teacher_id: UUID | None = None
     start_date: date
-    end_date: Optional[date] = None
-    week_parity: Optional[WeekParity] = None
-    subgroup: Optional[int] = Field(None, ge=1, le=2)
+    end_date: date | None = None
+    week_parity: WeekParity | None = None
+    subgroup: int | None = Field(None, ge=1, le=2)
 
 
 class ScheduleItemCreate(ScheduleItemBase):
@@ -29,24 +28,24 @@ class ScheduleItemCreate(ScheduleItemBase):
 
 
 class ScheduleItemUpdate(BaseModel):
-    day_of_week: Optional[DayOfWeek] = None
-    lesson_number: Optional[int] = Field(None, ge=1, le=8)
-    lesson_type: Optional[LessonType] = None
-    subject: Optional[str] = None
-    room: Optional[str] = None
-    teacher_id: Optional[UUID] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    week_parity: Optional[WeekParity] = None
-    subgroup: Optional[int] = Field(None, ge=1, le=2)
-    is_active: Optional[bool] = None
+    day_of_week: DayOfWeek | None = None
+    lesson_number: int | None = Field(None, ge=1, le=8)
+    lesson_type: LessonType | None = None
+    subject: str | None = None
+    room: str | None = None
+    teacher_id: UUID | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    week_parity: WeekParity | None = None
+    subgroup: int | None = Field(None, ge=1, le=2)
+    is_active: bool | None = None
 
 
 class ScheduleItemResponse(ScheduleItemBase):
     id: UUID
     group_id: UUID
     is_active: bool
-    
+
     class Config:
         from_attributes = True
 
@@ -57,33 +56,33 @@ class LessonBase(BaseModel):
     date: date
     lesson_number: int = Field(ge=1, le=8)
     lesson_type: LessonType
-    topic: Optional[str] = None
-    work_id: Optional[UUID] = None
-    subgroup: Optional[int] = Field(None, ge=1, le=2)
+    topic: str | None = None
+    work_id: UUID | None = None
+    subgroup: int | None = Field(None, ge=1, le=2)
 
 
 class LessonCreate(LessonBase):
     group_id: UUID
-    schedule_item_id: Optional[UUID] = None
+    schedule_item_id: UUID | None = None
 
 
 class LessonUpdate(BaseModel):
-    topic: Optional[str] = None
-    work_id: Optional[UUID] = None
-    work_number: Optional[int] = Field(None, ge=1, le=20, description="Номер лабы/практики")
-    is_cancelled: Optional[bool] = None
-    cancellation_reason: Optional[str] = None
-    ended_early: Optional[bool] = None
+    topic: str | None = None
+    work_id: UUID | None = None
+    work_number: int | None = Field(None, ge=1, le=20, description="Номер лабы/практики")
+    is_cancelled: bool | None = None
+    cancellation_reason: str | None = None
+    ended_early: bool | None = None
 
 
 class LessonResponse(LessonBase):
     id: UUID
     group_id: UUID
-    schedule_item_id: Optional[UUID]
+    schedule_item_id: UUID | None
     is_cancelled: bool
-    cancellation_reason: Optional[str]
+    cancellation_reason: str | None
     ended_early: bool = False
-    
+
     class Config:
         from_attributes = True
 
@@ -100,4 +99,4 @@ class GenerateLessonsRequest(BaseModel):
 class GenerateLessonsResponse(BaseModel):
     """Ответ на генерацию занятий"""
     created_count: int
-    lessons: List[LessonResponse]
+    lessons: list[LessonResponse]

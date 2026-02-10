@@ -1,9 +1,7 @@
 """
 Модуль управления настройками аттестации (автобалансировка).
 """
-import json
 import logging
-from typing import Optional, List
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,8 +10,8 @@ from app.core.redis import get_redis
 from app.core.time_constants import CACHE_TTL_SECONDS as DEFAULT_CACHE_TTL
 from app.models.attestation_settings import AttestationSettings, AttestationType
 from app.schemas.attestation import (
-    AttestationSettingsUpdate,
     AttestationSettingsResponse,
+    AttestationSettingsUpdate,
     ScorePreview,
 )
 
@@ -29,10 +27,10 @@ def _get_cache_key(attestation_type: AttestationType) -> str:
 
 class AttestationSettingsManager:
     """Менеджер настроек аттестации с кэшированием."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     async def _invalidate_cache(self, attestation_type: AttestationType) -> None:
         try:
             redis = await get_redis()
@@ -40,8 +38,8 @@ class AttestationSettingsManager:
                 await redis.delete(_get_cache_key(attestation_type))
         except Exception as e:
             logger.warning(f"Redis cache invalidation error: {e}")
-    
-    async def get_settings(self, attestation_type: AttestationType) -> Optional[AttestationSettings]:
+
+    async def get_settings(self, attestation_type: AttestationType) -> AttestationSettings | None:
         query = select(AttestationSettings).where(
             AttestationSettings.attestation_type == attestation_type
         )
@@ -53,11 +51,11 @@ class AttestationSettingsManager:
         if att_settings is None:
             att_settings = await self._create_default(attestation_type)
         return att_settings
-    
+
     async def _create_default(self, attestation_type: AttestationType) -> AttestationSettings:
         """Создание настроек по умолчанию."""
         logger.info(f"Creating default settings for {attestation_type}")
-        
+
         att_settings = AttestationSettings(
             attestation_type=attestation_type,
             labs_weight=70.0,
@@ -76,35 +74,35 @@ class AttestationSettingsManager:
             colloquium_count=1,
             activity_enabled=True,
         )
-        
+
         self.db.add(att_settings)
         await self.db.commit()
         await self.db.refresh(att_settings)
         return att_settings
-    
+
     async def update_settings(self, settings_update: AttestationSettingsUpdate) -> AttestationSettings:
         att_settings = await self.get_or_create_settings(settings_update.attestation_type)
-        
+
         update_data = settings_update.model_dump(exclude={'attestation_type'})
         for field, value in update_data.items():
             setattr(att_settings, field, value)
-        
+
         if not att_settings.validate_weights():
             raise ValueError("Веса должны суммироваться в 100%")
-        
+
         await self.db.commit()
         await self.db.refresh(att_settings)
         await self._invalidate_cache(settings_update.attestation_type)
-        
+
         logger.info(f"Updated settings for {settings_update.attestation_type}")
         return att_settings
-    
+
     @staticmethod
-    def build_score_preview(att_settings: AttestationSettings) -> List[ScorePreview]:
+    def build_score_preview(att_settings: AttestationSettings) -> list[ScorePreview]:
         """Построение превью расчёта баллов для UI."""
         previews = []
         labs_count = att_settings.get_labs_count()
-        
+
         # Лабораторные
         labs_max = att_settings.get_max_component_points(att_settings.labs_weight)
         labs_per_work = att_settings.get_points_per_work(att_settings.labs_weight, labs_count)
@@ -115,7 +113,7 @@ class AttestationSettingsManager:
             points_per_unit=round(labs_per_work, 2),
             unit_label="за 5"
         ))
-        
+
         # Посещаемость
         att_max = att_settings.get_max_component_points(att_settings.attendance_weight)
         previews.append(ScorePreview(
@@ -125,7 +123,7 @@ class AttestationSettingsManager:
             points_per_unit=100.0,
             unit_label="% от посещённых"
         ))
-        
+
         # Резерв активности
         reserve_max = att_settings.get_max_component_points(att_settings.activity_reserve)
         previews.append(ScorePreview(
@@ -135,7 +133,7 @@ class AttestationSettingsManager:
             points_per_unit=0.0,
             unit_label="бонусы/штрафы"
         ))
-        
+
         # Опциональные компоненты
         if att_settings.self_works_enabled:
             sw_max = att_settings.get_max_component_points(att_settings.self_works_weight)
@@ -147,7 +145,7 @@ class AttestationSettingsManager:
                 points_per_unit=round(sw_per, 2),
                 unit_label="за 5"
             ))
-        
+
         if att_settings.colloquium_enabled:
             coll_max = att_settings.get_max_component_points(att_settings.colloquium_weight)
             coll_per = att_settings.get_points_per_work(att_settings.colloquium_weight, att_settings.colloquium_count)
@@ -158,9 +156,9 @@ class AttestationSettingsManager:
                 points_per_unit=round(coll_per, 2),
                 unit_label="за 5"
             ))
-        
+
         return previews
-    
+
     @staticmethod
     def to_response(att_settings: AttestationSettings) -> AttestationSettingsResponse:
         """Преобразование модели в схему ответа."""
@@ -170,7 +168,7 @@ class AttestationSettingsManager:
                 att_settings.semester_start_date,
                 att_settings.attestation_type
             )
-        
+
         return AttestationSettingsResponse(
             id=att_settings.id,
             attestation_type=att_settings.attestation_type,

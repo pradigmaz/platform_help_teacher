@@ -1,8 +1,8 @@
+from fastapi import Response
 from fastapi_csrf_protect import CsrfProtect
 from pydantic_settings import BaseSettings
-from fastapi import Response
-from app.core.config import settings
 
+from app.core.config import settings
 
 # Конфиг CSRF
 CSRF_COOKIE_KEY = "fastapi-csrf-token"

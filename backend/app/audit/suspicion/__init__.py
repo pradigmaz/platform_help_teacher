@@ -2,23 +2,34 @@
 Suspicion detection system.
 Компонентный fingerprint matching, timing correlation, антидетект detection.
 """
-from .models import SuspicionMatch
 from .constants import (
-    SCORE_WEBGL, SCORE_SCREEN, SCORE_PLATFORM, SCORE_CANVAS,
-    SCORE_IP, SCORE_UA_BROWSER, SCORE_UA_OS, SCORE_TIMING,
-    THRESHOLD_PROBABLE, THRESHOLD_HIGH, TIMING_WINDOW_MINUTES,
+    SCORE_CANVAS,
+    SCORE_IP,
+    SCORE_PLATFORM,
+    SCORE_SCREEN,
+    SCORE_TIMING,
+    SCORE_UA_BROWSER,
+    SCORE_UA_OS,
+    SCORE_WEBGL,
+    THRESHOLD_HIGH,
+    THRESHOLD_PROBABLE,
+    TIMING_WINDOW_MINUTES,
 )
 from .fingerprint import (
-    extract_webgl_key, extract_screen_key, extract_platform_key,
-    calculate_fingerprint_score, detect_inconsistencies,
+    calculate_fingerprint_score,
+    detect_inconsistencies,
+    extract_platform_key,
+    extract_screen_key,
+    extract_webgl_key,
 )
-from .user_agent import parse_user_agent
+from .models import SuspicionMatch
 from .scoring import get_confidence_level
 from .service import (
-    find_timing_correlation,
-    find_suspicion_for_anonymous,
     enrich_logs_with_suspicion,
+    find_suspicion_for_anonymous,
+    find_timing_correlation,
 )
+from .user_agent import parse_user_agent
 
 __all__ = [
     "SuspicionMatch",

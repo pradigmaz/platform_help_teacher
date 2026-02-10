@@ -25,6 +25,8 @@ ignore = [
     "B904",   # exception chaining - временно игнорируем
     "E741",   # ambiguous variable name - временно игнорируем
     "E402",   # module level import not at top - временно игнорируем
+    "F401",   # unused imports - часто для __init__.py
+    "SIM102", # nested if - не критично
 ]
 
 [tool.ruff.lint.isort]

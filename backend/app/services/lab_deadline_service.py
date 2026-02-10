@@ -1,18 +1,17 @@
 """Сервис для работы с продлениями дедлайнов лабораторных работ."""
 import logging
-from typing import Optional, List
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from fastapi import HTTPException
 
+from app.core import error_messages as em
+from app.models.group import Group
 from app.models.lab import Lab
 from app.models.lab_deadline_extension import LabDeadlineExtension
-from app.models.group import Group
 from app.schemas.deadline_extension import DeadlineExtensionCreate, DeadlineExtensionUpdate
-from app.core import error_messages as em
 
 logger = logging.getLogger(__name__)
 
@@ -23,26 +22,26 @@ class LabDeadlineService:
     async def get_deadline_extensions(
         self,
         db: AsyncSession,
-        lab_id: Optional[UUID] = None,
-        group_id: Optional[UUID] = None,
-        is_active: Optional[bool] = None
-    ) -> List[LabDeadlineExtension]:
+        lab_id: UUID | None = None,
+        group_id: UUID | None = None,
+        is_active: bool | None = None
+    ) -> list[LabDeadlineExtension]:
         """[LabDeadlineService:get_deadline_extensions] Получить продления дедлайнов с eager loading (решение N+1)."""
         query = select(LabDeadlineExtension).options(
             selectinload(LabDeadlineExtension.lab),
             selectinload(LabDeadlineExtension.group),
             selectinload(LabDeadlineExtension.creator)
         )
-        
+
         if lab_id:
             query = query.where(LabDeadlineExtension.lab_id == lab_id)
         if group_id:
             query = query.where(LabDeadlineExtension.group_id == group_id)
         if is_active is not None:
             query = query.where(LabDeadlineExtension.is_active == is_active)
-        
+
         query = query.order_by(LabDeadlineExtension.created_at.desc())
-        
+
         result = await db.execute(query)
         extensions = result.scalars().all()
         logger.info(f"[LabDeadlineService:get_deadline_extensions] Found {len(extensions)} extensions (lab_id={lab_id}, group_id={group_id}, is_active={is_active})")
@@ -52,7 +51,7 @@ class LabDeadlineService:
         self,
         db: AsyncSession,
         extension_id: UUID
-    ) -> Optional[LabDeadlineExtension]:
+    ) -> LabDeadlineExtension | None:
         """[LabDeadlineService:get_deadline_extension_by_id] Получить продление по ID с eager loading."""
         result = await db.execute(
             select(LabDeadlineExtension)
@@ -79,13 +78,13 @@ class LabDeadlineService:
         if not lab:
             logger.error(f"[LabDeadlineService:create_deadline_extension] Lab {ext_in.lab_id} not found")
             raise HTTPException(status_code=404, detail=em.LAB_NOT_FOUND)
-        
+
         # Проверка существования группы
         group = await db.get(Group, ext_in.group_id)
         if not group:
             logger.error(f"[LabDeadlineService:create_deadline_extension] Group {ext_in.group_id} not found")
             raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
-        
+
         # Проверка на дубликат
         existing = await db.execute(
             select(LabDeadlineExtension).where(
@@ -96,7 +95,7 @@ class LabDeadlineService:
         if existing.scalar_one_or_none():
             logger.error(f"[LabDeadlineService:create_deadline_extension] Extension already exists for lab {ext_in.lab_id} and group {ext_in.group_id}")
             raise HTTPException(status_code=400, detail="Продление уже существует для этой лабы и группы")
-        
+
         extension = LabDeadlineExtension(
             lab_id=ext_in.lab_id,
             group_id=ext_in.group_id,
@@ -108,10 +107,10 @@ class LabDeadlineService:
         db.add(extension)
         await db.commit()
         await db.refresh(extension)
-        
+
         # Eager load relationships
         await db.refresh(extension, ["lab", "group", "creator"])
-        
+
         logger.info(f"[LabDeadlineService:create_deadline_extension] Created extension for lab {lab.number} group {group.name}: +{ext_in.bonus_lessons} lessons")
         return extension
 
@@ -123,16 +122,16 @@ class LabDeadlineService:
     ) -> LabDeadlineExtension:
         """[LabDeadlineService:update_deadline_extension] Обновить продление дедлайна."""
         update_data = ext_in.model_dump(exclude_unset=True)
-        
+
         for field, value in update_data.items():
             setattr(extension, field, value)
-        
+
         await db.commit()
         await db.refresh(extension)
-        
+
         # Eager load relationships
         await db.refresh(extension, ["lab", "group", "creator"])
-        
+
         logger.info(f"[LabDeadlineService:update_deadline_extension] Updated extension {extension.id}: {update_data}")
         return extension
 

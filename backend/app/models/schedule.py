@@ -3,19 +3,20 @@
 """
 import enum
 from datetime import date
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
-from sqlalchemy import ForeignKey, Date, Enum as SAEnum, String, Integer, Boolean, Index, CheckConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Index, Integer, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from .group import Group
-    from .user import User
     from .subject import Subject
+    from .user import User
 
 
 class DayOfWeek(str, enum.Enum):
@@ -50,50 +51,50 @@ class ScheduleItem(Base, TimestampMixin):
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     group_id: Mapped[UUID] = mapped_column(
-        ForeignKey("groups.id", ondelete="CASCADE"), 
-        nullable=False, 
+        ForeignKey("groups.id", ondelete="CASCADE"),
+        nullable=False,
         index=True
     )
-    
+
     # Когда
     day_of_week: Mapped[DayOfWeek] = mapped_column(
         SAEnum(DayOfWeek, name="dayofweek", create_constraint=False, native_enum=False),
         nullable=False
     )
     lesson_number: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-8
-    
+
     # Что
     lesson_type: Mapped[LessonType] = mapped_column(
         SAEnum(LessonType, name="lessontype", create_constraint=False, native_enum=False),
         nullable=False
     )
-    subject: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Legacy string
-    subject_id: Mapped[Optional[UUID]] = mapped_column(
+    subject: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Legacy string
+    subject_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("subjects.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
-    room: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    
+    room: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     # Кто ведёт
-    teacher_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), 
+    teacher_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )
-    
+
     # Период действия
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
-    end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)  # null = бессрочно
-    
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)  # null = бессрочно
+
     # Чётность недели (null = каждую неделю)
-    week_parity: Mapped[Optional[WeekParity]] = mapped_column(
+    week_parity: Mapped[WeekParity | None] = mapped_column(
         SAEnum(WeekParity, name="weekparity", create_constraint=False, native_enum=False),
         nullable=True
     )
-    
+
     # Подгруппа (null = вся группа)
-    subgroup: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1 или 2
-    
+    subgroup: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1 или 2
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships

@@ -1,6 +1,6 @@
-from pydantic import BaseModel
-from typing import Optional
 from enum import Enum
+
+from pydantic import BaseModel
 
 
 class GradingScale(str, Enum):
@@ -20,6 +20,6 @@ class LabSettingsResponse(BaseModel):
 
 
 class LabSettingsUpdate(BaseModel):
-    labs_count: Optional[int] = None
-    grading_scale: Optional[GradingScale] = None
-    default_max_grade: Optional[int] = None
+    labs_count: int | None = None
+    grading_scale: GradingScale | None = None
+    default_max_grade: int | None = None

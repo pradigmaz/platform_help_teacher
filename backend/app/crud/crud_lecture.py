@@ -1,5 +1,4 @@
 """CRUD операции для лекций."""
-from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import select
@@ -22,7 +21,7 @@ class CRUDLecture:
         """Создать лекцию с санитизацией контента."""
         # XSS Protection: санитизируем Lexical JSON контент
         sanitized_content = sanitize_lexical_content(data.content) if data.content else {}
-        
+
         lecture = Lecture(
             title=data.title,
             content=sanitized_content,
@@ -30,7 +29,7 @@ class CRUDLecture:
         )
         db.add(lecture)
         await db.commit()
-        
+
         # Перезагружаем с eager loading для images и subject
         result = await db.execute(
             select(Lecture)
@@ -44,7 +43,7 @@ class CRUDLecture:
         db: AsyncSession,
         lecture_id: UUID,
         include_deleted: bool = False
-    ) -> Optional[Lecture]:
+    ) -> Lecture | None:
         """Получить лекцию по ID."""
         query = (
             select(Lecture)
@@ -60,7 +59,7 @@ class CRUDLecture:
         self,
         db: AsyncSession,
         public_code: str
-    ) -> Optional[Lecture]:
+    ) -> Lecture | None:
         """Получить лекцию по публичному коду."""
         result = await db.execute(
             select(Lecture)
@@ -76,18 +75,18 @@ class CRUDLecture:
         db: AsyncSession,
         skip: int = 0,
         limit: int = 100,
-        subject_id: Optional[UUID] = None,
+        subject_id: UUID | None = None,
         include_deleted: bool = False
-    ) -> List[Lecture]:
+    ) -> list[Lecture]:
         """Получить список всех лекций."""
         query = select(Lecture).options(selectinload(Lecture.subject))
-        
+
         if not include_deleted:
             query = query.where(Lecture.deleted_at.is_(None))
-        
+
         if subject_id:
             query = query.where(Lecture.subject_id == subject_id)
-        
+
         query = query.order_by(Lecture.created_at.desc()).offset(skip).limit(limit)
         result = await db.execute(query)
         return list(result.scalars().all())
@@ -108,7 +107,7 @@ class CRUDLecture:
             lecture.subject_id = data.subject_id
 
         await db.commit()
-        
+
         # Перезагружаем с eager loading для images и subject
         result = await db.execute(
             select(Lecture)

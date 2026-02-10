@@ -1,7 +1,6 @@
 """Операции записи для публичных отчётов."""
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -23,8 +22,8 @@ class ReportMutations:
         group_id: UUID,
         created_by: UUID,
         report_type: ReportType = ReportType.FULL,
-        expires_in_days: Optional[int] = None,
-        pin_code: Optional[str] = None,
+        expires_in_days: int | None = None,
+        pin_code: str | None = None,
         show_names: bool = True,
         show_grades: bool = True,
         show_attendance: bool = True,
@@ -50,7 +49,7 @@ class ReportMutations:
 
         expires_at = None
         if expires_in_days:
-            expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
+            expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
 
         pin_hash = None
         if pin_code:
@@ -82,15 +81,15 @@ class ReportMutations:
         db: AsyncSession,
         report: GroupReport,
         *,
-        expires_in_days: Optional[int] = None,
-        pin_code: Optional[str] = None,
+        expires_in_days: int | None = None,
+        pin_code: str | None = None,
         remove_pin: bool = False,
-        show_names: Optional[bool] = None,
-        show_grades: Optional[bool] = None,
-        show_attendance: Optional[bool] = None,
-        show_notes: Optional[bool] = None,
-        show_rating: Optional[bool] = None,
-        is_active: Optional[bool] = None,
+        show_names: bool | None = None,
+        show_grades: bool | None = None,
+        show_attendance: bool | None = None,
+        show_notes: bool | None = None,
+        show_rating: bool | None = None,
+        is_active: bool | None = None,
     ) -> GroupReport:
         """
         Обновить настройки отчёта.
@@ -116,7 +115,7 @@ class ReportMutations:
         # Expiration
         if expires_in_days is not None:
             if expires_in_days > 0:
-                report.expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
+                report.expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
             else:
                 report.expires_at = None  # Бессрочно
 
@@ -225,7 +224,7 @@ class ReportMutations:
             Обновлённый отчёт
         """
         report.views_count += 1
-        report.last_viewed_at = datetime.now(timezone.utc)
+        report.last_viewed_at = datetime.now(UTC)
 
         await db.commit()
         await db.refresh(report)

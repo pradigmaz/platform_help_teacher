@@ -4,11 +4,12 @@ Supports MinIO/S3 (reuses existing StorageService pattern).
 """
 import hashlib
 import logging
-from pathlib import Path
-from typing import List, Optional
-from datetime import datetime
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
 from aioboto3 import Session
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -40,16 +41,16 @@ class BackupMetadata:
     size: int
     created_at: datetime
     key: str
-    etag: Optional[str] = None
+    etag: str | None = None
 
 
 class BackupStorage:
     """Remote storage for encrypted backups."""
-    
+
     def __init__(self, bucket: str = None):
         self.bucket = bucket or settings.BACKUP_STORAGE_BUCKET
         self.endpoint = f"http://{settings.MINIO_ENDPOINT}"
-    
+
     async def _get_client(self):
         """Get S3 client context manager."""
         session = _get_session()
@@ -59,7 +60,7 @@ class BackupStorage:
             aws_access_key_id=settings.MINIO_ROOT_USER,
             aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
         )
-    
+
     async def ensure_bucket(self) -> None:
         """Create bucket if not exists."""
         async with await self._get_client() as client:
@@ -68,41 +69,41 @@ class BackupStorage:
             except Exception:
                 await client.create_bucket(Bucket=self.bucket)
                 logger.info(f"Created backup bucket: {self.bucket}")
-    
+
     async def upload(self, local_path: Path, remote_key: str, verify: bool = True) -> str:
         """
         Upload encrypted backup to remote storage.
-        
+
         Args:
             local_path: Path to local file
             remote_key: S3 key for the file
             verify: If True, verify upload integrity via ETag/MD5
-        
+
         Returns:
             remote_key on success
-            
+
         Raises:
             RuntimeError: If verification fails
         """
         await self.ensure_bucket()
-        
+
         # Compute local MD5 before upload
         local_md5 = _compute_md5(local_path) if verify else None
-        
+
         async with await self._get_client() as client:
             await client.upload_file(str(local_path), self.bucket, remote_key)
             logger.info(f"Uploaded backup: {remote_key}")
-            
+
             # Verify upload integrity
             if verify:
                 resp = await client.head_object(Bucket=self.bucket, Key=remote_key)
                 # S3 ETag for non-multipart uploads is MD5 in quotes
                 # For multipart uploads, ETag is "hash-partcount" - skip MD5 check
                 remote_etag = resp.get('ETag', '').strip('"')
-                
+
                 # Multipart ETag contains "-" (e.g., "abc123-2")
                 is_multipart = '-' in remote_etag
-                
+
                 if is_multipart:
                     # For multipart, verify by re-downloading and comparing
                     # This is expensive, so just log warning and verify size
@@ -122,16 +123,16 @@ class BackupStorage:
                     )
                 else:
                     logger.info(f"Upload verified: {remote_key} (MD5: {local_md5})")
-            
+
             return remote_key
-    
+
     async def download(self, remote_key: str, local_path: Path) -> None:
         """Download encrypted backup from remote storage."""
         async with await self._get_client() as client:
             await client.download_file(self.bucket, remote_key, str(local_path))
             logger.info(f"Downloaded backup: {remote_key}")
-    
-    async def list_backups(self) -> List[BackupMetadata]:
+
+    async def list_backups(self) -> list[BackupMetadata]:
         """List all backups in storage."""
         await self.ensure_bucket()
         backups = []
@@ -146,14 +147,14 @@ class BackupStorage:
                         key=obj['Key'],
                     ))
         return sorted(backups, key=lambda x: x.created_at, reverse=True)
-    
+
     async def delete(self, remote_key: str) -> None:
         """Delete backup from remote storage."""
         async with await self._get_client() as client:
             await client.delete_object(Bucket=self.bucket, Key=remote_key)
             logger.info(f"Deleted backup: {remote_key}")
-    
-    async def get_metadata(self, remote_key: str) -> Optional[BackupMetadata]:
+
+    async def get_metadata(self, remote_key: str) -> BackupMetadata | None:
         """Get single backup metadata."""
         async with await self._get_client() as client:
             try:
@@ -168,7 +169,7 @@ class BackupStorage:
                 return None
 
     # ========== SYNC METHODS FOR CELERY ==========
-    
+
     def _get_sync_client(self):
         """Get synchronous boto3 client."""
         import boto3
@@ -178,7 +179,7 @@ class BackupStorage:
             aws_access_key_id=settings.MINIO_ROOT_USER,
             aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
         )
-    
+
     def ensure_bucket_sync(self) -> None:
         """Create bucket if not exists (sync)."""
         client = self._get_sync_client()
@@ -187,7 +188,7 @@ class BackupStorage:
         except Exception:
             client.create_bucket(Bucket=self.bucket)
             logger.info(f"Created backup bucket: {self.bucket}")
-    
+
     def upload_sync(self, local_path: Path, remote_key: str) -> str:
         """Upload backup (sync version for Celery)."""
         self.ensure_bucket_sync()
@@ -195,13 +196,13 @@ class BackupStorage:
         client.upload_file(str(local_path), self.bucket, remote_key)
         logger.info(f"Uploaded backup: {remote_key}")
         return remote_key
-    
-    def list_backups_sync(self) -> List[BackupMetadata]:
+
+    def list_backups_sync(self) -> list[BackupMetadata]:
         """List all backups (sync version for Celery)."""
         self.ensure_bucket_sync()
         client = self._get_sync_client()
         backups = []
-        
+
         paginator = client.get_paginator('list_objects_v2')
         for page in paginator.paginate(Bucket=self.bucket):
             for obj in page.get('Contents', []):
@@ -212,7 +213,7 @@ class BackupStorage:
                     key=obj['Key'],
                 ))
         return sorted(backups, key=lambda x: x.created_at, reverse=True)
-    
+
     def delete_sync(self, remote_key: str) -> None:
         """Delete backup (sync version for Celery)."""
         client = self._get_sync_client()

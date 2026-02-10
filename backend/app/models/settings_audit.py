@@ -2,11 +2,11 @@
 Модель аудита изменений настроек.
 Логирует все изменения настроек аттестации.
 """
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any, Optional
 from uuid import UUID, uuid4
-from typing import Optional, Dict, Any
 
-from sqlalchemy import String, ForeignKey, Text, DateTime
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,29 +16,29 @@ from .base import Base
 class SettingsAuditLog(Base):
     """
     Лог изменений настроек аттестации.
-    
+
     Хранит историю всех изменений для audit trail.
     """
     __tablename__ = "settings_audit_log"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    
+
     # Тип настроек (attestation, etc.)
     settings_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    
+
     # Тип аттестации (first/second) или другой идентификатор
     settings_key: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    
+
     # Действие (create, update, delete)
     action: Mapped[str] = mapped_column(String(20), nullable=False)
-    
+
     # Старые и новые значения
-    old_values: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
-    new_values: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    
+    old_values: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    new_values: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
     # Изменённые поля
-    changed_fields: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
-    
+    changed_fields: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+
     # Кто изменил
     changed_by_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -49,17 +49,17 @@ class SettingsAuditLog(Base):
         foreign_keys=[changed_by_id],
         lazy="selectin"
     )
-    
+
     # IP адрес
-    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
-    
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+
     # Время изменения
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         nullable=False,
         index=True
     )
-    
+
     # Комментарий (опционально)
-    comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)

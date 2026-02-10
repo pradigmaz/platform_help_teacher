@@ -1,16 +1,19 @@
-from sqlalchemy import Text, BigInteger, ForeignKey, Boolean, Enum as SAEnum, CheckConstraint, Index, Integer
+import enum
+from typing import TYPE_CHECKING, Optional
+from uuid import UUID, uuid4
+
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, ForeignKey, Index, Integer, Text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from uuid import UUID, uuid4
-from typing import Optional, TYPE_CHECKING
-import enum
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from .group import Group
+    from .schedule_parser_config import ScheduleParserConfig
     from .submission import Submission
     from .work_submission import WorkSubmission
-    from .schedule_parser_config import ScheduleParserConfig
 
 # Enum для ролей - никаких хардкодных строк "admin" в коде!
 class UserRole(str, enum.Enum):
@@ -29,25 +32,25 @@ class User(Base, TimestampMixin):
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    telegram_id: Mapped[Optional[int]] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
-    vk_id: Mapped[Optional[int]] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
-    group_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("groups.id"), nullable=True, index=True)
-    
+    telegram_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
+    vk_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
+    group_id: Mapped[UUID | None] = mapped_column(ForeignKey("groups.id"), nullable=True, index=True)
+
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
-    username: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    
+    username: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Используем Enum в БД
     role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), default=UserRole.STUDENT)
-    
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    invite_code: Mapped[Optional[str]] = mapped_column(Text, unique=True, nullable=True, index=True)
-    
+    invite_code: Mapped[str | None] = mapped_column(Text, unique=True, nullable=True, index=True)
+
     # Подгруппа (1 или 2, null = не разделён)
-    subgroup: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    
+    subgroup: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Onboarding завершён (ФИО введено + аттестация настроена)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
-    
+
     # Контакты преподавателя (только для TEACHER/ADMIN)
     contacts: Mapped[dict] = mapped_column(
         JSONB,
@@ -55,7 +58,7 @@ class User(Base, TimestampMixin):
         default=dict,
         server_default='{}'
     )
-    
+
     # Настройки видимости контактов
     contact_visibility: Mapped[dict] = mapped_column(
         JSONB,
@@ -63,7 +66,7 @@ class User(Base, TimestampMixin):
         default=dict,
         server_default='{}'
     )
-    
+
     # Настройки преподавателя (только для TEACHER/ADMIN)
     # hide_previous_semester: bool - скрывать прошлый семестр от студентов
     teacher_settings: Mapped[dict] = mapped_column(

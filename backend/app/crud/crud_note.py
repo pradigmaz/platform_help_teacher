@@ -1,25 +1,24 @@
 """CRUD операции для заметок."""
-from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.note import Note, EntityType, NoteColor
+from app.models.note import Note, NoteColor
 
 
 class CRUDNote:
-    async def get(self, db: AsyncSession, note_id: UUID) -> Optional[Note]:
+    async def get(self, db: AsyncSession, note_id: UUID) -> Note | None:
         """Получить заметку по ID."""
         result = await db.execute(select(Note).where(Note.id == note_id))
         return result.scalar_one_or_none()
 
     async def get_by_entity(
-        self, 
-        db: AsyncSession, 
-        entity_type: str, 
+        self,
+        db: AsyncSession,
+        entity_type: str,
         entity_id: UUID
-    ) -> List[Note]:
+    ) -> list[Note]:
         """Получить все заметки для сущности."""
         result = await db.execute(
             select(Note)
@@ -39,7 +38,7 @@ class CRUDNote:
         content: str,
         color: str = NoteColor.DEFAULT.value,
         is_pinned: bool = False,
-        author_id: Optional[UUID] = None
+        author_id: UUID | None = None
     ) -> Note:
         """Создать заметку."""
         note = Note(
@@ -59,9 +58,9 @@ class CRUDNote:
         self,
         db: AsyncSession,
         note: Note,
-        content: Optional[str] = None,
-        color: Optional[str] = None,
-        is_pinned: Optional[bool] = None
+        content: str | None = None,
+        color: str | None = None,
+        is_pinned: bool | None = None
     ) -> Note:
         """Обновить заметку."""
         if content is not None:
@@ -70,7 +69,7 @@ class CRUDNote:
             note.color = color
         if is_pinned is not None:
             note.is_pinned = is_pinned
-        
+
         await db.commit()
         await db.refresh(note)
         return note
@@ -85,9 +84,9 @@ class CRUDNote:
         return False
 
     async def delete_by_entity(
-        self, 
-        db: AsyncSession, 
-        entity_type: str, 
+        self,
+        db: AsyncSession,
+        entity_type: str,
         entity_id: UUID
     ) -> int:
         """Удалить все заметки для сущности."""

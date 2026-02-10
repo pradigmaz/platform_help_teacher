@@ -1,12 +1,12 @@
 """
 Модель оценки за занятие (лабу/практику).
 """
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
-from sqlalchemy import ForeignKey, String, Integer, UniqueConstraint, Index, CheckConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 # Константы для валидации оценок
 MIN_GRADE = 2
@@ -22,38 +22,38 @@ if TYPE_CHECKING:
 class LessonGrade(Base, TimestampMixin):
     """
     Оценка за занятие (лабу/практику).
-    
+
     Отдельно от Work/WorkSubmission, т.к. это оценки за обычные лабы/практики,
     а не за "большие" работы (курсовые, контрольные).
-    
+
     work_number может отличаться от lesson.work_number - студент может сдать
     другую работу (долг) на текущем занятии.
     """
     __tablename__ = "lesson_grades"
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    
+
     lesson_id: Mapped[UUID] = mapped_column(
         ForeignKey("lessons.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
-    
+
     student_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
-    
+
     # Какую работу сдаёт (может != lesson.work_number для долгов)
-    work_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    
+    work_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Оценка 2-5
     grade: Mapped[int] = mapped_column(Integer, nullable=False)
-    
-    comment: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    
-    created_by: Mapped[Optional[UUID]] = mapped_column(
+
+    comment: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    created_by: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )
@@ -64,10 +64,10 @@ class LessonGrade(Base, TimestampMixin):
     creator: Mapped[Optional["User"]] = relationship(foreign_keys=[created_by])
 
     __table_args__ = (
-        UniqueConstraint('lesson_id', 'student_id', 'work_number', 
+        UniqueConstraint('lesson_id', 'student_id', 'work_number',
                         name='uq_lesson_grade_student_lesson_work'),
         Index('idx_lesson_grades_lesson_student', 'lesson_id', 'student_id'),
         Index('idx_lesson_grades_work_number', 'work_number'),
-        CheckConstraint(f'grade >= {MIN_GRADE} AND grade <= {MAX_GRADE}', 
+        CheckConstraint(f'grade >= {MIN_GRADE} AND grade <= {MAX_GRADE}',
                        name='ck_lesson_grade_range'),
     )

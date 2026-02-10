@@ -1,8 +1,10 @@
-from typing import Optional, Literal
-from uuid import UUID
 import unicodedata
+from typing import Literal
+from uuid import UUID
+
 from pydantic import BaseModel, Field, field_validator
-from app.models import UserRole # Импортируем Enum из моделей
+
+from app.models import UserRole  # Импортируем Enum из моделей
 
 # Teacher contacts types
 ContactVisibility = Literal["student", "report", "both", "none"]
@@ -15,7 +17,7 @@ def validate_full_name(name: str) -> str:
         raise ValueError("ФИО должно содержать минимум 2 символа")
     if len(name) > 200:
         raise ValueError("ФИО не должно превышать 200 символов")
-    
+
     # Проверяем каждый символ
     for char in name:
         if char in " -'":
@@ -23,39 +25,39 @@ def validate_full_name(name: str) -> str:
         category = unicodedata.category(char)
         if category not in ("Lu", "Ll", "Lt", "Lm", "Lo"):  # Letter categories
             raise ValueError("ФИО может содержать только буквы, пробелы и дефисы")
-    
+
     return name
 
 class UserCreate(BaseModel):
-    telegram_id: Optional[int] = None
-    vk_id: Optional[int] = None
+    telegram_id: int | None = None
+    vk_id: int | None = None
     full_name: str
-    username: Optional[str] = None
+    username: str | None = None
     role: UserRole = UserRole.STUDENT
-    group_code: Optional[str] = None
+    group_code: str | None = None
 
 class UserResponse(BaseModel):
     id: UUID
-    telegram_id: Optional[int] = None
-    vk_id: Optional[int] = None
+    telegram_id: int | None = None
+    vk_id: int | None = None
     full_name: str
-    username: Optional[str]
+    username: str | None
     role: UserRole
-    group_id: Optional[UUID]
+    group_id: UUID | None
     is_active: bool
-    invite_code: Optional[str] = None
+    invite_code: str | None = None
     onboarding_completed: bool = False
 
     class Config:
         from_attributes = True
 
 class UserUpdate(BaseModel):
-    full_name: Optional[str] = Field(None, min_length=2, max_length=200)
-    onboarding_completed: Optional[bool] = None
-    
+    full_name: str | None = Field(None, min_length=2, max_length=200)
+    onboarding_completed: bool | None = None
+
     @field_validator("full_name")
     @classmethod
-    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+    def validate_name(cls, v: str | None) -> str | None:
         if v is None:
             return v
         return validate_full_name(v)
@@ -64,8 +66,8 @@ class StudentInGroup(BaseModel):
     """Студент в контексте группы"""
     id: UUID
     full_name: str
-    username: Optional[str] = None
-    invite_code: Optional[str] = None
+    username: str | None = None
+    invite_code: str | None = None
     is_active: bool = True
 
     class Config:
@@ -76,9 +78,9 @@ class StudentInGroup(BaseModel):
 
 class TeacherContacts(BaseModel):
     """Контактные данные преподавателя (только мессенджеры)."""
-    telegram: Optional[str] = Field(None, max_length=100)
-    vk: Optional[str] = Field(None, max_length=100)
-    max: Optional[str] = Field(None, max_length=100)
+    telegram: str | None = Field(None, max_length=100)
+    vk: str | None = Field(None, max_length=100)
+    max: str | None = Field(None, max_length=100)
 
 
 class ContactVisibilitySettings(BaseModel):
@@ -102,10 +104,10 @@ class TeacherContactsResponse(BaseModel):
 
 class PublicTeacherContacts(BaseModel):
     """Контакты для публичного отображения (отфильтрованные)."""
-    telegram: Optional[str] = None
-    vk: Optional[str] = None
-    max: Optional[str] = None
-    teacher_name: Optional[str] = None
+    telegram: str | None = None
+    vk: str | None = None
+    max: str | None = None
+    teacher_name: str | None = None
 
 
 # ============ Relink Telegram Schemas ============

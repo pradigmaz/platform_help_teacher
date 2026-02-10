@@ -4,11 +4,13 @@ from typing import Literal
 
 from app.core.config import settings
 from app.core.time_constants import (
-    RELINK_TTL_SECONDS,
+    CODE_ATTEMPTS_WINDOW_SECONDS,
     FSM_TTL_SECONDS,
     OTP_TTL_SECONDS,
+    RELINK_TTL_SECONDS,
+)
+from app.core.time_constants import (
     CODE_LOCKOUT_SECONDS as CODE_LOCKOUT_TIME,
-    CODE_ATTEMPTS_WINDOW_SECONDS,
 )
 
 Platform = Literal["telegram", "vk"]

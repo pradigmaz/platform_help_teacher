@@ -2,15 +2,13 @@
 Сервис аудита — асинхронная и синхронная запись в БД.
 """
 import logging
-from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.db.session import AsyncSessionLocal
+
+from .constants import SECURITY_CRITICAL_ACTIONS
 from .models import StudentAuditLog
 from .schemas import AuditContext, AuditLogCreate
-from .constants import SECURITY_CRITICAL_ACTIONS
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +18,9 @@ audit_fallback_logger = logging.getLogger("audit.fallback")
 
 class AuditService:
     """Сервис для записи аудит-логов."""
-    
+
     MAX_RETRIES = 3
-    
+
     async def write_log(self, context: AuditContext) -> None:
         """
         Асинхронная запись лога в БД.
@@ -37,14 +35,14 @@ class AuditService:
             # Тихо логируем ошибку, не ломаем основной flow
             logger.error(f"Audit write failed: {e}", exc_info=True)
             self._write_fallback(context, str(e))
-    
+
     async def write_log_sync(self, context: AuditContext) -> bool:
         """
         Синхронная запись с retry для security-critical событий.
         Returns True если запись успешна.
         """
         last_error = None
-        
+
         for attempt in range(self.MAX_RETRIES):
             try:
                 async with AsyncSessionLocal() as db:
@@ -57,12 +55,12 @@ class AuditService:
                 logger.warning(
                     f"Audit sync write attempt {attempt + 1}/{self.MAX_RETRIES} failed: {e}"
                 )
-        
+
         # Все попытки исчерпаны — пишем в fallback
         logger.error(f"Audit sync write failed after {self.MAX_RETRIES} attempts: {last_error}")
         self._write_fallback(context, str(last_error))
         return False
-    
+
     def _create_log_entry(self, context: AuditContext) -> StudentAuditLog:
         """Создать объект записи лога."""
         return StudentAuditLog(
@@ -86,7 +84,7 @@ class AuditService:
             fingerprint=context.fingerprint,
             extra_data=context.extra_data,
         )
-    
+
     def _write_fallback(self, context: AuditContext, error: str) -> None:
         """Записать в fallback лог при ошибке БД."""
         audit_fallback_logger.error(
@@ -94,7 +92,7 @@ class AuditService:
             f"user_id={context.user_id} | ip={context.ip_address} | "
             f"path={context.path} | error={error}"
         )
-    
+
     async def write_from_schema(self, data: AuditLogCreate) -> None:
         """Запись из Pydantic схемы."""
         context = AuditContext(
@@ -102,14 +100,14 @@ class AuditService:
             **data.model_dump()
         )
         await self.write_log(context)
-    
+
     def is_security_critical(self, action_type: str) -> bool:
         """Проверить, является ли действие security-critical."""
         return action_type in SECURITY_CRITICAL_ACTIONS
 
 
 # Singleton instance
-_audit_service: Optional[AuditService] = None
+_audit_service: AuditService | None = None
 
 
 def get_audit_service() -> AuditService:

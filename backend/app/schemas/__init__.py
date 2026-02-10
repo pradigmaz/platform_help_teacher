@@ -1,47 +1,86 @@
-from .user import UserCreate, UserResponse, StudentInGroup, UserUpdate, TeacherContactsUpdate, TeacherContactsResponse, TeacherContacts
-from .group import GroupCreate, GroupResponse, StudentImport, GroupDetailResponse, StudentInGroupResponse, StudentUpdate, AssignSubgroupRequest, AssignSubgroupResponse, ClearSubgroupsResponse
-from .lab_settings import LabSettingsResponse, LabSettingsUpdate, GradingScale
+from .activity import ActivityCreate, ActivityResponse, ActivityUpdate
+from .admin import DeleteResponse, StatsResponse
+from .attendance import (
+    AttendanceCreate,
+    AttendanceResponse,
+    AttendanceStatsResponse,
+    AttendanceStatusSchema,
+    AttendanceUpdate,
+    BulkAttendanceCreate,
+    BulkAttendanceItem,
+    BulkAttendanceResponse,
+)
 from .attestation import (
-    AttestationType,
-    AttestationSettingsBase,
-    AttestationSettingsCreate,
-    AttestationSettingsUpdate,
-    AttestationSettingsResponse,
-    ComponentBreakdown,
     AttestationResult,
     AttestationResultResponse,
+    AttestationSettingsBase,
+    AttestationSettingsCreate,
+    AttestationSettingsResponse,
+    AttestationSettingsUpdate,
+    AttestationType,
+    ComponentBreakdown,
     GroupAttestationResponse,
 )
-from .attendance import (
-    AttendanceStatusSchema,
-    AttendanceCreate,
-    AttendanceUpdate,
-    AttendanceResponse,
-    BulkAttendanceItem,
-    BulkAttendanceCreate,
-    BulkAttendanceResponse,
-    AttendanceStatsResponse,
+from .group import (
+    AssignSubgroupRequest,
+    AssignSubgroupResponse,
+    ClearSubgroupsResponse,
+    GroupCreate,
+    GroupDetailResponse,
+    GroupResponse,
+    StudentImport,
+    StudentInGroupResponse,
+    StudentUpdate,
 )
-from .student import StudentLabSubmission, StudentStats, StudentProfileOut
-from .admin import StatsResponse, DeleteResponse
-from .activity import ActivityCreate, ActivityUpdate, ActivityResponse
-from .schedule import (
-    ScheduleItemCreate, ScheduleItemUpdate, ScheduleItemResponse,
-    LessonCreate, LessonUpdate, LessonResponse,
-    GenerateLessonsRequest, GenerateLessonsResponse,
-)
+from .lab_settings import GradingScale, LabSettingsResponse, LabSettingsUpdate
 from .lecture import (
-    LectureCreate, LectureUpdate, LectureResponse,
-    LectureListResponse, LectureImageResponse, PublicLinkResponse,
+    LectureCreate,
+    LectureImageResponse,
+    LectureListResponse,
+    LectureResponse,
+    LectureUpdate,
+    PublicLinkResponse,
 )
 from .report import (
+    ActivityRecord,
+    AttendanceDistribution,
+    AttendanceRecord,
+    ExportResponse,
+    LabProgress,
+    LabSubmission,
+    PinVerifyRequest,
+    PinVerifyResponse,
+    PublicReportData,
+    PublicStudentData,
+    ReportCreate,
+    ReportListResponse,
+    ReportResponse,
     ReportType,
-    ReportCreate, ReportUpdate, ReportResponse, ReportListResponse,
-    PublicReportData, PublicStudentData, StudentDetailData,
-    AttendanceDistribution, LabProgress,
-    AttendanceRecord, LabSubmission, ActivityRecord,
-    PinVerifyRequest, PinVerifyResponse,
-    ExportResponse, ReportViewStats, ReportViewRecord, ReportViewsResponse,
+    ReportUpdate,
+    ReportViewRecord,
+    ReportViewsResponse,
+    ReportViewStats,
+    StudentDetailData,
+)
+from .schedule import (
+    GenerateLessonsRequest,
+    GenerateLessonsResponse,
+    LessonCreate,
+    LessonResponse,
+    LessonUpdate,
+    ScheduleItemCreate,
+    ScheduleItemResponse,
+    ScheduleItemUpdate,
+)
+from .student import StudentLabSubmission, StudentProfileOut, StudentStats
+from .user import (
+    StudentInGroup,
+    TeacherContacts,
+    TeacherContactsResponse,
+    TeacherContactsUpdate,
+    UserCreate,
+    UserResponse,
+    UserUpdate,
 )
 
 __all__ = [

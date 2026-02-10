@@ -1,10 +1,9 @@
 """Расчёт видимости и дедлайнов лаб по расписанию."""
 import logging
 from datetime import date
-from typing import Optional, List, Dict, Tuple
 from uuid import UUID
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lesson import Lesson
@@ -14,7 +13,7 @@ from app.services.lab_visibility.models import LabVisibilityInfo
 logger = logging.getLogger(__name__)
 
 
-def _build_subgroup_filter(subgroup: Optional[int]) -> list:
+def _build_subgroup_filter(subgroup: int | None) -> list:
     """
     Построить фильтр по подгруппе.
 
@@ -24,20 +23,20 @@ def _build_subgroup_filter(subgroup: Optional[int]) -> list:
     - Студент без подгруппы видит ВСЕ занятия (и общие, и по подгруппам)
     """
     if subgroup is not None:
-        return [(Lesson.subgroup == None) | (Lesson.subgroup == subgroup)]
+        return [(Lesson.subgroup is None) | (Lesson.subgroup == subgroup)]
     return []
 
 
 def _build_base_filter(
     group_id: UUID,
-    subgroup: Optional[int],
-    subject_id: Optional[UUID] = None
+    subgroup: int | None,
+    subject_id: UUID | None = None
 ) -> list:
     """Построить базовый фильтр для запросов к занятиям."""
     base_filter = [
         Lesson.group_id == group_id,
         Lesson.lesson_type == LessonType.LAB,
-        Lesson.is_cancelled == False,
+        not Lesson.is_cancelled,
     ]
     base_filter.extend(_build_subgroup_filter(subgroup))
     if subject_id:
@@ -47,10 +46,10 @@ def _build_base_filter(
 
 def _calculate_deadline_status(
     labs_after: int,
-    effective_deadline: Optional[int],
+    effective_deadline: int | None,
     visible_from: date,
     today: date
-) -> Tuple[Optional[str], Optional[int]]:
+) -> tuple[str | None, int | None]:
     """
     Рассчитать статус дедлайна и оставшиеся пары.
 
@@ -70,15 +69,15 @@ def _calculate_deadline_status(
 
 async def calculate_visibility_for_subject(
     db: AsyncSession,
-    lab_numbers: List[int],
+    lab_numbers: list[int],
     group_id: UUID,
-    subgroup: Optional[int],
-    labs_deadlines: Dict[int, tuple],
-    subject_id: Optional[UUID],
+    subgroup: int | None,
+    labs_deadlines: dict[int, tuple],
+    subject_id: UUID | None,
     today: date,
-    labs_ids: Optional[Dict[int, UUID]] = None,
-    extensions_map: Optional[Dict[UUID, int]] = None
-) -> Dict[int, LabVisibilityInfo]:
+    labs_ids: dict[int, UUID] | None = None,
+    extensions_map: dict[UUID, int] | None = None
+) -> dict[int, LabVisibilityInfo]:
     """Получить visibility для лаб одного предмета."""
     labs_ids = labs_ids or {}
     extensions_map = extensions_map or {}
@@ -102,7 +101,7 @@ async def calculate_visibility_for_subject(
         Lesson.work_number,
         func.min(Lesson.date).label('first_date')
     ).where(
-        and_(*base_filter, Lesson.work_number != None, Lesson.date <= today)
+        and_(*base_filter, Lesson.work_number is not None, Lesson.date <= today)
     ).group_by(Lesson.work_number).order_by(func.min(Lesson.date))
 
     all_labs_result = await db.execute(all_labs_query)
@@ -126,11 +125,11 @@ async def calculate_visibility_for_subject(
 
 def _calculate_single_lab_visibility(
     lab_number: int,
-    lab_dates: Dict[int, Tuple[date, date]],
-    all_labs_ordered: List[Tuple[int, date]],
-    labs_deadlines: Dict[int, tuple],
-    labs_ids: Dict[int, UUID],
-    extensions_map: Dict[UUID, int],
+    lab_dates: dict[int, tuple[date, date]],
+    all_labs_ordered: list[tuple[int, date]],
+    labs_deadlines: dict[int, tuple],
+    labs_ids: dict[int, UUID],
+    extensions_map: dict[UUID, int],
     today: date
 ) -> LabVisibilityInfo:
     """Рассчитать видимость и дедлайны для одной лабы."""

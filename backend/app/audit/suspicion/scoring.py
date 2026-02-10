@@ -1,5 +1,5 @@
 """Scoring utilities для suspicion detection."""
-from .constants import THRESHOLD_PROBABLE, THRESHOLD_HIGH
+from .constants import THRESHOLD_HIGH, THRESHOLD_PROBABLE
 
 
 def get_confidence_level(score: int) -> str:

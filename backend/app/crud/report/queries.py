@@ -1,7 +1,6 @@
 """Запросы на чтение для публичных отчётов."""
 import logging
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -19,7 +18,7 @@ class ReportQueries:
         self,
         db: AsyncSession,
         report_id: UUID
-    ) -> Optional[GroupReport]:
+    ) -> GroupReport | None:
         """
         Получить отчёт по ID.
 
@@ -42,7 +41,7 @@ class ReportQueries:
         *,
         check_active: bool = True,
         check_expiry: bool = True
-    ) -> Optional[GroupReport]:
+    ) -> GroupReport | None:
         """
         Получить отчёт по уникальному коду.
 
@@ -58,7 +57,7 @@ class ReportQueries:
         query = select(GroupReport).where(GroupReport.code == code)
 
         if check_active:
-            query = query.where(GroupReport.is_active == True)
+            query = query.where(GroupReport.is_active)
 
         result = await db.execute(query)
         report = result.scalar_one_or_none()
@@ -66,10 +65,9 @@ class ReportQueries:
         if report is None:
             return None
 
-        if check_expiry and report.expires_at:
-            if datetime.now(timezone.utc) > report.expires_at:
-                logger.info(f"Report {code} has expired")
-                return None
+        if check_expiry and report.expires_at and datetime.now(UTC) > report.expires_at:
+            logger.info(f"Report {code} has expired")
+            return None
 
         return report
 
@@ -79,7 +77,7 @@ class ReportQueries:
         teacher_id: UUID,
         *,
         include_inactive: bool = False
-    ) -> List[GroupReport]:
+    ) -> list[GroupReport]:
         """
         Получить все отчёты преподавателя.
 
@@ -94,7 +92,7 @@ class ReportQueries:
         query = select(GroupReport).where(GroupReport.created_by == teacher_id)
 
         if not include_inactive:
-            query = query.where(GroupReport.is_active == True)
+            query = query.where(GroupReport.is_active)
 
         query = query.order_by(GroupReport.created_at.desc())
 
@@ -107,7 +105,7 @@ class ReportQueries:
         group_id: UUID,
         *,
         include_inactive: bool = False
-    ) -> List[GroupReport]:
+    ) -> list[GroupReport]:
         """
         Получить все отчёты для группы.
 
@@ -122,7 +120,7 @@ class ReportQueries:
         query = select(GroupReport).where(GroupReport.group_id == group_id)
 
         if not include_inactive:
-            query = query.where(GroupReport.is_active == True)
+            query = query.where(GroupReport.is_active)
 
         query = query.order_by(GroupReport.created_at.desc())
 

@@ -2,10 +2,9 @@
 CRUD операции для оценок за занятия.
 """
 import logging
-from typing import Optional, List
 from uuid import UUID
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -19,9 +18,9 @@ async def create_lesson_grade(
     lesson_id: UUID,
     student_id: UUID,
     grade: int,
-    work_number: Optional[int] = None,
-    comment: Optional[str] = None,
-    created_by: Optional[UUID] = None
+    work_number: int | None = None,
+    comment: str | None = None,
+    created_by: UUID | None = None
 ) -> LessonGrade:
     """Создать оценку за занятие."""
     lesson_grade = LessonGrade(
@@ -42,7 +41,7 @@ async def create_lesson_grade(
 async def get_lesson_grade(
     db: AsyncSession,
     grade_id: UUID
-) -> Optional[LessonGrade]:
+) -> LessonGrade | None:
     """Получить оценку по ID."""
     result = await db.execute(
         select(LessonGrade).where(LessonGrade.id == grade_id)
@@ -53,7 +52,7 @@ async def get_lesson_grade(
 async def get_lesson_grades_by_lesson(
     db: AsyncSession,
     lesson_id: UUID
-) -> List[LessonGrade]:
+) -> list[LessonGrade]:
     """Получить все оценки за занятие."""
     result = await db.execute(
         select(LessonGrade)
@@ -66,8 +65,8 @@ async def get_lesson_grades_by_lesson(
 async def get_lesson_grades_by_student(
     db: AsyncSession,
     student_id: UUID,
-    lesson_ids: Optional[List[UUID]] = None
-) -> List[LessonGrade]:
+    lesson_ids: list[UUID] | None = None
+) -> list[LessonGrade]:
     """Получить оценки студента (опционально по списку занятий)."""
     query = select(LessonGrade).where(LessonGrade.student_id == student_id)
     if lesson_ids:
@@ -80,8 +79,8 @@ async def get_student_lesson_grade(
     db: AsyncSession,
     lesson_id: UUID,
     student_id: UUID,
-    work_number: Optional[int] = None
-) -> Optional[LessonGrade]:
+    work_number: int | None = None
+) -> LessonGrade | None:
     """Получить оценку студента за конкретное занятие и работу."""
     conditions = [
         LessonGrade.lesson_id == lesson_id,
@@ -91,7 +90,7 @@ async def get_student_lesson_grade(
         conditions.append(LessonGrade.work_number == work_number)
     else:
         conditions.append(LessonGrade.work_number.is_(None))
-    
+
     result = await db.execute(
         select(LessonGrade).where(and_(*conditions))
     )
@@ -102,14 +101,14 @@ async def get_student_grade_by_work(
     db: AsyncSession,
     student_id: UUID,
     work_number: int,
-    group_id: Optional[UUID] = None
-) -> Optional[LessonGrade]:
+    group_id: UUID | None = None
+) -> LessonGrade | None:
     """
     Получить оценку студента за работу (независимо от занятия).
     Используется для проверки: уже есть оценка за эту лабу?
     """
     from app.models.lesson import Lesson
-    
+
     query = (
         select(LessonGrade)
         .join(Lesson, LessonGrade.lesson_id == Lesson.id)
@@ -120,7 +119,7 @@ async def get_student_grade_by_work(
     )
     if group_id:
         query = query.where(Lesson.group_id == group_id)
-    
+
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
@@ -128,22 +127,22 @@ async def get_student_grade_by_work(
 async def update_lesson_grade(
     db: AsyncSession,
     grade_id: UUID,
-    grade: Optional[int] = None,
-    work_number: Optional[int] = None,
-    comment: Optional[str] = None
-) -> Optional[LessonGrade]:
+    grade: int | None = None,
+    work_number: int | None = None,
+    comment: str | None = None
+) -> LessonGrade | None:
     """Обновить оценку."""
     lesson_grade = await get_lesson_grade(db, grade_id)
     if not lesson_grade:
         return None
-    
+
     if grade is not None:
         lesson_grade.grade = grade
     if work_number is not None:
         lesson_grade.work_number = work_number
     if comment is not None:
         lesson_grade.comment = comment
-    
+
     await db.commit()
     await db.refresh(lesson_grade)
     logger.info(f"Updated lesson grade: {grade_id}")
@@ -158,7 +157,7 @@ async def delete_lesson_grade(
     lesson_grade = await get_lesson_grade(db, grade_id)
     if not lesson_grade:
         return False
-    
+
     await db.delete(lesson_grade)
     await db.commit()
     logger.info(f"Deleted lesson grade: {grade_id}")
@@ -170,21 +169,21 @@ async def upsert_lesson_grade(
     lesson_id: UUID,
     student_id: UUID,
     grade: int,
-    work_number: Optional[int] = None,
-    comment: Optional[str] = None,
-    created_by: Optional[UUID] = None,
-    group_id: Optional[UUID] = None
+    work_number: int | None = None,
+    comment: str | None = None,
+    created_by: UUID | None = None,
+    group_id: UUID | None = None
 ) -> LessonGrade:
     """
     Создать или обновить оценку (атомарно через ON CONFLICT).
-    
+
     Логика:
     1. Если work_number указан — ищем существующую оценку за эту лабу (любое занятие в группе)
     2. Если найдена — обновляем (перемещаем на новое занятие)
     3. Если нет — используем INSERT ON CONFLICT для атомарного upsert
     """
     from sqlalchemy.dialects.postgresql import insert as pg_insert
-    
+
     # Если work_number указан, сначала проверяем есть ли оценка за эту работу
     # на ДРУГОМ занятии (чтобы переместить её)
     if work_number is not None:
@@ -199,7 +198,7 @@ async def upsert_lesson_grade(
             await db.refresh(existing)
             logger.info(f"Moved lesson grade: student={student_id}, work={work_number}, grade={grade}")
             return existing
-    
+
     # Атомарный upsert через ON CONFLICT
     stmt = pg_insert(LessonGrade).values(
         lesson_id=lesson_id,
@@ -209,7 +208,7 @@ async def upsert_lesson_grade(
         comment=comment,
         created_by=created_by
     )
-    
+
     # ON CONFLICT — обновляем если запись уже есть
     # Используем constraint name для точного матчинга
     stmt = stmt.on_conflict_do_update(
@@ -219,10 +218,10 @@ async def upsert_lesson_grade(
             'comment': stmt.excluded.comment,
         }
     )
-    
-    result = await db.execute(stmt)
+
+    await db.execute(stmt)
     await db.commit()
-    
+
     # Получаем созданную/обновлённую запись
     lesson_grade = await get_student_lesson_grade(db, lesson_id, student_id, work_number)
     logger.info(f"Upserted lesson grade: student={student_id}, work={work_number}, grade={grade}")
@@ -232,22 +231,22 @@ async def upsert_lesson_grade(
 async def bulk_upsert_lesson_grades(
     db: AsyncSession,
     lesson_id: UUID,
-    grades_data: List[dict],
-    created_by: Optional[UUID] = None
-) -> List[LessonGrade]:
+    grades_data: list[dict],
+    created_by: UUID | None = None
+) -> list[LessonGrade]:
     """
     Bulk upsert оценок за занятие.
     Один запрос на загрузку существующих + один commit.
-    
+
     Args:
         grades_data: [{"student_id": UUID, "grade": int, "work_number": int|None, "comment": str|None}, ...]
     """
     if not grades_data:
         return []
-    
+
     # Собираем ключи для поиска существующих
     student_ids = [g["student_id"] for g in grades_data]
-    
+
     # Загружаем все существующие оценки одним запросом
     existing_query = select(LessonGrade).where(and_(
         LessonGrade.lesson_id == lesson_id,
@@ -255,18 +254,18 @@ async def bulk_upsert_lesson_grades(
     ))
     result = await db.execute(existing_query)
     existing_grades = list(result.scalars().all())
-    
+
     # Индексируем: (student_id, work_number) -> grade
     existing_map = {}
     for g in existing_grades:
         key = (g.student_id, g.work_number)
         existing_map[key] = g
-    
+
     updated = []
     for data in grades_data:
         key = (data["student_id"], data.get("work_number"))
         existing = existing_map.get(key)
-        
+
         if existing:
             existing.grade = data["grade"]
             if data.get("comment") is not None:
@@ -283,12 +282,12 @@ async def bulk_upsert_lesson_grades(
             )
             db.add(new_grade)
             updated.append(new_grade)
-    
+
     await db.commit()
-    
+
     # Refresh all
     for g in updated:
         await db.refresh(g)
-    
+
     logger.info(f"Bulk upserted {len(updated)} grades for lesson {lesson_id}")
     return updated

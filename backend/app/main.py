@@ -1,34 +1,34 @@
 import logging
-from contextlib import asynccontextmanager
+import os
+from contextlib import asynccontextmanager, suppress
+from logging.handlers import RotatingFileHandler
+
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-from sqlalchemy import select
+from fastapi_csrf_protect.exceptions import CsrfProtectError
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from fastapi_csrf_protect.exceptions import CsrfProtectError
+from sqlalchemy import select
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from app.db.session import AsyncSessionLocal
-from app.models import User, UserRole
 from app.api.v1.api import api_router
+from app.audit.deps import set_audit_extra
+from app.audit.middleware import AuditMiddleware
+from app.bots import vk_bot
+from app.bots.telegram_bot import bot
 from app.core.config import settings
-from app.core.limiter import limiter
 from app.core.csrf import get_csrf_config  # noqa: F401 - loads config
 from app.core.csrf_middleware import CSRFMiddleware
+from app.core.limiter import limiter
+from app.core.prestart_check import check_deployment_settings
 from app.core.redis import close_redis
+from app.db.session import AsyncSessionLocal
+from app.models import User, UserRole
 from app.services.external_api import kis_client
 from app.services.pdf_service import pdf_service
-from app.bots.telegram_bot import bot
-from app.bots import vk_bot
-from app.core.prestart_check import check_deployment_settings
-from app.audit.middleware import AuditMiddleware
-from app.audit.deps import set_audit_extra
-
-import os
-from logging.handlers import RotatingFileHandler
 
 # Настройка логирования
 log_level = logging.DEBUG if os.getenv("ENVIRONMENT") == "development" else logging.INFO
@@ -74,17 +74,17 @@ async def lifespan(app: FastAPI):
             logger.info("Webhook registered successfully.")
         except Exception as e:
             logger.error(f"CRITICAL: Failed to register Telegram webhook: {e}", exc_info=True)
-    
+
     # --- VK BOT LONG POLL ---
     await vk_bot.start_longpoll()
-    
+
     # --- AUTO-ADMIN SEEDING ---
     if settings.FIRST_SUPERUSER_ID:
         async with AsyncSessionLocal() as db:
             try:
                 result = await db.execute(select(User).where(User.telegram_id == settings.FIRST_SUPERUSER_ID))
                 user = result.scalar_one_or_none()
-                
+
                 if not user:
                     logger.info("First Superuser not found. Creating...")
                     new_superuser = User(
@@ -106,23 +106,21 @@ async def lifespan(app: FastAPI):
                         await db.commit()
             except Exception as e:
                 logger.error(f"Failed to seed superuser: {e}")
-    
+
     # --- LOAD ADMIN IDS FOR RATE LIMIT BYPASS ---
     async with AsyncSessionLocal() as db:
         from app.services.rate_limit.service import load_admin_ids_from_db
         await load_admin_ids_from_db(db)
-    
+
     yield
-    
+
     logger.info("🛑 Application shutting down...")
     await vk_bot.stop_longpoll()
     await close_redis()
     await kis_client.close()
     await pdf_service.close()
-    try:
+    with suppress(Exception):
         await bot.delete_webhook()
-    except Exception:
-        pass
 
 # Отключаем Swagger/OpenAPI в production для безопасности
 _docs_url = "/docs" if settings.ENVIRONMENT == "development" else None
@@ -157,7 +155,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         for err in exc.errors()[:5]  # Лимит 5 ошибок
     ]
     set_audit_extra(request, "validation_errors", error_details)
-    
+
     return JSONResponse(
         status_code=422,
         content={"detail": exc.errors()}
@@ -170,7 +168,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """Логирует HTTP ошибки в аудит."""
     if 400 <= exc.status_code < 500:
         set_audit_extra(request, "error_detail", str(exc.detail)[:200])
-    
+
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail}
@@ -191,7 +189,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS, 
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -199,10 +197,12 @@ app.add_middleware(
 
 # IP Ban Middleware (блокировка после множества 429)
 from app.middleware.ip_ban import IPBanMiddleware
+
 app.add_middleware(IPBanMiddleware)
 
 # Security Monitor Middleware (детекция SQL injection, XSS, IDOR)
 from app.middleware.security_monitor import SecurityMonitorMiddleware
+
 app.add_middleware(SecurityMonitorMiddleware)
 
 # Audit Middleware (тихий сбор данных о действиях)

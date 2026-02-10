@@ -6,12 +6,12 @@ Security Monitor — детекция и блокировка подозрите
 2. RECORDED — фиксируем в БД
 3. BAN — блокировка на 1 час
 """
+from .constants import ATTACK_PATTERNS, AttackType, StrikeLevel
 from .detector import SecurityDetector, get_security_detector
-from .constants import AttackType, StrikeLevel, ATTACK_PATTERNS
 
 __all__ = [
     "SecurityDetector",
-    "get_security_detector", 
+    "get_security_detector",
     "AttackType",
     "StrikeLevel",
     "ATTACK_PATTERNS",

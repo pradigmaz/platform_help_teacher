@@ -1,16 +1,14 @@
-import io
-import re
-import logging
 import asyncio
+import io
+import logging
 from concurrent.futures import ThreadPoolExecutor
-import pandas as pd
-from typing import List, Optional
-from fastapi import UploadFile, HTTPException
-from docx import Document
 
-from app.utils.text import sanitize_name
+import pandas as pd
+from docx import Document
+from fastapi import HTTPException, UploadFile
 
 from app.core.config import settings
+from app.utils.text import sanitize_name
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +22,7 @@ class SmartImportService:
     """
 
     @staticmethod
-    def normalize_name(raw_name: str) -> Optional[str]:
+    def normalize_name(raw_name: str) -> str | None:
         """Очищает имя от мусора."""
         return sanitize_name(raw_name, settings.NAME_SANITIZATION_REGEX)
 
@@ -32,17 +30,17 @@ class SmartImportService:
     def _check_limit(count: int):
         if count > settings.MAX_STUDENTS_COUNT:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Слишком много записей в файле (максимум {settings.MAX_STUDENTS_COUNT}). Разделите файл."
             )
 
     @classmethod
-    async def parse_file(cls, file: UploadFile) -> List[dict]:
+    async def parse_file(cls, file: UploadFile) -> list[dict]:
         content = await file.read()
         filename = file.filename.lower()
-        
+
         loop = asyncio.get_event_loop()
-        
+
         try:
             if filename.endswith(('.xlsx', '.xls', '.csv')):
                 students = await loop.run_in_executor(_executor, cls._parse_excel, content, filename)
@@ -57,14 +55,14 @@ class SmartImportService:
         except Exception as e:
             logger.error(f"Import Error: {e}")
             raise HTTPException(status_code=400, detail=f"Ошибка чтения файла: {str(e)}")
-            
+
         if not students:
              raise HTTPException(status_code=400, detail="Не удалось найти студентов в файле")
 
         return students
 
     @classmethod
-    def _parse_excel(cls, content: bytes, filename: str) -> List[dict]:
+    def _parse_excel(cls, content: bytes, filename: str) -> list[dict]:
         try:
             if filename.endswith('.csv'):
                 df = pd.read_csv(io.BytesIO(content))
@@ -75,25 +73,25 @@ class SmartImportService:
             raise ValueError("Файл поврежден или имеет неверный формат")
 
         results = []
-        
+
         # Стратегия 1: Одна колонка
         if df.shape[1] == 1:
             for raw in df.iloc[:, 0].dropna().astype(str):
                 name = cls.normalize_name(raw)
                 if name:
                     results.append({"full_name": name})
-            
+
             cls._check_limit(len(results))
             return results
-        
+
         # Стратегия 2: Поиск колонки
         first_row = df.iloc[0].astype(str).tolist()
         has_header = any(keyword in str(first_row).lower() for keyword in ['фио', 'фамилия', 'имя', 'студент', '№', 'no'])
-        
+
         if has_header:
             df.columns = df.iloc[0]
             df = df.iloc[1:].reset_index(drop=True)
-        
+
         fio_col = None
         for col in df.columns:
             sample = df[col].dropna().head(10).astype(str).tolist()
@@ -101,26 +99,26 @@ class SmartImportService:
             if fio_matches >= 3:
                 fio_col = col
                 break
-        
+
         if not fio_col:
             for col in reversed(df.columns.tolist()):
                 if df[col].dtype == object:
                     fio_col = col
                     break
-        
+
         if not fio_col:
             fio_col = df.columns[-1]
-        
+
         for raw in df[fio_col].dropna().astype(str):
             name = cls.normalize_name(raw)
             if name:
                 results.append({"full_name": name})
-        
+
         cls._check_limit(len(results))
         return results
 
     @classmethod
-    def _parse_docx(cls, content: bytes) -> List[dict]:
+    def _parse_docx(cls, content: bytes) -> list[dict]:
         doc = Document(io.BytesIO(content))
         names = []
 
@@ -143,7 +141,7 @@ class SmartImportService:
                 name = cls.normalize_name(text)
                 if name:
                     names.append(name)
-        
+
         seen = set()
         unique_names = []
         for n in names:
@@ -155,7 +153,7 @@ class SmartImportService:
         return [{"full_name": n} for n in unique_names]
 
     @classmethod
-    def _parse_txt(cls, content: bytes) -> List[dict]:
+    def _parse_txt(cls, content: bytes) -> list[dict]:
         for encoding in ['utf-8', 'cp1251', 'latin-1']:
             try:
                 text = content.decode(encoding)
@@ -164,7 +162,7 @@ class SmartImportService:
                 continue
         else:
             text = content.decode('utf-8', errors='ignore')
-        
+
         names = []
         for line in text.split('\n'):
             line = line.strip()
@@ -172,6 +170,6 @@ class SmartImportService:
                 name = cls.normalize_name(line)
                 if name:
                     names.append(name)
-        
+
         cls._check_limit(len(names))
         return [{"full_name": n} for n in names]

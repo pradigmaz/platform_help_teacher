@@ -3,7 +3,6 @@
 import calendar
 import logging
 from datetime import date, datetime, timedelta
-from typing import Optional
 
 from app.schemas.export import ExportPeriodType
 from app.utils.semester import get_current_semester, get_semester_dates
@@ -14,13 +13,13 @@ logger = logging.getLogger(__name__)
 def parse_day(value: str) -> tuple[date, date]:
     """
     Парсинг дня.
-    
+
     Args:
         value: Дата в формате "YYYY-MM-DD"
-        
+
     Returns:
         (start_date, end_date) — одна и та же дата
-        
+
     Raises:
         ValueError: Неверный формат даты
     """
@@ -37,13 +36,13 @@ def parse_day(value: str) -> tuple[date, date]:
 def parse_week(value: str) -> tuple[date, date]:
     """
     Парсинг ISO недели.
-    
+
     Args:
         value: Неделя в формате "YYYY-Www" (например, "2025-W04")
-        
+
     Returns:
         (понедельник, воскресенье) указанной недели
-        
+
     Raises:
         ValueError: Неверный формат недели
     """
@@ -62,13 +61,13 @@ def parse_week(value: str) -> tuple[date, date]:
 def parse_month(value: str) -> tuple[date, date]:
     """
     Парсинг месяца.
-    
+
     Args:
         value: Месяц в формате "YYYY-MM" (например, "2025-01")
-        
+
     Returns:
         (первый день месяца, последний день месяца)
-        
+
     Raises:
         ValueError: Неверный формат месяца
     """
@@ -87,13 +86,13 @@ def parse_month(value: str) -> tuple[date, date]:
 def parse_custom(value: str) -> tuple[date, date]:
     """
     Парсинг произвольного периода.
-    
+
     Args:
         value: Период в формате "YYYY-MM-DD:YYYY-MM-DD" (например, "2025-01-01:2025-01-31")
-        
+
     Returns:
         (start_date, end_date)
-        
+
     Raises:
         ValueError: Неверный формат периода или start > end
     """
@@ -102,14 +101,14 @@ def parse_custom(value: str) -> tuple[date, date]:
             f"Неверный формат периода '{value}'. "
             "Ожидается формат YYYY-MM-DD:YYYY-MM-DD (например, 2025-01-01:2025-01-31)"
         )
-    
+
     parts = value.split(":")
     if len(parts) != 2:
         raise ValueError(
             f"Неверный формат периода '{value}'. "
             "Должно быть ровно две даты, разделённые двоеточием"
         )
-    
+
     try:
         start_date = datetime.strptime(parts[0], "%Y-%m-%d").date()
         end_date = datetime.strptime(parts[1], "%Y-%m-%d").date()
@@ -119,50 +118,50 @@ def parse_custom(value: str) -> tuple[date, date]:
             f"Неверный формат дат в периоде '{value}'. "
             "Ожидается формат YYYY-MM-DD:YYYY-MM-DD"
         ) from e
-    
+
     if start_date > end_date:
         raise ValueError(
             f"Дата начала ({start_date}) не может быть позже даты окончания ({end_date})"
         )
-    
+
     return (start_date, end_date)
 
 
 def parse_period(
     period_type: ExportPeriodType,
-    period_value: Optional[str] = None,
+    period_value: str | None = None,
 ) -> tuple[date, date]:
     """
     Парсинг периода в даты начала и конца.
-    
+
     Args:
         period_type: Тип периода (day/week/month/semester/custom)
         period_value: Значение периода (не нужно для semester)
-        
+
     Returns:
         (start_date, end_date)
-        
+
     Raises:
         ValueError: Неверный формат period_value или отсутствует обязательное значение
-        
+
     Примеры:
         >>> parse_period(ExportPeriodType.DAY, "2025-01-22")
         (date(2025, 1, 22), date(2025, 1, 22))
-        
+
         >>> parse_period(ExportPeriodType.WEEK, "2025-W04")
         (date(2025, 1, 20), date(2025, 1, 26))
-        
+
         >>> parse_period(ExportPeriodType.MONTH, "2025-01")
         (date(2025, 1, 1), date(2025, 1, 31))
-        
+
         >>> parse_period(ExportPeriodType.SEMESTER)
         # Возвращает даты текущего семестра
-        
+
         >>> parse_period(ExportPeriodType.CUSTOM, "2025-01-01:2025-01-31")
         (date(2025, 1, 1), date(2025, 1, 31))
     """
     logger.debug(f"Парсинг периода: type={period_type}, value={period_value}")
-    
+
     if period_type == ExportPeriodType.SEMESTER:
         academic_year, semester = get_current_semester()
         start_date, end_date = get_semester_dates(academic_year, semester)
@@ -171,24 +170,24 @@ def parse_period(
             f"даты: {start_date} — {end_date}"
         )
         return (start_date, end_date)
-    
+
     # Для остальных типов period_value обязателен
     if not period_value:
         raise ValueError(
             f"Для типа периода '{period_type.value}' необходимо указать period_value"
         )
-    
+
     if period_type == ExportPeriodType.DAY:
         return parse_day(period_value)
-    
+
     if period_type == ExportPeriodType.WEEK:
         return parse_week(period_value)
-    
+
     if period_type == ExportPeriodType.MONTH:
         return parse_month(period_value)
-    
+
     if period_type == ExportPeriodType.CUSTOM:
         return parse_custom(period_value)
-    
+
     # На случай добавления новых типов
     raise ValueError(f"Неизвестный тип периода: {period_type}")

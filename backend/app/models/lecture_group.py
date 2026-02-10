@@ -1,8 +1,10 @@
-from sqlalchemy import ForeignKey, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
 from uuid import UUID, uuid4
 
+from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+
 from .base import Base, TimestampMixin
+
 
 class LectureGroup(Base, TimestampMixin):
     __tablename__ = "lecture_groups"

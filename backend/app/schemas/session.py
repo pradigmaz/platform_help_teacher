@@ -1,21 +1,21 @@
 """Session schemas for user session management."""
 from datetime import datetime
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class DeviceInfo(BaseModel):
     """Parsed device information from fingerprint."""
-    platform: Optional[str] = None
-    browser: Optional[str] = None
-    screen: Optional[str] = None
+    platform: str | None = None
+    browser: str | None = None
+    screen: str | None = None
 
 
 class SessionResponse(BaseModel):
     """Single session info."""
     session_id: str
     created_at: datetime
-    ip_address: Optional[str] = Field(None, description="Masked IP (e.g., 192.168.x.x)")
+    ip_address: str | None = Field(None, description="Masked IP (e.g., 192.168.x.x)")
     device: DeviceInfo
     is_current: bool = False
 

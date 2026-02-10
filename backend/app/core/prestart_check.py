@@ -1,5 +1,6 @@
 import logging
 import sys
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -27,5 +28,5 @@ def check_deployment_settings():
             logger.error(err)
         logger.critical("❌ DEPLOYMENT HALTED.")
         sys.exit(1)
-    
+
     logger.info("✅ Security checks passed.")

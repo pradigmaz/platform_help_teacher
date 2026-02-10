@@ -1,14 +1,13 @@
 """User-Agent parsing utilities."""
-from typing import Optional, Tuple
 
 
-def parse_user_agent(ua: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+def parse_user_agent(ua: str | None) -> tuple[str | None, str | None]:
     """Извлечь browser и OS из User-Agent."""
     if not ua:
         return None, None
-    
+
     ua_lower = ua.lower()
-    
+
     # Browser detection
     browser = None
     if "edg/" in ua_lower:
@@ -21,7 +20,7 @@ def parse_user_agent(ua: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
         browser = "safari"
     elif "opera" in ua_lower or "opr/" in ua_lower:
         browser = "opera"
-    
+
     # OS detection
     os_name = None
     if "windows" in ua_lower:
@@ -34,5 +33,5 @@ def parse_user_agent(ua: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
         os_name = "ios"
     elif "linux" in ua_lower:
         os_name = "linux"
-    
+
     return browser, os_name

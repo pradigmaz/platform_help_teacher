@@ -1,6 +1,6 @@
 """CRUD операции для публичных отчётов."""
-from app.crud.report.queries import ReportQueries
 from app.crud.report.mutations import ReportMutations
+from app.crud.report.queries import ReportQueries
 
 
 class CRUDReport(ReportQueries, ReportMutations):

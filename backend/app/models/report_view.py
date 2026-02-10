@@ -3,13 +3,12 @@
 Логирует каждый просмотр публичного отчёта.
 """
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import String, DateTime, ForeignKey, Index
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
@@ -25,24 +24,24 @@ class ReportView(Base):
     __tablename__ = "report_views"
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    
+
     # Связь с отчётом
     report_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True), 
-        ForeignKey("group_reports.id", ondelete="CASCADE"), 
+        UUID(as_uuid=True),
+        ForeignKey("group_reports.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
-    
+
     # Данные просмотра
     viewed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), 
-        server_default=func.now(), 
+        DateTime(timezone=True),
+        server_default=func.now(),
         nullable=False
     )
     ip_address: Mapped[str] = mapped_column(String(45), nullable=False)  # IPv6 max length
-    user_agent: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
-    
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
     # Relationship
     report: Mapped["GroupReport"] = relationship("GroupReport", back_populates="views")
 

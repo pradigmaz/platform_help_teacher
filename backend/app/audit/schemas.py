@@ -2,42 +2,43 @@
 Pydantic схемы для аудита.
 """
 from datetime import datetime
+from typing import Any
 from uuid import UUID
-from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel
 
 
 class AuditContext(BaseModel):
     """Контекст аудита, собираемый во время запроса."""
     request_id: str
-    correlation_id: Optional[str] = None  # Для связи цепочки действий
-    
+    correlation_id: str | None = None  # Для связи цепочки действий
+
     # User
-    user_id: Optional[UUID] = None
-    session_id: Optional[str] = None
+    user_id: UUID | None = None
+    session_id: str | None = None
     actor_role: str = "anonymous"  # student/teacher/admin/anonymous
-    
+
     # Action
     action_type: str = "view"
-    entity_type: Optional[str] = None
-    entity_id: Optional[UUID] = None
-    
+    entity_type: str | None = None
+    entity_id: UUID | None = None
+
     # HTTP
     method: str
     path: str
-    query_params: Optional[Dict[str, Any]] = None
-    request_body: Optional[Dict[str, Any]] = None
-    response_status: Optional[int] = None
-    duration_ms: Optional[int] = None
-    
+    query_params: dict[str, Any] | None = None
+    request_body: dict[str, Any] | None = None
+    response_status: int | None = None
+    duration_ms: int | None = None
+
     # Client
     ip_address: str
-    ip_forwarded: Optional[str] = None
-    user_agent: Optional[str] = None
-    
+    ip_forwarded: str | None = None
+    user_agent: str | None = None
+
     # Extra
-    fingerprint: Optional[Dict[str, Any]] = None
-    extra_data: Optional[Dict[str, Any]] = None
+    fingerprint: dict[str, Any] | None = None
+    extra_data: dict[str, Any] | None = None
 
     class Config:
         from_attributes = True
@@ -45,30 +46,30 @@ class AuditContext(BaseModel):
 
 class AuditLogCreate(BaseModel):
     """Схема для создания записи аудита."""
-    user_id: Optional[UUID] = None
-    session_id: Optional[str] = None
-    correlation_id: Optional[str] = None
+    user_id: UUID | None = None
+    session_id: str | None = None
+    correlation_id: str | None = None
     actor_role: str = "anonymous"
     action_type: str
-    entity_type: Optional[str] = None
-    entity_id: Optional[UUID] = None
+    entity_type: str | None = None
+    entity_id: UUID | None = None
     method: str
     path: str
-    query_params: Optional[Dict[str, Any]] = None
-    request_body: Optional[Dict[str, Any]] = None
-    response_status: Optional[int] = None
-    duration_ms: Optional[int] = None
+    query_params: dict[str, Any] | None = None
+    request_body: dict[str, Any] | None = None
+    response_status: int | None = None
+    duration_ms: int | None = None
     ip_address: str
-    ip_forwarded: Optional[str] = None
-    user_agent: Optional[str] = None
-    fingerprint: Optional[Dict[str, Any]] = None
-    extra_data: Optional[Dict[str, Any]] = None
+    ip_forwarded: str | None = None
+    user_agent: str | None = None
+    fingerprint: dict[str, Any] | None = None
+    extra_data: dict[str, Any] | None = None
 
 
 class IPInfo(BaseModel):
     """Информация об IP адресе."""
     real_ip: str
-    forwarded_chain: Optional[str] = None
+    forwarded_chain: str | None = None
     is_proxy: bool = False
 
 
@@ -77,25 +78,25 @@ class IPInfo(BaseModel):
 class AuditLogResponse(BaseModel):
     """Ответ с записью аудита."""
     id: UUID
-    user_id: Optional[UUID] = None
-    user_name: Optional[str] = None
+    user_id: UUID | None = None
+    user_name: str | None = None
     actor_role: str = "anonymous"
     action_type: str
-    entity_type: Optional[str] = None
-    entity_id: Optional[UUID] = None
+    entity_type: str | None = None
+    entity_id: UUID | None = None
     method: str
     path: str
-    query_params: Optional[Dict[str, Any]] = None
-    request_body: Optional[Dict[str, Any]] = None
-    response_status: Optional[int] = None
-    duration_ms: Optional[int] = None
+    query_params: dict[str, Any] | None = None
+    request_body: dict[str, Any] | None = None
+    response_status: int | None = None
+    duration_ms: int | None = None
     ip_address: str
-    ip_forwarded: Optional[str] = None
-    user_agent: Optional[str] = None
-    fingerprint: Optional[Dict[str, Any]] = None
-    extra_data: Optional[Dict[str, Any]] = None
+    ip_forwarded: str | None = None
+    user_agent: str | None = None
+    fingerprint: dict[str, Any] | None = None
+    extra_data: dict[str, Any] | None = None
     created_at: datetime
-    suspicion: Optional[Dict[str, Any]] = None  # Подозрение на анонимный запрос
+    suspicion: dict[str, Any] | None = None  # Подозрение на анонимный запрос
 
     class Config:
         from_attributes = True
@@ -114,5 +115,5 @@ class AuditStatsResponse(BaseModel):
     total_logs: int
     unique_users: int
     unique_ips: int
-    by_action_type: Dict[str, int]
+    by_action_type: dict[str, int]
     period_days: int

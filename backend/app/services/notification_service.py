@@ -2,7 +2,6 @@
 Сервис уведомлений через Telegram/VK
 """
 import logging
-from typing import Optional
 
 from app.models.user import User
 
@@ -15,13 +14,13 @@ async def send_to_teacher(user: User, message: str) -> dict:
     Returns: {"telegram": bool, "vk": bool}
     """
     result = {"telegram": False, "vk": False}
-    
+
     if user.telegram_id:
         result["telegram"] = await _send_telegram(user.telegram_id, message)
-    
+
     if user.vk_id:
         result["vk"] = await _send_vk(user.vk_id, message)
-    
+
     return result
 
 
@@ -53,20 +52,20 @@ async def _send_vk(user_id: int, message: str) -> bool:
 def format_parse_result(stats: dict, conflicts_count: int) -> str:
     """Форматировать результат парсинга для уведомления"""
     lines = ["📅 Автопарсинг расписания завершён\n"]
-    
+
     if stats.get("lessons_created", 0) > 0:
         lines.append(f"✅ Создано занятий: {stats['lessons_created']}")
-    
+
     if stats.get("lessons_skipped", 0) > 0:
         lines.append(f"⏭ Без изменений: {stats['lessons_skipped']}")
-    
+
     if conflicts_count > 0:
         lines.append(f"\n⚠️ Обнаружено конфликтов: {conflicts_count}")
         lines.append("Проверьте в разделе Расписание")
-    
+
     if stats.get("semester_end_detected"):
         lines.append(f"\n📌 Обнаружен конец семестра: {stats.get('last_lesson_date')}")
-    
+
     return "\n".join(lines)
 
 

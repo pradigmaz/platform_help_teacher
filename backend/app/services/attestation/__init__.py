@@ -10,13 +10,13 @@
 - batch.py - пакетные операции
 - service.py - фасад модуля
 """
-from .service import AttestationService
+from .attendance_calculator import AttendanceScoreCalculator, AttendanceScoreResult
+from .batch import BatchScoreCalculator
 from .calculator import AttestationCalculator
-from .lab_calculator import LabScoreResult, LabScoreCalculator
-from .attendance_calculator import AttendanceScoreResult, AttendanceScoreCalculator
+from .lab_calculator import LabScoreCalculator, LabScoreResult
+from .service import AttestationService
 from .settings import AttestationSettingsManager
 from .student_score import StudentScoreCalculator
-from .batch import BatchScoreCalculator
 
 __all__ = [
     "AttestationService",

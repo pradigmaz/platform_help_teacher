@@ -1,4 +1,5 @@
 from redis import asyncio as aioredis
+
 from app.core.config import settings
 
 redis_pool = None
@@ -16,7 +17,7 @@ async def get_redis() -> aioredis.Redis:
         url = settings.REDIS_URL
         if settings.REDIS_SSL and url.startswith("redis://"):
             url = url.replace("redis://", "rediss://", 1)
-        
+
         redis_pool = aioredis.ConnectionPool.from_url(
             url,
             password=settings.REDIS_PASSWORD,

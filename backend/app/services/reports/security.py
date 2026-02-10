@@ -20,10 +20,10 @@ CODE_LENGTH = 8
 def generate_code() -> str:
     """
     Генерация криптографически безопасного 8-символьного кода.
-    
+
     Использует secrets.choice для криптографической безопасности.
     Алфавит исключает похожие символы (0/O, 1/l/I).
-    
+
     Returns:
         str: 8-символьный код (например: "A2B3C4D5")
     """
@@ -33,10 +33,10 @@ def generate_code() -> str:
 def hash_pin(pin: str) -> str:
     """
     Хеширование PIN-кода с использованием bcrypt.
-    
+
     Args:
         pin: PIN-код (4-6 цифр)
-        
+
     Returns:
         str: bcrypt хеш PIN-кода
     """
@@ -46,11 +46,11 @@ def hash_pin(pin: str) -> str:
 def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
     """
     Проверка PIN-кода.
-    
+
     Args:
         plain_pin: Введённый PIN-код
         hashed_pin: Хеш из БД
-        
+
     Returns:
         bool: True если PIN верный
     """

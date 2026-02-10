@@ -1,23 +1,23 @@
 """Обработка команд /start и /code."""
+import asyncio
 import json
 import logging
-import asyncio
 import time
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import User, Group
+from app.audit import log_bot_auth, log_bot_bind, log_bot_start
 from app.core.config import settings
 from app.core.redis import get_redis
-from app.audit import log_bot_start, log_bot_auth, log_bot_bind
+from app.models import Group, User
 from app.utils.codes import mask_code
 
-from .constants import Platform, CODE_PATTERN, FSM_TTL, MIN_RESPONSE_TIME
-from .rate_limit import check_code_rate_limit, increment_code_attempts, reset_code_attempts
 from .auth import generate_otp
-from .users import find_user_by_social_id, bind_social_id, get_social_id_field
+from .constants import CODE_PATTERN, FSM_TTL, MIN_RESPONSE_TIME, Platform
+from .rate_limit import check_code_rate_limit, increment_code_attempts, reset_code_attempts
+from .users import bind_social_id, find_user_by_social_id, get_social_id_field
 
 logger = logging.getLogger(__name__)
 
@@ -30,19 +30,19 @@ async def process_start_command(
 ) -> str:
     """Обработка команды /start (только приветствие и OTP)."""
     await log_bot_start(db, social_id, platform, username, None)
-    
+
     user = await find_user_by_social_id(db, social_id, platform)
     if not user:
         return "👋 Привет! Я тебя не знаю.\n\nДля привязки аккаунта используй команду /code с инвайт-кодом группы.\n\nПример: /code ABC123"
-    
+
     otp = await generate_otp(social_id, platform)
     await log_bot_auth(db, social_id, platform, user.id, username)
-    
+
     if user.role in ("admin", "teacher"):
         login_url = f"{settings.FRONTEND_URL}/auth/login#code={otp}"
     else:
         login_url = f"{settings.FRONTEND_URL}/#code={otp}"
-    
+
     if platform == "telegram":
         return (
             f"🔐 <b>Вход в систему</b>\n\n"
@@ -65,43 +65,43 @@ async def process_code_command(
     """Обработка команды /code (ввод инвайт-кодов, relink-кодов)."""
     start_time = time.monotonic()
     redis = await get_redis()
-    
+
     # Rate limiting
     allowed, lockout_remaining = await check_code_rate_limit(social_id, platform)
     if not allowed:
         minutes = (lockout_remaining or 0) // 60 + 1
         return f"⏳ Слишком много попыток. Подождите {minutes} мин."
-    
+
     # Валидация формата
     code = code.strip().upper()
     if not CODE_PATTERN.match(code):
         return "❌ Неверный формат кода. Код должен содержать 6-8 символов (A-Z, 0-9)."
-    
+
     await log_bot_start(db, social_id, platform, username, mask_code(code))
     logger.info(f"Processing code {mask_code(code)} from {platform} user {social_id}")
-    
+
     # Параллельные проверки для защиты от timing attack
     relink_task = redis.get(f"relink:{code}")
     user_task = db.execute(select(User).where(User.invite_code == code))
     group_task = db.execute(select(Group).where(Group.invite_code == code))
-    
+
     relink_data, user_result, group_result = await asyncio.gather(
         relink_task, user_task, group_task
     )
-    
+
     existing_student = user_result.scalar_one_or_none()
     group = group_result.scalar_one_or_none()
-    
+
     response = await _process_code_result(
         db, redis, social_id, full_name, username, code, platform,
         relink_data, existing_student, group
     )
-    
+
     # Гарантируем минимальное время ответа
     elapsed = time.monotonic() - start_time
     if elapsed < MIN_RESPONSE_TIME:
         await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
-    
+
     return response
 
 
@@ -118,19 +118,19 @@ async def _process_code_result(
     group: Group | None,
 ) -> str:
     """Обработка результатов проверки кода."""
-    
+
     # 1. Relink код
     if relink_data:
         return await _handle_relink(db, redis, social_id, username, code, platform, relink_data)
-    
+
     # 2. Персональный invite_code
     if existing_student:
         return await _handle_personal_invite(db, social_id, username, platform, existing_student)
-    
+
     # 3. Групповой invite_code
     if group:
         return await _handle_group_invite(db, redis, social_id, full_name, username, platform, group)
-    
+
     # 4. Код не найден
     remaining = await increment_code_attempts(social_id, platform)
     if remaining == 0:
@@ -140,7 +140,7 @@ async def _process_code_result(
 
 async def _handle_relink(db, redis, social_id, username, code, platform, relink_data) -> str:
     """Обработка relink-кода.
-    
+
     SECURITY: Проверяет что код использует тот же пользователь, который его запросил.
     Если у аккаунта уже была привязка — код может использовать только владелец.
     """
@@ -153,7 +153,7 @@ async def _handle_relink(db, redis, social_id, username, code, platform, relink_
         target_user_id = relink_data
         target_platform = platform
         original_social_id = None
-    
+
     # SECURITY: Если у аккаунта была привязка, код может использовать только владелец
     if original_social_id is not None and original_social_id != social_id:
         logger.warning(
@@ -163,26 +163,26 @@ async def _handle_relink(db, redis, social_id, username, code, platform, relink_
         # НЕ удаляем код — владелец ещё может его использовать
         await increment_code_attempts(social_id, platform)
         return "❌ Этот код предназначен для другого аккаунта."
-    
+
     await redis.delete(f"relink:{code}")
     await reset_code_attempts(social_id, platform)
-    
+
     existing = await find_user_by_social_id(db, social_id, target_platform)
     if existing and str(existing.id) != target_user_id:
         return "❌ Этот аккаунт уже привязан к другому пользователю."
-    
+
     result = await db.execute(select(User).where(User.id == UUID(target_user_id)))
     user = result.scalar_one_or_none()
     if not user:
         return "❌ Пользователь не найден."
-    
+
     error = await bind_social_id(db, user, social_id, target_platform, username)
     if error:
         return error
     await db.commit()
-    
+
     await log_bot_bind(db, social_id, target_platform, user.id, username, "relink")
-    
+
     platform_name = "Telegram" if target_platform == "telegram" else "VK"
     return f"✅ {platform_name} привязан!\nПользователь: {user.full_name}"
 
@@ -190,20 +190,20 @@ async def _handle_relink(db, redis, social_id, username, code, platform, relink_
 async def _handle_personal_invite(db, social_id, username, platform, existing_student) -> str:
     """Обработка персонального invite_code."""
     await reset_code_attempts(social_id, platform)
-    
+
     field = get_social_id_field(platform)
     current_value = getattr(existing_student, field.key)
     if current_value and current_value != social_id:
         return "❌ Этот код уже привязан к другому аккаунту."
-    
+
     error = await bind_social_id(db, existing_student, social_id, platform, username)
     if error:
         return error
     existing_student.is_active = True
     await db.commit()
-    
+
     await log_bot_bind(db, social_id, platform, existing_student.id, username, "invite")
-    
+
     group_result = await db.execute(select(Group).where(Group.id == existing_student.group_id))
     student_group = group_result.scalar_one_or_none()
     group_name = student_group.name if student_group else "Неизвестная"
@@ -212,14 +212,14 @@ async def _handle_personal_invite(db, social_id, username, platform, existing_st
 
 async def _handle_group_invite(db, redis, social_id, full_name, username, platform, group) -> str:
     """Обработка группового invite_code.
-    
-    SECURITY: 
-    1. Не меняем full_name существующего пользователя — 
+
+    SECURITY:
+    1. Не меняем full_name существующего пользователя —
        это позволило бы сменить ФИО через изменение имени в Telegram.
     2. Код одноразовый для каждого social_id — нельзя передать другу.
     """
     await reset_code_attempts(social_id, platform)
-    
+
     user = await find_user_by_social_id(db, social_id, platform)
     if user:
         # SECURITY: Только обновляем группу и username, НЕ full_name!
@@ -228,13 +228,13 @@ async def _handle_group_invite(db, redis, social_id, full_name, username, platfo
         user.group_id = group.id
         user.username = username  # username можно обновлять
         await db.commit()
-        
+
         logger.info(
             f"User {user.id} ({user.full_name}) transferred to group {group.name} "
             f"from group_id={old_group_id}"
         )
         return f"✅ Вы переведены в группу {group.name}!"
-    
+
     # SECURITY: Проверяем, не использовал ли этот social_id уже групповой код
     used_key = f"group_code_used:{platform}:{social_id}"
     already_used = await redis.get(used_key)
@@ -244,10 +244,10 @@ async def _handle_group_invite(db, redis, social_id, full_name, username, platfo
             f"social_id={social_id} | platform={platform} | group={group.name}"
         )
         return "❌ Вы уже использовали код группы ранее.\n\nЕсли нужна помощь — обратитесь к преподавателю."
-    
+
     # Помечаем код как использованный для этого social_id (30 дней)
     await redis.setex(used_key, 86400 * 30, group.invite_code)
-    
+
     fsm_data = json.dumps({
         "state": "waiting_fio",
         "group_id": str(group.id),

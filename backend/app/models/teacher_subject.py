@@ -1,30 +1,30 @@
 """
 Модель связи преподаватель-предмет-группа.
 """
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
-from sqlalchemy import ForeignKey, String, Boolean, UniqueConstraint, Index
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Boolean, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from .user import User
-    from .subject import Subject
     from .group import Group
+    from .subject import Subject
+    from .user import User
 
 
 class TeacherSubjectAssignment(Base, TimestampMixin):
     """
     Связь преподаватель-предмет-группа.
-    
+
     Позволяет отслеживать:
     - Какие предметы ведёт преподаватель
     - Для каких групп
     - В какой семестр
-    
+
     Примеры:
     - Миронов -> Комп. сети -> ИС-31 -> 2024-2
     - Миронов -> Информатика -> ЭК-21 -> 2024-2
@@ -33,7 +33,7 @@ class TeacherSubjectAssignment(Base, TimestampMixin):
     __tablename__ = "teacher_subject_assignments"
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    
+
     teacher_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
@@ -44,15 +44,15 @@ class TeacherSubjectAssignment(Base, TimestampMixin):
         nullable=False,
         index=True
     )
-    group_id: Mapped[Optional[UUID]] = mapped_column(
+    group_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("groups.id", ondelete="CASCADE"),
         nullable=True,  # null = для всех групп (лекционный поток)
         index=True
     )
-    
+
     # Семестр в формате "2024-1" (год-номер)
-    semester: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    
+    semester: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships

@@ -1,17 +1,29 @@
-from sqlalchemy import String, Integer, ForeignKey, Text, Boolean, CheckConstraint, Date, DateTime, Index, UniqueConstraint
-from sqlalchemy import Enum as SAEnum
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import JSONB
-from uuid import UUID, uuid4
-from typing import Optional, List, Dict, Any, TYPE_CHECKING
-from datetime import date, datetime
 import enum
+from datetime import date, datetime
+from typing import TYPE_CHECKING, Any
+from uuid import UUID, uuid4
+
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from .user import User
     from .lab import Lab
+    from .user import User
 
 
 class SubmissionStatus(str, enum.Enum):
@@ -26,7 +38,7 @@ class SubmissionStatus(str, enum.Enum):
 class Submission(Base, TimestampMixin):
     """
     Сдача лабораторной работы студентом.
-    
+
     Новый flow:
     1. NEW → студент работает над лабой
     2. READY → студент нажал "Готов сдать", попал в очередь
@@ -38,38 +50,38 @@ class Submission(Base, TimestampMixin):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     lab_id: Mapped[UUID] = mapped_column(ForeignKey("labs.id", ondelete="CASCADE"), nullable=False)
-    
+
     status: Mapped[SubmissionStatus] = mapped_column(SAEnum(SubmissionStatus), default=SubmissionStatus.NEW, nullable=False)
-    
+
     # Номер варианта (определяется по номеру студента в списке группы)
-    variant_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    
+    variant_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Обновленная логика: файл может отсутствовать, если это ручная оценка
-    s3_key: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    s3_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_manual: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    
-    grade: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    feedback: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    
+
+    grade: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Привязка к занятию (legacy)
-    lesson_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    lesson_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    
+    lesson_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    lesson_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Временные метки нового flow
-    ready_at: Mapped[Optional[datetime]] = mapped_column(
+    ready_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True,
         comment="Когда студент нажал 'Готов сдать'"
     )
-    accepted_at: Mapped[Optional[datetime]] = mapped_column(
+    accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True,
         comment="Когда преподаватель принял работу"
     )
-    
+
     # История изменений (JSON)
-    history: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, default=list, nullable=False)
-    
+    history: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list, nullable=False)
+
     # Soft-delete
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+    deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True,
         comment="Когда сдача была удалена (soft-delete)"
     )

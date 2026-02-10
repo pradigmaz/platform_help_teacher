@@ -1,15 +1,15 @@
-import secrets
 import logging
+import secrets
 from uuid import UUID
-from typing import Optional, List
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import SQLAlchemyError
+
 from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import models, schemas
-from app.core.config import settings
 from app.core import error_messages as em
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class GroupService:
                 # Валидация количества студентов при создании
                 if len(group_in.students) > settings.MAX_STUDENTS_COUNT:
                      raise HTTPException(
-                         status_code=400, 
+                         status_code=400,
                          detail=f"Too many students in one request (max {settings.MAX_STUDENTS_COUNT})"
                      )
 
@@ -63,7 +63,7 @@ class GroupService:
                         invite_code=invite_codes[i]
                     )
                     self.db.add(new_student)
-            
+
             await self.db.commit()
             await self.db.refresh(group)
             return group
@@ -74,30 +74,30 @@ class GroupService:
             await self.db.rollback()
             logger.error(f"Error creating group: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
-    
-    async def _generate_unique_invite_codes_batch(self, count: int) -> List[str]:
+
+    async def _generate_unique_invite_codes_batch(self, count: int) -> list[str]:
         """Генерирует уникальные коды пачкой."""
         unique_codes = set()
         attempts = 0
         max_attempts = 10
-        
+
         while len(unique_codes) < count and attempts < max_attempts:
             needed = count - len(unique_codes)
             # Generate slightly more to reduce chance of collision in one go
             batch = {self.generate_invite_code() for _ in range(needed + 2)}
-            
+
             # Check existance in DB
             result = await self.db.execute(select(models.User.invite_code).where(models.User.invite_code.in_(batch)))
             existing_codes = set(result.scalars().all())
-            
+
             # Add only non-existing
             available = batch - existing_codes
             unique_codes.update(available)
             attempts += 1
-            
+
         if len(unique_codes) < count:
              raise HTTPException(status_code=500, detail=em.COULD_NOT_GENERATE_UNIQUE_CODE)
-             
+
         return list(unique_codes)[:count]
 
     async def _get_unique_invite_code(self) -> str:
@@ -111,7 +111,7 @@ class GroupService:
         user = result.scalar_one_or_none()
         if not user:
              raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
-        
+
         try:
             invite_code = await self._get_unique_invite_code()
             user.invite_code = invite_code
@@ -128,12 +128,12 @@ class GroupService:
         group = result.scalar_one_or_none()
         if not group:
             raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
-        
+
         try:
             # Генерируем batch кодов и проверяем уникальность одним запросом
             for _ in range(10):
                 candidates = [self.generate_invite_code() for _ in range(5)]
-                
+
                 # Проверяем уникальность среди групп и пользователей одним запросом
                 existing_group_codes = await self.db.execute(
                     select(models.Group.invite_code).where(models.Group.invite_code.in_(candidates))
@@ -141,15 +141,15 @@ class GroupService:
                 existing_user_codes = await self.db.execute(
                     select(models.User.invite_code).where(models.User.invite_code.in_(candidates))
                 )
-                
+
                 used_codes = set(existing_group_codes.scalars().all()) | set(existing_user_codes.scalars().all())
                 available = [c for c in candidates if c not in used_codes]
-                
+
                 if available:
                     group.invite_code = available[0]
                     await self.db.commit()
                     return available[0]
-            
+
             raise HTTPException(status_code=500, detail=em.COULD_NOT_GENERATE_UNIQUE_CODE)
         except HTTPException:
             raise
@@ -162,17 +162,17 @@ class GroupService:
         """Сгенерировать коды для всех студентов группы, у кого их нет."""
         result = await self.db.execute(select(models.User).where(models.User.group_id == group_id))
         students = result.scalars().all()
-        
+
         students_without_code = [s for s in students if not s.invite_code]
         if not students_without_code:
             return {"generated": 0, "total_students": len(students)}
 
         try:
             invite_codes = await self._generate_unique_invite_codes_batch(len(students_without_code))
-            
+
             for i, student in enumerate(students_without_code):
                 student.invite_code = invite_codes[i]
-                
+
             await self.db.commit()
             return {"generated": len(students_without_code), "total_students": len(students)}
         except SQLAlchemyError as e:

@@ -2,28 +2,27 @@
 Схемы для журнала (посещаемость + оценки).
 """
 from datetime import date
-from typing import Optional, List, Dict, Any
 from uuid import UUID
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel
 
 from app.models.attendance import AttendanceStatus
-
 
 # === Attendance Journal ===
 
 class AttendanceCell(BaseModel):
     """Ячейка посещаемости"""
     lesson_id: UUID
-    status: Optional[AttendanceStatus] = None
-    attendance_id: Optional[UUID] = None
+    status: AttendanceStatus | None = None
+    attendance_id: UUID | None = None
 
 
 class StudentAttendanceRow(BaseModel):
     """Строка посещаемости студента"""
     student_id: UUID
     student_name: str
-    attendance: Dict[str, AttendanceCell]  # lesson_id -> cell
-    stats: Dict[str, int]  # present, late, absent, excused, total
+    attendance: dict[str, AttendanceCell]  # lesson_id -> cell
+    stats: dict[str, int]  # present, late, absent, excused, total
 
 
 class LessonColumn(BaseModel):
@@ -32,7 +31,7 @@ class LessonColumn(BaseModel):
     date: date
     lesson_number: int
     lesson_type: str
-    topic: Optional[str] = None
+    topic: str | None = None
     is_cancelled: bool = False
 
 
@@ -42,8 +41,8 @@ class AttendanceJournalResponse(BaseModel):
     group_name: str
     start_date: date
     end_date: date
-    lessons: List[LessonColumn]
-    students: List[StudentAttendanceRow]
+    lessons: list[LessonColumn]
+    students: list[StudentAttendanceRow]
 
 
 # === Grades Journal ===
@@ -51,17 +50,17 @@ class AttendanceJournalResponse(BaseModel):
 class GradeCell(BaseModel):
     """Ячейка оценки"""
     work_id: UUID
-    grade: Optional[int] = None
-    submission_id: Optional[UUID] = None
-    feedback: Optional[str] = None
+    grade: int | None = None
+    submission_id: UUID | None = None
+    feedback: str | None = None
 
 
 class StudentGradesRow(BaseModel):
     """Строка оценок студента"""
     student_id: UUID
     student_name: str
-    grades: Dict[str, GradeCell]  # work_id -> cell
-    average: Optional[float] = None
+    grades: dict[str, GradeCell]  # work_id -> cell
+    average: float | None = None
     total: int = 0
 
 
@@ -71,16 +70,16 @@ class WorkColumn(BaseModel):
     title: str
     work_type: str
     max_grade: int
-    deadline: Optional[date] = None
+    deadline: date | None = None
 
 
 class GradesJournalResponse(BaseModel):
     """Ответ журнала оценок"""
     group_id: UUID
     group_name: str
-    work_type: Optional[str] = None
-    works: List[WorkColumn]
-    students: List[StudentGradesRow]
+    work_type: str | None = None
+    works: list[WorkColumn]
+    students: list[StudentGradesRow]
 
 
 # === Bulk Operations ===
@@ -97,14 +96,14 @@ class BulkAttendanceCreate(BaseModel):
     group_id: UUID
     date: date
     lesson_number: int
-    items: List[BulkAttendanceItem]
+    items: list[BulkAttendanceItem]
 
 
 class BulkAttendanceResponse(BaseModel):
     """Ответ массового создания"""
     created: int
     updated: int
-    errors: List[str] = []
+    errors: list[str] = []
 
 
 class BulkGradeItem(BaseModel):
@@ -112,16 +111,16 @@ class BulkGradeItem(BaseModel):
     student_id: UUID
     work_id: UUID
     grade: int
-    feedback: Optional[str] = None
+    feedback: str | None = None
 
 
 class BulkGradesCreate(BaseModel):
     """Запрос массового создания оценок"""
-    items: List[BulkGradeItem]
+    items: list[BulkGradeItem]
 
 
 class BulkGradesResponse(BaseModel):
     """Ответ массового создания оценок"""
     created: int
     updated: int
-    errors: List[str] = []
+    errors: list[str] = []

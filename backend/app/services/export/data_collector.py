@@ -2,28 +2,27 @@
 Сервис сбора данных для экспорта журнала.
 """
 import logging
-from datetime import date, datetime, timezone
-from typing import List, Dict, Optional
-from uuid import UUID
 from collections import defaultdict
+from datetime import UTC, date, datetime
+from uuid import UUID
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.lesson import Lesson
 from app.models.attendance import Attendance, AttendanceStatus
+from app.models.group import Group
+from app.models.lesson import Lesson
 from app.models.lesson_grade import LessonGrade
 from app.models.user import User
-from app.models.group import Group
 from app.schemas.export import (
-    LessonExportColumn,
     AttendanceExportRow,
     GradeExportRow,
-    JournalExportMeta,
     JournalExportData,
+    JournalExportMeta,
+    LessonExportColumn,
 )
-from app.services.reports.base_helpers import get_group_students, get_group
+from app.services.reports.base_helpers import get_group, get_group_students
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class ExportDataCollector:
 
     async def collect_lessons(
         self, group_id: UUID, start_date: date, end_date: date
-    ) -> List[LessonExportColumn]:
+    ) -> list[LessonExportColumn]:
         """
         Получить занятия группы за период.
 
@@ -60,7 +59,7 @@ class ExportDataCollector:
                     Lesson.group_id == group_id,
                     Lesson.date >= start_date,
                     Lesson.date <= end_date,
-                    Lesson.is_cancelled == False,
+                    not Lesson.is_cancelled,
                 )
             )
             .order_by(Lesson.date, Lesson.lesson_number)
@@ -85,8 +84,8 @@ class ExportDataCollector:
         ]
 
     async def collect_attendance(
-        self, group_id: UUID, lesson_ids: List[UUID], students: List[User]
-    ) -> List[AttendanceExportRow]:
+        self, group_id: UUID, lesson_ids: list[UUID], students: list[User]
+    ) -> list[AttendanceExportRow]:
         """
         Собрать данные посещаемости.
 
@@ -123,7 +122,7 @@ class ExportDataCollector:
         attendance_records = list(result.scalars().all())
 
         # Группируем по студентам
-        attendance_by_student: Dict[UUID, List[Attendance]] = defaultdict(list)
+        attendance_by_student: dict[UUID, list[Attendance]] = defaultdict(list)
         for record in attendance_records:
             attendance_by_student[record.student_id].append(record)
 
@@ -132,7 +131,7 @@ class ExportDataCollector:
             student_attendance = attendance_by_student.get(student.id, [])
 
             # Формируем attendance_by_date
-            attendance_by_date: Dict[str, str] = {}
+            attendance_by_date: dict[str, str] = {}
             stats = {
                 "present_count": 0,
                 "absent_count": 0,
@@ -186,8 +185,8 @@ class ExportDataCollector:
         return rows
 
     async def collect_grades(
-        self, lesson_ids: List[UUID], students: List[User]
-    ) -> List[GradeExportRow]:
+        self, lesson_ids: list[UUID], students: list[User]
+    ) -> list[GradeExportRow]:
         """
         Собрать данные оценок.
 
@@ -218,7 +217,7 @@ class ExportDataCollector:
         grade_records = list(result.scalars().all())
 
         # Группируем по студентам
-        grades_by_student: Dict[UUID, List[LessonGrade]] = defaultdict(list)
+        grades_by_student: dict[UUID, list[LessonGrade]] = defaultdict(list)
         for record in grade_records:
             grades_by_student[record.student_id].append(record)
 
@@ -227,7 +226,7 @@ class ExportDataCollector:
             student_grades = grades_by_student.get(student.id, [])
 
             # Формируем grades_by_work
-            grades_by_work: Dict[str, Optional[int]] = {}
+            grades_by_work: dict[str, int | None] = {}
             total_grade = 0
             grades_count = 0
 
@@ -260,7 +259,7 @@ class ExportDataCollector:
         logger.info("Собрано %d строк оценок", len(rows))
         return rows
 
-    async def collect_students(self, group_id: UUID) -> List[User]:
+    async def collect_students(self, group_id: UUID) -> list[User]:
         """
         Получить студентов группы.
 
@@ -275,7 +274,7 @@ class ExportDataCollector:
         logger.info("Найдено %d студентов", len(students))
         return students
 
-    async def collect_group_info(self, group_id: UUID) -> Optional[Group]:
+    async def collect_group_info(self, group_id: UUID) -> Group | None:
         """
         Получить информацию о группе.
 
@@ -327,8 +326,8 @@ class ExportDataCollector:
         lesson_ids = [lesson.lesson_id for lesson in lessons]
 
         # Собираем посещаемость и оценки
-        attendance_rows: List[AttendanceExportRow] = []
-        grade_rows: List[GradeExportRow] = []
+        attendance_rows: list[AttendanceExportRow] = []
+        grade_rows: list[GradeExportRow] = []
 
         if include_attendance:
             attendance_rows = await self.collect_attendance(
@@ -344,7 +343,7 @@ class ExportDataCollector:
             group_name=group.name,
             period_start=start_date,
             period_end=end_date,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=datetime.now(UTC),
             total_students=len(students),
             total_lessons=len(lessons),
         )

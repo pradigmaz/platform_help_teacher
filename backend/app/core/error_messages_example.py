@@ -5,8 +5,8 @@
 """
 
 from fastapi import HTTPException, status
-from app.core import error_messages as em
 
+from app.core import error_messages as em
 
 # ============================================================================
 # Пример 1: Простое использование
@@ -15,7 +15,7 @@ from app.core import error_messages as em
 def get_user(user_id: int):
     """Пример использования простого сообщения."""
     user = None  # Имитация поиска в БД
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -65,11 +65,11 @@ def process_file(file_size: int, max_size: int):
 
 class GroupService:
     """Пример использования в сервисном слое."""
-    
+
     async def get_group(self, group_id: int):
         """Получить группу по ID."""
         group = None  # Имитация поиска
-        
+
         if not group:
             logger.warning(f"[GroupService:get_group] {em.GROUP_NOT_FOUND}", extra={
                 "group_id": group_id
@@ -78,7 +78,7 @@ class GroupService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=em.GROUP_NOT_FOUND
             )
-        
+
         return group
 
 
@@ -93,7 +93,7 @@ def validate_permissions(user_role: str, required_role: str):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=em.USER_NOT_FOUND
         )
-    
+
     if user_role != required_role:
         logger.warning(f"[Auth:validate] {em.NOT_ENOUGH_PERMISSIONS}", extra={
             "user_role": user_role,
@@ -111,14 +111,14 @@ def validate_permissions(user_role: str, required_role: str):
 
 class LabCRUD:
     """Пример использования в CRUD слое."""
-    
+
     async def get_lab(self, lab_id: int):
         """Получить лабораторную работу."""
         lab = None  # Имитация запроса к БД
-        
+
         if not lab:
             raise ValueError(em.LAB_NOT_FOUND)  # В CRUD используем ValueError
-        
+
         return lab
 
 
@@ -133,7 +133,7 @@ def check_lab_availability(lab, current_date):
             status_code=status.HTTP_403_FORBIDDEN,
             detail=em.LAB_NOT_AVAILABLE_YET
         )
-    
+
     if not lab.is_available_by_schedule:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

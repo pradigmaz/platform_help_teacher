@@ -3,8 +3,8 @@ Rate Limit Warning System.
 
 Мягкая система предупреждений вместо жёсткого бана.
 """
+from .constants import THRESHOLDS, WarningLevel
 from .service import RateLimitService, get_rate_limit_service
-from .constants import WarningLevel, THRESHOLDS
 
 __all__ = [
     "RateLimitService",

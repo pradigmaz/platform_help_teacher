@@ -1,10 +1,10 @@
 """Feedback model for bug reports and suggestions."""
 import enum
 from uuid import uuid4
-from sqlalchemy import Column, String, Text, Enum, ForeignKey, DateTime
+
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
 
 from app.models.base import Base, TimestampMixin
 
@@ -36,14 +36,14 @@ class Feedback(Base, TimestampMixin):
         default=FeedbackStatus.NEW,
         nullable=False
     )
-    
+
     # User who submitted
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     user = relationship("User", backref="feedbacks")
-    
+
     # Admin response
     admin_response = Column(Text, nullable=True)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
-    
+
     # Attachments
     attachments = relationship("FeedbackAttachment", back_populates="feedback", cascade="all, delete-orphan")

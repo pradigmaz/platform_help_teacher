@@ -1,10 +1,12 @@
-from typing import List, Optional
 from uuid import UUID
+
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func
+
 from app.models.activity import Activity
-from app.schemas.activity import ActivityCreate, ActivityUpdate
 from app.models.attestation_settings import AttestationType
+from app.schemas.activity import ActivityCreate, ActivityUpdate
+
 
 class CRUDActivity:
     async def create(self, db: AsyncSession, *, obj_in: ActivityCreate, created_by_id: UUID) -> Activity:
@@ -22,16 +24,16 @@ class CRUDActivity:
         return db_obj
 
     async def create_batch(
-        self, 
-        db: AsyncSession, 
-        *, 
-        student_ids: List[UUID], 
-        points: float, 
-        description: str, 
+        self,
+        db: AsyncSession,
+        *,
+        student_ids: list[UUID],
+        points: float,
+        description: str,
         attestation_type: AttestationType,
         batch_id: UUID,
         created_by_id: UUID
-    ) -> List[Activity]:
+    ) -> list[Activity]:
         activities = []
         for student_id in student_ids:
             activity = Activity(
@@ -44,23 +46,23 @@ class CRUDActivity:
             )
             activities.append(activity)
             db.add(activity)
-        
+
         await db.commit()
         return activities
 
     async def get_by_student(
-        self, 
-        db: AsyncSession, 
-        student_id: UUID, 
-        attestation_type: Optional[AttestationType] = None
-    ) -> List[Activity]:
+        self,
+        db: AsyncSession,
+        student_id: UUID,
+        attestation_type: AttestationType | None = None
+    ) -> list[Activity]:
         query = select(Activity).where(
             Activity.student_id == student_id,
-            Activity.is_active == True
+            Activity.is_active
         )
         if attestation_type:
             query = query.where(Activity.attestation_type == attestation_type)
-        
+
         query = query.order_by(Activity.created_at.desc())
         result = await db.execute(query)
         return list(result.scalars().all())
@@ -68,40 +70,40 @@ class CRUDActivity:
     async def get_all(
         self,
         db: AsyncSession,
-        attestation_type: Optional[AttestationType] = None,
+        attestation_type: AttestationType | None = None,
         limit: int = 100,
         offset: int = 0
-    ) -> List[Activity]:
+    ) -> list[Activity]:
         """Get all activities with student info, ordered by date desc."""
-        query = select(Activity).where(Activity.is_active == True)
+        query = select(Activity).where(Activity.is_active)
         if attestation_type:
             query = query.where(Activity.attestation_type == attestation_type)
-        
+
         query = query.order_by(Activity.created_at.desc()).limit(limit).offset(offset)
         result = await db.execute(query)
         return list(result.scalars().all())
 
-    async def get(self, db: AsyncSession, id: UUID) -> Optional[Activity]:
+    async def get(self, db: AsyncSession, id: UUID) -> Activity | None:
         result = await db.execute(select(Activity).where(Activity.id == id))
         return result.scalar_one_or_none()
 
     async def update(
-        self, 
-        db: AsyncSession, 
-        *, 
-        db_obj: Activity, 
+        self,
+        db: AsyncSession,
+        *,
+        db_obj: Activity,
         obj_in: ActivityUpdate
     ) -> Activity:
         update_data = obj_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_obj, field, value)
-        
+
         db.add(db_obj)
         await db.commit()
         await db.refresh(db_obj)
         return db_obj
 
-    async def delete(self, db: AsyncSession, *, id: UUID) -> Optional[Activity]:
+    async def delete(self, db: AsyncSession, *, id: UUID) -> Activity | None:
         # Soft delete
         db_obj = await self.get(db, id)
         if db_obj:

@@ -11,15 +11,22 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Any, Optional
 from uuid import UUID
 
 from app.core.redis import get_redis
 
 from .constants import (
-    AttackType, StrikeLevel, AttackPattern, ATTACK_PATTERNS,
-    REDIS_STRIKE_COUNT, REDIS_STRIKE_DETAILS, REDIS_SECURITY_BAN,
-    STRIKE_WINDOW, BAN_DURATION, MAX_STRIKES, MESSAGES
+    ATTACK_PATTERNS,
+    BAN_DURATION,
+    MAX_STRIKES,
+    MESSAGES,
+    REDIS_STRIKE_COUNT,
+    REDIS_STRIKE_DETAILS,
+    STRIKE_WINDOW,
+    AttackPattern,
+    AttackType,
+    StrikeLevel,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,7 +50,7 @@ def get_security_detector() -> "SecurityDetector":
 
 class DetectionResult:
     """Результат проверки запроса."""
-    
+
     def __init__(
         self,
         is_suspicious: bool = False,
@@ -52,8 +59,8 @@ class DetectionResult:
         matched_pattern: str = "",
         strike_level: StrikeLevel = StrikeLevel.NONE,
         strike_count: int = 0,
-        message: Optional[str] = None,
-        ban_until: Optional[datetime] = None,
+        message: str | None = None,
+        ban_until: datetime | None = None,
     ):
         self.is_suspicious = is_suspicious
         self.attack_type = attack_type
@@ -67,31 +74,31 @@ class DetectionResult:
 
 class SecurityDetector:
     """Детектор подозрительных запросов."""
-    
-    def _hash_fingerprint(self, fingerprint: Dict[str, Any]) -> str:
+
+    def _hash_fingerprint(self, fingerprint: dict[str, Any]) -> str:
         """Хеширует fingerprint для использования как ключ."""
         fp_str = json.dumps(fingerprint, sort_keys=True)
         return hashlib.sha256(fp_str.encode()).hexdigest()[:16]
-    
-    def detect_attack(self, url: str, body: Optional[str] = None) -> Optional[AttackPattern]:
+
+    def detect_attack(self, url: str, body: str | None = None) -> AttackPattern | None:
         """
         Проверяет URL и тело запроса на паттерны атак.
-        
+
         Returns:
             AttackPattern если найдено совпадение, иначе None
         """
         for pattern in ATTACK_PATTERNS:
             if pattern.pattern.search(url):
                 return pattern
-        
+
         if body:
             for pattern in ATTACK_PATTERNS:
                 if pattern.pattern.search(body):
                     return pattern
-        
+
         return None
-    
-    async def _get_user_by_fingerprint(self, redis, fp_hash: str) -> Optional[UUID]:
+
+    async def _get_user_by_fingerprint(self, redis, fp_hash: str) -> UUID | None:
         """Найти user_id по fingerprint (для идентификации без JWT)."""
         key = REDIS_FP_TO_USER.format(fp_hash=fp_hash)
         user_id_str = await redis.get(key)
@@ -101,23 +108,23 @@ class SecurityDetector:
             except ValueError:
                 pass
         return None
-    
-    async def _is_user_banned(self, redis, user_id: UUID) -> Tuple[bool, Optional[int]]:
+
+    async def _is_user_banned(self, redis, user_id: UUID) -> tuple[bool, int | None]:
         """Проверить бан пользователя. Returns: (is_banned, ttl)"""
         key = REDIS_USER_BAN.format(user_id=user_id)
         if await redis.exists(key):
             ttl = await redis.ttl(key)
             return True, ttl
         return False, None
-    
-    async def _is_ip_banned(self, redis, ip: str) -> Tuple[bool, Optional[int]]:
+
+    async def _is_ip_banned(self, redis, ip: str) -> tuple[bool, int | None]:
         """Проверить бан IP. Returns: (is_banned, ttl)"""
         key = REDIS_IP_BAN.format(ip=ip)
         if await redis.exists(key):
             ttl = await redis.ttl(key)
             return True, ttl
         return False, None
-    
+
     async def _save_fingerprint_mapping(
         self, redis, user_id: UUID, fp_hash: str
     ) -> None:
@@ -125,24 +132,24 @@ class SecurityDetector:
         # Mapping fp → user
         fp_key = REDIS_FP_TO_USER.format(fp_hash=fp_hash)
         await redis.setex(fp_key, 86400 * 30, str(user_id))  # 30 дней
-        
+
         # Set fingerprints пользователя
         user_fps_key = REDIS_USER_FINGERPRINTS.format(user_id=user_id)
         await redis.sadd(user_fps_key, fp_hash)
         await redis.expire(user_fps_key, 86400 * 30)
-    
+
     async def check_and_record(
         self,
         ip_address: str,
         url: str,
-        user_id: Optional[UUID] = None,
-        body: Optional[str] = None,
-        response_status: Optional[int] = None,
-        fingerprint: Optional[Dict[str, Any]] = None,
+        user_id: UUID | None = None,
+        body: str | None = None,
+        response_status: int | None = None,
+        fingerprint: dict[str, Any] | None = None,
     ) -> DetectionResult:
         """
         Проверяет запрос и записывает страйк если нужно.
-        
+
         Логика проверки бана:
         1. Если есть user_id → проверить бан user
         2. Если нет user_id, но есть fingerprint → найти связанного user → проверить его бан
@@ -151,10 +158,10 @@ class SecurityDetector:
         redis = await get_redis()
         if not redis:
             return DetectionResult()
-        
+
         fp_hash = self._hash_fingerprint(fingerprint) if fingerprint else None
         effective_user_id = user_id
-        
+
         # 1. Если есть user_id — проверяем его бан
         if user_id:
             is_banned, ttl = await self._is_user_banned(redis, user_id)
@@ -168,7 +175,7 @@ class SecurityDetector:
             # Сохраняем fingerprint → user mapping
             if fp_hash:
                 await self._save_fingerprint_mapping(redis, user_id, fp_hash)
-        
+
         # 2. Если нет user_id, но есть fingerprint — ищем связанного user
         elif fp_hash:
             linked_user_id = await self._get_user_by_fingerprint(redis, fp_hash)
@@ -186,7 +193,7 @@ class SecurityDetector:
                         ban_until=datetime.utcnow() + timedelta(seconds=ttl) if ttl else None,
                     )
                 effective_user_id = linked_user_id
-        
+
         # 3. Fallback: проверяем бан IP (только для неавторизованных без fingerprint)
         if not user_id and not effective_user_id:
             is_banned, ttl = await self._is_ip_banned(redis, ip_address)
@@ -197,34 +204,30 @@ class SecurityDetector:
                     message=MESSAGES[StrikeLevel.BANNED],
                     ban_until=datetime.utcnow() + timedelta(seconds=ttl) if ttl else None,
                 )
-        
+
         # Определяем identifier для страйков
-        if effective_user_id:
-            identifier = f"user:{effective_user_id}"
-        else:
-            identifier = f"ip:{ip_address}"
-        
+        identifier = f"user:{effective_user_id}" if effective_user_id else f"ip:{ip_address}"
+
         # Детектим атаку по паттернам
         attack = self.detect_attack(url, body)
-        
+
         # Детектим IDOR по 404 на UUID-ресурсах
-        if not attack and response_status == 404:
-            if self._looks_like_idor(url):
-                attack = AttackPattern(
-                    pattern=None,  # type: ignore
-                    attack_type=AttackType.IDOR,
-                    description="Possible IDOR: 404 on UUID resource",
-                    severity=1
-                )
-        
+        if not attack and response_status == 404 and self._looks_like_idor(url):
+            attack = AttackPattern(
+                pattern=None,  # type: ignore
+                attack_type=AttackType.IDOR,
+                description="Possible IDOR: 404 on UUID resource",
+                severity=1
+            )
+
         if not attack:
             return DetectionResult()
-        
+
         # Записываем страйк
         return await self._record_strike(
             redis, identifier, ip_address, effective_user_id, url, attack, fp_hash
         )
-    
+
     def _looks_like_idor(self, url: str) -> bool:
         """Проверяет, похож ли URL на попытку IDOR."""
         import re
@@ -234,29 +237,29 @@ class SecurityDetector:
             if not any(p in url for p in public_paths):
                 return True
         return False
-    
+
     async def _record_strike(
         self,
         redis,
         identifier: str,
         ip_address: str,
-        user_id: Optional[UUID],
+        user_id: UUID | None,
         url: str,
         attack: AttackPattern,
-        fp_hash: Optional[str] = None,
+        fp_hash: str | None = None,
     ) -> DetectionResult:
         """Записывает страйк и возвращает результат."""
         count_key = REDIS_STRIKE_COUNT.format(identifier=identifier)
         details_key = REDIS_STRIKE_DETAILS.format(identifier=identifier)
-        
+
         # Инкрементируем счётчик (с учётом severity)
         increment = attack.severity if hasattr(attack, 'severity') else 1
         count = await redis.incrby(count_key, increment)
-        
+
         if count == increment:  # Первый страйк
             await redis.expire(count_key, STRIKE_WINDOW)
             await redis.expire(details_key, STRIKE_WINDOW)
-        
+
         # Сохраняем детали
         detail = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -266,12 +269,12 @@ class SecurityDetector:
             "severity": getattr(attack, 'severity', 1),
         }
         await redis.rpush(details_key, json.dumps(detail))
-        
+
         # Определяем уровень
         if count >= MAX_STRIKES:
             level = StrikeLevel.BANNED
             ban_until = datetime.utcnow() + timedelta(seconds=BAN_DURATION)
-            
+
             # Банить по user_id (основной механизм)
             if user_id:
                 user_ban_key = REDIS_USER_BAN.format(user_id=user_id)
@@ -288,7 +291,7 @@ class SecurityDetector:
                     f"🚫 IP BAN: ip={ip_address} | "
                     f"attack={attack.attack_type.value} | url={url[:100]}"
                 )
-            
+
         elif count >= 2:
             level = StrikeLevel.RECORDED
             ban_until = None
@@ -303,7 +306,7 @@ class SecurityDetector:
                 f"⚠️ WARNING: {identifier} | "
                 f"attack={attack.attack_type.value} | url={url[:100]}"
             )
-        
+
         return DetectionResult(
             is_suspicious=True,
             attack_type=attack.attack_type,
@@ -313,62 +316,62 @@ class SecurityDetector:
             message=MESSAGES.get(level),
             ban_until=ban_until,
         )
-    
-    async def get_strikes(self, identifier: str) -> Tuple[int, List[Dict[str, Any]]]:
+
+    async def get_strikes(self, identifier: str) -> tuple[int, list[dict[str, Any]]]:
         """Получает текущие страйки для идентификатора."""
         redis = await get_redis()
         if not redis:
             return 0, []
-        
+
         count_key = REDIS_STRIKE_COUNT.format(identifier=identifier)
         details_key = REDIS_STRIKE_DETAILS.format(identifier=identifier)
-        
+
         count = await redis.get(count_key)
         details_raw = await redis.lrange(details_key, 0, -1)
-        
+
         details = [json.loads(d) for d in details_raw] if details_raw else []
-        
+
         return int(count or 0), details
-    
+
     async def clear_strikes(self, identifier: str) -> bool:
         """Очищает страйки (для админа)."""
         redis = await get_redis()
         if not redis:
             return False
-        
+
         count_key = REDIS_STRIKE_COUNT.format(identifier=identifier)
         details_key = REDIS_STRIKE_DETAILS.format(identifier=identifier)
-        
+
         await redis.delete(count_key, details_key)
         logger.info(f"Cleared security strikes for {identifier}")
         return True
-    
+
     async def unban_user(self, user_id: UUID) -> bool:
         """Разбанить пользователя (для админа)."""
         redis = await get_redis()
         if not redis:
             return False
-        
+
         user_ban_key = REDIS_USER_BAN.format(user_id=user_id)
         await redis.delete(user_ban_key)
-        
+
         # Очищаем страйки
         await self.clear_strikes(f"user:{user_id}")
-        
+
         logger.info(f"Unbanned user {user_id}")
         return True
-    
+
     async def unban_ip(self, ip: str) -> bool:
         """Разбанить IP (для админа)."""
         redis = await get_redis()
         if not redis:
             return False
-        
+
         ip_ban_key = REDIS_IP_BAN.format(ip=ip)
         await redis.delete(ip_ban_key)
-        
+
         # Очищаем страйки
         await self.clear_strikes(f"ip:{ip}")
-        
+
         logger.info(f"Unbanned IP {ip}")
         return True

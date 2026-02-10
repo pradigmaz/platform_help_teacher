@@ -2,13 +2,13 @@
 Celery tasks для обслуживания аудит-логов.
 """
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select, func, text
+from sqlalchemy import delete, func, select, text
 
+from app.audit.models import StudentAuditLog
 from app.core.celery_app import celery_app
 from app.db.session import SyncSessionLocal
-from app.audit.models import StudentAuditLog
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +23,14 @@ RETRY_DELAYS = [60, 300, 900]
 def cleanup_old_audit_logs(self, retention_days: int = AUDIT_RETENTION_DAYS) -> dict:
     """
     Удаляет аудит-логи старше retention_days.
-    
+
     GDPR compliance: право на забвение.
     Performance: предотвращает неограниченный рост таблицы.
-    
+
     Рекомендуется запускать ежедневно через Celery Beat.
     """
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
-    
+    cutoff_date = datetime.now(UTC) - timedelta(days=retention_days)
+
     try:
         with SyncSessionLocal() as db:
             try:
@@ -40,15 +40,15 @@ def cleanup_old_audit_logs(self, retention_days: int = AUDIT_RETENTION_DAYS) -> 
                 )
                 result = db.execute(count_query)
                 count = result.scalar() or 0
-                
+
                 if count == 0:
                     logger.info(f"No audit logs older than {retention_days} days to delete")
                     return {"deleted": 0, "cutoff_date": cutoff_date.isoformat()}
-                
+
                 # Удаляем батчами для избежания блокировок
                 batch_size = 10000
                 total_deleted = 0
-                
+
                 while True:
                     # Удаляем батч
                     delete_query = delete(StudentAuditLog).where(
@@ -61,26 +61,26 @@ def cleanup_old_audit_logs(self, retention_days: int = AUDIT_RETENTION_DAYS) -> 
                     result = db.execute(delete_query)
                     deleted = result.rowcount
                     db.commit()
-                    
+
                     total_deleted += deleted
-                    
+
                     if deleted < batch_size:
                         break
-                    
+
                     logger.info(f"Deleted {total_deleted} audit logs so far...")
-                
+
                 logger.info(f"Audit cleanup complete: deleted {total_deleted} logs older than {cutoff_date}")
                 return {
                     "deleted": total_deleted,
                     "cutoff_date": cutoff_date.isoformat(),
                     "retention_days": retention_days
                 }
-                
+
             except Exception as e:
                 logger.error(f"Audit cleanup failed: {e}", exc_info=True)
                 db.rollback()
                 raise
-    
+
     except Exception as e:
         logger.exception(f"Audit cleanup failed for retention_days={retention_days}")
         retry_delay = RETRY_DELAYS[min(self.request.retries, len(RETRY_DELAYS) - 1)]
@@ -91,7 +91,7 @@ def cleanup_old_audit_logs(self, retention_days: int = AUDIT_RETENTION_DAYS) -> 
 def create_audit_partition(self) -> dict:
     """
     Создаёт партицию на следующий месяц если её нет.
-    
+
     Рекомендуется запускать ежедневно через Celery Beat.
     """
     try:
@@ -105,7 +105,7 @@ def create_audit_partition(self) -> dict:
                 logger.error(f"Audit partition creation failed: {e}", exc_info=True)
                 db.rollback()
                 raise
-    
+
     except Exception as e:
         logger.exception("Audit partition creation failed")
         retry_delay = RETRY_DELAYS[min(self.request.retries, len(RETRY_DELAYS) - 1)]

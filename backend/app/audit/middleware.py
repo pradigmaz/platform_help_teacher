@@ -2,21 +2,22 @@
 Middleware для автоматического сбора аудит-данных.
 """
 import asyncio
-import time
 import logging
-from uuid import uuid4, UUID
-from typing import Callable, Optional
+import time
+from collections.abc import Callable
+from uuid import UUID, uuid4
 
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 import jwt
+from fastapi import Request, Response
 from jwt.exceptions import InvalidTokenError
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
+
+from .constants import ActionType
 from .schemas import AuditContext
 from .service import get_audit_service
-from .utils import extract_ip_info, should_audit, extract_fingerprint
-from .constants import ActionType
+from .utils import extract_fingerprint, extract_ip_info, should_audit
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ SESSION_COOKIE_NAME = "audit_session_id"
 CORRELATION_HEADER = "X-Correlation-ID"
 
 
-def extract_user_info_from_token(request: Request) -> tuple[Optional[UUID], Optional[str]]:
+def extract_user_info_from_token(request: Request) -> tuple[UUID | None, str | None]:
     """
     Извлечь user_id и role из JWT токена в cookie.
     Returns: (user_id, role) tuple
@@ -35,7 +36,7 @@ def extract_user_info_from_token(request: Request) -> tuple[Optional[UUID], Opti
     token = request.cookies.get("access_token")
     if not token:
         return None, None
-    
+
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id_str = payload.get("sub")
@@ -44,16 +45,16 @@ def extract_user_info_from_token(request: Request) -> tuple[Optional[UUID], Opti
         return user_id, role
     except (InvalidTokenError, ValueError):
         pass
-    
+
     return None, None
 
 
-def extract_session_id(request: Request) -> Optional[str]:
+def extract_session_id(request: Request) -> str | None:
     """Извлечь session_id из cookie."""
     return request.cookies.get(SESSION_COOKIE_NAME)
 
 
-def extract_correlation_id(request: Request) -> Optional[str]:
+def extract_correlation_id(request: Request) -> str | None:
     """Извлечь correlation_id из header или сгенерировать."""
     return request.headers.get(CORRELATION_HEADER)
 
@@ -61,45 +62,45 @@ def extract_correlation_id(request: Request) -> Optional[str]:
 class AuditMiddleware(BaseHTTPMiddleware):
     """
     Middleware для сбора базовой информации о запросах.
-    
+
     Логирует только действия студентов в основной лог.
     Действия преподавателей/админов логируются отдельно (admin paths).
     """
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Проверяем, нужно ли логировать этот путь
         if not should_audit(request.url.path):
             return await call_next(request)
-        
+
         # Генерируем request_id
         request_id = str(uuid4())
-        
+
         # Извлекаем IP информацию
         ip_info = extract_ip_info(request)
-        
+
         # Извлекаем fingerprint
         fingerprint = extract_fingerprint(request)
-        
+
         # Извлекаем user_id и role из токена
         user_id, role = extract_user_info_from_token(request)
-        
+
         # Извлекаем session_id из cookie
         session_id = extract_session_id(request)
-        
+
         # Извлекаем correlation_id из header
         correlation_id = extract_correlation_id(request)
-        
+
         # Определяем, нужно ли логировать этого пользователя
         # Логируем только студентов (или неавторизованных)
         # Преподы/админы логируются только для security-critical paths
         is_admin_path = request.url.path.startswith("/api/v1/admin/")
         is_student = role is None or role == "student"
-        
+
         # Пропускаем логирование для преподов на обычных путях
         if not is_student and not is_admin_path:
             # Всё равно выполняем запрос, просто не логируем
             return await call_next(request)
-        
+
         # Создаём контекст аудита
         audit_context = AuditContext(
             request_id=request_id,
@@ -116,33 +117,33 @@ class AuditMiddleware(BaseHTTPMiddleware):
             fingerprint=fingerprint,
             action_type=self._infer_action_type(request.method),
         )
-        
+
         # Сохраняем в request.state для доступа из endpoints
         request.state.audit_context = audit_context
         request.state.audit_request_id = request_id
-        
+
         # Засекаем время
         start_time = time.perf_counter()
-        
+
         # Выполняем запрос
         response = await call_next(request)
-        
+
         # Дополняем контекст
         duration_ms = int((time.perf_counter() - start_time) * 1000)
         audit_context.response_status = response.status_code
         audit_context.duration_ms = duration_ms
-        
+
         # Определяем action_type по статусу
         if response.status_code >= 400:
             audit_context.action_type = ActionType.ERROR.value
-        
+
         # Добавляем причину auth ошибки если есть
         auth_error_reason = getattr(request.state, "auth_error_reason", None)
         if auth_error_reason:
             if audit_context.extra_data is None:
                 audit_context.extra_data = {}
             audit_context.extra_data["auth_error_reason"] = auth_error_reason
-        
+
         # Выбираем метод записи в зависимости от критичности
         audit_service = get_audit_service()
         if audit_service.is_security_critical(audit_context.action_type):
@@ -151,9 +152,9 @@ class AuditMiddleware(BaseHTTPMiddleware):
         else:
             # Асинхронная запись (fire-and-forget) для остальных
             asyncio.create_task(audit_service.write_log(audit_context))
-        
+
         return response
-    
+
     def _infer_action_type(self, method: str) -> str:
         """Определить тип действия по HTTP методу."""
         method_map = {

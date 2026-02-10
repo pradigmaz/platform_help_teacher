@@ -2,7 +2,6 @@
 Pydantic схемы для rate limit warnings.
 """
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -14,24 +13,24 @@ class WarningResponse(BaseModel):
     """Ответ с информацией о предупреждении."""
     level: WarningLevel
     message: str
-    ban_until: Optional[datetime] = None
+    ban_until: datetime | None = None
     violation_count: int
 
 
 class WarningRecord(BaseModel):
     """Запись предупреждения из БД."""
     id: UUID
-    user_id: Optional[UUID]
-    user_name: Optional[str] = None
+    user_id: UUID | None
+    user_name: str | None = None
     ip_address: str
     warning_level: str
     violation_count: int
-    message: Optional[str]
-    ban_until: Optional[datetime]
-    unbanned_at: Optional[datetime]
+    message: str | None
+    ban_until: datetime | None
+    unbanned_at: datetime | None
     admin_notified: bool
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -57,7 +56,7 @@ class UnbanResponse(BaseModel):
 class ActiveBanInfo(BaseModel):
     """Информация об активном бане."""
     is_banned: bool
-    ban_until: Optional[datetime] = None
-    warning_level: Optional[WarningLevel] = None
-    message: Optional[str] = None
+    ban_until: datetime | None = None
+    warning_level: WarningLevel | None = None
+    message: str | None = None
     can_unban: bool = True

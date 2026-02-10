@@ -1,9 +1,11 @@
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
-from sqlalchemy import Text, Boolean, CheckConstraint, String, Index, ForeignKey, DateTime
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID, uuid4
+
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
 
@@ -30,17 +32,17 @@ class Lecture(Base, TimestampMixin):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     title: Mapped[str] = mapped_column(Text, nullable=False, index=True)
-    content: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    content: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    public_code: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, unique=True)
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    subject_id: Mapped[Optional[UUID]] = mapped_column(
+    public_code: Mapped[str | None] = mapped_column(String(8), nullable=True, unique=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    subject_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("subjects.id", ondelete="SET NULL"),
         nullable=True
     )
     # IDOR Protection: Track who created the lecture
-    created_by_id: Mapped[Optional[UUID]] = mapped_column(
+    created_by_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
@@ -48,11 +50,11 @@ class Lecture(Base, TimestampMixin):
 
     subject: Mapped[Optional["Subject"]] = relationship("Subject")
 
-    groups: Mapped[List["Group"]] = relationship(
-        secondary="lecture_groups", 
+    groups: Mapped[list["Group"]] = relationship(
+        secondary="lecture_groups",
         back_populates="lectures"
     )
-    images: Mapped[List["LectureImage"]] = relationship(
+    images: Mapped[list["LectureImage"]] = relationship(
         back_populates="lecture",
         cascade="all, delete-orphan"
     )

@@ -1,11 +1,12 @@
 """
 FastAPI dependencies для аудита.
 """
-from typing import Optional
+
 from fastapi import Depends, Request
 
 from app.api.deps import get_current_user
 from app.models.user import User
+
 from .schemas import AuditContext
 
 
@@ -22,7 +23,7 @@ async def audit_user(
     return current_user
 
 
-def get_audit_context(request: Request) -> Optional[AuditContext]:
+def get_audit_context(request: Request) -> AuditContext | None:
     """Получить контекст аудита из request."""
     return getattr(request.state, 'audit_context', None)
 

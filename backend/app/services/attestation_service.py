@@ -1,9 +1,9 @@
 """Реэкспорт из модуля attestation/."""
 from app.services.attestation import (
-    AttestationService,
-    AttestationCalculator,
-    LabScoreResult,
     AttendanceScoreResult,
+    AttestationCalculator,
+    AttestationService,
+    LabScoreResult,
 )
 
 __all__ = [

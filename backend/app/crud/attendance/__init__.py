@@ -1,23 +1,23 @@
 """Attendance CRUD operations."""
+from .crud import (
+    bulk_create_attendance,
+    create_attendance,
+    delete_attendance,
+    update_attendance,
+    upsert_attendance,
+)
 from .exceptions import (
     AttendanceValidationError,
     DuplicateAttendanceError,
-    StudentNotInGroupError,
-    StudentNotFoundError,
     FutureDateError,
-)
-from .crud import (
-    create_attendance,
-    update_attendance,
-    upsert_attendance,
-    delete_attendance,
-    bulk_create_attendance,
+    StudentNotFoundError,
+    StudentNotInGroupError,
 )
 from .queries import (
-    get_attendance_by_student,
+    check_attendance_exists,
     get_attendance_by_group_and_date,
     get_attendance_by_group_date_range,
-    check_attendance_exists,
+    get_attendance_by_student,
 )
 from .validators import validate_student_in_group
 

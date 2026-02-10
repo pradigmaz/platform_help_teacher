@@ -3,8 +3,9 @@ HTML санитизация для защиты от XSS.
 Используется для очистки контента из Tiptap/Lexical редакторов.
 """
 import logging
+from typing import Any
+
 import bleach
-from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -59,22 +60,22 @@ ALLOWED_PROTOCOLS = ['http', 'https', 'mailto', 'tel']
 def sanitize_html(html: str) -> str:
     """
     Очищает HTML от потенциально опасного контента.
-    
+
     Удаляет:
     - <script>, <iframe>, <object>, <embed>
     - onclick, onerror и другие event handlers
     - javascript: протоколы
     - data: URLs (кроме изображений)
-    
+
     Args:
         html: Сырой HTML из редактора
-    
+
     Returns:
         Очищенный HTML
     """
     if not html:
         return html
-    
+
     try:
         cleaned = bleach.clean(
             html,
@@ -91,24 +92,24 @@ def sanitize_html(html: str) -> str:
         return bleach.clean(html, tags=[], strip=True)
 
 
-def sanitize_lexical_content(content: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_lexical_content(content: dict[str, Any]) -> dict[str, Any]:
     """
     Рекурсивно санитизирует Lexical JSON контент.
-    
+
     Lexical хранит контент как JSON с вложенными nodes.
     Нужно найти все text nodes и HTML nodes и очистить их.
-    
+
     Args:
         content: Lexical JSON структура
-    
+
     Returns:
         Очищенный контент
     """
     if not isinstance(content, dict):
         return content
-    
+
     result = {}
-    
+
     for key, value in content.items():
         if key == 'text' and isinstance(value, str):
             # Текстовые ноды — экранируем HTML entities
@@ -128,7 +129,7 @@ def sanitize_lexical_content(content: Dict[str, Any]) -> Dict[str, Any]:
             ]
         else:
             result[key] = value
-    
+
     return result
 
 
@@ -136,16 +137,16 @@ def _sanitize_url(url: str) -> str:
     """Проверяет и очищает URL."""
     if not url:
         return url
-    
+
     url_lower = url.lower().strip()
-    
+
     # Блокируем опасные протоколы
     dangerous_protocols = ['javascript:', 'vbscript:', 'data:text']
     for proto in dangerous_protocols:
         if url_lower.startswith(proto):
             logger.warning(f"Blocked dangerous URL: {url[:50]}")
             return '#blocked'
-    
+
     return url
 
 
