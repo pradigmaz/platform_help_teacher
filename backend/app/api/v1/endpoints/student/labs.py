@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
-from app.audit import ActionType, EntityType, audit_action, audit_user
+from app.audit import ActionType, EntityType, audit_action
+from app.audit.deps import audit_user
 from app.core import error_messages as em
 from app.core.limiter import limiter
 from app.models.lab import Lab
