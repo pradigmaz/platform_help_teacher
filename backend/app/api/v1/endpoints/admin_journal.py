@@ -2,6 +2,7 @@
 API endpoints для журнала посещаемости и оценок.
 Фасад - объединяет роутеры из journal/
 """
+
 from fastapi import APIRouter
 
 from .journal.export import router as export_router

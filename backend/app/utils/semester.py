@@ -7,6 +7,7 @@
 ВАЖНО: Синхронные функции используют хардкод месяцев как fallback.
 Для получения актуальных данных используйте async версии из semester_helpers.py
 """
+
 from datetime import date
 
 from app.services.schedule_constants import today_msk

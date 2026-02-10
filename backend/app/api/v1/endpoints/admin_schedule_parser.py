@@ -1,6 +1,7 @@
 """
 API для автопарсера расписания
 """
+
 import logging
 from datetime import timedelta
 from uuid import UUID
@@ -30,10 +31,7 @@ router = APIRouter()
 
 
 @router.get("/parser-config", response_model=ParserConfigResponse | None)
-async def get_parser_config(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
-):
+async def get_parser_config(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)):
     """Получить настройки автопарсера"""
     config = await crud.get_parser_config(db, current_user.id)
     return config
@@ -41,9 +39,7 @@ async def get_parser_config(
 
 @router.post("/parser-config", response_model=ParserConfigResponse)
 async def create_or_update_parser_config(
-    data: ParserConfigCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    data: ParserConfigCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)
 ):
     """Создать или обновить настройки автопарсера"""
     existing = await crud.get_parser_config(db, current_user.id)
@@ -56,10 +52,7 @@ async def create_or_update_parser_config(
 
 
 @router.get("/conflicts", response_model=list[ScheduleConflictResponse])
-async def get_conflicts(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
-):
+async def get_conflicts(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)):
     """Получить неразрешённые конфликты"""
     conflicts = await crud.get_unresolved_conflicts(db, current_user.id)
     return conflicts
@@ -70,7 +63,7 @@ async def resolve_conflict(
     conflict_id: UUID,
     data: ConflictResolveRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """Разрешить конфликт"""
     conflict = await crud.resolve_conflict(db, conflict_id, data.action)
@@ -81,9 +74,7 @@ async def resolve_conflict(
 
 @router.post("/conflicts/resolve-all")
 async def resolve_all_conflicts(
-    data: ConflictResolveRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    data: ConflictResolveRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)
 ):
     """Разрешить все конфликты текущего преподавателя"""
     count = await crud.resolve_all_conflicts(db, data.action, current_user.id)
@@ -91,10 +82,7 @@ async def resolve_all_conflicts(
 
 
 @router.post("/parse-now")
-async def parse_now(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
-):
+async def parse_now(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)):
     """Запустить парсинг вручную"""
     config = await crud.get_parser_config(db, current_user.id)
     if not config:
@@ -106,9 +94,7 @@ async def parse_now(
 
     try:
         stats = await service.import_from_parser(
-            teacher_name=config.teacher_name,
-            start_date=start_date,
-            end_date=end_date
+            teacher_name=config.teacher_name, start_date=start_date, end_date=end_date
         )
         return stats
     except Exception as e:
@@ -118,9 +104,7 @@ async def parse_now(
 
 @router.get("/parse-history", response_model=list[ParseHistoryResponse])
 async def get_parse_history(
-    limit: int = 20,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    limit: int = 20, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)
 ):
     """Получить историю парсинга"""
     history = await crud_parse_history.get_history(db, current_user.id, limit)
@@ -128,10 +112,7 @@ async def get_parse_history(
 
 
 @router.get("/parse-status")
-async def get_parse_status(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
-):
+async def get_parse_status(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)):
     """Проверить статус текущего парсинга"""
     last = await crud_parse_history.get_last_history(db, current_user.id)
     if not last:

@@ -13,14 +13,15 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class GroupService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
     def generate_invite_code(self, length: int = 8) -> str:
         """Генерация уникального инвайт-кода"""
-        chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-        return ''.join(secrets.choice(chars) for _ in range(length))
+        chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return "".join(secrets.choice(chars) for _ in range(length))
 
     async def create_with_students(self, group_in: schemas.GroupCreate) -> models.Group:
         """Создать новую группу с настройками и студентами."""
@@ -43,10 +44,9 @@ class GroupService:
             if group_in.students:
                 # Валидация количества студентов при создании
                 if len(group_in.students) > settings.MAX_STUDENTS_COUNT:
-                     raise HTTPException(
-                         status_code=400,
-                         detail=f"Too many students in one request (max {settings.MAX_STUDENTS_COUNT})"
-                     )
+                    raise HTTPException(
+                        status_code=400, detail=f"Too many students in one request (max {settings.MAX_STUDENTS_COUNT})"
+                    )
 
                 # Batch generate codes
                 invite_codes = await self._generate_unique_invite_codes_batch(len(group_in.students))
@@ -60,7 +60,7 @@ class GroupService:
                         group_id=group.id,
                         role=models.UserRole.STUDENT,
                         is_active=True,
-                        invite_code=invite_codes[i]
+                        invite_code=invite_codes[i],
                     )
                     self.db.add(new_student)
 
@@ -96,7 +96,7 @@ class GroupService:
             attempts += 1
 
         if len(unique_codes) < count:
-             raise HTTPException(status_code=500, detail=em.COULD_NOT_GENERATE_UNIQUE_CODE)
+            raise HTTPException(status_code=500, detail=em.COULD_NOT_GENERATE_UNIQUE_CODE)
 
         return list(unique_codes)[:count]
 
@@ -110,7 +110,7 @@ class GroupService:
         result = await self.db.execute(select(models.User).where(models.User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
-             raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
+            raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
 
         try:
             invite_code = await self._get_unique_invite_code()
@@ -179,4 +179,3 @@ class GroupService:
             await self.db.rollback()
             logger.error(f"Error regenerating group codes: {e}")
             raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
-

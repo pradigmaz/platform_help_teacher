@@ -16,6 +16,7 @@ from app.schemas.activity import ActivityCreate, ActivityResponse, ActivityUpdat
 
 router = APIRouter()
 
+
 @router.get("/activities", response_model=list[ActivityWithStudentResponse])
 async def list_all_activities(
     attestation_type: AttestationType | None = Query(None),
@@ -35,9 +36,12 @@ async def list_all_activities(
     if attestation_type:
         query = query.where(Activity.attestation_type == attestation_type)
 
-    query = query.options(
-        selectinload(Activity.student).selectinload(User.group)
-    ).order_by(Activity.created_at.desc()).limit(limit).offset(offset)
+    query = (
+        query.options(selectinload(Activity.student).selectinload(User.group))
+        .order_by(Activity.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     result = await db.execute(query)
     activities = result.scalars().all()
 
@@ -45,22 +49,25 @@ async def list_all_activities(
     response = []
     for act in activities:
         student = act.student
-        response.append(ActivityWithStudentResponse(
-            id=act.id,
-            student_id=act.student_id,
-            points=act.points,
-            description=act.description,
-            attestation_type=act.attestation_type,
-            is_active=act.is_active,
-            batch_id=act.batch_id,
-            created_by_id=act.created_by_id,
-            created_at=act.created_at,
-            updated_at=act.updated_at,
-            student_name=student.full_name if student else None,
-            group_name=student.group.name if student and student.group else None
-        ))
+        response.append(
+            ActivityWithStudentResponse(
+                id=act.id,
+                student_id=act.student_id,
+                points=act.points,
+                description=act.description,
+                attestation_type=act.attestation_type,
+                is_active=act.is_active,
+                batch_id=act.batch_id,
+                created_by_id=act.created_by_id,
+                created_at=act.created_at,
+                updated_at=act.updated_at,
+                student_name=student.full_name if student else None,
+                group_name=student.group.name if student and student.group else None,
+            )
+        )
 
     return response
+
 
 @router.post("/activities", response_model=list[ActivityResponse])
 async def create_activity(
@@ -80,9 +87,7 @@ async def create_activity(
     if activity_in.group_id:
         # Batch create for group
         students_query = select(User).where(
-            User.group_id == activity_in.group_id,
-            User.role == UserRole.STUDENT,
-            User.is_active
+            User.group_id == activity_in.group_id, User.role == UserRole.STUDENT, User.is_active
         )
         result = await db.execute(students_query)
         students = result.scalars().all()
@@ -98,20 +103,17 @@ async def create_activity(
             description=activity_in.description,
             attestation_type=activity_in.attestation_type,
             batch_id=batch_id,
-            created_by_id=current_user.id
+            created_by_id=current_user.id,
         )
         return activities
 
     elif activity_in.student_id:
         # Single create
-        activity = await crud_activity.create(
-            db,
-            obj_in=activity_in,
-            created_by_id=current_user.id
-        )
+        activity = await crud_activity.create(db, obj_in=activity_in, created_by_id=current_user.id)
         return [activity]
     else:
         raise HTTPException(status_code=400, detail=em.STUDENT_OR_GROUP_REQUIRED)
+
 
 @router.get("/activities/student/{student_id}", response_model=list[ActivityResponse])
 async def read_student_activities(
@@ -128,6 +130,7 @@ async def read_student_activities(
 
     activities = await crud_activity.get_by_student(db, student_id=student_id)
     return activities
+
 
 @router.patch("/activities/{activity_id}", response_model=ActivityResponse)
 async def update_activity(
@@ -149,6 +152,7 @@ async def update_activity(
     activity = await crud_activity.update(db, db_obj=activity, obj_in=activity_in)
     return activity
 
+
 @router.delete("/activities/{activity_id}", response_model=ActivityResponse)
 async def delete_activity(
     activity_id: str,
@@ -166,4 +170,3 @@ async def delete_activity(
         raise HTTPException(status_code=404, detail=em.ACTIVITY_NOT_FOUND)
 
     return activity
-

@@ -1,4 +1,5 @@
 """Генерация OTP и relink-кодов."""
+
 import json
 import logging
 from uuid import UUID
@@ -18,10 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 async def generate_relink_code(
-    db: AsyncSession,
-    user_id: UUID,
-    platform: Platform,
-    current_social_id: int | None = None
+    db: AsyncSession, user_id: UUID, platform: Platform, current_social_id: int | None = None
 ) -> str:
     """
     Генерирует код для привязки/перепривязки аккаунта.
@@ -35,6 +33,7 @@ async def generate_relink_code(
     # Получаем текущий social_id пользователя если не передан
     if current_social_id is None:
         from .users import get_social_id_field
+
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if user:
@@ -60,11 +59,13 @@ async def generate_relink_code(
             continue
 
         # SECURITY: Сохраняем original_social_id для валидации при использовании
-        data = json.dumps({
-            "user_id": str(user_id),
-            "platform": platform,
-            "original_social_id": current_social_id  # None если первая привязка
-        })
+        data = json.dumps(
+            {
+                "user_id": str(user_id),
+                "platform": platform,
+                "original_social_id": current_social_id,  # None если первая привязка
+            }
+        )
         await redis.setex(f"relink:{code}", RELINK_TTL, data)
         logger.info(f"Generated relink code {mask_code(code)} for user {user_id}, platform {platform}")
         return code

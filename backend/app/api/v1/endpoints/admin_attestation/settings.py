@@ -1,4 +1,5 @@
 """Attestation settings endpoints."""
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,7 +65,7 @@ async def update_attestation_settings(
             old_settings=old_settings,
             new_settings=settings,
             changed_by_id=current_user.id,
-            ip_address=ip_address
+            ip_address=ip_address,
         )
         await db.commit()
 

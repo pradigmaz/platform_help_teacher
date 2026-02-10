@@ -1,6 +1,7 @@
 """
 Схемы для продления дедлайнов лабораторных.
 """
+
 from datetime import datetime
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from pydantic import BaseModel, Field
 
 class DeadlineExtensionCreate(BaseModel):
     """Создание продления дедлайна."""
+
     lab_id: UUID
     group_id: UUID
     bonus_lessons: int = Field(default=1, ge=1, le=10, description="Количество дополнительных пар")
@@ -18,6 +20,7 @@ class DeadlineExtensionCreate(BaseModel):
 
 class DeadlineExtensionUpdate(BaseModel):
     """Обновление продления дедлайна."""
+
     bonus_lessons: int | None = Field(default=None, ge=1, le=10)
     reason: str | None = Field(default=None, max_length=500)
     expires_at: datetime | None = None
@@ -26,6 +29,7 @@ class DeadlineExtensionUpdate(BaseModel):
 
 class DeadlineExtensionResponse(BaseModel):
     """Ответ с информацией о продлении."""
+
     id: UUID
     lab_id: UUID
     group_id: UUID
@@ -48,5 +52,6 @@ class DeadlineExtensionResponse(BaseModel):
 
 class DeadlineExtensionListResponse(BaseModel):
     """Список продлений."""
+
     items: list[DeadlineExtensionResponse]
     total: int

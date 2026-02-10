@@ -2,6 +2,7 @@
 Session management service.
 Tracks active sessions per user and allows revocation.
 """
+
 import json
 import logging
 from datetime import UTC, datetime
@@ -37,13 +38,15 @@ async def create_session(
     redis = await get_redis()
     user_id_str = str(user_id)
 
-    session_data = json.dumps({
-        "user_id": user_id_str,
-        "created_at": datetime.now(UTC).isoformat(),
-        "device_fingerprint": device_fingerprint,
-        "ip_address": ip_address,
-        "is_impersonation": is_impersonation,
-    })
+    session_data = json.dumps(
+        {
+            "user_id": user_id_str,
+            "created_at": datetime.now(UTC).isoformat(),
+            "device_fingerprint": device_fingerprint,
+            "ip_address": ip_address,
+            "is_impersonation": is_impersonation,
+        }
+    )
 
     # Impersonation sessions don't count against limit
     if is_impersonation:

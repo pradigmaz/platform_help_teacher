@@ -2,6 +2,7 @@
 Backup creation service.
 Handles pg_dump, compression, encryption, and upload.
 """
+
 import asyncio
 import gzip
 import logging
@@ -32,7 +33,7 @@ def _secure_delete(file_path: Path) -> None:
     try:
         size = file_path.stat().st_size
         # Overwrite with random data
-        with open(file_path, 'wb') as f:
+        with open(file_path, "wb") as f:
             # Write in chunks to handle large files
             chunk_size = 64 * 1024
             remaining = size
@@ -65,6 +66,7 @@ def _generate_backup_name(prefix: str = "backup") -> str:
 @dataclass
 class BackupResult:
     """Result of backup operation."""
+
     success: bool
     backup_key: str | None = None
     size: int | None = None
@@ -140,6 +142,7 @@ class BackupService:
 
             except Exception as e:
                 import traceback
+
                 tb_text = traceback.format_exc()
                 logger.error(f"Backup failed: {e}\n{tb_text}")
                 # Notify admin about failure with full traceback
@@ -201,7 +204,7 @@ class BackupService:
 
     def _compress(self, input_path: Path, output_path: Path) -> None:
         """Compress file using gzip."""
-        with open(input_path, 'rb') as f_in, gzip.open(output_path, 'wb', compresslevel=6) as f_out:
+        with open(input_path, "rb") as f_in, gzip.open(output_path, "wb", compresslevel=6) as f_out:
             while chunk := f_in.read(64 * 1024):
                 f_out.write(chunk)
 
@@ -223,6 +226,7 @@ class BackupService:
     async def cleanup_old_backups(self, retention_days: int = None) -> int:
         """Delete backups older than retention period."""
         from app.core.time_constants import BACKUP_RETENTION_DAYS
+
         retention = retention_days or BACKUP_RETENTION_DAYS
         cutoff = datetime.now().timestamp() - (retention * 86400)
 
@@ -280,6 +284,7 @@ class BackupService:
                 # Step 5: Send to admin (sync)
                 if send_to_admin:
                     from .notification import send_backup_to_admin_sync
+
                     send_backup_to_admin_sync(
                         file_path=encrypted_file,
                         backup_name=remote_key,
@@ -294,9 +299,11 @@ class BackupService:
 
             except Exception as e:
                 import traceback
+
                 tb_text = traceback.format_exc()
                 logger.error(f"Backup failed: {e}\n{tb_text}")
                 from .notification import notify_backup_failure_sync
+
                 notify_backup_failure_sync(str(e), traceback_text=tb_text)
                 return BackupResult(success=False, error=str(e))
 
@@ -331,13 +338,7 @@ class BackupService:
 
             env = {**dict(os.environ), "PGPASSFILE": str(pgpass_path)}
 
-            result = subprocess.run(
-                cmd,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=BACKUP_DUMP_TIMEOUT_SECONDS
-            )
+            result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=BACKUP_DUMP_TIMEOUT_SECONDS)
 
             if result.returncode != 0:
                 raise RuntimeError(f"pg_dump failed: {result.stderr}")
@@ -355,6 +356,7 @@ class BackupService:
     def cleanup_old_backups_sync(self, retention_days: int = None) -> int:
         """Синхронный cleanup для Celery."""
         from app.core.time_constants import BACKUP_RETENTION_DAYS
+
         retention = retention_days or BACKUP_RETENTION_DAYS
         cutoff = datetime.now().timestamp() - (retention * 86400)
 

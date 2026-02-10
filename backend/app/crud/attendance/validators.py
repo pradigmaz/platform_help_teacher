@@ -1,4 +1,5 @@
 """Attendance validators."""
+
 from uuid import UUID
 
 from sqlalchemy import select
@@ -9,11 +10,7 @@ from app.models.user import User
 from .exceptions import StudentNotFoundError, StudentNotInGroupError
 
 
-async def validate_student_in_group(
-    db: AsyncSession,
-    student_id: UUID,
-    group_id: UUID
-) -> User:
+async def validate_student_in_group(db: AsyncSession, student_id: UUID, group_id: UUID) -> User:
     """
     Проверка принадлежности студента к группе.
 
@@ -38,8 +35,7 @@ async def validate_student_in_group(
 
     if student.group_id != group_id:
         raise StudentNotInGroupError(
-            f"Студент {student_id} не принадлежит группе {group_id}. "
-            f"Текущая группа студента: {student.group_id}"
+            f"Студент {student_id} не принадлежит группе {group_id}. Текущая группа студента: {student.group_id}"
         )
 
     return student

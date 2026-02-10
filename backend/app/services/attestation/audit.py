@@ -1,6 +1,7 @@
 """
 Аудит изменений настроек аттестации.
 """
+
 import logging
 from typing import Any
 from uuid import UUID
@@ -29,7 +30,7 @@ class AttestationAuditService:
         old_settings: AttestationSettings | None,
         new_settings: AttestationSettings,
         changed_by_id: UUID,
-        ip_address: str | None = None
+        ip_address: str | None = None,
     ) -> SettingsAuditLog:
         """Логирование изменения настроек."""
         old_values = self._settings_to_dict(old_settings) if old_settings else None
@@ -37,10 +38,7 @@ class AttestationAuditService:
 
         changed_fields = None
         if old_values and new_values:
-            changed_fields = [
-                key for key in new_values
-                if key in old_values and old_values[key] != new_values[key]
-            ]
+            changed_fields = [key for key in new_values if key in old_values and old_values[key] != new_values[key]]
 
         audit_log = SettingsAuditLog(
             settings_type=self.SETTINGS_TYPE,
@@ -50,7 +48,7 @@ class AttestationAuditService:
             new_values=new_values,
             changed_fields=changed_fields,
             changed_by_id=changed_by_id,
-            ip_address=ip_address
+            ip_address=ip_address,
         )
 
         self.db.add(audit_log)
@@ -62,31 +60,29 @@ class AttestationAuditService:
     def _settings_to_dict(self, settings: AttestationSettings) -> dict[str, Any]:
         """Конвертация настроек в словарь."""
         return {
-            'labs_weight': settings.labs_weight,
-            'attendance_weight': settings.attendance_weight,
-            'activity_reserve': settings.activity_reserve,
-            'labs_count_first': settings.labs_count_first,
-            'labs_count_second': settings.labs_count_second,
-            'grade_4_coef': settings.grade_4_coef,
-            'grade_3_coef': settings.grade_3_coef,
-            'late_coef': settings.late_coef,
-            'absent_coef': settings.absent_coef,
-            'self_works_enabled': settings.self_works_enabled,
-            'self_works_weight': settings.self_works_weight,
-            'self_works_count': settings.self_works_count,
-            'colloquium_enabled': settings.colloquium_enabled,
-            'colloquium_weight': settings.colloquium_weight,
-            'colloquium_count': settings.colloquium_count,
-            'activity_enabled': settings.activity_enabled,
-            'period_start_date': str(settings.period_start_date) if settings.period_start_date else None,
-            'period_end_date': str(settings.period_end_date) if settings.period_end_date else None,
-            'semester_start_date': str(settings.semester_start_date) if settings.semester_start_date else None,
+            "labs_weight": settings.labs_weight,
+            "attendance_weight": settings.attendance_weight,
+            "activity_reserve": settings.activity_reserve,
+            "labs_count_first": settings.labs_count_first,
+            "labs_count_second": settings.labs_count_second,
+            "grade_4_coef": settings.grade_4_coef,
+            "grade_3_coef": settings.grade_3_coef,
+            "late_coef": settings.late_coef,
+            "absent_coef": settings.absent_coef,
+            "self_works_enabled": settings.self_works_enabled,
+            "self_works_weight": settings.self_works_weight,
+            "self_works_count": settings.self_works_count,
+            "colloquium_enabled": settings.colloquium_enabled,
+            "colloquium_weight": settings.colloquium_weight,
+            "colloquium_count": settings.colloquium_count,
+            "activity_enabled": settings.activity_enabled,
+            "period_start_date": str(settings.period_start_date) if settings.period_start_date else None,
+            "period_end_date": str(settings.period_end_date) if settings.period_end_date else None,
+            "semester_start_date": str(settings.semester_start_date) if settings.semester_start_date else None,
         }
 
     async def get_audit_history(
-        self,
-        attestation_type: AttestationType | None = None,
-        limit: int = 50
+        self, attestation_type: AttestationType | None = None, limit: int = 50
     ) -> list[SettingsAuditLog]:
         """Получение истории изменений."""
         query = (

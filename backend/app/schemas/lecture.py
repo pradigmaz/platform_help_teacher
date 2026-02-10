@@ -54,17 +54,17 @@ class LectureCreate(BaseModel):
     content: dict[str, Any] = Field(default_factory=dict)
     subject_id: UUID | None = None
 
-    @field_validator('content')
+    @field_validator("content")
     @classmethod
     def validate_content(cls, v: dict[str, Any]) -> dict[str, Any]:
         # Проверка размера
         content_str = json.dumps(v, ensure_ascii=False)
-        if len(content_str.encode('utf-8')) > MAX_CONTENT_SIZE_BYTES:
-            raise ValueError(f'Content exceeds {MAX_CONTENT_SIZE_BYTES // (1024*1024)}MB limit')
+        if len(content_str.encode("utf-8")) > MAX_CONTENT_SIZE_BYTES:
+            raise ValueError(f"Content exceeds {MAX_CONTENT_SIZE_BYTES // (1024 * 1024)}MB limit")
         # Проверка глубины вложенности
         depth = _check_depth(v)
         if depth > MAX_CONTENT_DEPTH:
-            raise ValueError(f'Content nesting depth exceeds {MAX_CONTENT_DEPTH} levels')
+            raise ValueError(f"Content nesting depth exceeds {MAX_CONTENT_DEPTH} levels")
         return v
 
 
@@ -73,17 +73,17 @@ class LectureUpdate(BaseModel):
     content: dict[str, Any] | None = None
     subject_id: UUID | None = None
 
-    @field_validator('content')
+    @field_validator("content")
     @classmethod
     def validate_content(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         if v is None:
             return v
         content_str = json.dumps(v, ensure_ascii=False)
-        if len(content_str.encode('utf-8')) > MAX_CONTENT_SIZE_BYTES:
-            raise ValueError(f'Content exceeds {MAX_CONTENT_SIZE_BYTES // (1024*1024)}MB limit')
+        if len(content_str.encode("utf-8")) > MAX_CONTENT_SIZE_BYTES:
+            raise ValueError(f"Content exceeds {MAX_CONTENT_SIZE_BYTES // (1024 * 1024)}MB limit")
         depth = _check_depth(v)
         if depth > MAX_CONTENT_DEPTH:
-            raise ValueError(f'Content nesting depth exceeds {MAX_CONTENT_DEPTH} levels')
+            raise ValueError(f"Content nesting depth exceeds {MAX_CONTENT_DEPTH} levels")
         return v
 
 
@@ -103,7 +103,7 @@ class LectureResponse(BaseModel):
     class Config:
         from_attributes = True
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def limit_images(self):
         if self.images:
             self.images_total = len(self.images)

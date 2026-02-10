@@ -1,4 +1,5 @@
 """Groups API module."""
+
 from fastapi import APIRouter
 
 from .crud import router as crud_router

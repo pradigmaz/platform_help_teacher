@@ -2,6 +2,7 @@
 Batch-версии валидаторов слотов для оптимизации bulk-операций.
 Загружает данные для всех студентов одним запросом.
 """
+
 import logging
 from typing import Optional
 from uuid import UUID
@@ -19,24 +20,21 @@ logger = logging.getLogger(__name__)
 
 
 async def get_grades_count_on_lesson_batch(
-    db: AsyncSession,
-    student_ids: list[UUID],
-    lesson_id: UUID
+    db: AsyncSession, student_ids: list[UUID], lesson_id: UUID
 ) -> dict[UUID, int]:
     """
     Количество оценок за лабы для списка студентов на занятии.
     Один запрос вместо N.
     """
     query = (
-        select(
-            LessonGrade.student_id,
-            func.count().label('count')
+        select(LessonGrade.student_id, func.count().label("count"))
+        .where(
+            and_(
+                LessonGrade.lesson_id == lesson_id,
+                LessonGrade.student_id.in_(student_ids),
+                LessonGrade.grade.isnot(None),
+            )
         )
-        .where(and_(
-            LessonGrade.lesson_id == lesson_id,
-            LessonGrade.student_id.in_(student_ids),
-            LessonGrade.grade.isnot(None)
-        ))
         .group_by(LessonGrade.student_id)
     )
     result = await db.execute(query)
@@ -47,10 +45,7 @@ async def get_grades_count_on_lesson_batch(
 
 
 async def get_max_labs_per_lesson_batch(
-    db: AsyncSession,
-    student_ids: list[UUID],
-    subject_id: UUID,
-    lesson: Optional["Lesson"] = None
+    db: AsyncSession, student_ids: list[UUID], subject_id: UUID, lesson: Optional["Lesson"] = None
 ) -> dict[UUID, int]:
     """
     Максимум лаб за занятие для списка студентов.
@@ -78,18 +73,17 @@ async def get_max_labs_per_lesson_batch(
 
     # 1. Находим все LAB-занятия с EXCUSED для этих студентов
     excused_query = (
-        select(
-            Attendance.student_id,
-            Lesson.id.label('lesson_id')
-        )
+        select(Attendance.student_id, Lesson.id.label("lesson_id"))
         .join(Lesson, Attendance.lesson_id == Lesson.id)
-        .where(and_(
-            Attendance.student_id.in_(student_ids),
-            Attendance.status == AttendanceStatus.EXCUSED,
-            Lesson.subject_id == subject_id,
-            Lesson.lesson_type == LessonType.LAB,
-            not Lesson.is_cancelled
-        ))
+        .where(
+            and_(
+                Attendance.student_id.in_(student_ids),
+                Attendance.status == AttendanceStatus.EXCUSED,
+                Lesson.subject_id == subject_id,
+                Lesson.lesson_type == LessonType.LAB,
+                not Lesson.is_cancelled,
+            )
+        )
     )
     result = await db.execute(excused_query)
 
@@ -107,12 +101,8 @@ async def get_max_labs_per_lesson_batch(
         return {sid: 1 for sid in student_ids}
 
     # 2. Находим лабы привязанные к этим занятиям
-    labs_query = (
-        select(Lab.lesson_id, Lab.number)
-        .where(and_(
-            Lab.lesson_id.in_(all_excused_lesson_ids),
-            Lab.deleted_at.is_(None)
-        ))
+    labs_query = select(Lab.lesson_id, Lab.number).where(
+        and_(Lab.lesson_id.in_(all_excused_lesson_ids), Lab.deleted_at.is_(None))
     )
     result = await db.execute(labs_query)
 
@@ -138,17 +128,16 @@ async def get_max_labs_per_lesson_batch(
 
     # 3. Считаем сданные лабы по этим номерам
     grades_query = (
-        select(
-            LessonGrade.student_id,
-            LessonGrade.work_number
-        )
+        select(LessonGrade.student_id, LessonGrade.work_number)
         .join(Lesson, LessonGrade.lesson_id == Lesson.id)
-        .where(and_(
-            LessonGrade.student_id.in_(student_ids),
-            Lesson.subject_id == subject_id,
-            LessonGrade.work_number.in_(all_lab_numbers),
-            LessonGrade.grade.isnot(None)
-        ))
+        .where(
+            and_(
+                LessonGrade.student_id.in_(student_ids),
+                Lesson.subject_id == subject_id,
+                LessonGrade.work_number.in_(all_lab_numbers),
+                LessonGrade.grade.isnot(None),
+            )
+        )
         .distinct()
     )
     result = await db.execute(grades_query)

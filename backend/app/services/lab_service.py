@@ -1,4 +1,5 @@
 """Сервис бизнес-логики для лабораторных работ."""
+
 import logging
 import secrets
 from datetime import UTC, datetime
@@ -23,11 +24,7 @@ class LabService:
         """Генерировать уникальный код для публичной ссылки."""
         return secrets.token_urlsafe(LAB_PUBLIC_CODE_LENGTH)[:LAB_PUBLIC_CODE_LENGTH]
 
-    async def _sync_subject_from_lesson(
-        self,
-        db: AsyncSession,
-        lesson_id: UUID | None
-    ) -> UUID | None:
+    async def _sync_subject_from_lesson(self, db: AsyncSession, lesson_id: UUID | None) -> UUID | None:
         """Получить subject_id из занятия для автоматической привязки."""
         if not lesson_id:
             return None
@@ -40,16 +37,10 @@ class LabService:
         lab_id,
     ) -> Lab | None:
         """Получить лабу по ID."""
-        result = await db.execute(
-            select(Lab).where(Lab.id == lab_id, Lab.deleted_at.is_(None))
-        )
+        result = await db.execute(select(Lab).where(Lab.id == lab_id, Lab.deleted_at.is_(None)))
         return result.scalar_one_or_none()
 
-    async def get_by_public_code(
-        self,
-        db: AsyncSession,
-        public_code: str
-    ) -> Lab | None:
+    async def get_by_public_code(self, db: AsyncSession, public_code: str) -> Lab | None:
         """Получить лабу по публичному коду."""
         result = await db.execute(
             select(Lab)
@@ -59,17 +50,13 @@ class LabService:
         )
         return result.scalar_one_or_none()
 
-    async def create(
-        self,
-        db: AsyncSession,
-        lab_in: LabCreate
-    ) -> Lab:
+    async def create(self, db: AsyncSession, lab_in: LabCreate) -> Lab:
         """Создать лабораторную работу."""
         data = lab_in.model_dump()
 
         # Автоматически подтягиваем subject_id из занятия
-        if data.get('lesson_id') and not data.get('subject_id'):
-            data['subject_id'] = await self._sync_subject_from_lesson(db, data['lesson_id'])
+        if data.get("lesson_id") and not data.get("subject_id"):
+            data["subject_id"] = await self._sync_subject_from_lesson(db, data["lesson_id"])
 
         lab = Lab(**data)
         db.add(lab)
@@ -78,22 +65,17 @@ class LabService:
         logger.info(f"Lab {lab.id} created: {lab.title}")
         return lab
 
-    async def update(
-        self,
-        db: AsyncSession,
-        lab: Lab,
-        lab_in: LabUpdate
-    ) -> Lab:
+    async def update(self, db: AsyncSession, lab: Lab, lab_in: LabUpdate) -> Lab:
         """Обновить лабораторную работу."""
         update_data = lab_in.model_dump(exclude_unset=True)
 
         # Автоматически синхронизируем subject_id при изменении lesson_id
-        if 'lesson_id' in update_data:
-            new_lesson_id = update_data['lesson_id']
+        if "lesson_id" in update_data:
+            new_lesson_id = update_data["lesson_id"]
             if new_lesson_id:
                 subject_id = await self._sync_subject_from_lesson(db, new_lesson_id)
                 if subject_id:
-                    update_data['subject_id'] = subject_id
+                    update_data["subject_id"] = subject_id
 
         for field, value in update_data.items():
             setattr(lab, field, value)
@@ -102,11 +84,7 @@ class LabService:
         logger.info(f"Lab {lab.id} updated")
         return lab
 
-    async def publish(
-        self,
-        db: AsyncSession,
-        lab: Lab
-    ) -> str:
+    async def publish(self, db: AsyncSession, lab: Lab) -> str:
         """Опубликовать лабу и вернуть публичный код."""
         if lab.public_code:
             lab.is_published = True
@@ -127,11 +105,7 @@ class LabService:
         logger.error(f"Failed to generate unique public_code for lab {lab.id}")
         raise ValueError("Failed to generate unique public code")
 
-    async def unpublish(
-        self,
-        db: AsyncSession,
-        lab: Lab
-    ) -> None:
+    async def unpublish(self, db: AsyncSession, lab: Lab) -> None:
         """Снять лабу с публикации."""
         lab.public_code = None
         lab.is_published = False
@@ -139,11 +113,7 @@ class LabService:
         await db.refresh(lab)
         logger.info(f"Lab {lab.id} unpublished")
 
-    async def soft_delete(
-        self,
-        db: AsyncSession,
-        lab: Lab
-    ) -> None:
+    async def soft_delete(self, db: AsyncSession, lab: Lab) -> None:
         """Мягкое удаление лабы (submissions сохраняются)."""
         lab.deleted_at = datetime.now(UTC)
         lab.is_published = False
@@ -151,11 +121,7 @@ class LabService:
         await db.commit()
         logger.info(f"Lab {lab.id} soft-deleted")
 
-    async def restore(
-        self,
-        db: AsyncSession,
-        lab: Lab
-    ) -> None:
+    async def restore(self, db: AsyncSession, lab: Lab) -> None:
         """Восстановить удалённую лабу."""
         lab.deleted_at = None
         await db.commit()

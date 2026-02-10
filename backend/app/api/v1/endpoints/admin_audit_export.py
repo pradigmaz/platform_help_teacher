@@ -1,6 +1,7 @@
 """
 Admin Audit Export API — выгрузка логов для анализа ИИ.
 """
+
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -126,7 +127,7 @@ async def export_audit_logs(
     return StreamingResponse(
         generate(),
         media_type="application/x-ndjson",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
@@ -140,6 +141,5 @@ async def export_user_audit_logs(
 ):
     """Экспорт логов конкретного пользователя."""
     return await export_audit_logs(
-        db=db, _=_, user_id=user_id, days=days, limit=limit,
-        action_type=None, date_from=None, date_to=None
+        db=db, _=_, user_id=user_id, days=days, limit=limit, action_type=None, date_from=None, date_to=None
     )

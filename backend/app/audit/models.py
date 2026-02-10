@@ -1,6 +1,7 @@
 """
 Модель аудита действий студентов.
 """
+
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -18,16 +19,14 @@ class StudentAuditLog(Base):
     Лог действий студентов.
     Партиционируется по месяцам для производительности.
     """
+
     __tablename__ = "student_audit_log"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
     # Идентификация пользователя
     user_id: Mapped[UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     session_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     correlation_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
@@ -57,14 +56,11 @@ class StudentAuditLog(Base):
 
     # Timestamp
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        nullable=False,
-        index=True
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False, index=True
     )
 
     __table_args__ = (
-        Index('idx_audit_entity', 'entity_type', 'entity_id'),
-        Index('idx_audit_user_time', 'user_id', 'created_at'),
+        Index("idx_audit_entity", "entity_type", "entity_id"),
+        Index("idx_audit_user_time", "user_id", "created_at"),
         # Партиционирование добавляется в миграции
     )

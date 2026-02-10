@@ -2,6 +2,7 @@
 Константы для модуля расписания.
 Единый источник истины для backend.
 """
+
 from datetime import timedelta, timezone
 
 from app.models.schedule import LessonType
@@ -13,13 +14,16 @@ MSK_TZ = timezone(timedelta(hours=3))
 def today_msk():
     """Получить сегодняшнюю дату по МСК."""
     from datetime import datetime
+
     return datetime.now(MSK_TZ).date()
 
 
 def now_msk():
     """Получить текущее время по МСК."""
     from datetime import datetime
+
     return datetime.now(MSK_TZ)
+
 
 # Маппинг времени на номер пары
 TIME_TO_LESSON_NUMBER = {
@@ -37,10 +41,7 @@ TIME_TO_LESSON_NUMBER = {
 LESSON_NUMBER_TO_TIME = {v: k for k, v in TIME_TO_LESSON_NUMBER.items()}
 
 # Маппинг номера пары -> кортеж (start_time, end_time)
-LESSON_TIMES = {
-    num: tuple(time_str.split("-"))
-    for num, time_str in LESSON_NUMBER_TO_TIME.items()
-}
+LESSON_TIMES = {num: tuple(time_str.split("-")) for num, time_str in LESSON_NUMBER_TO_TIME.items()}
 
 # Маппинг текста типа занятия (из парсера) -> строка
 LESSON_TYPE_TEXT_MAP = {

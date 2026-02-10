@@ -1,4 +1,5 @@
 """Модель перевода студента между группами/подгруппами"""
+
 from datetime import date
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
@@ -34,6 +35,7 @@ class StudentTransfer(Base, TimestampMixin):
         lab_grades_data: Снапшот оценок [{work_number, grade, lesson_id?}]
         activity_points: Сумма баллов активности на момент перевода
     """
+
     __tablename__ = "student_transfers"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -52,8 +54,7 @@ class StudentTransfer(Base, TimestampMixin):
 
     # Тип аттестации (для какого периода снапшот)
     attestation_type: Mapped[AttestationType] = mapped_column(
-        SQLEnum(AttestationType, name='attestationtype', create_constraint=False, native_enum=False),
-        nullable=False
+        SQLEnum(AttestationType, name="attestationtype", create_constraint=False, native_enum=False), nullable=False
     )
 
     # Снапшот посещаемости: {total_lessons, present, late, excused, absent}

@@ -2,6 +2,7 @@
 Ownership verification для защиты от IDOR атак.
 Проверяет, что пользователь имеет право доступа к ресурсу.
 """
+
 import logging
 from typing import Any
 from uuid import UUID
@@ -16,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 class OwnershipError(HTTPException):
     """Ошибка доступа к чужому ресурсу."""
+
     def __init__(self, resource_type: str = "resource"):
         super().__init__(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"You don't have permission to access this {resource_type}"
+            status_code=status.HTTP_403_FORBIDDEN, detail=f"You don't have permission to access this {resource_type}"
         )
 
 
@@ -28,7 +29,7 @@ def check_ownership(
     user: User,
     owner_field: str = "created_by_id",
     resource_type: str = "resource",
-    allow_admin: bool = True
+    allow_admin: bool = True,
 ) -> bool:
     """
     Проверяет ownership ресурса.
@@ -55,28 +56,18 @@ def check_ownership(
 
     # Если поля нет — пропускаем проверку (legacy данные)
     if owner_id is None:
-        logger.warning(
-            f"Resource {resource_type} has no {owner_field}, skipping ownership check"
-        )
+        logger.warning(f"Resource {resource_type} has no {owner_field}, skipping ownership check")
         return True
 
     # Сравниваем с текущим пользователем
     if owner_id != user.id:
-        logger.warning(
-            f"IDOR attempt: user={user.id} tried to access {resource_type} "
-            f"owned by {owner_id}"
-        )
+        logger.warning(f"IDOR attempt: user={user.id} tried to access {resource_type} owned by {owner_id}")
         raise OwnershipError(resource_type)
 
     return True
 
 
-def check_student_access(
-    student_id: UUID,
-    user: User,
-    allow_teacher: bool = True,
-    allow_admin: bool = True
-) -> bool:
+def check_student_access(student_id: UUID, user: User, allow_teacher: bool = True, allow_admin: bool = True) -> bool:
     """
     Проверяет доступ к данным студента.
 
@@ -107,18 +98,11 @@ def check_student_access(
     if user.id == student_id:
         return True
 
-    logger.warning(
-        f"IDOR attempt: user={user.id} (role={user.role}) "
-        f"tried to access student={student_id} data"
-    )
+    logger.warning(f"IDOR attempt: user={user.id} (role={user.role}) tried to access student={student_id} data")
     raise OwnershipError("student data")
 
 
-async def check_group_access(
-    group_id: UUID,
-    user: User,
-    db: AsyncSession = None
-) -> bool:
+async def check_group_access(group_id: UUID, user: User, db: AsyncSession = None) -> bool:
     """
     Проверяет доступ к группе.
 
@@ -167,17 +151,12 @@ async def check_group_access(
             return True
 
         # Нет доступа — логируем IDOR попытку
-        logger.warning(
-            f"IDOR attempt: teacher={user.id} tried to access group={group_id}"
-        )
+        logger.warning(f"IDOR attempt: teacher={user.id} tried to access group={group_id}")
         raise OwnershipError("group")
 
     # Студент — только своя группа
     if user.group_id == group_id:
         return True
 
-    logger.warning(
-        f"IDOR attempt: user={user.id} (group={user.group_id}) "
-        f"tried to access group={group_id}"
-    )
+    logger.warning(f"IDOR attempt: user={user.id} (group={user.group_id}) tried to access group={group_id}")
     raise OwnershipError("group")

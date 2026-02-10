@@ -1,4 +1,5 @@
 """Feedback model for bug reports and suggestions."""
+
 import enum
 from uuid import uuid4
 
@@ -26,15 +27,15 @@ class Feedback(Base, TimestampMixin):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     type = Column(
-        Enum(FeedbackType, name='feedbacktype', create_type=False, values_callable=lambda x: [e.value for e in x]),
-        nullable=False
+        Enum(FeedbackType, name="feedbacktype", create_type=False, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
     )
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=False)
     status = Column(
-        Enum(FeedbackStatus, name='feedbackstatus', create_type=False, values_callable=lambda x: [e.value for e in x]),
+        Enum(FeedbackStatus, name="feedbackstatus", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=FeedbackStatus.NEW,
-        nullable=False
+        nullable=False,
     )
 
     # User who submitted

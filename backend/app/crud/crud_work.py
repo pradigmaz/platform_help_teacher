@@ -1,4 +1,5 @@
 """CRUD операции для модели Work."""
+
 import logging
 from uuid import UUID
 
@@ -21,7 +22,7 @@ class CRUDWork:
         max_grade: int = 10,
         description: str | None = None,
         deadline: str | None = None,
-        s3_key: str | None = None
+        s3_key: str | None = None,
     ) -> Work:
         db_obj = Work(
             title=title,
@@ -29,7 +30,7 @@ class CRUDWork:
             max_grade=max_grade,
             description=description,
             deadline=deadline,
-            s3_key=s3_key
+            s3_key=s3_key,
         )
         db.add(db_obj)
         await db.commit()
@@ -41,35 +42,15 @@ class CRUDWork:
         result = await db.execute(select(Work).where(Work.id == id))
         return result.scalar_one_or_none()
 
-    async def get_by_type(
-        self,
-        db: AsyncSession,
-        work_type: WorkType,
-        limit: int = 100,
-        offset: int = 0
-    ) -> list[Work]:
+    async def get_by_type(self, db: AsyncSession, work_type: WorkType, limit: int = 100, offset: int = 0) -> list[Work]:
         query = (
-            select(Work)
-            .where(Work.work_type == work_type)
-            .order_by(Work.created_at.desc())
-            .limit(limit)
-            .offset(offset)
+            select(Work).where(Work.work_type == work_type).order_by(Work.created_at.desc()).limit(limit).offset(offset)
         )
         result = await db.execute(query)
         return list(result.scalars().all())
 
-    async def get_all(
-        self,
-        db: AsyncSession,
-        limit: int = 100,
-        offset: int = 0
-    ) -> list[Work]:
-        query = (
-            select(Work)
-            .order_by(Work.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-        )
+    async def get_all(self, db: AsyncSession, limit: int = 100, offset: int = 0) -> list[Work]:
+        query = select(Work).order_by(Work.created_at.desc()).limit(limit).offset(offset)
         result = await db.execute(query)
         return list(result.scalars().all())
 
@@ -82,7 +63,7 @@ class CRUDWork:
         description: str | None = None,
         max_grade: int | None = None,
         deadline: str | None = None,
-        s3_key: str | None = None
+        s3_key: str | None = None,
     ) -> Work:
         if title is not None:
             db_obj.title = title

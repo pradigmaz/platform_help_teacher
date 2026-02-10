@@ -1,4 +1,5 @@
 """API эндпоинты для управления сдачей работ."""
+
 from datetime import datetime
 from uuid import UUID
 
@@ -58,9 +59,7 @@ async def create_submission(
         raise HTTPException(status_code=404, detail="Работа не найдена")
 
     # Проверяем, нет ли уже сдачи
-    existing = await crud_submission.get_by_student_and_work(
-        db, submission_in.user_id, submission_in.work_id
-    )
+    existing = await crud_submission.get_by_student_and_work(db, submission_in.user_id, submission_in.work_id)
     if existing:
         raise HTTPException(status_code=400, detail="Сдача уже существует, используйте PATCH для обновления")
 
@@ -71,7 +70,7 @@ async def create_submission(
         grade=submission_in.grade,
         feedback=submission_in.feedback,
         s3_key=submission_in.s3_key,
-        is_manual=submission_in.is_manual
+        is_manual=submission_in.is_manual,
     )
     return submission
 
@@ -112,10 +111,7 @@ async def update_submission_grade(
         raise HTTPException(status_code=404, detail="Сдача не найдена")
 
     submission = await crud_submission.update_grade(
-        db,
-        db_obj=submission,
-        grade=grade_in.grade,
-        feedback=grade_in.feedback
+        db, db_obj=submission, grade=grade_in.grade, feedback=grade_in.feedback
     )
     return submission
 

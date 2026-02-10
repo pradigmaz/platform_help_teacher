@@ -1,4 +1,5 @@
 """Схемы для перевода студентов"""
+
 from datetime import date
 from enum import Enum
 from uuid import UUID

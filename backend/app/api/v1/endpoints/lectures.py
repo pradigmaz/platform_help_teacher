@@ -1,4 +1,5 @@
 """Публичные API endpoints для лекций (без авторизации)."""
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 

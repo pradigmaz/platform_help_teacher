@@ -1,6 +1,7 @@
 """
 Сервис аттестации (фасад).
 """
+
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,22 +48,11 @@ class AttestationService:
     # === Calculation ===
 
     async def calculate_student_score(
-        self,
-        student_id: UUID,
-        group_id: UUID,
-        attestation_type: AttestationType,
-        activity_points: float = 0.0
+        self, student_id: UUID, group_id: UUID, attestation_type: AttestationType, activity_points: float = 0.0
     ) -> AttestationResult:
-        return await self._student_calculator.calculate(
-            student_id, group_id, attestation_type, activity_points
-        )
+        return await self._student_calculator.calculate(student_id, group_id, attestation_type, activity_points)
 
     async def calculate_group_scores_batch(
-        self,
-        group_id: UUID,
-        attestation_type: AttestationType,
-        students: list[User] | None = None
+        self, group_id: UUID, attestation_type: AttestationType, students: list[User] | None = None
     ) -> tuple[list[AttestationResult], list[CalculationErrorInfo]]:
-        return await self._batch_calculator.calculate_group_batch(
-            group_id, attestation_type, students
-        )
+        return await self._batch_calculator.calculate_group_batch(group_id, attestation_type, students)

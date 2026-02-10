@@ -1,6 +1,7 @@
 """
 Admin Lab Queue API - очередь на сдачу лабораторных работ.
 """
+
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -25,8 +26,10 @@ router = APIRouter()
 
 # === Schemas ===
 
+
 class QueueItemResponse(BaseModel):
     """Элемент очереди на сдачу."""
+
     submission_id: UUID
     student_id: UUID
     student_name: str
@@ -43,6 +46,7 @@ class QueueItemResponse(BaseModel):
 
 class LabQueueResponse(BaseModel):
     """Очередь по одной лабе."""
+
     lab_id: UUID
     lab_number: int
     lab_title: str
@@ -51,17 +55,20 @@ class LabQueueResponse(BaseModel):
 
 class AcceptSubmissionRequest(BaseModel):
     """Запрос на принятие работы."""
+
     grade: int = Field(..., ge=0, le=100, description="Оценка 0-100")
     comment: str | None = None
 
 
 class RejectSubmissionRequest(BaseModel):
     """Запрос на отклонение работы."""
+
     comment: str = Field(..., min_length=1, description="Причина отклонения")
 
 
 class SubmissionDetailResponse(BaseModel):
     """Детали сдачи для приёма работы."""
+
     submission_id: UUID
     student_id: UUID
     student_name: str
@@ -83,6 +90,7 @@ class SubmissionDetailResponse(BaseModel):
 
 # === Endpoints ===
 
+
 @router.get("/queue", response_model=list[LabQueueResponse])
 async def get_submission_queue(
     subject_id: UUID | None = Query(default=None, description="Фильтр по предмету"),
@@ -98,10 +106,7 @@ async def get_submission_queue(
     query = (
         select(Submission)
         .where(Submission.status == SubmissionStatus.READY)
-        .options(
-            selectinload(Submission.user).selectinload(User.group),
-            selectinload(Submission.lab)
-        )
+        .options(selectinload(Submission.user).selectinload(User.group), selectinload(Submission.lab))
         .order_by(Submission.ready_at.asc())
         .limit(limit)
     )
@@ -122,24 +127,21 @@ async def get_submission_queue(
         group = student.group
 
         if lab.id not in labs_dict:
-            labs_dict[lab.id] = LabQueueResponse(
+            labs_dict[lab.id] = LabQueueResponse(lab_id=lab.id, lab_number=lab.number, lab_title=lab.title, queue=[])
+
+        labs_dict[lab.id].queue.append(
+            QueueItemResponse(
+                submission_id=sub.id,
+                student_id=student.id,
+                student_name=student.full_name or "Без имени",
+                group_name=group.name if group else "Без группы",
                 lab_id=lab.id,
                 lab_number=lab.number,
                 lab_title=lab.title,
-                queue=[]
+                variant_number=sub.variant_number,
+                ready_at=sub.ready_at,
             )
-
-        labs_dict[lab.id].queue.append(QueueItemResponse(
-            submission_id=sub.id,
-            student_id=student.id,
-            student_name=student.full_name or "Без имени",
-            group_name=group.name if group else "Без группы",
-            lab_id=lab.id,
-            lab_number=lab.number,
-            lab_title=lab.title,
-            variant_number=sub.variant_number,
-            ready_at=sub.ready_at,
-        ))
+        )
 
     # Сортируем по номеру лабы
     return sorted(labs_dict.values(), key=lambda x: x.lab_number)
@@ -155,10 +157,7 @@ async def get_submission_detail(
     query = (
         select(Submission)
         .where(Submission.id == submission_id)
-        .options(
-            selectinload(Submission.user).selectinload(User.group),
-            selectinload(Submission.lab)
-        )
+        .options(selectinload(Submission.user).selectinload(User.group), selectinload(Submission.lab))
     )
 
     result = await db.execute(query)
@@ -184,9 +183,7 @@ async def get_submission_detail(
     if lab.subject_id and student.group_id:
         lesson = await _find_lesson_for_grading(db, lab, student)
         if lesson:
-            max_allowed_grade = await get_max_allowed_grade_for_lab(
-                db, lab, lesson, student.id
-            )
+            max_allowed_grade = await get_max_allowed_grade_for_lab(db, lab, lesson, student.id)
 
     return SubmissionDetailResponse(
         submission_id=sub.id,
@@ -206,11 +203,7 @@ async def get_submission_detail(
     )
 
 
-async def _find_lesson_for_grading(
-    db: AsyncSession,
-    lab: Lab,
-    student: User
-) -> Lesson | None:
+async def _find_lesson_for_grading(db: AsyncSession, lab: Lab, student: User) -> Lesson | None:
     """Найти занятие для определения дедлайна."""
     if not lab.subject_id or not student.group_id:
         return None
@@ -225,10 +218,7 @@ async def _find_lesson_for_grading(
             Lesson.lesson_type == LessonType.LAB,
             Lesson.date <= today,
             not Lesson.is_cancelled,
-            or_(
-                Lesson.subgroup == student.subgroup,
-                Lesson.subgroup.is_(None)
-            )
+            or_(Lesson.subgroup == student.subgroup, Lesson.subgroup.is_(None)),
         )
         .order_by(Lesson.date.desc())
         .limit(1)
@@ -254,9 +244,7 @@ async def accept_submission(
         raise HTTPException(status_code=404, detail=em.SUBMISSION_NOT_FOUND)
 
     try:
-        result = await submission_service.accept(
-            db, sub, data.grade, data.comment, current_user.id
-        )
+        result = await submission_service.accept(db, sub, data.grade, data.comment, current_user.id)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -275,9 +263,7 @@ async def reject_submission(
         raise HTTPException(status_code=404, detail=em.SUBMISSION_NOT_FOUND)
 
     try:
-        result = await submission_service.reject(
-            db, sub, data.comment, current_user.id
-        )
+        result = await submission_service.reject(db, sub, data.comment, current_user.id)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

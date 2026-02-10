@@ -1,4 +1,5 @@
 """CRUD операции для объявлений."""
+
 from datetime import datetime
 from uuid import UUID
 
@@ -13,18 +14,12 @@ class CRUDAnnouncement:
     async def get(self, db: AsyncSession, announcement_id: UUID) -> Announcement | None:
         """Получить объявление по ID."""
         result = await db.execute(
-            select(Announcement)
-            .options(selectinload(Announcement.author))
-            .where(Announcement.id == announcement_id)
+            select(Announcement).options(selectinload(Announcement.author)).where(Announcement.id == announcement_id)
         )
         return result.scalar_one_or_none()
 
     async def get_all(
-        self,
-        db: AsyncSession,
-        skip: int = 0,
-        limit: int = 100,
-        include_drafts: bool = True
+        self, db: AsyncSession, skip: int = 0, limit: int = 100, include_drafts: bool = True
     ) -> list[Announcement]:
         """Получить все объявления (для админа)."""
         query = select(Announcement).options(selectinload(Announcement.author))
@@ -34,12 +29,7 @@ class CRUDAnnouncement:
         result = await db.execute(query)
         return list(result.scalars().all())
 
-    async def get_published(
-        self,
-        db: AsyncSession,
-        skip: int = 0,
-        limit: int = 100
-    ) -> list[Announcement]:
+    async def get_published(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> list[Announcement]:
         """Получить опубликованные объявления (для студентов)."""
         result = await db.execute(
             select(Announcement)
@@ -50,31 +40,16 @@ class CRUDAnnouncement:
         )
         return list(result.scalars().all())
 
-    async def create(
-        self,
-        db: AsyncSession,
-        title: str,
-        content: str,
-        created_by: UUID
-    ) -> Announcement:
+    async def create(self, db: AsyncSession, title: str, content: str, created_by: UUID) -> Announcement:
         """Создать черновик объявления."""
-        announcement = Announcement(
-            title=title,
-            content=content,
-            created_by=created_by,
-            is_draft=True
-        )
+        announcement = Announcement(title=title, content=content, created_by=created_by, is_draft=True)
         db.add(announcement)
         await db.commit()
         await db.refresh(announcement)
         return announcement
 
     async def update(
-        self,
-        db: AsyncSession,
-        announcement: Announcement,
-        title: str | None = None,
-        content: str | None = None
+        self, db: AsyncSession, announcement: Announcement, title: str | None = None, content: str | None = None
     ) -> Announcement:
         """Обновить объявление."""
         if title is not None:

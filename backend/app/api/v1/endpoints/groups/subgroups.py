@@ -1,4 +1,5 @@
 """Subgroup assignment operations."""
+
 import logging
 from typing import Any
 from uuid import UUID
@@ -27,10 +28,7 @@ async def assign_subgroup(
 ) -> Any:
     """Массовое назначение подгруппы по списку ФИО."""
     result = await db.execute(
-        select(models.User).where(
-            models.User.group_id == group_id,
-            models.User.role == models.UserRole.STUDENT
-        )
+        select(models.User).where(models.User.group_id == group_id, models.User.role == models.UserRole.STUDENT)
     )
     students = list(result.scalars().all())
 
@@ -56,9 +54,7 @@ async def assign_subgroup(
     try:
         await db.commit()
         return schemas.AssignSubgroupResponse(
-            matched=len(matched_students),
-            updated_students=matched_students,
-            not_found=not_found
+            matched=len(matched_students), updated_students=matched_students, not_found=not_found
         )
     except SQLAlchemyError as e:
         await db.rollback()
@@ -74,10 +70,7 @@ async def clear_subgroups(
 ) -> Any:
     """Убрать подгруппы у всех студентов группы."""
     result = await db.execute(
-        select(models.User).where(
-            models.User.group_id == group_id,
-            models.User.role == models.UserRole.STUDENT
-        )
+        select(models.User).where(models.User.group_id == group_id, models.User.role == models.UserRole.STUDENT)
     )
     students = list(result.scalars().all())
 

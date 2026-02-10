@@ -1,4 +1,5 @@
 """Генератор Excel файлов для экспорта журнала."""
+
 import logging
 from io import BytesIO
 
@@ -13,10 +14,10 @@ logger = logging.getLogger(__name__)
 
 # Цвета для статусов посещаемости
 STATUS_COLORS = {
-    "PRESENT": "90EE90",   # светло-зелёный
-    "LATE": "FFD700",      # жёлтый
-    "EXCUSED": "87CEEB",   # голубой
-    "ABSENT": "FF6B6B",    # красный
+    "PRESENT": "90EE90",  # светло-зелёный
+    "LATE": "FFD700",  # жёлтый
+    "EXCUSED": "87CEEB",  # голубой
+    "ABSENT": "FF6B6B",  # красный
 }
 
 # Символы для статусов
@@ -184,6 +185,7 @@ def generate_grades_sheet(wb: Workbook, data: JournalExportData) -> None:
             date_str = parts[0]
             try:
                 from datetime import datetime
+
                 dt = datetime.strptime(date_str, "%Y-%m-%d")
                 col_header = f"{dt.strftime('%d.%m')}"
             except ValueError:
@@ -298,7 +300,9 @@ def generate_excel(data: JournalExportData) -> bytes:
     """
     logger.info(
         "Генерация Excel: группа=%s, студентов=%d, занятий=%d",
-        data.meta.group_code, data.meta.total_students, data.meta.total_lessons
+        data.meta.group_code,
+        data.meta.total_students,
+        data.meta.total_lessons,
     )
 
     wb = Workbook()

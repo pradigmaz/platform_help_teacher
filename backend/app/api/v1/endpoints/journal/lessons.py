@@ -1,6 +1,7 @@
 """
 API endpoints для занятий журнала.
 """
+
 import logging
 from datetime import date
 from uuid import UUID
@@ -29,7 +30,7 @@ async def get_journal_lessons(
     skip: int = Query(0, ge=0, description="Пропустить записей"),
     limit: int = Query(100, ge=1, le=500, description="Лимит записей"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """Получить занятия для журнала с фильтрами и пагинацией."""
     query = select(Lesson)
@@ -45,11 +46,12 @@ async def get_journal_lessons(
     if end_date:
         query = query.where(Lesson.date <= end_date)
 
-    query = query.options(
-        selectinload(Lesson.subject),
-        selectinload(Lesson.grades),
-        selectinload(Lesson.group)
-    ).order_by(Lesson.date, Lesson.lesson_number).offset(skip).limit(limit)
+    query = (
+        query.options(selectinload(Lesson.subject), selectinload(Lesson.grades), selectinload(Lesson.group))
+        .order_by(Lesson.date, Lesson.lesson_number)
+        .offset(skip)
+        .limit(limit)
+    )
 
     result = await db.execute(query)
     lessons = result.scalars().all()
@@ -59,7 +61,7 @@ async def get_journal_lessons(
             "id": str(l.id),
             "date": l.date.isoformat(),
             "lesson_number": l.lesson_number,
-            "lesson_type": l.lesson_type.value if hasattr(l.lesson_type, 'value') else l.lesson_type,
+            "lesson_type": l.lesson_type.value if hasattr(l.lesson_type, "value") else l.lesson_type,
             "topic": l.topic,
             "work_number": l.work_number,
             "lecture_work_type": l.lecture_work_type,
@@ -76,7 +78,7 @@ async def get_journal_lessons(
 
 def _get_lesson_type_value(lesson):
     """Надёжное сравнение типа занятия через value."""
-    if hasattr(lesson.lesson_type, 'value'):
+    if hasattr(lesson.lesson_type, "value"):
         return lesson.lesson_type.value.lower()
     return str(lesson.lesson_type).lower()
 
@@ -88,7 +90,7 @@ async def get_journal_stats(
     start_date: date | None = None,
     end_date: date | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """Получить статистику журнала для группы."""
     lesson_filter = [Lesson.group_id == group_id, not Lesson.is_cancelled]
@@ -99,9 +101,7 @@ async def get_journal_stats(
     if end_date:
         lesson_filter.append(Lesson.date <= end_date)
 
-    lessons_result = await db.execute(
-        select(Lesson).where(and_(*lesson_filter))
-    )
+    lessons_result = await db.execute(select(Lesson).where(and_(*lesson_filter)))
     lessons = lessons_result.scalars().all()
     lesson_ids = [l.id for l in lessons]
 
@@ -116,16 +116,13 @@ async def get_journal_stats(
             "by_status": {},
         }
 
-    lectures = sum(1 for l in lessons if _get_lesson_type_value(l) == 'lecture')
-    labs = sum(1 for l in lessons if _get_lesson_type_value(l) == 'lab')
-    practices = sum(1 for l in lessons if _get_lesson_type_value(l) == 'practice')
+    lectures = sum(1 for l in lessons if _get_lesson_type_value(l) == "lecture")
+    labs = sum(1 for l in lessons if _get_lesson_type_value(l) == "lab")
+    practices = sum(1 for l in lessons if _get_lesson_type_value(l) == "practice")
 
     attendance_result = await db.execute(
         select(Attendance.status, func.count(Attendance.id))
-        .where(and_(
-            Attendance.lesson_id.in_(lesson_ids),
-            Attendance.group_id == group_id
-        ))
+        .where(and_(Attendance.lesson_id.in_(lesson_ids), Attendance.group_id == group_id))
         .group_by(Attendance.status)
     )
     attendance_stats = dict(attendance_result.all())
@@ -135,8 +132,7 @@ async def get_journal_stats(
     attendance_rate = round(present_count / total_attendance * 100, 1) if total_attendance > 0 else None
 
     grade_result = await db.execute(
-        select(func.avg(LessonGrade.grade))
-        .where(and_(LessonGrade.lesson_id.in_(lesson_ids)))
+        select(func.avg(LessonGrade.grade)).where(and_(LessonGrade.lesson_id.in_(lesson_ids)))
     )
     avg_grade = grade_result.scalar()
     average_grade = round(float(avg_grade), 2) if avg_grade else None
@@ -157,9 +153,9 @@ async def get_journal_stats(
     }
 
 
-
 class UpdateLabLimitRequest(BaseModel):
     """Установить лимит лаб на занятие."""
+
     max_labs: int | None = Field(None, ge=1, le=10, description="Лимит лаб (null = стандартный)")
 
 
@@ -168,7 +164,7 @@ async def update_lesson_lab_limit(
     lesson_id: UUID,
     data: UpdateLabLimitRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """
     Установить лимит лаб на занятие (max_labs_override).
@@ -190,9 +186,7 @@ async def update_lesson_lab_limit(
     )
 
     # Найти занятие
-    result = await db.execute(
-        select(Lesson).where(Lesson.id == lesson_id)
-    )
+    result = await db.execute(select(Lesson).where(Lesson.id == lesson_id))
     lesson = result.scalar_one_or_none()
 
     if not lesson:
@@ -201,23 +195,19 @@ async def update_lesson_lab_limit(
 
     # Проверить ownership
     from app.api.ownership import check_group_access
+
     await check_group_access(lesson.group_id, current_user, db)
 
     # Проверка ownership
     from app.api.ownership import check_group_access
+
     await check_group_access(lesson.group_id, current_user, db)
 
     # Проверить что это лабораторная
-    lesson_type_value = lesson.lesson_type.value if hasattr(lesson.lesson_type, 'value') else str(lesson.lesson_type)
+    lesson_type_value = lesson.lesson_type.value if hasattr(lesson.lesson_type, "value") else str(lesson.lesson_type)
     if lesson_type_value.lower() != LessonType.LAB.value.lower():
-        logger.warning(
-            f"[lessons:update_lesson_lab_limit] Lesson is not LAB: {lesson_id}, "
-            f"type={lesson_type_value}"
-        )
-        raise HTTPException(
-            status_code=400,
-            detail=f"Занятие не является лабораторной (тип: {lesson_type_value})"
-        )
+        logger.warning(f"[lessons:update_lesson_lab_limit] Lesson is not LAB: {lesson_id}, type={lesson_type_value}")
+        raise HTTPException(status_code=400, detail=f"Занятие не является лабораторной (тип: {lesson_type_value})")
 
     # Установить лимит
     lesson.max_labs_override = data.max_labs
@@ -228,7 +218,4 @@ async def update_lesson_lab_limit(
         f"for lesson_id={lesson_id}"
     )
 
-    return {
-        "lesson_id": str(lesson.id),
-        "max_labs_override": lesson.max_labs_override
-    }
+    return {"lesson_id": str(lesson.id), "max_labs_override": lesson.max_labs_override}

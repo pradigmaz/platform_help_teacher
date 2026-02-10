@@ -1,6 +1,7 @@
 """
 CRUD для автопарсера расписания
 """
+
 from uuid import UUID
 
 from sqlalchemy import select
@@ -14,15 +15,11 @@ from app.schemas.schedule_parser import ParserConfigCreate, ParserConfigUpdate
 
 async def get_parser_config(db: AsyncSession, teacher_id: UUID) -> ScheduleParserConfig | None:
     """Получить настройки парсера для преподавателя"""
-    result = await db.execute(
-        select(ScheduleParserConfig).where(ScheduleParserConfig.teacher_id == teacher_id)
-    )
+    result = await db.execute(select(ScheduleParserConfig).where(ScheduleParserConfig.teacher_id == teacher_id))
     return result.scalar_one_or_none()
 
 
-async def create_parser_config(
-    db: AsyncSession, teacher_id: UUID, data: ParserConfigCreate
-) -> ScheduleParserConfig:
+async def create_parser_config(db: AsyncSession, teacher_id: UUID, data: ParserConfigCreate) -> ScheduleParserConfig:
     """Создать настройки парсера"""
     config = ScheduleParserConfig(
         teacher_id=teacher_id,
@@ -30,7 +27,7 @@ async def create_parser_config(
         enabled=data.enabled,
         days_of_week=data.days_of_week,
         run_time=data.run_time,
-        parse_days_ahead=data.parse_days_ahead
+        parse_days_ahead=data.parse_days_ahead,
     )
     db.add(config)
     await db.commit()
@@ -52,52 +49,36 @@ async def update_parser_config(
 
 async def get_all_enabled_configs(db: AsyncSession) -> list[ScheduleParserConfig]:
     """Получить все включённые конфиги (для Celery)"""
-    result = await db.execute(
-        select(ScheduleParserConfig).where(ScheduleParserConfig.enabled)
-    )
+    result = await db.execute(select(ScheduleParserConfig).where(ScheduleParserConfig.enabled))
     return list(result.scalars().all())
 
 
 # === Conflicts ===
 
+
 async def get_unresolved_conflicts(db: AsyncSession, teacher_id: UUID) -> list[ScheduleConflict]:
     """Получить неразрешённые конфликты для преподавателя"""
     # Получаем конфликты через lessons -> groups -> teacher assignments
     result = await db.execute(
-        select(ScheduleConflict)
-        .where(not ScheduleConflict.resolved)
-        .order_by(ScheduleConflict.created_at.desc())
+        select(ScheduleConflict).where(not ScheduleConflict.resolved).order_by(ScheduleConflict.created_at.desc())
     )
     return list(result.scalars().all())
 
 
 async def create_conflict(
-    db: AsyncSession,
-    lesson_id: UUID,
-    conflict_type: ConflictType,
-    old_data: dict,
-    new_data: dict | None = None
+    db: AsyncSession, lesson_id: UUID, conflict_type: ConflictType, old_data: dict, new_data: dict | None = None
 ) -> ScheduleConflict:
     """Создать конфликт"""
-    conflict = ScheduleConflict(
-        lesson_id=lesson_id,
-        conflict_type=conflict_type,
-        old_data=old_data,
-        new_data=new_data
-    )
+    conflict = ScheduleConflict(lesson_id=lesson_id, conflict_type=conflict_type, old_data=old_data, new_data=new_data)
     db.add(conflict)
     await db.commit()
     await db.refresh(conflict)
     return conflict
 
 
-async def resolve_conflict(
-    db: AsyncSession, conflict_id: UUID, action: str
-) -> ScheduleConflict | None:
+async def resolve_conflict(db: AsyncSession, conflict_id: UUID, action: str) -> ScheduleConflict | None:
     """Разрешить конфликт"""
-    result = await db.execute(
-        select(ScheduleConflict).where(ScheduleConflict.id == conflict_id)
-    )
+    result = await db.execute(select(ScheduleConflict).where(ScheduleConflict.id == conflict_id))
     conflict = result.scalar_one_or_none()
     if not conflict:
         return None
@@ -107,9 +88,7 @@ async def resolve_conflict(
 
     # Если accept - применяем изменения
     if action == "accept":
-        lesson_result = await db.execute(
-            select(Lesson).where(Lesson.id == conflict.lesson_id)
-        )
+        lesson_result = await db.execute(select(Lesson).where(Lesson.id == conflict.lesson_id))
         lesson = lesson_result.scalar_one_or_none()
         if lesson:
             if conflict.conflict_type == ConflictType.DELETED:
@@ -119,6 +98,7 @@ async def resolve_conflict(
                     lesson.topic = conflict.new_data["topic"]
                 if "lesson_type" in conflict.new_data:
                     from app.models.schedule import LessonType
+
                     lesson.lesson_type = LessonType(conflict.new_data["lesson_type"])
 
     await db.commit()

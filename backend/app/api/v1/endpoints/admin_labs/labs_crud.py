@@ -77,7 +77,7 @@ async def get_all_labs(
     labs = result.scalars().all()
 
     # Сериализуем и кэшируем
-    labs_data = [LabOut.model_validate(lab).model_dump(mode='json') for lab in labs]
+    labs_data = [LabOut.model_validate(lab).model_dump(mode="json") for lab in labs]
 
     try:
         redis = await get_redis()

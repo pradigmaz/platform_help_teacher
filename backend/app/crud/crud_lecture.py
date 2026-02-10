@@ -1,4 +1,5 @@
 """CRUD операции для лекций."""
+
 from uuid import UUID
 
 from sqlalchemy import select
@@ -13,20 +14,12 @@ from app.utils.html_sanitizer import sanitize_lexical_content
 class CRUDLecture:
     """CRUD операции для лекций."""
 
-    async def create(
-        self,
-        db: AsyncSession,
-        data: LectureCreate
-    ) -> Lecture:
+    async def create(self, db: AsyncSession, data: LectureCreate) -> Lecture:
         """Создать лекцию с санитизацией контента."""
         # XSS Protection: санитизируем Lexical JSON контент
         sanitized_content = sanitize_lexical_content(data.content) if data.content else {}
 
-        lecture = Lecture(
-            title=data.title,
-            content=sanitized_content,
-            subject_id=data.subject_id
-        )
+        lecture = Lecture(title=data.title, content=sanitized_content, subject_id=data.subject_id)
         db.add(lecture)
         await db.commit()
 
@@ -38,12 +31,7 @@ class CRUDLecture:
         )
         return result.scalar_one()
 
-    async def get(
-        self,
-        db: AsyncSession,
-        lecture_id: UUID,
-        include_deleted: bool = False
-    ) -> Lecture | None:
+    async def get(self, db: AsyncSession, lecture_id: UUID, include_deleted: bool = False) -> Lecture | None:
         """Получить лекцию по ID."""
         query = (
             select(Lecture)
@@ -55,11 +43,7 @@ class CRUDLecture:
         result = await db.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_by_public_code(
-        self,
-        db: AsyncSession,
-        public_code: str
-    ) -> Lecture | None:
+    async def get_by_public_code(self, db: AsyncSession, public_code: str) -> Lecture | None:
         """Получить лекцию по публичному коду."""
         result = await db.execute(
             select(Lecture)
@@ -69,14 +53,13 @@ class CRUDLecture:
         )
         return result.scalar_one_or_none()
 
-
     async def list_all(
         self,
         db: AsyncSession,
         skip: int = 0,
         limit: int = 100,
         subject_id: UUID | None = None,
-        include_deleted: bool = False
+        include_deleted: bool = False,
     ) -> list[Lecture]:
         """Получить список всех лекций."""
         query = select(Lecture).options(selectinload(Lecture.subject))
@@ -91,12 +74,7 @@ class CRUDLecture:
         result = await db.execute(query)
         return list(result.scalars().all())
 
-    async def update(
-        self,
-        db: AsyncSession,
-        lecture: Lecture,
-        data: LectureUpdate
-    ) -> Lecture:
+    async def update(self, db: AsyncSession, lecture: Lecture, data: LectureUpdate) -> Lecture:
         """Обновить лекцию с санитизацией контента."""
         if data.title is not None:
             lecture.title = data.title
@@ -116,11 +94,7 @@ class CRUDLecture:
         )
         return result.scalar_one()
 
-    async def delete(
-        self,
-        db: AsyncSession,
-        lecture_id: UUID
-    ) -> bool:
+    async def delete(self, db: AsyncSession, lecture_id: UUID) -> bool:
         """Жёсткое удаление лекции (для совместимости)."""
         lecture = await self.get(db, lecture_id, include_deleted=True)
         if lecture:

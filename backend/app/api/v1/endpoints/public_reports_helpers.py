@@ -3,6 +3,7 @@
 
 Honeypot-защита, валидация отчётов, PIN-сессии.
 """
+
 import json
 import logging
 from datetime import UTC, datetime
@@ -23,10 +24,22 @@ logger = logging.getLogger(__name__)
 
 # Honeypot коды — обращение к ним = мгновенный бан
 HONEYPOT_CODES = {
-    "AAAAAAAA", "BBBBBBBB", "CCCCCCCC", "ZZZZZZZZ",
-    "12345678", "87654321", "11111111", "22222222",
-    "ABCD1234", "1234ABCD", "TESTTEST", "TESTCODE",
-    "ADMIN123", "PASSWORD", "QWERTY12", "ASDFGHJK",
+    "AAAAAAAA",
+    "BBBBBBBB",
+    "CCCCCCCC",
+    "ZZZZZZZZ",
+    "12345678",
+    "87654321",
+    "11111111",
+    "22222222",
+    "ABCD1234",
+    "1234ABCD",
+    "TESTTEST",
+    "TESTCODE",
+    "ADMIN123",
+    "PASSWORD",
+    "QWERTY12",
+    "ASDFGHJK",
 }
 
 

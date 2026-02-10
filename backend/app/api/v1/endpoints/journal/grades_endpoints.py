@@ -1,6 +1,7 @@
 """
 API endpoints для оценок журнала.
 """
+
 import logging
 from uuid import UUID
 
@@ -26,16 +27,14 @@ router = APIRouter()
 async def get_journal_grades(
     lesson_ids: list[UUID] = Query(default=[]),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """Получить оценки для списка занятий."""
     if not lesson_ids:
         return []
 
     result = await db.execute(
-        select(LessonGrade)
-        .where(LessonGrade.lesson_id.in_(lesson_ids))
-        .options(selectinload(LessonGrade.student))
+        select(LessonGrade).where(LessonGrade.lesson_id.in_(lesson_ids)).options(selectinload(LessonGrade.student))
     )
     grades = result.scalars().all()
 
@@ -55,9 +54,7 @@ async def get_journal_grades(
 
 @router.post("/grades", response_model=LessonGradeResponse)
 async def create_grade(
-    data: LessonGradeCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    data: LessonGradeCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)
 ):
     """Создать оценку с проверкой дедлайна и слотов."""
     lesson_result = await db.execute(select(Lesson).where(Lesson.id == data.lesson_id))
@@ -66,7 +63,7 @@ async def create_grade(
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
 
     # Проверяем слоты (1 лаба = 1 пара, +1 для EXCUSED)
-    if lesson.lesson_type == 'LAB':
+    if lesson.lesson_type == "LAB":
         try:
             await validate_lab_submission(
                 db, data.student_id, data.lesson_id, lesson.subject_id, data.work_number, lesson
@@ -75,9 +72,7 @@ async def create_grade(
             raise HTTPException(status_code=400, detail=str(e))
 
     # Проверяем дедлайн
-    max_allowed = await get_max_allowed_grade(
-        db, lesson, student_id=data.student_id, work_number=data.work_number
-    )
+    max_allowed = await get_max_allowed_grade(db, lesson, student_id=data.student_id, work_number=data.work_number)
     try:
         validate_grade_for_max(data.grade, max_allowed)
     except ValueError as e:
@@ -91,15 +86,16 @@ async def create_grade(
         work_number=data.work_number,
         comment=data.comment,
         created_by=current_user.id,
-        group_id=lesson.group_id
+        group_id=lesson.group_id,
     )
 
     # Синхронизация с work_submission для лаб
-    if data.work_number and lesson.lesson_type == 'LAB':
-        logger.info(f"[grades_endpoints:create_grade] Syncing to work_submission: student={data.student_id}, work={data.work_number}, grade={data.grade}")
+    if data.work_number and lesson.lesson_type == "LAB":
+        logger.info(
+            f"[grades_endpoints:create_grade] Syncing to work_submission: student={data.student_id}, work={data.work_number}, grade={data.grade}"
+        )
         await journal_sync.sync_from_journal(
-            db, data.student_id, lesson, data.work_number,
-            data.grade, data.comment, current_user.id
+            db, data.student_id, lesson, data.work_number, data.grade, data.comment, current_user.id
         )
 
     return grade
@@ -110,13 +106,11 @@ async def update_grade(
     grade_id: UUID,
     data: LessonGradeUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """Обновить оценку с проверкой дедлайна."""
     existing_result = await db.execute(
-        select(LessonGrade)
-        .options(selectinload(LessonGrade.lesson))
-        .where(LessonGrade.id == grade_id)
+        select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(LessonGrade.id == grade_id)
     )
     existing = existing_result.scalar_one_or_none()
     if not existing:
@@ -124,9 +118,7 @@ async def update_grade(
 
     if data.grade is not None and existing.lesson:
         max_allowed = await get_max_allowed_grade(
-            db, existing.lesson,
-            student_id=existing.student_id,
-            work_number=data.work_number or existing.work_number
+            db, existing.lesson, student_id=existing.student_id, work_number=data.work_number or existing.work_number
         )
         try:
             validate_grade_for_max(data.grade, max_allowed)
@@ -134,29 +126,21 @@ async def update_grade(
             raise HTTPException(status_code=400, detail=str(e))
 
     grade = await crud_lesson_grade.update_lesson_grade(
-        db,
-        grade_id=grade_id,
-        grade=data.grade,
-        work_number=data.work_number,
-        comment=data.comment
+        db, grade_id=grade_id, grade=data.grade, work_number=data.work_number, comment=data.comment
     )
     if not grade:
         raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
 
     # Синхронизация с work_submission для лаб
     work_number = data.work_number if data.work_number is not None else existing.work_number
-    if work_number and existing.lesson and existing.lesson.lesson_type == 'LAB':
+    if work_number and existing.lesson and existing.lesson.lesson_type == "LAB":
         final_grade = data.grade if data.grade is not None else existing.grade
         final_comment = data.comment if data.comment is not None else existing.comment
-        logger.info(f"[grades_endpoints:update_grade] Syncing to work_submission: student={existing.student_id}, work={work_number}, grade={final_grade}")
+        logger.info(
+            f"[grades_endpoints:update_grade] Syncing to work_submission: student={existing.student_id}, work={work_number}, grade={final_grade}"
+        )
         await journal_sync.sync_from_journal(
-            db,
-            existing.student_id,
-            existing.lesson,
-            work_number,
-            final_grade,
-            final_comment,
-            current_user.id
+            db, existing.student_id, existing.lesson, work_number, final_grade, final_comment, current_user.id
         )
 
     return grade
@@ -164,9 +148,7 @@ async def update_grade(
 
 @router.delete("/grades/{grade_id}")
 async def delete_grade(
-    grade_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    grade_id: UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)
 ):
     """Удалить оценку."""
     success = await crud_lesson_grade.delete_lesson_grade(db, grade_id)
@@ -180,14 +162,11 @@ async def delete_grade_by_lesson_student(
     lesson_id: UUID = Query(...),
     student_id: UUID = Query(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """Удалить оценку по lesson_id и student_id."""
     result = await db.execute(
-        select(LessonGrade).where(and_(
-            LessonGrade.lesson_id == lesson_id,
-            LessonGrade.student_id == student_id
-        ))
+        select(LessonGrade).where(and_(LessonGrade.lesson_id == lesson_id, LessonGrade.student_id == student_id))
     )
     grade = result.scalar_one_or_none()
     if not grade:
@@ -201,9 +180,7 @@ async def delete_grade_by_lesson_student(
 
 @router.get("/grades/max-allowed/{lesson_id}")
 async def get_lesson_max_grade(
-    lesson_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    lesson_id: UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)
 ):
     """Получить максимально допустимую оценку для занятия с учётом дедлайна."""
     lesson_result = await db.execute(select(Lesson).where(Lesson.id == lesson_id))

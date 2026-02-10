@@ -1,4 +1,5 @@
 """Основной сервис видимости лаб — координация запросов."""
+
 import logging
 from uuid import UUID
 
@@ -32,7 +33,7 @@ class LabVisibilityService:
         subgroup: int | None,
         labs_deadlines: dict[int, tuple],  # {lab_number: (deadline_5, deadline_4)}
         labs_subjects: dict[int, UUID | None] | None = None,
-        labs_ids: dict[int, UUID] | None = None
+        labs_ids: dict[int, UUID] | None = None,
     ) -> dict[int, LabVisibilityInfo]:
         """
         Batch-загрузка информации о видимости для нескольких лаб.
@@ -72,29 +73,26 @@ class LabVisibilityService:
                 subject_id=subject_id,
                 today=today,
                 labs_ids=labs_ids,
-                extensions_map=extensions_map
+                extensions_map=extensions_map,
             )
             result.update(subject_result)
 
         return result
 
-    async def _load_extensions(
-        self,
-        labs_ids: dict[int, UUID],
-        group_id: UUID,
-        now
-    ) -> dict[UUID, int]:
+    async def _load_extensions(self, labs_ids: dict[int, UUID], group_id: UUID, now) -> dict[UUID, int]:
         """Загрузить активные продления дедлайнов для группы."""
         if not labs_ids:
             return {}
 
         lab_id_list = list(labs_ids.values())
-        ext_query = select(LabDeadlineExtension).where(and_(
-            LabDeadlineExtension.lab_id.in_(lab_id_list),
-            LabDeadlineExtension.group_id == group_id,
-            LabDeadlineExtension.is_active,
-            (LabDeadlineExtension.expires_at is None) | (LabDeadlineExtension.expires_at > now)
-        ))
+        ext_query = select(LabDeadlineExtension).where(
+            and_(
+                LabDeadlineExtension.lab_id.in_(lab_id_list),
+                LabDeadlineExtension.group_id == group_id,
+                LabDeadlineExtension.is_active,
+                (LabDeadlineExtension.expires_at is None) | (LabDeadlineExtension.expires_at > now),
+            )
+        )
         ext_result = await self.db.execute(ext_query)
         return {ext.lab_id: ext.bonus_lessons for ext in ext_result.scalars().all()}
 
@@ -105,7 +103,7 @@ class LabVisibilityService:
         subgroup: int | None,
         deadline_5_lessons: int | None,
         deadline_4_lessons: int | None,
-        subject_id: UUID | None = None
+        subject_id: UUID | None = None,
     ) -> LabVisibilityInfo:
         """
         Получить информацию о видимости и дедлайнах одной лабы.
@@ -116,7 +114,7 @@ class LabVisibilityService:
             group_id=group_id,
             subgroup=subgroup,
             labs_deadlines={lab_number: (deadline_5_lessons, deadline_4_lessons)},
-            labs_subjects={lab_number: subject_id}
+            labs_subjects={lab_number: subject_id},
         )
         return result.get(lab_number, LabVisibilityInfo(lab_number=lab_number, is_visible=False))
 
@@ -133,14 +131,11 @@ class LabVisibilityService:
             Lesson.lesson_type == LessonType.LAB,
             not Lesson.is_cancelled,
             Lesson.work_number is not None,
-            Lesson.date <= today
+            Lesson.date <= today,
         ]
         base_filter.extend(_build_subgroup_filter(subgroup))
 
-        query = select(
-            Lesson.subject_id,
-            Lesson.work_number
-        ).where(and_(*base_filter)).distinct()
+        query = select(Lesson.subject_id, Lesson.work_number).where(and_(*base_filter)).distinct()
 
         result = await self.db.execute(query)
 
@@ -156,10 +151,7 @@ class LabVisibilityService:
         return by_subject
 
     async def get_visible_lab_numbers(
-        self,
-        group_id: UUID,
-        subgroup: int | None,
-        subject_id: UUID | None = None
+        self, group_id: UUID, subgroup: int | None, subject_id: UUID | None = None
     ) -> list[int]:
         """Получить список номеров лаб, видимых студенту на сегодня."""
         today = today_msk()
@@ -169,7 +161,7 @@ class LabVisibilityService:
             Lesson.lesson_type == LessonType.LAB,
             not Lesson.is_cancelled,
             Lesson.work_number is not None,
-            Lesson.date <= today
+            Lesson.date <= today,
         ]
         base_filter.extend(_build_subgroup_filter(subgroup))
         if subject_id:
@@ -179,11 +171,6 @@ class LabVisibilityService:
         result = await self.db.execute(query)
         return [row[0] for row in result.all()]
 
-    async def is_lab_session_now(
-        self,
-        group_id: UUID,
-        subgroup: int | None,
-        subject_id: UUID | None = None
-    ) -> bool:
+    async def is_lab_session_now(self, group_id: UUID, subgroup: int | None, subject_id: UUID | None = None) -> bool:
         """Проверить идёт ли сейчас лабораторное занятие для студента."""
         return await _is_lab_session_now(self.db, group_id, subgroup, subject_id)

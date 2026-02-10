@@ -31,7 +31,7 @@ class SmartImportService:
         if count > settings.MAX_STUDENTS_COUNT:
             raise HTTPException(
                 status_code=400,
-                detail=f"Слишком много записей в файле (максимум {settings.MAX_STUDENTS_COUNT}). Разделите файл."
+                detail=f"Слишком много записей в файле (максимум {settings.MAX_STUDENTS_COUNT}). Разделите файл.",
             )
 
     @classmethod
@@ -42,11 +42,11 @@ class SmartImportService:
         loop = asyncio.get_event_loop()
 
         try:
-            if filename.endswith(('.xlsx', '.xls', '.csv')):
+            if filename.endswith((".xlsx", ".xls", ".csv")):
                 students = await loop.run_in_executor(_executor, cls._parse_excel, content, filename)
-            elif filename.endswith('.docx'):
+            elif filename.endswith(".docx"):
                 students = await loop.run_in_executor(_executor, cls._parse_docx, content)
-            elif filename.endswith('.txt'):
+            elif filename.endswith(".txt"):
                 students = await loop.run_in_executor(_executor, cls._parse_txt, content)
             else:
                 raise HTTPException(status_code=400, detail="Неподдерживаемый формат файла")
@@ -57,14 +57,14 @@ class SmartImportService:
             raise HTTPException(status_code=400, detail=f"Ошибка чтения файла: {str(e)}")
 
         if not students:
-             raise HTTPException(status_code=400, detail="Не удалось найти студентов в файле")
+            raise HTTPException(status_code=400, detail="Не удалось найти студентов в файле")
 
         return students
 
     @classmethod
     def _parse_excel(cls, content: bytes, filename: str) -> list[dict]:
         try:
-            if filename.endswith('.csv'):
+            if filename.endswith(".csv"):
                 df = pd.read_csv(io.BytesIO(content))
             else:
                 df = pd.read_excel(io.BytesIO(content), header=None)
@@ -86,7 +86,9 @@ class SmartImportService:
 
         # Стратегия 2: Поиск колонки
         first_row = df.iloc[0].astype(str).tolist()
-        has_header = any(keyword in str(first_row).lower() for keyword in ['фио', 'фамилия', 'имя', 'студент', '№', 'no'])
+        has_header = any(
+            keyword in str(first_row).lower() for keyword in ["фио", "фамилия", "имя", "студент", "№", "no"]
+        )
 
         if has_header:
             df.columns = df.iloc[0]
@@ -133,7 +135,7 @@ class SmartImportService:
                             break
             # Check limit inside loop to fail fast
             if len(names) > settings.MAX_STUDENTS_COUNT:
-                 cls._check_limit(len(names))
+                cls._check_limit(len(names))
 
         for para in doc.paragraphs:
             text = para.text.strip()
@@ -154,17 +156,17 @@ class SmartImportService:
 
     @classmethod
     def _parse_txt(cls, content: bytes) -> list[dict]:
-        for encoding in ['utf-8', 'cp1251', 'latin-1']:
+        for encoding in ["utf-8", "cp1251", "latin-1"]:
             try:
                 text = content.decode(encoding)
                 break
             except UnicodeDecodeError:
                 continue
         else:
-            text = content.decode('utf-8', errors='ignore')
+            text = content.decode("utf-8", errors="ignore")
 
         names = []
-        for line in text.split('\n'):
+        for line in text.split("\n"):
             line = line.strip()
             if line:
                 name = cls.normalize_name(line)

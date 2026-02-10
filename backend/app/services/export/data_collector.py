@@ -1,6 +1,7 @@
 """
 Сервис сбора данных для экспорта журнала.
 """
+
 import logging
 from collections import defaultdict
 from datetime import UTC, date, datetime
@@ -33,9 +34,7 @@ class ExportDataCollector:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def collect_lessons(
-        self, group_id: UUID, start_date: date, end_date: date
-    ) -> list[LessonExportColumn]:
+    async def collect_lessons(self, group_id: UUID, start_date: date, end_date: date) -> list[LessonExportColumn]:
         """
         Получить занятия группы за период.
 
@@ -47,10 +46,7 @@ class ExportDataCollector:
         Returns:
             Список занятий для экспорта
         """
-        logger.debug(
-            "Сбор занятий для группы %s за период %s - %s",
-            group_id, start_date, end_date
-        )
+        logger.debug("Сбор занятий для группы %s за период %s - %s", group_id, start_date, end_date)
 
         query = (
             select(Lesson)
@@ -101,10 +97,7 @@ class ExportDataCollector:
             logger.debug("Нет занятий или студентов для сбора посещаемости")
             return []
 
-        logger.debug(
-            "Сбор посещаемости для %d занятий и %d студентов",
-            len(lesson_ids), len(students)
-        )
+        logger.debug("Сбор посещаемости для %d занятий и %d студентов", len(lesson_ids), len(students))
 
         # Получаем все записи посещаемости
         query = (
@@ -159,11 +152,7 @@ class ExportDataCollector:
             # Расчёт attendance_rate
             if stats["total"] > 0:
                 attendance_rate = (
-                    (
-                        stats["present_count"]
-                        + stats["late_count"] * 0.5
-                        + stats["excused_count"] * 0.5
-                    )
+                    (stats["present_count"] + stats["late_count"] * 0.5 + stats["excused_count"] * 0.5)
                     / stats["total"]
                     * 100
                 )
@@ -184,9 +173,7 @@ class ExportDataCollector:
         logger.info("Собрано %d строк посещаемости", len(rows))
         return rows
 
-    async def collect_grades(
-        self, lesson_ids: list[UUID], students: list[User]
-    ) -> list[GradeExportRow]:
+    async def collect_grades(self, lesson_ids: list[UUID], students: list[User]) -> list[GradeExportRow]:
         """
         Собрать данные оценок.
 
@@ -201,16 +188,11 @@ class ExportDataCollector:
             logger.debug("Нет занятий или студентов для сбора оценок")
             return []
 
-        logger.debug(
-            "Сбор оценок для %d занятий и %d студентов",
-            len(lesson_ids), len(students)
-        )
+        logger.debug("Сбор оценок для %d занятий и %d студентов", len(lesson_ids), len(students))
 
         # Получаем все оценки с загрузкой связанных занятий
         query = (
-            select(LessonGrade)
-            .options(selectinload(LessonGrade.lesson))
-            .where(LessonGrade.lesson_id.in_(lesson_ids))
+            select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(LessonGrade.lesson_id.in_(lesson_ids))
         )
 
         result = await self.db.execute(query)
@@ -241,9 +223,7 @@ class ExportDataCollector:
                     grades_count += 1
 
             # Расчёт среднего балла
-            average_grade = (
-                round(total_grade / grades_count, 2) if grades_count > 0 else None
-            )
+            average_grade = round(total_grade / grades_count, 2) if grades_count > 0 else None
 
             rows.append(
                 GradeExportRow(
@@ -308,10 +288,7 @@ class ExportDataCollector:
         Returns:
             Полные данные журнала для экспорта
         """
-        logger.info(
-            "Начало сбора данных для экспорта: группа=%s, период=%s - %s",
-            group_id, start_date, end_date
-        )
+        logger.info("Начало сбора данных для экспорта: группа=%s, период=%s - %s", group_id, start_date, end_date)
 
         # Получаем базовые данные
         group = await self.collect_group_info(group_id)
@@ -330,9 +307,7 @@ class ExportDataCollector:
         grade_rows: list[GradeExportRow] = []
 
         if include_attendance:
-            attendance_rows = await self.collect_attendance(
-                group_id, lesson_ids, students
-            )
+            attendance_rows = await self.collect_attendance(group_id, lesson_ids, students)
 
         if include_grades:
             grade_rows = await self.collect_grades(lesson_ids, students)
@@ -349,9 +324,11 @@ class ExportDataCollector:
         )
 
         logger.info(
-            "Сбор данных завершён: %d студентов, %d занятий, "
-            "%d строк посещаемости, %d строк оценок",
-            len(students), len(lessons), len(attendance_rows), len(grade_rows)
+            "Сбор данных завершён: %d студентов, %d занятий, %d строк посещаемости, %d строк оценок",
+            len(students),
+            len(lessons),
+            len(attendance_rows),
+            len(grade_rows),
         )
 
         return JournalExportData(

@@ -2,6 +2,7 @@
 Backup notification service.
 Sends backup files to admin via Telegram/VK.
 """
+
 import asyncio
 import logging
 from pathlib import Path
@@ -33,10 +34,7 @@ class BackupNotificationService:
     def bot(self) -> Bot:
         """Lazy init Telegram bot."""
         if self._bot is None:
-            self._bot = Bot(
-                token=settings.TELEGRAM_BOT_TOKEN,
-                default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-            )
+            self._bot = Bot(token=settings.TELEGRAM_BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
         return self._bot
 
     def _init_vk(self) -> bool:
@@ -149,12 +147,7 @@ class BackupNotificationService:
 
             # VkUpload.document_message is sync, run in executor
             doc = await loop.run_in_executor(
-                None,
-                lambda: self._vk_upload.document_message(
-                    str(file_path),
-                    title=backup_name,
-                    peer_id=admin_vk_id
-                )
+                None, lambda: self._vk_upload.document_message(str(file_path), title=backup_name, peer_id=admin_vk_id)
             )
 
             attachment = f"doc{doc['doc']['owner_id']}_{doc['doc']['id']}"
@@ -162,11 +155,8 @@ class BackupNotificationService:
             await loop.run_in_executor(
                 None,
                 lambda: self._vk_api.messages.send(
-                    peer_id=admin_vk_id,
-                    message=caption,
-                    attachment=attachment,
-                    random_id=vk_api.utils.get_random_id()
-                )
+                    peer_id=admin_vk_id, message=caption, attachment=attachment, random_id=vk_api.utils.get_random_id()
+                ),
             )
 
             logger.info(f"Backup sent to VK admin {admin_vk_id}: {backup_name}")
@@ -190,11 +180,7 @@ class BackupNotificationService:
 
         try:
             size_kb = size / 1024
-            text = (
-                f"✅ <b>Бэкап создан успешно</b>\n\n"
-                f"📦 <code>{backup_name}</code>\n"
-                f"📊 Размер: {size_kb:.1f} KB"
-            )
+            text = f"✅ <b>Бэкап создан успешно</b>\n\n📦 <code>{backup_name}</code>\n📊 Размер: {size_kb:.1f} KB"
 
             await self.bot.send_message(chat_id=telegram_id, text=text)
             return True
@@ -216,10 +202,7 @@ class BackupNotificationService:
             return False
 
         try:
-            text = (
-                f"❌ <b>Ошибка создания бэкапа</b>\n\n"
-                f"<code>{error[:500]}</code>"
-            )
+            text = f"❌ <b>Ошибка создания бэкапа</b>\n\n<code>{error[:500]}</code>"
 
             # If traceback provided, send as file
             if traceback_text:
@@ -230,11 +213,7 @@ class BackupNotificationService:
 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 with tempfile.NamedTemporaryFile(
-                    mode='w',
-                    suffix='.log',
-                    prefix=f'backup_error_{timestamp}_',
-                    delete=False,
-                    encoding='utf-8'
+                    mode="w", suffix=".log", prefix=f"backup_error_{timestamp}_", delete=False, encoding="utf-8"
                 ) as f:
                     f.write("Backup Error Log\n")
                     f.write("================\n")
@@ -253,6 +232,7 @@ class BackupNotificationService:
 
                 # Cleanup temp file
                 import os
+
                 os.unlink(log_path)
             else:
                 await self.bot.send_message(chat_id=telegram_id, text=text)
@@ -284,6 +264,7 @@ def get_notification_service() -> BackupNotificationService:
 
 # ========== SYNC FUNCTIONS FOR CELERY ==========
 
+
 def send_backup_to_admin_sync(
     file_path: Path,
     backup_name: str,
@@ -305,24 +286,17 @@ def send_backup_to_admin_sync(
     try:
         size_kb = size / 1024
         caption = (
-            f"🔐 Резервная копия БД\n\n"
-            f"📦 {backup_name}\n"
-            f"📊 Размер: {size_kb:.1f} KB\n\n"
-            f"⚠️ Файл зашифрован AES-256-GCM"
+            f"🔐 Резервная копия БД\n\n📦 {backup_name}\n📊 Размер: {size_kb:.1f} KB\n\n⚠️ Файл зашифрован AES-256-GCM"
         )
 
         url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendDocument"
 
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             response = requests.post(
                 url,
-                data={
-                    "chat_id": telegram_id,
-                    "caption": caption,
-                    "parse_mode": "HTML"
-                },
+                data={"chat_id": telegram_id, "caption": caption, "parse_mode": "HTML"},
                 files={"document": (backup_name, f)},
-                timeout=BACKUP_UPLOAD_TIMEOUT_SECONDS
+                timeout=BACKUP_UPLOAD_TIMEOUT_SECONDS,
             )
 
         if response.status_code == 200:
@@ -351,10 +325,7 @@ def notify_backup_failure_sync(
         return False
 
     try:
-        text = (
-            f"❌ Ошибка создания бэкапа\n\n"
-            f"{error[:500]}"
-        )
+        text = f"❌ Ошибка создания бэкапа\n\n{error[:500]}"
 
         url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
 
@@ -364,7 +335,7 @@ def notify_backup_failure_sync(
                 "chat_id": telegram_id,
                 "text": text,
             },
-            timeout=TELEGRAM_NOTIFICATION_TIMEOUT_SECONDS
+            timeout=TELEGRAM_NOTIFICATION_TIMEOUT_SECONDS,
         )
 
         return response.status_code == 200

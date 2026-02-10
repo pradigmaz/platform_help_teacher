@@ -41,11 +41,12 @@ async def update_notification_settings(
         data.channel_vk = False
 
     settings = await crud_notification_settings.update(
-        db, settings,
+        db,
+        settings,
         channel_telegram=data.channel_telegram,
         channel_vk=data.channel_vk,
         channel_web=data.channel_web,
-        notify_announcements=data.notify_announcements
+        notify_announcements=data.notify_announcements,
     )
     return NotificationSettingsResponse.model_validate(settings)
 

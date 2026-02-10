@@ -1,6 +1,7 @@
 """
 CRUD операции для оценок за занятия.
 """
+
 import logging
 from uuid import UUID
 
@@ -20,7 +21,7 @@ async def create_lesson_grade(
     grade: int,
     work_number: int | None = None,
     comment: str | None = None,
-    created_by: UUID | None = None
+    created_by: UUID | None = None,
 ) -> LessonGrade:
     """Создать оценку за занятие."""
     lesson_grade = LessonGrade(
@@ -29,7 +30,7 @@ async def create_lesson_grade(
         grade=grade,
         work_number=work_number,
         comment=comment,
-        created_by=created_by
+        created_by=created_by,
     )
     db.add(lesson_grade)
     await db.commit()
@@ -38,34 +39,22 @@ async def create_lesson_grade(
     return lesson_grade
 
 
-async def get_lesson_grade(
-    db: AsyncSession,
-    grade_id: UUID
-) -> LessonGrade | None:
+async def get_lesson_grade(db: AsyncSession, grade_id: UUID) -> LessonGrade | None:
     """Получить оценку по ID."""
-    result = await db.execute(
-        select(LessonGrade).where(LessonGrade.id == grade_id)
-    )
+    result = await db.execute(select(LessonGrade).where(LessonGrade.id == grade_id))
     return result.scalar_one_or_none()
 
 
-async def get_lesson_grades_by_lesson(
-    db: AsyncSession,
-    lesson_id: UUID
-) -> list[LessonGrade]:
+async def get_lesson_grades_by_lesson(db: AsyncSession, lesson_id: UUID) -> list[LessonGrade]:
     """Получить все оценки за занятие."""
     result = await db.execute(
-        select(LessonGrade)
-        .where(LessonGrade.lesson_id == lesson_id)
-        .options(selectinload(LessonGrade.student))
+        select(LessonGrade).where(LessonGrade.lesson_id == lesson_id).options(selectinload(LessonGrade.student))
     )
     return list(result.scalars().all())
 
 
 async def get_lesson_grades_by_student(
-    db: AsyncSession,
-    student_id: UUID,
-    lesson_ids: list[UUID] | None = None
+    db: AsyncSession, student_id: UUID, lesson_ids: list[UUID] | None = None
 ) -> list[LessonGrade]:
     """Получить оценки студента (опционально по списку занятий)."""
     query = select(LessonGrade).where(LessonGrade.student_id == student_id)
@@ -76,32 +65,21 @@ async def get_lesson_grades_by_student(
 
 
 async def get_student_lesson_grade(
-    db: AsyncSession,
-    lesson_id: UUID,
-    student_id: UUID,
-    work_number: int | None = None
+    db: AsyncSession, lesson_id: UUID, student_id: UUID, work_number: int | None = None
 ) -> LessonGrade | None:
     """Получить оценку студента за конкретное занятие и работу."""
-    conditions = [
-        LessonGrade.lesson_id == lesson_id,
-        LessonGrade.student_id == student_id
-    ]
+    conditions = [LessonGrade.lesson_id == lesson_id, LessonGrade.student_id == student_id]
     if work_number is not None:
         conditions.append(LessonGrade.work_number == work_number)
     else:
         conditions.append(LessonGrade.work_number.is_(None))
 
-    result = await db.execute(
-        select(LessonGrade).where(and_(*conditions))
-    )
+    result = await db.execute(select(LessonGrade).where(and_(*conditions)))
     return result.scalar_one_or_none()
 
 
 async def get_student_grade_by_work(
-    db: AsyncSession,
-    student_id: UUID,
-    work_number: int,
-    group_id: UUID | None = None
+    db: AsyncSession, student_id: UUID, work_number: int, group_id: UUID | None = None
 ) -> LessonGrade | None:
     """
     Получить оценку студента за работу (независимо от занятия).
@@ -112,10 +90,7 @@ async def get_student_grade_by_work(
     query = (
         select(LessonGrade)
         .join(Lesson, LessonGrade.lesson_id == Lesson.id)
-        .where(and_(
-            LessonGrade.student_id == student_id,
-            LessonGrade.work_number == work_number
-        ))
+        .where(and_(LessonGrade.student_id == student_id, LessonGrade.work_number == work_number))
     )
     if group_id:
         query = query.where(Lesson.group_id == group_id)
@@ -129,7 +104,7 @@ async def update_lesson_grade(
     grade_id: UUID,
     grade: int | None = None,
     work_number: int | None = None,
-    comment: str | None = None
+    comment: str | None = None,
 ) -> LessonGrade | None:
     """Обновить оценку."""
     lesson_grade = await get_lesson_grade(db, grade_id)
@@ -149,10 +124,7 @@ async def update_lesson_grade(
     return lesson_grade
 
 
-async def delete_lesson_grade(
-    db: AsyncSession,
-    grade_id: UUID
-) -> bool:
+async def delete_lesson_grade(db: AsyncSession, grade_id: UUID) -> bool:
     """Удалить оценку."""
     lesson_grade = await get_lesson_grade(db, grade_id)
     if not lesson_grade:
@@ -172,7 +144,7 @@ async def upsert_lesson_grade(
     work_number: int | None = None,
     comment: str | None = None,
     created_by: UUID | None = None,
-    group_id: UUID | None = None
+    group_id: UUID | None = None,
 ) -> LessonGrade:
     """
     Создать или обновить оценку (атомарно через ON CONFLICT).
@@ -206,17 +178,17 @@ async def upsert_lesson_grade(
         grade=grade,
         work_number=work_number,
         comment=comment,
-        created_by=created_by
+        created_by=created_by,
     )
 
     # ON CONFLICT — обновляем если запись уже есть
     # Используем constraint name для точного матчинга
     stmt = stmt.on_conflict_do_update(
-        constraint='uq_lesson_grade_student_lesson_work',
+        constraint="uq_lesson_grade_student_lesson_work",
         set_={
-            'grade': stmt.excluded.grade,
-            'comment': stmt.excluded.comment,
-        }
+            "grade": stmt.excluded.grade,
+            "comment": stmt.excluded.comment,
+        },
     )
 
     await db.execute(stmt)
@@ -229,10 +201,7 @@ async def upsert_lesson_grade(
 
 
 async def bulk_upsert_lesson_grades(
-    db: AsyncSession,
-    lesson_id: UUID,
-    grades_data: list[dict],
-    created_by: UUID | None = None
+    db: AsyncSession, lesson_id: UUID, grades_data: list[dict], created_by: UUID | None = None
 ) -> list[LessonGrade]:
     """
     Bulk upsert оценок за занятие.
@@ -248,10 +217,9 @@ async def bulk_upsert_lesson_grades(
     student_ids = [g["student_id"] for g in grades_data]
 
     # Загружаем все существующие оценки одним запросом
-    existing_query = select(LessonGrade).where(and_(
-        LessonGrade.lesson_id == lesson_id,
-        LessonGrade.student_id.in_(student_ids)
-    ))
+    existing_query = select(LessonGrade).where(
+        and_(LessonGrade.lesson_id == lesson_id, LessonGrade.student_id.in_(student_ids))
+    )
     result = await db.execute(existing_query)
     existing_grades = list(result.scalars().all())
 
@@ -278,7 +246,7 @@ async def bulk_upsert_lesson_grades(
                 grade=data["grade"],
                 work_number=data.get("work_number"),
                 comment=data.get("comment"),
-                created_by=created_by
+                created_by=created_by,
             )
             db.add(new_grade)
             updated.append(new_grade)

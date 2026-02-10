@@ -7,6 +7,7 @@
 - Дедлайн на 5/4 = N уникальных work_number после активации (не занятий!)
 - Продления (LabDeadlineExtension) добавляют bonus_lessons к дедлайнам
 """
+
 from app.services.lab_visibility.models import LabVisibilityInfo
 from app.services.lab_visibility.service import LabVisibilityService
 

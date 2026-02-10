@@ -2,6 +2,7 @@
 Suspicion detection system.
 Компонентный fingerprint matching, timing correlation, антидетект detection.
 """
+
 from .constants import (
     SCORE_CANVAS,
     SCORE_IP,

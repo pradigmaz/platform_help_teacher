@@ -1,4 +1,5 @@
 """Поиск и привязка пользователей."""
+
 import logging
 from uuid import UUID
 
@@ -25,11 +26,7 @@ async def find_user_by_social_id(db: AsyncSession, social_id: int, platform: Pla
     return result.scalar_one_or_none()
 
 
-async def find_student_by_fio(
-    db: AsyncSession,
-    group_id: str,
-    input_fio: str
-) -> tuple[User | None, list[User]]:
+async def find_student_by_fio(db: AsyncSession, group_id: str, input_fio: str) -> tuple[User | None, list[User]]:
     """
     Поиск студента по ФИО в группе.
 
@@ -42,7 +39,7 @@ async def find_student_by_fio(
             User.group_id == UUID(group_id),
             User.role == UserRole.STUDENT,
             User.telegram_id.is_(None),
-            User.vk_id.is_(None)
+            User.vk_id.is_(None),
         )
     )
     students = result.scalars().all()
@@ -62,11 +59,7 @@ async def find_student_by_fio(
 
 
 async def bind_social_id(
-    db: AsyncSession,
-    user: User,
-    social_id: int,
-    platform: Platform,
-    username: str | None = None
+    db: AsyncSession, user: User, social_id: int, platform: Platform, username: str | None = None
 ) -> str | None:
     """
     Привязывает social_id к пользователю.

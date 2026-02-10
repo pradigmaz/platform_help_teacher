@@ -19,14 +19,13 @@ from app.services import session_service
 
 logger = logging.getLogger(__name__)
 
+
 # Функция для извлечения токена из куки
 def get_token_from_cookie(request: Request) -> str | None:
     return request.cookies.get("access_token")
 
-async def get_current_user(
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)]
-) -> User:
+
+async def get_current_user(request: Request, db: Annotated[AsyncSession, Depends(get_db)]) -> User:
     token = get_token_from_cookie(request)
     client_ip = request.client.host if request.client else "unknown"
     path = request.url.path
@@ -95,8 +94,7 @@ async def get_current_user(
         # No session cookie - this might be an old token or API access
         # For now, we'll allow it but log a warning
         logger.warning(
-            f"[deps:get_current_user] No session cookie found | "
-            f"user_id={user_id} | path={path} | ip={client_ip}"
+            f"[deps:get_current_user] No session cookie found | user_id={user_id} | path={path} | ip={client_ip}"
         )
 
     result = await db.execute(select(User).where(User.id == UUID(user_id)))
@@ -122,15 +120,15 @@ async def get_current_user(
 
     return user
 
+
 async def get_current_active_superuser(
     current_user: User = Depends(get_current_user),
 ) -> User:
     # FIX: Use Enum instead of hardcoded string
     if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=em.NOT_ENOUGH_PERMISSIONS
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=em.NOT_ENOUGH_PERMISSIONS)
     return current_user
+
 
 async def verify_telegram_ip(request: Request):
     """
@@ -149,8 +147,8 @@ async def verify_telegram_ip(request: Request):
     real_ip_str = forwarded_for.split(",")[0].strip() if forwarded_for else client_host
 
     if not real_ip_str:
-         logger.warning("Could not determine client IP")
-         raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN) from None
+        logger.warning("Could not determine client IP")
+        raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN) from None
 
     try:
         real_ip = ipaddress.ip_address(real_ip_str)
@@ -171,8 +169,5 @@ async def get_current_teacher(
 ) -> User:
     """Проверка, что пользователь - преподаватель или админ."""
     if current_user.role not in (UserRole.TEACHER, UserRole.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=em.NOT_ENOUGH_PERMISSIONS
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=em.NOT_ENOUGH_PERMISSIONS)
     return current_user

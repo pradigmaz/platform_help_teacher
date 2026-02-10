@@ -1,6 +1,7 @@
 """
 Celery tasks для обслуживания аудит-логов.
 """
+
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -19,7 +20,9 @@ AUDIT_RETENTION_DAYS = 365
 RETRY_DELAYS = [60, 300, 900]
 
 
-@celery_app.task(name="app.tasks.audit_tasks.cleanup_old_audit_logs", bind=True, max_retries=3, acks_late=True, soft_time_limit=300)
+@celery_app.task(
+    name="app.tasks.audit_tasks.cleanup_old_audit_logs", bind=True, max_retries=3, acks_late=True, soft_time_limit=300
+)
 def cleanup_old_audit_logs(self, retention_days: int = AUDIT_RETENTION_DAYS) -> dict:
     """
     Удаляет аудит-логи старше retention_days.
@@ -35,9 +38,7 @@ def cleanup_old_audit_logs(self, retention_days: int = AUDIT_RETENTION_DAYS) -> 
         with SyncSessionLocal() as db:
             try:
                 # Считаем количество записей для удаления
-                count_query = select(func.count(StudentAuditLog.id)).where(
-                    StudentAuditLog.created_at < cutoff_date
-                )
+                count_query = select(func.count(StudentAuditLog.id)).where(StudentAuditLog.created_at < cutoff_date)
                 result = db.execute(count_query)
                 count = result.scalar() or 0
 
@@ -53,9 +54,7 @@ def cleanup_old_audit_logs(self, retention_days: int = AUDIT_RETENTION_DAYS) -> 
                     # Удаляем батч
                     delete_query = delete(StudentAuditLog).where(
                         StudentAuditLog.id.in_(
-                            select(StudentAuditLog.id)
-                            .where(StudentAuditLog.created_at < cutoff_date)
-                            .limit(batch_size)
+                            select(StudentAuditLog.id).where(StudentAuditLog.created_at < cutoff_date).limit(batch_size)
                         )
                     )
                     result = db.execute(delete_query)
@@ -73,7 +72,7 @@ def cleanup_old_audit_logs(self, retention_days: int = AUDIT_RETENTION_DAYS) -> 
                 return {
                     "deleted": total_deleted,
                     "cutoff_date": cutoff_date.isoformat(),
-                    "retention_days": retention_days
+                    "retention_days": retention_days,
                 }
 
             except Exception as e:
@@ -87,7 +86,9 @@ def cleanup_old_audit_logs(self, retention_days: int = AUDIT_RETENTION_DAYS) -> 
         raise self.retry(exc=e, countdown=retry_delay)
 
 
-@celery_app.task(name="app.tasks.audit_tasks.create_audit_partition", bind=True, max_retries=3, acks_late=True, soft_time_limit=60)
+@celery_app.task(
+    name="app.tasks.audit_tasks.create_audit_partition", bind=True, max_retries=3, acks_late=True, soft_time_limit=60
+)
 def create_audit_partition(self) -> dict:
     """
     Создаёт партицию на следующий месяц если её нет.

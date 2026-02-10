@@ -1,4 +1,5 @@
 """API endpoints для заметок."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
@@ -43,10 +44,7 @@ async def get_notes_batch(
 
     result = await db.execute(
         select(Note)
-        .where(and_(
-            Note.entity_type == entity_type.value,
-            Note.entity_id.in_(entity_ids)
-        ))
+        .where(and_(Note.entity_type == entity_type.value, Note.entity_id.in_(entity_ids)))
         .order_by(Note.is_pinned.desc(), Note.created_at.desc())
     )
     notes = list(result.scalars().all())
@@ -56,17 +54,19 @@ async def get_notes_batch(
     for note in notes:
         eid = str(note.entity_id)
         if eid in grouped:
-            grouped[eid].append({
-                "id": str(note.id),
-                "entity_type": note.entity_type,
-                "entity_id": str(note.entity_id),
-                "content": note.content,
-                "color": note.color,
-                "is_pinned": note.is_pinned,
-                "author_id": str(note.author_id) if note.author_id else None,
-                "created_at": note.created_at.isoformat(),
-                "updated_at": note.updated_at.isoformat() if note.updated_at else note.created_at.isoformat(),
-            })
+            grouped[eid].append(
+                {
+                    "id": str(note.id),
+                    "entity_type": note.entity_type,
+                    "entity_id": str(note.entity_id),
+                    "content": note.content,
+                    "color": note.color,
+                    "is_pinned": note.is_pinned,
+                    "author_id": str(note.author_id) if note.author_id else None,
+                    "created_at": note.created_at.isoformat(),
+                    "updated_at": note.updated_at.isoformat() if note.updated_at else note.created_at.isoformat(),
+                }
+            )
 
     return grouped
 
@@ -85,7 +85,7 @@ async def create_note(
         content=note_in.content,
         color=note_in.color.value,
         is_pinned=note_in.is_pinned,
-        author_id=current_user.id
+        author_id=current_user.id,
     )
     return note
 
@@ -107,7 +107,7 @@ async def update_note(
         note,
         content=note_in.content,
         color=note_in.color.value if note_in.color else None,
-        is_pinned=note_in.is_pinned
+        is_pinned=note_in.is_pinned,
     )
     return note
 

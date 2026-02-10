@@ -1,4 +1,5 @@
 """Модели данных для сервиса видимости лаб."""
+
 from dataclasses import dataclass
 from datetime import date
 
@@ -6,6 +7,7 @@ from datetime import date
 @dataclass
 class LabVisibilityInfo:
     """Информация о видимости и дедлайнах лабы для студента."""
+
     lab_number: int
     is_visible: bool
     visible_from: date | None = None

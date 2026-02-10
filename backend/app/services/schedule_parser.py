@@ -1,6 +1,7 @@
 """
 Парсер расписания с kis.vgltu.ru
 """
+
 import logging
 from datetime import date, timedelta
 
@@ -11,7 +12,7 @@ from app.services.schedule_constants import PARSE_STEP_DAYS
 logger = logging.getLogger(__name__)
 
 # Re-export для обратной совместимости
-__all__ = ['ParsedLesson', 'ScheduleParser', 'schedule_parser', 'get_parser']
+__all__ = ["ParsedLesson", "ScheduleParser", "schedule_parser", "get_parser"]
 
 
 class ScheduleParser:
@@ -36,11 +37,7 @@ class ScheduleParser:
         return self._html_parser.parse(html_content)
 
     async def parse_range(
-        self,
-        teacher_name: str,
-        start_date: date,
-        end_date: date,
-        progress_callback=None
+        self, teacher_name: str, start_date: date, end_date: date, progress_callback=None
     ) -> list[ParsedLesson]:
         """Парсинг расписания за период"""
         all_lessons = []
@@ -133,12 +130,7 @@ class SyncScheduleParser:
             logger.error(f"Failed to fetch schedule: {e}")
             raise RuntimeError(str(e))
 
-    def parse_range(
-        self,
-        teacher_name: str,
-        start_date: date,
-        end_date: date
-    ) -> list[ParsedLesson]:
+    def parse_range(self, teacher_name: str, start_date: date, end_date: date) -> list[ParsedLesson]:
         """Парсинг расписания за период (синхронно)"""
         all_lessons = []
         current_date = start_date
@@ -171,13 +163,7 @@ class SyncScheduleParser:
                 unique.append(lesson)
         return unique
 
-    def parse_and_import_sync(
-        self,
-        db,
-        teacher_name: str,
-        start_date: date,
-        end_date: date
-    ) -> dict:
+    def parse_and_import_sync(self, db, teacher_name: str, start_date: date, end_date: date) -> dict:
         """
         Парсинг и импорт расписания в БД (синхронно).
         Упрощённая версия для Celery tasks.
@@ -219,7 +205,7 @@ class SyncScheduleParser:
                         Lesson.group_id == group.id,
                         Lesson.date == parsed.date,
                         Lesson.lesson_number == parsed.lesson_number,
-                        Lesson.subgroup == parsed.subgroup
+                        Lesson.subgroup == parsed.subgroup,
                     )
                 ).scalar_one_or_none()
 

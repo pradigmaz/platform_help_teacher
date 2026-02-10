@@ -2,6 +2,7 @@
 Backup restoration service.
 Handles download, decryption, decompression, and pg_restore.
 """
+
 import asyncio
 import gzip
 import logging
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RestoreResult:
     """Result of restore operation."""
+
     success: bool
     error: str | None = None
 
@@ -83,7 +85,7 @@ class RestoreService:
 
     def _decompress(self, input_path: Path, output_path: Path) -> None:
         """Decompress gzip file."""
-        with gzip.open(input_path, 'rb') as f_in, open(output_path, 'wb') as f_out:
+        with gzip.open(input_path, "rb") as f_in, open(output_path, "wb") as f_out:
             while chunk := f_in.read(64 * 1024):
                 f_out.write(chunk)
 
@@ -111,7 +113,7 @@ class RestoreService:
 
         proc = await asyncio.create_subprocess_exec(
             *cmd,
-            env={**dict(__import__('os').environ), **env},
+            env={**dict(__import__("os").environ), **env},
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -148,7 +150,7 @@ class RestoreService:
                 self.encryption.decrypt_file(encrypted_file, compressed_file)
 
                 # Verify gzip header
-                with gzip.open(compressed_file, 'rb') as f:
+                with gzip.open(compressed_file, "rb") as f:
                     f.read(1)  # Just check it opens
 
                 return True

@@ -1,6 +1,7 @@
 """
 Модель связи преподаватель-предмет-группа.
 """
+
 from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
@@ -30,24 +31,17 @@ class TeacherSubjectAssignment(Base, TimestampMixin):
     - Миронов -> Информатика -> ЭК-21 -> 2024-2
     - Миронов -> Численные методы -> ИС-31 -> 2024-1
     """
+
     __tablename__ = "teacher_subject_assignments"
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
 
-    teacher_id: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
-    subject_id: Mapped[UUID] = mapped_column(
-        ForeignKey("subjects.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
+    teacher_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    subject_id: Mapped[UUID] = mapped_column(ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False, index=True)
     group_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("groups.id", ondelete="CASCADE"),
         nullable=True,  # null = для всех групп (лекционный поток)
-        index=True
+        index=True,
     )
 
     # Семестр в формате "2024-1" (год-номер)
@@ -61,9 +55,6 @@ class TeacherSubjectAssignment(Base, TimestampMixin):
     group: Mapped[Optional["Group"]] = relationship()
 
     __table_args__ = (
-        UniqueConstraint(
-            'teacher_id', 'subject_id', 'group_id', 'semester',
-            name='uq_teacher_subject_group_semester'
-        ),
-        Index('idx_tsa_teacher_semester', 'teacher_id', 'semester'),
+        UniqueConstraint("teacher_id", "subject_id", "group_id", "semester", name="uq_teacher_subject_group_semester"),
+        Index("idx_tsa_teacher_semester", "teacher_id", "semester"),
     )

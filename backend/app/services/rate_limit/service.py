@@ -1,6 +1,7 @@
 """
 Сервис управления rate limit предупреждениями.
 """
+
 import hashlib
 import logging
 from datetime import datetime, timedelta
@@ -38,9 +39,7 @@ async def load_admin_ids_from_db(db: AsyncSession) -> None:
     """Загрузить ID админов из БД в кэш."""
     global _admin_user_ids, _admin_cache_loaded
     try:
-        result = await db.execute(
-            select(User.id).where(User.role == UserRole.ADMIN)
-        )
+        result = await db.execute(select(User.id).where(User.role == UserRole.ADMIN))
         _admin_user_ids = {row[0] for row in result.fetchall()}
         _admin_cache_loaded = True
         logger.info(f"Loaded {len(_admin_user_ids)} admin IDs for rate limit bypass")
@@ -61,6 +60,7 @@ class RateLimitService:
     def _hash_fingerprint(self, fingerprint: dict) -> str:
         """Хеширует fingerprint для использования как ключ."""
         import json
+
         fp_str = json.dumps(fingerprint, sort_keys=True)
         return hashlib.sha256(fp_str.encode()).hexdigest()[:16]
 

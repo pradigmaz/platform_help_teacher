@@ -1,6 +1,7 @@
 """
 Схемы для расписания и занятий.
 """
+
 from datetime import date
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from pydantic import BaseModel, Field
 from app.models.schedule import DayOfWeek, LessonType, WeekParity
 
 # === ScheduleItem ===
+
 
 class ScheduleItemBase(BaseModel):
     day_of_week: DayOfWeek
@@ -52,6 +54,7 @@ class ScheduleItemResponse(ScheduleItemBase):
 
 # === Lesson ===
 
+
 class LessonBase(BaseModel):
     date: date
     lesson_number: int = Field(ge=1, le=8)
@@ -89,8 +92,10 @@ class LessonResponse(LessonBase):
 
 # === Bulk operations ===
 
+
 class GenerateLessonsRequest(BaseModel):
     """Запрос на генерацию занятий из расписания"""
+
     group_id: UUID
     start_date: date
     end_date: date
@@ -98,5 +103,6 @@ class GenerateLessonsRequest(BaseModel):
 
 class GenerateLessonsResponse(BaseModel):
     """Ответ на генерацию занятий"""
+
     created_count: int
     lessons: list[LessonResponse]

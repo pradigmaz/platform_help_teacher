@@ -41,15 +41,9 @@ def _build_response(
         status=feedback.status,
         user_id=feedback.user_id,
         user_name=user_name or (feedback.user.full_name if feedback.user else None),
-        group_name=group_name
-        or (
-            feedback.user.group.name if feedback.user and feedback.user.group else None
-        ),
+        group_name=group_name or (feedback.user.group.name if feedback.user and feedback.user.group else None),
         admin_response=feedback.admin_response,
-        attachments=[
-            FeedbackAttachmentResponse.model_validate(a)
-            for a in (feedback.attachments or [])
-        ],
+        attachments=[FeedbackAttachmentResponse.model_validate(a) for a in (feedback.attachments or [])],
         created_at=feedback.created_at,
         resolved_at=feedback.resolved_at,
     )
@@ -78,9 +72,7 @@ async def create_feedback(
     if current_user.group_id:
         from app.models.group import Group
 
-        result = await db.execute(
-            select(Group.name).where(Group.id == current_user.group_id)
-        )
+        result = await db.execute(select(Group.name).where(Group.id == current_user.group_id))
         group_name = result.scalar_one_or_none()
 
     logger.info(f"Feedback created: {feedback.id} by user {current_user.id}")
@@ -93,9 +85,7 @@ async def get_new_feedback_count(
     _: User = Depends(get_current_active_superuser),
 ):
     """Get count of new (unread) feedback."""
-    result = await db.execute(
-        select(func.count(Feedback.id)).where(Feedback.status == FeedbackStatus.NEW)
-    )
+    result = await db.execute(select(func.count(Feedback.id)).where(Feedback.status == FeedbackStatus.NEW))
     return {"count": result.scalar() or 0}
 
 

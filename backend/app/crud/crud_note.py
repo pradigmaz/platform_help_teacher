@@ -1,4 +1,5 @@
 """CRUD операции для заметок."""
+
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -13,19 +14,11 @@ class CRUDNote:
         result = await db.execute(select(Note).where(Note.id == note_id))
         return result.scalar_one_or_none()
 
-    async def get_by_entity(
-        self,
-        db: AsyncSession,
-        entity_type: str,
-        entity_id: UUID
-    ) -> list[Note]:
+    async def get_by_entity(self, db: AsyncSession, entity_type: str, entity_id: UUID) -> list[Note]:
         """Получить все заметки для сущности."""
         result = await db.execute(
             select(Note)
-            .where(and_(
-                Note.entity_type == entity_type,
-                Note.entity_id == entity_id
-            ))
+            .where(and_(Note.entity_type == entity_type, Note.entity_id == entity_id))
             .order_by(Note.is_pinned.desc(), Note.created_at.desc())
         )
         return list(result.scalars().all())
@@ -38,7 +31,7 @@ class CRUDNote:
         content: str,
         color: str = NoteColor.DEFAULT.value,
         is_pinned: bool = False,
-        author_id: UUID | None = None
+        author_id: UUID | None = None,
     ) -> Note:
         """Создать заметку."""
         note = Note(
@@ -47,7 +40,7 @@ class CRUDNote:
             content=content,
             color=color,
             is_pinned=is_pinned,
-            author_id=author_id
+            author_id=author_id,
         )
         db.add(note)
         await db.commit()
@@ -60,7 +53,7 @@ class CRUDNote:
         note: Note,
         content: str | None = None,
         color: str | None = None,
-        is_pinned: bool | None = None
+        is_pinned: bool | None = None,
     ) -> Note:
         """Обновить заметку."""
         if content is not None:
@@ -83,12 +76,7 @@ class CRUDNote:
             return True
         return False
 
-    async def delete_by_entity(
-        self,
-        db: AsyncSession,
-        entity_type: str,
-        entity_id: UUID
-    ) -> int:
+    async def delete_by_entity(self, db: AsyncSession, entity_type: str, entity_id: UUID) -> int:
         """Удалить все заметки для сущности."""
         notes = await self.get_by_entity(db, entity_type, entity_id)
         count = len(notes)

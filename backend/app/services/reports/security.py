@@ -3,6 +3,7 @@
 
 Генерация кодов и работа с PIN-кодами.
 """
+
 import secrets
 import string
 
@@ -12,8 +13,9 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Символы для генерации кода (без похожих: 0/O, 1/l/I)
-CODE_ALPHABET = string.ascii_uppercase.replace('O', '').replace('I', '') + \
-                string.digits.replace('0', '').replace('1', '')
+CODE_ALPHABET = string.ascii_uppercase.replace("O", "").replace("I", "") + string.digits.replace("0", "").replace(
+    "1", ""
+)
 CODE_LENGTH = 8
 
 
@@ -27,7 +29,7 @@ def generate_code() -> str:
     Returns:
         str: 8-символьный код (например: "A2B3C4D5")
     """
-    return ''.join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+    return "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
 
 
 def hash_pin(pin: str) -> str:

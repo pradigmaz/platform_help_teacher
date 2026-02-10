@@ -13,6 +13,7 @@ class ActivityBase(BaseModel):
     attestation_type: AttestationType = Field(..., description="Тип аттестации")
     is_active: bool = Field(True, description="Активна ли запись")
 
+
 # Create Schema
 class ActivityCreate(ActivityBase):
     student_id: UUID | None = Field(None, description="ID студента (если для одного)")
@@ -21,11 +22,13 @@ class ActivityCreate(ActivityBase):
     # Validation: either student_id or group_id must be provided
     # This logic will be handled in the endpoint or validator
 
+
 # Update Schema
 class ActivityUpdate(BaseModel):
     points: float | None = None
     description: str | None = None
     is_active: bool | None = None
+
 
 # Response Schema
 class ActivityResponse(ActivityBase):
@@ -38,8 +41,8 @@ class ActivityResponse(ActivityBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 # Response with student info
 class ActivityWithStudentResponse(ActivityResponse):
     student_name: str | None = None
     group_name: str | None = None
-

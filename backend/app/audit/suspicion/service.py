@@ -1,4 +1,5 @@
 """Основной сервис suspicion detection."""
+
 import logging
 from datetime import timedelta
 from typing import Any
@@ -52,7 +53,7 @@ async def find_timing_correlation(
                 StudentAuditLog.id != log.id,
             )
         )
-        .order_by(func.abs(func.extract('epoch', StudentAuditLog.created_at - log.created_at)))
+        .order_by(func.abs(func.extract("epoch", StudentAuditLog.created_at - log.created_at)))
         .limit(1)
     )
 
@@ -104,7 +105,7 @@ async def find_suspicion_for_anonymous(
     # 2. IP match
     if log.ip_address:
         ip_query = (
-            select(StudentAuditLog.user_id, func.count().label('cnt'))
+            select(StudentAuditLog.user_id, func.count().label("cnt"))
             .where(
                 and_(
                     StudentAuditLog.ip_address == log.ip_address,
@@ -152,8 +153,7 @@ async def find_suspicion_for_anonymous(
                     continue
 
                 score, matches = calculate_fingerprint_score(
-                    log.fingerprint, row.fingerprint,
-                    log.user_agent, row.user_agent
+                    log.fingerprint, row.fingerprint, log.user_agent, row.user_agent
                 )
 
                 if score > 0:
@@ -206,7 +206,6 @@ async def find_suspicion_for_anonymous(
     return result
 
 
-
 async def enrich_logs_with_suspicion(
     db: AsyncSession,
     logs: list[StudentAuditLog],
@@ -225,11 +224,7 @@ async def enrich_logs_with_suspicion(
     ip_user_map: dict[str, tuple[UUID, str, int]] = {}
     if all_ips:
         ip_query = (
-            select(
-                StudentAuditLog.ip_address,
-                StudentAuditLog.user_id,
-                func.count().label('cnt')
-            )
+            select(StudentAuditLog.ip_address, StudentAuditLog.user_id, func.count().label("cnt"))
             .where(
                 and_(
                     StudentAuditLog.user_id.isnot(None),
@@ -305,9 +300,7 @@ async def enrich_logs_with_suspicion(
         if log.fingerprint:
             for uid, fps in auth_fps.items():
                 for fp, ua in fps:
-                    score, fp_matches = calculate_fingerprint_score(
-                        log.fingerprint, fp, log.user_agent, ua
-                    )
+                    score, fp_matches = calculate_fingerprint_score(log.fingerprint, fp, log.user_agent, ua)
                     if score > 0:
                         total = score
                         combined = fp_matches.copy()

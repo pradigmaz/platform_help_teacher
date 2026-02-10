@@ -1,4 +1,5 @@
 """Запросы на чтение для публичных отчётов."""
+
 import logging
 from datetime import UTC, datetime
 from uuid import UUID
@@ -14,11 +15,7 @@ logger = logging.getLogger(__name__)
 class ReportQueries:
     """Методы чтения для GroupReport."""
 
-    async def get_by_id(
-        self,
-        db: AsyncSession,
-        report_id: UUID
-    ) -> GroupReport | None:
+    async def get_by_id(self, db: AsyncSession, report_id: UUID) -> GroupReport | None:
         """
         Получить отчёт по ID.
 
@@ -29,18 +26,11 @@ class ReportQueries:
         Returns:
             Отчёт или None
         """
-        result = await db.execute(
-            select(GroupReport).where(GroupReport.id == report_id)
-        )
+        result = await db.execute(select(GroupReport).where(GroupReport.id == report_id))
         return result.scalar_one_or_none()
 
     async def get_by_code(
-        self,
-        db: AsyncSession,
-        code: str,
-        *,
-        check_active: bool = True,
-        check_expiry: bool = True
+        self, db: AsyncSession, code: str, *, check_active: bool = True, check_expiry: bool = True
     ) -> GroupReport | None:
         """
         Получить отчёт по уникальному коду.
@@ -72,11 +62,7 @@ class ReportQueries:
         return report
 
     async def get_by_teacher(
-        self,
-        db: AsyncSession,
-        teacher_id: UUID,
-        *,
-        include_inactive: bool = False
+        self, db: AsyncSession, teacher_id: UUID, *, include_inactive: bool = False
     ) -> list[GroupReport]:
         """
         Получить все отчёты преподавателя.
@@ -100,11 +86,7 @@ class ReportQueries:
         return list(result.scalars().all())
 
     async def get_by_group(
-        self,
-        db: AsyncSession,
-        group_id: UUID,
-        *,
-        include_inactive: bool = False
+        self, db: AsyncSession, group_id: UUID, *, include_inactive: bool = False
     ) -> list[GroupReport]:
         """
         Получить все отчёты для группы.

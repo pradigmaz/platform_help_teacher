@@ -28,9 +28,7 @@ def parse_day(value: str) -> tuple[date, date]:
         return (d, d)
     except ValueError as e:
         logger.error(f"Ошибка парсинга дня '{value}': {e}")
-        raise ValueError(
-            f"Неверный формат даты '{value}'. Ожидается формат YYYY-MM-DD (например, 2025-01-22)"
-        ) from e
+        raise ValueError(f"Неверный формат даты '{value}'. Ожидается формат YYYY-MM-DD (например, 2025-01-22)") from e
 
 
 def parse_week(value: str) -> tuple[date, date]:
@@ -53,9 +51,7 @@ def parse_week(value: str) -> tuple[date, date]:
         return (monday, sunday)
     except ValueError as e:
         logger.error(f"Ошибка парсинга недели '{value}': {e}")
-        raise ValueError(
-            f"Неверный формат недели '{value}'. Ожидается формат YYYY-Www (например, 2025-W04)"
-        ) from e
+        raise ValueError(f"Неверный формат недели '{value}'. Ожидается формат YYYY-Www (например, 2025-W04)") from e
 
 
 def parse_month(value: str) -> tuple[date, date]:
@@ -78,9 +74,7 @@ def parse_month(value: str) -> tuple[date, date]:
         return (first_day, last_day)
     except ValueError as e:
         logger.error(f"Ошибка парсинга месяца '{value}': {e}")
-        raise ValueError(
-            f"Неверный формат месяца '{value}'. Ожидается формат YYYY-MM (например, 2025-01)"
-        ) from e
+        raise ValueError(f"Неверный формат месяца '{value}'. Ожидается формат YYYY-MM (например, 2025-01)") from e
 
 
 def parse_custom(value: str) -> tuple[date, date]:
@@ -104,25 +98,17 @@ def parse_custom(value: str) -> tuple[date, date]:
 
     parts = value.split(":")
     if len(parts) != 2:
-        raise ValueError(
-            f"Неверный формат периода '{value}'. "
-            "Должно быть ровно две даты, разделённые двоеточием"
-        )
+        raise ValueError(f"Неверный формат периода '{value}'. Должно быть ровно две даты, разделённые двоеточием")
 
     try:
         start_date = datetime.strptime(parts[0], "%Y-%m-%d").date()
         end_date = datetime.strptime(parts[1], "%Y-%m-%d").date()
     except ValueError as e:
         logger.error(f"Ошибка парсинга дат в периоде '{value}': {e}")
-        raise ValueError(
-            f"Неверный формат дат в периоде '{value}'. "
-            "Ожидается формат YYYY-MM-DD:YYYY-MM-DD"
-        ) from e
+        raise ValueError(f"Неверный формат дат в периоде '{value}'. Ожидается формат YYYY-MM-DD:YYYY-MM-DD") from e
 
     if start_date > end_date:
-        raise ValueError(
-            f"Дата начала ({start_date}) не может быть позже даты окончания ({end_date})"
-        )
+        raise ValueError(f"Дата начала ({start_date}) не может быть позже даты окончания ({end_date})")
 
     return (start_date, end_date)
 
@@ -166,16 +152,13 @@ def parse_period(
         academic_year, semester = get_current_semester()
         start_date, end_date = get_semester_dates(academic_year, semester)
         logger.info(
-            f"Период семестра: {semester} семестр {academic_year}-{academic_year + 1}, "
-            f"даты: {start_date} — {end_date}"
+            f"Период семестра: {semester} семестр {academic_year}-{academic_year + 1}, даты: {start_date} — {end_date}"
         )
         return (start_date, end_date)
 
     # Для остальных типов period_value обязателен
     if not period_value:
-        raise ValueError(
-            f"Для типа периода '{period_type.value}' необходимо указать period_value"
-        )
+        raise ValueError(f"Для типа периода '{period_type.value}' необходимо указать period_value")
 
     if period_type == ExportPeriodType.DAY:
         return parse_day(period_value)

@@ -1,4 +1,5 @@
 """API эндпоинты для экспорта журнала."""
+
 import logging
 from uuid import UUID
 
@@ -22,17 +23,12 @@ async def export_journal(
     request: Request,
     group_id: UUID = Query(..., description="ID группы"),
     period_type: ExportPeriodType = Query(
-        ExportPeriodType.SEMESTER,
-        description="Тип периода: day, week, month, semester, custom"
+        ExportPeriodType.SEMESTER, description="Тип периода: day, week, month, semester, custom"
     ),
     period_value: str | None = Query(
-        None,
-        description="Значение периода: 2025-01-22, 2025-W04, 2025-01, 2025-01-01:2025-01-31"
+        None, description="Значение периода: 2025-01-22, 2025-W04, 2025-01, 2025-01-01:2025-01-31"
     ),
-    format: ExportFormat = Query(
-        ExportFormat.XLSX,
-        description="Формат файла: xlsx, csv, json"
-    ),
+    format: ExportFormat = Query(ExportFormat.XLSX, description="Формат файла: xlsx, csv, json"),
     include_attendance: bool = Query(True, description="Включить посещаемость"),
     include_grades: bool = Query(True, description="Включить оценки"),
     db: AsyncSession = Depends(get_db),
@@ -64,10 +60,7 @@ async def export_journal(
         include_grades=include_grades,
     )
 
-    logger.info(
-        "Экспорт журнала: user=%s, group=%s, file=%s",
-        current_user.id, group_id, filename
-    )
+    logger.info("Экспорт журнала: user=%s, group=%s, file=%s", current_user.id, group_id, filename)
 
     return Response(
         content=content,

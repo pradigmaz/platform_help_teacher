@@ -5,6 +5,7 @@ Reads settings from DB for dynamic scheduling.
 ВАЖНО: Используем синхронные операции для совместимости с Celery prefork worker.
 asyncio.run() / asyncio.new_event_loop() в prefork вызывает "Event loop is closed".
 """
+
 import logging
 import traceback
 
@@ -24,9 +25,7 @@ def _get_backup_settings_sync() -> dict:
     from app.models.backup_settings import BackupSettings
 
     with SyncSessionLocal() as db:
-        result = db.execute(
-            select(BackupSettings).where(BackupSettings.id == 1)
-        )
+        result = db.execute(select(BackupSettings).where(BackupSettings.id == 1))
         settings = result.scalar_one_or_none()
 
         if settings:
@@ -72,7 +71,9 @@ def _cleanup_with_limits_sync(service, retention_days: int, max_backups: int) ->
     return deleted
 
 
-@celery_app.task(name="app.tasks.backup_tasks.create_scheduled_backup", bind=True, max_retries=3, acks_late=True, soft_time_limit=300)
+@celery_app.task(
+    name="app.tasks.backup_tasks.create_scheduled_backup", bind=True, max_retries=3, acks_late=True, soft_time_limit=300
+)
 def create_scheduled_backup(self):
     """
     Create scheduled backup with dynamic settings from DB.
@@ -95,16 +96,13 @@ def create_scheduled_backup(self):
         logger.info("Starting scheduled backup...")
 
         from app.services.backup import BackupService
+
         service = BackupService()
         result = service.create_backup_sync(send_to_admin=True)
 
         if result.success:
             logger.info(f"Scheduled backup completed: {result.backup_key}")
-            deleted = _cleanup_with_limits_sync(
-                service,
-                db_settings["retention_days"],
-                db_settings["max_backups"]
-            )
+            deleted = _cleanup_with_limits_sync(service, db_settings["retention_days"], db_settings["max_backups"])
             if deleted:
                 logger.info(f"Cleaned up {deleted} old backups")
         else:
@@ -120,9 +118,9 @@ def create_scheduled_backup(self):
         if self.request.retries >= self.max_retries:
             try:
                 from app.services.backup.notification import notify_backup_failure_sync
+
                 notify_backup_failure_sync(
-                    f"Scheduled backup task failed after {self.max_retries} retries: {e}",
-                    traceback_text=tb_text
+                    f"Scheduled backup task failed after {self.max_retries} retries: {e}", traceback_text=tb_text
                 )
             except Exception as notify_err:
                 logger.error(f"Failed to send failure notification: {notify_err}")
@@ -131,7 +129,9 @@ def create_scheduled_backup(self):
         raise self.retry(exc=e, countdown=retry_delay)
 
 
-@celery_app.task(name="app.tasks.backup_tasks.cleanup_old_backups", bind=True, max_retries=3, acks_late=True, soft_time_limit=120)
+@celery_app.task(
+    name="app.tasks.backup_tasks.cleanup_old_backups", bind=True, max_retries=3, acks_late=True, soft_time_limit=120
+)
 def cleanup_old_backups(self, retention_days: int = None, max_backups: int = None):
     """
     Cleanup old backups beyond retention period and max count.
@@ -146,6 +146,7 @@ def cleanup_old_backups(self, retention_days: int = None, max_backups: int = Non
             max_backups = max_backups or db_settings["max_backups"]
 
         from app.services.backup import BackupService
+
         service = BackupService()
         deleted = _cleanup_with_limits_sync(service, retention_days, max_backups)
 

@@ -1,4 +1,5 @@
 """Attestation calculation endpoints."""
+
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -47,7 +48,7 @@ async def calculate_student_attestation(
             student_id=student_id,
             group_id=student.group_id,
             attestation_type=attestation_type,
-            activity_points=activity_points
+            activity_points=activity_points,
         )
         return AttestationResultResponse(**result.model_dump())
     except ValueError as e:
@@ -70,11 +71,7 @@ async def calculate_group_attestation(
         raise HTTPException(status_code=404, detail="Группа не найдена")
 
     students_result = await db.execute(
-        select(User).where(
-            User.group_id == group_id,
-            User.role == UserRole.STUDENT,
-            User.is_active
-        )
+        select(User).where(User.group_id == group_id, User.role == UserRole.STUDENT, User.is_active)
     )
     students = list(students_result.scalars().all())
 
@@ -83,9 +80,7 @@ async def calculate_group_attestation(
 
     service = AttestationService(db)
     results, errors = await service.calculate_group_scores_batch(
-        group_id=group_id,
-        attestation_type=attestation_type,
-        students=students
+        group_id=group_id, attestation_type=attestation_type, students=students
     )
 
     return _build_group_response(group_id, group.code, attestation_type, results, errors)
@@ -103,11 +98,7 @@ async def calculate_all_students_attestation(
     # Получаем все неархивированные группы с их студентами одним запросом (фикс N+1)
     from sqlalchemy.orm import selectinload
 
-    groups_result = await db.execute(
-        select(Group)
-        .options(selectinload(Group.users))
-        .where(not Group.is_archived)
-    )
+    groups_result = await db.execute(select(Group).options(selectinload(Group.users)).where(not Group.is_archived))
     groups = list(groups_result.scalars().all())
 
     if not groups:
@@ -119,18 +110,13 @@ async def calculate_all_students_attestation(
 
     for group in groups:
         # Фильтруем студентов из уже загруженных users
-        students = [
-            u for u in group.users
-            if u.role == UserRole.STUDENT and u.is_active
-        ]
+        students = [u for u in group.users if u.role == UserRole.STUDENT and u.is_active]
 
         if not students:
             continue
 
         results, errors = await service.calculate_group_scores_batch(
-            group_id=group.id,
-            attestation_type=attestation_type,
-            students=students
+            group_id=group.id, attestation_type=attestation_type, students=students
         )
         all_results.extend(results)
         all_errors.extend(errors)
@@ -163,7 +149,7 @@ def _build_group_response(group_id, group_code, attestation_type, results, error
         grade_distribution=grade_dist,
         average_score=round(avg, 2),
         students=results,
-        errors=errors
+        errors=errors,
     )
 
 
@@ -189,5 +175,5 @@ def _build_all_students_response(attestation_type, results, errors):
         grade_distribution=grade_dist,
         average_score=round(avg, 2),
         students=results,
-        errors=errors
+        errors=errors,
     )

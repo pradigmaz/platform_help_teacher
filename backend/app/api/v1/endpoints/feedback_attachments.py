@@ -51,9 +51,7 @@ async def create_attachment_upload_url(
     )
 
     if content_type not in ALLOWED_TYPES:
-        logger.warning(
-            f"[Feedback] Invalid content type for feedback {feedback_id}: {content_type}"
-        )
+        logger.warning(f"[Feedback] Invalid content type for feedback {feedback_id}: {content_type}")
         raise HTTPException(
             400,
             f"Тип файла '{content_type}' не поддерживается. Разрешены: {', '.join(ALLOWED_TYPES)}",
@@ -69,15 +67,11 @@ async def create_attachment_upload_url(
     )
     feedback = result.scalar_one_or_none()
     if not feedback:
-        logger.warning(
-            f"[Feedback] Feedback {feedback_id} not found or not owned by user {current_user.id}"
-        )
+        logger.warning(f"[Feedback] Feedback {feedback_id} not found or not owned by user {current_user.id}")
         raise HTTPException(404, "Фидбэк не найден")
 
     current_count = len(feedback.attachments)
-    logger.debug(
-        f"[Feedback] Current attachment count for feedback {feedback_id}: {current_count}/{MAX_ATTACHMENTS}"
-    )
+    logger.debug(f"[Feedback] Current attachment count for feedback {feedback_id}: {current_count}/{MAX_ATTACHMENTS}")
     if current_count >= MAX_ATTACHMENTS:
         logger.warning(
             f"[Feedback] Attachment limit reached for feedback {feedback_id}: {current_count} >= {MAX_ATTACHMENTS}"
@@ -90,16 +84,12 @@ async def create_attachment_upload_url(
 
     storage = StorageService()
     try:
-        upload_url = await storage.create_presigned_upload_url(
-            storage_path, content_type
-        )
+        upload_url = await storage.create_presigned_upload_url(storage_path, content_type)
         logger.info(f"[Feedback] Presigned URL created for attachment {attachment_id}")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(
-            f"[Feedback] Failed to create presigned URL for {attachment_id}: {e}"
-        )
+        logger.error(f"[Feedback] Failed to create presigned URL for {attachment_id}: {e}")
         raise HTTPException(500, "Не удалось создать ссылку для загрузки")
 
     attachment = FeedbackAttachment(
@@ -117,9 +107,7 @@ async def create_attachment_upload_url(
         f"[Feedback] Attachment record created successfully: {attachment_id} (is_uploaded={attachment.is_uploaded})"
     )
 
-    return UploadUrlResponse(
-        upload_url=upload_url, attachment_id=attachment_id, storage_path=storage_path
-    )
+    return UploadUrlResponse(upload_url=upload_url, attachment_id=attachment_id, storage_path=storage_path)
 
 
 @router.post("/{feedback_id}/attachments/{attachment_id}/presign")
@@ -151,9 +139,7 @@ async def get_presigned_url_for_attachment(
     )
     attachment = result.scalar_one_or_none()
     if not attachment:
-        logger.warning(
-            f"[Feedback] Attachment {attachment_id} not found or not owned by user {current_user.id}"
-        )
+        logger.warning(f"[Feedback] Attachment {attachment_id} not found or not owned by user {current_user.id}")
         raise HTTPException(404, "Вложение не найдено")
 
     logger.debug(
@@ -162,18 +148,12 @@ async def get_presigned_url_for_attachment(
 
     storage = StorageService()
     try:
-        upload_url = await storage.create_presigned_upload_url(
-            attachment.storage_path, attachment.content_type
-        )
-        logger.info(
-            f"[Feedback] Presigned URL regenerated for attachment {attachment_id}"
-        )
+        upload_url = await storage.create_presigned_upload_url(attachment.storage_path, attachment.content_type)
+        logger.info(f"[Feedback] Presigned URL regenerated for attachment {attachment_id}")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(
-            f"[Feedback] Failed to regenerate presigned URL for {attachment_id}: {e}"
-        )
+        logger.error(f"[Feedback] Failed to regenerate presigned URL for {attachment_id}: {e}")
         raise HTTPException(500, "Не удалось создать ссылку для загрузки")
 
     return UploadUrlResponse(
@@ -198,9 +178,7 @@ async def mark_attachment_uploaded(
     and successfully uploaded attachments.
     Rate limited: 30/hour.
     """
-    logger.info(
-        f"[Feedback] Marking attachment {attachment_id} as uploaded for feedback {feedback_id}"
-    )
+    logger.info(f"[Feedback] Marking attachment {attachment_id} as uploaded for feedback {feedback_id}")
 
     result = await db.execute(
         select(FeedbackAttachment)
@@ -213,32 +191,22 @@ async def mark_attachment_uploaded(
     )
     attachment = result.scalar_one_or_none()
     if not attachment:
-        logger.warning(
-            f"[Feedback] Attachment {attachment_id} not found or not owned by user {current_user.id}"
-        )
+        logger.warning(f"[Feedback] Attachment {attachment_id} not found or not owned by user {current_user.id}")
         raise HTTPException(404, "Вложение не найдено")
 
     try:
         storage = StorageService()
         async with storage.get_client() as client:
             await client.head_object(Bucket=storage.bucket, Key=attachment.storage_path)
-            logger.info(
-                f"[Feedback] Verified file exists in storage: {attachment.storage_path}"
-            )
+            logger.info(f"[Feedback] Verified file exists in storage: {attachment.storage_path}")
     except Exception as e:
-        logger.error(
-            f"[Feedback] Failed to verify file in storage for attachment {attachment_id}: {e}"
-        )
-        raise HTTPException(
-            400, "Файл не найден в хранилище. Попробуйте загрузить снова."
-        )
+        logger.error(f"[Feedback] Failed to verify file in storage for attachment {attachment_id}: {e}")
+        raise HTTPException(400, "Файл не найден в хранилище. Попробуйте загрузить снова.")
 
     attachment.is_uploaded = True
     attachment.uploaded_at = datetime.now(UTC)
     await db.commit()
-    logger.info(
-        f"[Feedback] Attachment {attachment_id} marked as uploaded successfully at {attachment.uploaded_at}"
-    )
+    logger.info(f"[Feedback] Attachment {attachment_id} marked as uploaded successfully at {attachment.uploaded_at}")
 
     return {"status": "uploaded", "attachment_id": str(attachment_id)}
 
@@ -283,9 +251,7 @@ async def delete_attachment(
     current_user: User = Depends(get_current_user),
 ):
     """Delete attachment (owner only)."""
-    logger.info(
-        f"[Feedback] Deleting attachment {attachment_id} from feedback {feedback_id}"
-    )
+    logger.info(f"[Feedback] Deleting attachment {attachment_id} from feedback {feedback_id}")
 
     result = await db.execute(
         select(FeedbackAttachment)
@@ -306,9 +272,7 @@ async def delete_attachment(
         await storage.delete_object(attachment.storage_path)
         logger.info(f"[Feedback] Deleted attachment {attachment_id} from storage")
     except Exception as e:
-        logger.warning(
-            f"[Feedback] Failed to delete attachment {attachment_id} from storage: {e}"
-        )
+        logger.warning(f"[Feedback] Failed to delete attachment {attachment_id} from storage: {e}")
 
     await db.delete(attachment)
     await db.commit()

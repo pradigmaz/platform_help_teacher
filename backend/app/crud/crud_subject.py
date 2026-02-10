@@ -1,6 +1,7 @@
 """
 CRUD операции для предметов и связей преподаватель-предмет.
 """
+
 import logging
 from uuid import UUID
 
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 # === Subject CRUD ===
 
+
 async def get_subject(db: AsyncSession, subject_id: UUID) -> Subject | None:
     """Получить предмет по ID"""
     result = await db.execute(select(Subject).where(Subject.id == subject_id))
@@ -23,9 +25,7 @@ async def get_subject(db: AsyncSession, subject_id: UUID) -> Subject | None:
 
 async def get_subject_by_name(db: AsyncSession, name: str) -> Subject | None:
     """Получить предмет по названию (case-insensitive)"""
-    result = await db.execute(
-        select(Subject).where(func.lower(Subject.name) == func.lower(name))
-    )
+    result = await db.execute(select(Subject).where(func.lower(Subject.name) == func.lower(name)))
     return result.scalar_one_or_none()
 
 
@@ -39,10 +39,7 @@ async def get_all_subjects(db: AsyncSession, active_only: bool = True) -> list[S
 
 
 async def create_subject(
-    db: AsyncSession,
-    name: str,
-    code: str | None = None,
-    description: str | None = None
+    db: AsyncSession, name: str, code: str | None = None, description: str | None = None
 ) -> Subject:
     """Создать предмет"""
     subject = Subject(name=name, code=code, description=description)
@@ -53,11 +50,7 @@ async def create_subject(
     return subject
 
 
-async def get_or_create_subject(
-    db: AsyncSession,
-    name: str,
-    code: str | None = None
-) -> tuple[Subject, bool]:
+async def get_or_create_subject(db: AsyncSession, name: str, code: str | None = None) -> tuple[Subject, bool]:
     """Получить или создать предмет. Возвращает (subject, created)"""
     existing = await get_subject_by_name(db, name)
     if existing:
@@ -68,11 +61,9 @@ async def get_or_create_subject(
 
 # === TeacherSubjectAssignment CRUD ===
 
+
 async def get_teacher_subjects(
-    db: AsyncSession,
-    teacher_id: UUID,
-    semester: str | None = None,
-    active_only: bool = True
+    db: AsyncSession, teacher_id: UUID, semester: str | None = None, active_only: bool = True
 ) -> list[TeacherSubjectAssignment]:
     """Получить все предметы преподавателя"""
     query = (
@@ -91,10 +82,7 @@ async def get_teacher_subjects(
 
 
 async def get_subject_teachers(
-    db: AsyncSession,
-    subject_id: UUID,
-    group_id: UUID | None = None,
-    active_only: bool = True
+    db: AsyncSession, subject_id: UUID, group_id: UUID | None = None, active_only: bool = True
 ) -> list[TeacherSubjectAssignment]:
     """Получить всех преподавателей предмета"""
     query = (
@@ -112,11 +100,7 @@ async def get_subject_teachers(
 
 
 async def assign_teacher_to_subject(
-    db: AsyncSession,
-    teacher_id: UUID,
-    subject_id: UUID,
-    group_id: UUID | None = None,
-    semester: str | None = None
+    db: AsyncSession, teacher_id: UUID, subject_id: UUID, group_id: UUID | None = None, semester: str | None = None
 ) -> TeacherSubjectAssignment:
     """Назначить преподавателя на предмет"""
     # Проверяем существующую запись
@@ -125,7 +109,7 @@ async def assign_teacher_to_subject(
             TeacherSubjectAssignment.teacher_id == teacher_id,
             TeacherSubjectAssignment.subject_id == subject_id,
             TeacherSubjectAssignment.group_id == group_id,
-            TeacherSubjectAssignment.semester == semester
+            TeacherSubjectAssignment.semester == semester,
         )
     )
     result = await db.execute(query)
@@ -138,10 +122,7 @@ async def assign_teacher_to_subject(
         return existing
 
     assignment = TeacherSubjectAssignment(
-        teacher_id=teacher_id,
-        subject_id=subject_id,
-        group_id=group_id,
-        semester=semester
+        teacher_id=teacher_id, subject_id=subject_id, group_id=group_id, semester=semester
     )
     db.add(assignment)
     await db.flush()
@@ -151,11 +132,7 @@ async def assign_teacher_to_subject(
 
 
 async def get_or_create_assignment_from_schedule(
-    db: AsyncSession,
-    teacher_id: UUID,
-    subject_name: str,
-    group_id: UUID,
-    semester: str | None = None
+    db: AsyncSession, teacher_id: UUID, subject_name: str, group_id: UUID, semester: str | None = None
 ) -> tuple[TeacherSubjectAssignment, bool]:
     """
     Создать связь преподаватель-предмет из данных расписания.
@@ -170,7 +147,7 @@ async def get_or_create_assignment_from_schedule(
             TeacherSubjectAssignment.teacher_id == teacher_id,
             TeacherSubjectAssignment.subject_id == subject.id,
             TeacherSubjectAssignment.group_id == group_id,
-            TeacherSubjectAssignment.semester == semester
+            TeacherSubjectAssignment.semester == semester,
         )
     )
     result = await db.execute(query)
@@ -179,7 +156,5 @@ async def get_or_create_assignment_from_schedule(
     if existing:
         return existing, False
 
-    assignment = await assign_teacher_to_subject(
-        db, teacher_id, subject.id, group_id, semester
-    )
+    assignment = await assign_teacher_to_subject(db, teacher_id, subject.id, group_id, semester)
     return assignment, True

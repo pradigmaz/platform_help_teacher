@@ -1,6 +1,7 @@
 """
 Расчёт баллов для одного студента (автобалансировка).
 """
+
 import logging
 from uuid import UUID
 
@@ -32,11 +33,7 @@ class StudentScoreCalculator:
         self.settings_manager = AttestationSettingsManager(db)
 
     async def calculate(
-        self,
-        student_id: UUID,
-        group_id: UUID,
-        attestation_type: AttestationType,
-        extra_activity_points: float = 0.0
+        self, student_id: UUID, group_id: UUID, attestation_type: AttestationType, extra_activity_points: float = 0.0
     ) -> AttestationResult:
         """Расчёт баллов аттестации для студента."""
         settings = await self.settings_manager.get_or_create_settings(attestation_type)
@@ -57,14 +54,10 @@ class StudentScoreCalculator:
         transfer_activity = self._sum_transfer_activity(transfers)
 
         # Считаем ожидаемое количество занятий
-        expected_lessons = await self._get_expected_lessons(
-            group_id, student.subgroup, settings
-        )
+        expected_lessons = await self._get_expected_lessons(group_id, student.subgroup, settings)
 
         # Расчёт компонентов с учётом переводов
-        lab_result = self.calculator.calculate_labs(
-            lesson_grades, settings, transfer_lab_grades
-        )
+        lab_result = self.calculator.calculate_labs(lesson_grades, settings, transfer_lab_grades)
         attendance_result = self.calculator.calculate_attendance(
             attendance_records, settings, expected_lessons, transfer_attendance
         )
@@ -74,9 +67,7 @@ class StudentScoreCalculator:
 
         # Активность с учётом лимита (включая снапшоты переводов)
         total_activity = db_activity_points + extra_activity_points + transfer_activity
-        activity_score, bonus_blocked = self.calculator.calculate_activity(
-            total_activity, current_score, settings
-        )
+        activity_score, bonus_blocked = self.calculator.calculate_activity(total_activity, current_score, settings)
 
         # Итог
         total_score, grade, is_passing = self.calculator.calculate_total(
@@ -118,9 +109,7 @@ class StudentScoreCalculator:
         result = await self.db.execute(select(User).where(User.id == student_id))
         return result.scalar_one_or_none()
 
-    async def _get_lesson_grades(
-        self, student_id: UUID, settings: AttestationSettings
-    ) -> list[LessonGrade]:
+    async def _get_lesson_grades(self, student_id: UUID, settings: AttestationSettings) -> list[LessonGrade]:
         query = (
             select(LessonGrade)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
@@ -153,30 +142,19 @@ class StudentScoreCalculator:
 
         # Посещаемость по этим датам
         att_query = select(Attendance).where(
-            Attendance.student_id == student_id,
-            Attendance.group_id == group_id,
-            Attendance.date.in_(relevant_dates)
+            Attendance.student_id == student_id, Attendance.group_id == group_id, Attendance.date.in_(relevant_dates)
         )
         result = await self.db.execute(att_query)
         return list(result.scalars().all())
 
-    async def _get_activity_points(
-        self, student_id: UUID, attestation_type: AttestationType
-    ) -> float:
+    async def _get_activity_points(self, student_id: UUID, attestation_type: AttestationType) -> float:
         query = select(func.sum(Activity.points)).where(
-            Activity.student_id == student_id,
-            Activity.attestation_type == attestation_type,
-            Activity.is_active
+            Activity.student_id == student_id, Activity.attestation_type == attestation_type, Activity.is_active
         )
         result = await self.db.execute(query)
         return result.scalar() or 0.0
 
-    async def _get_expected_lessons(
-        self,
-        group_id: UUID,
-        subgroup: int | None,
-        settings: AttestationSettings
-    ) -> int:
+    async def _get_expected_lessons(self, group_id: UUID, subgroup: int | None, settings: AttestationSettings) -> int:
         """
         Получить ожидаемое количество занятий.
 
@@ -185,10 +163,7 @@ class StudentScoreCalculator:
         - Если меньше (праздники, начало семестра) — используем минимум из настроек
         """
         # Считаем занятия в БД (не отменённые)
-        query = select(func.count(Lesson.id)).where(
-            Lesson.group_id == group_id,
-            not Lesson.is_cancelled
-        )
+        query = select(func.count(Lesson.id)).where(Lesson.group_id == group_id, not Lesson.is_cancelled)
 
         # Фильтр по периоду
         if settings.period_start_date:
@@ -198,9 +173,7 @@ class StudentScoreCalculator:
 
         # Фильтр по подгруппе: занятия для всей группы (subgroup IS NULL) или для конкретной подгруппы
         if subgroup:
-            query = query.where(
-                (Lesson.subgroup is None) | (Lesson.subgroup == subgroup)
-            )
+            query = query.where((Lesson.subgroup is None) | (Lesson.subgroup == subgroup))
 
         result = await self.db.execute(query)
         lessons_in_db = result.scalar() or 0
@@ -211,15 +184,11 @@ class StudentScoreCalculator:
         return max(lessons_in_db, min_expected)
 
     async def _get_transfers_in_period(
-        self,
-        student_id: UUID,
-        attestation_type: AttestationType,
-        settings: AttestationSettings
+        self, student_id: UUID, attestation_type: AttestationType, settings: AttestationSettings
     ) -> list[StudentTransfer]:
         """Получить переводы студента в периоде аттестации."""
         query = select(StudentTransfer).where(
-            StudentTransfer.student_id == student_id,
-            StudentTransfer.attestation_type == attestation_type
+            StudentTransfer.student_id == student_id, StudentTransfer.attestation_type == attestation_type
         )
         if settings.period_start_date:
             query = query.where(StudentTransfer.transfer_date >= settings.period_start_date)
@@ -229,20 +198,12 @@ class StudentScoreCalculator:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    def _merge_transfer_attendance(
-        self, transfers: list[StudentTransfer]
-    ) -> dict | None:
+    def _merge_transfer_attendance(self, transfers: list[StudentTransfer]) -> dict | None:
         """Объединить снапшоты посещаемости из переводов."""
         if not transfers:
             return None
 
-        merged = {
-            "total_lessons": 0,
-            "present": 0,
-            "late": 0,
-            "excused": 0,
-            "absent": 0
-        }
+        merged = {"total_lessons": 0, "present": 0, "late": 0, "excused": 0, "absent": 0}
         for t in transfers:
             data = t.attendance_data or {}
             merged["total_lessons"] += data.get("total_lessons", 0)
@@ -253,9 +214,7 @@ class StudentScoreCalculator:
 
         return merged if merged["total_lessons"] > 0 else None
 
-    def _merge_transfer_lab_grades(
-        self, transfers: list[StudentTransfer]
-    ) -> list[dict]:
+    def _merge_transfer_lab_grades(self, transfers: list[StudentTransfer]) -> list[dict]:
         """Объединить снапшоты оценок за лабы из переводов."""
         all_grades = []
         for t in transfers:

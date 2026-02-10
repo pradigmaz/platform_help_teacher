@@ -35,6 +35,7 @@ from app.schemas.attendance import (
 
 router = APIRouter()
 
+
 def to_attendance_response(attendance: Attendance) -> AttendanceResponse:
     """Helper для конвертации модели Attendance в AttendanceResponse."""
     return AttendanceResponse(
@@ -45,8 +46,9 @@ def to_attendance_response(attendance: Attendance) -> AttendanceResponse:
         status=AttendanceStatusSchema(attendance.status.value),
         created_by=attendance.created_by,
         created_at=attendance.created_at,
-        updated_at=attendance.updated_at
+        updated_at=attendance.updated_at,
     )
+
 
 async def check_group_access(user: User, group_id: UUID) -> None:
     """
@@ -62,8 +64,10 @@ async def check_group_access(user: User, group_id: UUID) -> None:
     #     raise HTTPException(status_code=403, detail="No access to this group")
     pass
 
+
 # ============== Attendance Management Endpoints ==============
 # Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
+
 
 @router.post("/attendance", response_model=AttendanceResponse)
 @limiter.limit("50/minute")
@@ -104,7 +108,7 @@ async def create_attendance_record(
             group_id=attendance_in.group_id,
             attendance_date=attendance_in.date,
             status=model_status,
-            created_by=current_user.id
+            created_by=current_user.id,
         )
         await db.commit()
         await db.refresh(attendance)
@@ -140,11 +144,7 @@ async def update_attendance_record(
     """
     model_status = AttendanceStatus(attendance_in.status.value)
 
-    attendance = await update_attendance(
-        db=db,
-        attendance_id=attendance_id,
-        status=model_status
-    )
+    attendance = await update_attendance(db=db, attendance_id=attendance_id, status=model_status)
 
     if not attendance:
         raise HTTPException(status_code=404, detail="Запись посещаемости не найдена")
@@ -177,17 +177,14 @@ async def create_bulk_attendance(
     # Проверка доступа к группе
     await check_group_access(current_user, bulk_in.group_id)
 
-    student_statuses = [
-        (record.student_id, AttendanceStatus(record.status.value))
-        for record in bulk_in.records
-    ]
+    student_statuses = [(record.student_id, AttendanceStatus(record.status.value)) for record in bulk_in.records]
 
     created_records = await bulk_create_attendance(
         db=db,
         group_id=bulk_in.group_id,
         attendance_date=bulk_in.date,
         student_statuses=student_statuses,
-        created_by=current_user.id
+        created_by=current_user.id,
     )
 
     await db.commit()
@@ -204,7 +201,7 @@ async def create_bulk_attendance(
     return BulkAttendanceResponse(
         created_count=len(created_records),
         skipped_count=len(bulk_in.records) - len(created_records),
-        records=response_records
+        records=response_records,
     )
 
 
@@ -233,11 +230,7 @@ async def get_student_attendance(
     """
     # Note: crud method doesn't support pagination yet, so slicing in memory for now
     # Ideally should pass skip/limit to crud
-    records = await get_attendance_by_student(
-        db=db,
-        student_id=student_id,
-        group_id=group_id
-    )
+    records = await get_attendance_by_student(db=db, student_id=student_id, group_id=group_id)
 
     # Simple pagination implementation
     paginated_records = records[skip : skip + limit]
@@ -276,23 +269,20 @@ async def get_group_attendance(
     await check_group_access(current_user, group_id)
 
     if attendance_date:
-        records = await get_attendance_by_group_and_date(
-            db=db,
-            group_id=group_id,
-            attendance_date=attendance_date
-        )
+        records = await get_attendance_by_group_and_date(db=db, group_id=group_id, attendance_date=attendance_date)
     elif start_date and end_date:
         records = await get_attendance_by_group_date_range(
-            db=db,
-            group_id=group_id,
-            start_date=start_date,
-            end_date=end_date
+            db=db, group_id=group_id, start_date=start_date, end_date=end_date
         )
     else:
         # Если не указаны фильтры - возвращаем все записи группы
-        query = select(Attendance).where(
-            Attendance.group_id == group_id
-        ).order_by(Attendance.date.desc()).offset(skip).limit(limit)
+        query = (
+            select(Attendance)
+            .where(Attendance.group_id == group_id)
+            .order_by(Attendance.date.desc())
+            .offset(skip)
+            .limit(limit)
+        )
         result = await db.execute(query)
         records = list(result.scalars().all())
         # Since we use direct query with limit here, we don't need slicing
@@ -321,11 +311,7 @@ async def get_student_attendance_stats(
     Returns:
         AttendanceStatsResponse со статистикой
     """
-    records = await get_attendance_by_student(
-        db=db,
-        student_id=student_id,
-        group_id=group_id
-    )
+    records = await get_attendance_by_student(db=db, student_id=student_id, group_id=group_id)
 
     present_count = sum(1 for r in records if r.status == AttendanceStatus.PRESENT)
     late_count = sum(1 for r in records if r.status == AttendanceStatus.LATE)
@@ -345,7 +331,7 @@ async def get_student_attendance_stats(
         late_count=late_count,
         excused_count=excused_count,
         absent_count=absent_count,
-        attendance_rate=attendance_rate
+        attendance_rate=attendance_rate,
     )
 
 

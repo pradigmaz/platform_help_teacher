@@ -3,6 +3,7 @@ Admin API endpoints для управления публичными отчёт�
 
 Требует авторизации преподавателя или администратора.
 """
+
 import logging
 from uuid import UUID
 
@@ -35,7 +36,7 @@ router = APIRouter()
 
 def _build_report_url(code: str) -> str:
     """Построить полный URL отчёта."""
-    base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+    base_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
     return f"{base_url}/report/{code}"
 
 
@@ -68,26 +69,16 @@ async def _report_to_response(report: GroupReport, db: AsyncSession) -> ReportRe
     )
 
 
-async def _get_report_or_404(
-    db: AsyncSession,
-    report_id: UUID,
-    current_user: User
-) -> GroupReport:
+async def _get_report_or_404(db: AsyncSession, report_id: UUID, current_user: User) -> GroupReport:
     """Получить отчёт по ID или вернуть 404."""
     report = await crud_report.get_by_id(db, report_id)
 
     if not report:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=em.REPORT_NOT_FOUND
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=em.REPORT_NOT_FOUND)
 
     # Проверка владельца (только создатель или админ)
     if report.created_by != current_user.id and current_user.role.value != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this report"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this report")
 
     return report
 
@@ -114,10 +105,7 @@ async def create_report(
     group = result.scalar_one_or_none()
 
     if not group:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=em.GROUP_NOT_FOUND
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=em.GROUP_NOT_FOUND)
 
     # Создаём отчёт
     report = await crud_report.create(
@@ -153,27 +141,16 @@ async def list_reports(
     - **include_inactive**: Включать деактивированные отчёты
     """
     if group_id:
-        reports = await crud_report.get_by_group(
-            db,
-            group_id,
-            include_inactive=include_inactive
-        )
+        reports = await crud_report.get_by_group(db, group_id, include_inactive=include_inactive)
         # Фильтруем по создателю (если не админ)
         if current_user.role.value != "admin":
             reports = [r for r in reports if r.created_by == current_user.id]
     else:
-        reports = await crud_report.get_by_teacher(
-            db,
-            current_user.id,
-            include_inactive=include_inactive
-        )
+        reports = await crud_report.get_by_teacher(db, current_user.id, include_inactive=include_inactive)
 
     response_reports = [await _report_to_response(r, db) for r in reports]
 
-    return ReportListResponse(
-        reports=response_reports,
-        total=len(response_reports)
-    )
+    return ReportListResponse(reports=response_reports, total=len(response_reports))
 
 
 @router.get("/reports/{report_id}", response_model=ReportResponse)
@@ -268,10 +245,7 @@ async def regenerate_report_code(
     old_code = report.code
     updated_report = await crud_report.regenerate_code(db, report)
 
-    logger.info(
-        f"Teacher {current_user.id} regenerated code for report: "
-        f"{old_code} -> {updated_report.code}"
-    )
+    logger.info(f"Teacher {current_user.id} regenerated code for report: {old_code} -> {updated_report.code}")
 
     return await _report_to_response(updated_report, db)
 

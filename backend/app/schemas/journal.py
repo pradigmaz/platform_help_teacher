@@ -1,6 +1,7 @@
 """
 Схемы для журнала (посещаемость + оценки).
 """
+
 from datetime import date
 from uuid import UUID
 
@@ -10,8 +11,10 @@ from app.models.attendance import AttendanceStatus
 
 # === Attendance Journal ===
 
+
 class AttendanceCell(BaseModel):
     """Ячейка посещаемости"""
+
     lesson_id: UUID
     status: AttendanceStatus | None = None
     attendance_id: UUID | None = None
@@ -19,6 +22,7 @@ class AttendanceCell(BaseModel):
 
 class StudentAttendanceRow(BaseModel):
     """Строка посещаемости студента"""
+
     student_id: UUID
     student_name: str
     attendance: dict[str, AttendanceCell]  # lesson_id -> cell
@@ -27,6 +31,7 @@ class StudentAttendanceRow(BaseModel):
 
 class LessonColumn(BaseModel):
     """Колонка занятия"""
+
     lesson_id: UUID
     date: date
     lesson_number: int
@@ -37,6 +42,7 @@ class LessonColumn(BaseModel):
 
 class AttendanceJournalResponse(BaseModel):
     """Ответ журнала посещаемости"""
+
     group_id: UUID
     group_name: str
     start_date: date
@@ -47,8 +53,10 @@ class AttendanceJournalResponse(BaseModel):
 
 # === Grades Journal ===
 
+
 class GradeCell(BaseModel):
     """Ячейка оценки"""
+
     work_id: UUID
     grade: int | None = None
     submission_id: UUID | None = None
@@ -57,6 +65,7 @@ class GradeCell(BaseModel):
 
 class StudentGradesRow(BaseModel):
     """Строка оценок студента"""
+
     student_id: UUID
     student_name: str
     grades: dict[str, GradeCell]  # work_id -> cell
@@ -66,6 +75,7 @@ class StudentGradesRow(BaseModel):
 
 class WorkColumn(BaseModel):
     """Колонка работы"""
+
     work_id: UUID
     title: str
     work_type: str
@@ -75,6 +85,7 @@ class WorkColumn(BaseModel):
 
 class GradesJournalResponse(BaseModel):
     """Ответ журнала оценок"""
+
     group_id: UUID
     group_name: str
     work_type: str | None = None
@@ -84,8 +95,10 @@ class GradesJournalResponse(BaseModel):
 
 # === Bulk Operations ===
 
+
 class BulkAttendanceItem(BaseModel):
     """Элемент массового создания посещаемости"""
+
     student_id: UUID
     lesson_id: UUID
     status: AttendanceStatus
@@ -93,6 +106,7 @@ class BulkAttendanceItem(BaseModel):
 
 class BulkAttendanceCreate(BaseModel):
     """Запрос массового создания посещаемости"""
+
     group_id: UUID
     date: date
     lesson_number: int
@@ -101,6 +115,7 @@ class BulkAttendanceCreate(BaseModel):
 
 class BulkAttendanceResponse(BaseModel):
     """Ответ массового создания"""
+
     created: int
     updated: int
     errors: list[str] = []
@@ -108,6 +123,7 @@ class BulkAttendanceResponse(BaseModel):
 
 class BulkGradeItem(BaseModel):
     """Элемент массового создания оценок"""
+
     student_id: UUID
     work_id: UUID
     grade: int
@@ -116,11 +132,13 @@ class BulkGradeItem(BaseModel):
 
 class BulkGradesCreate(BaseModel):
     """Запрос массового создания оценок"""
+
     items: list[BulkGradeItem]
 
 
 class BulkGradesResponse(BaseModel):
     """Ответ массового создания оценок"""
+
     created: int
     updated: int
     errors: list[str] = []

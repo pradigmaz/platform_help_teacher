@@ -1,4 +1,5 @@
 """Сервис для работы с объявлениями и рассылкой уведомлений."""
+
 import logging
 
 from sqlalchemy import select
@@ -22,10 +23,7 @@ async def get_students_for_notification(db: AsyncSession) -> list[User]:
     return list(result.all())
 
 
-async def send_announcement_to_students(
-    db: AsyncSession,
-    announcement: Announcement
-) -> dict:
+async def send_announcement_to_students(db: AsyncSession, announcement: Announcement) -> dict:
     """
     Отправить объявление студентам через ботов.
     Учитывает настройки каждого студента.

@@ -1,4 +1,5 @@
 """Сервис для работы с продлениями дедлайнов лабораторных работ."""
+
 import logging
 from uuid import UUID
 
@@ -20,17 +21,13 @@ class LabDeadlineService:
     """Сервис для управления продлениями дедлайнов лаб."""
 
     async def get_deadline_extensions(
-        self,
-        db: AsyncSession,
-        lab_id: UUID | None = None,
-        group_id: UUID | None = None,
-        is_active: bool | None = None
+        self, db: AsyncSession, lab_id: UUID | None = None, group_id: UUID | None = None, is_active: bool | None = None
     ) -> list[LabDeadlineExtension]:
         """[LabDeadlineService:get_deadline_extensions] Получить продления дедлайнов с eager loading (решение N+1)."""
         query = select(LabDeadlineExtension).options(
             selectinload(LabDeadlineExtension.lab),
             selectinload(LabDeadlineExtension.group),
-            selectinload(LabDeadlineExtension.creator)
+            selectinload(LabDeadlineExtension.creator),
         )
 
         if lab_id:
@@ -44,33 +41,30 @@ class LabDeadlineService:
 
         result = await db.execute(query)
         extensions = result.scalars().all()
-        logger.info(f"[LabDeadlineService:get_deadline_extensions] Found {len(extensions)} extensions (lab_id={lab_id}, group_id={group_id}, is_active={is_active})")
+        logger.info(
+            f"[LabDeadlineService:get_deadline_extensions] Found {len(extensions)} extensions (lab_id={lab_id}, group_id={group_id}, is_active={is_active})"
+        )
         return list(extensions)
 
-    async def get_deadline_extension_by_id(
-        self,
-        db: AsyncSession,
-        extension_id: UUID
-    ) -> LabDeadlineExtension | None:
+    async def get_deadline_extension_by_id(self, db: AsyncSession, extension_id: UUID) -> LabDeadlineExtension | None:
         """[LabDeadlineService:get_deadline_extension_by_id] Получить продление по ID с eager loading."""
         result = await db.execute(
             select(LabDeadlineExtension)
             .options(
                 selectinload(LabDeadlineExtension.lab),
                 selectinload(LabDeadlineExtension.group),
-                selectinload(LabDeadlineExtension.creator)
+                selectinload(LabDeadlineExtension.creator),
             )
             .where(LabDeadlineExtension.id == extension_id)
         )
         extension = result.scalar_one_or_none()
-        logger.info(f"[LabDeadlineService:get_deadline_extension_by_id] Extension {extension_id} found: {extension is not None}")
+        logger.info(
+            f"[LabDeadlineService:get_deadline_extension_by_id] Extension {extension_id} found: {extension is not None}"
+        )
         return extension
 
     async def create_deadline_extension(
-        self,
-        db: AsyncSession,
-        ext_in: DeadlineExtensionCreate,
-        created_by: UUID
+        self, db: AsyncSession, ext_in: DeadlineExtensionCreate, created_by: UUID
     ) -> LabDeadlineExtension:
         """[LabDeadlineService:create_deadline_extension] Создать продление дедлайна с валидацией."""
         # Проверка существования лабы
@@ -88,12 +82,13 @@ class LabDeadlineService:
         # Проверка на дубликат
         existing = await db.execute(
             select(LabDeadlineExtension).where(
-                LabDeadlineExtension.lab_id == ext_in.lab_id,
-                LabDeadlineExtension.group_id == ext_in.group_id
+                LabDeadlineExtension.lab_id == ext_in.lab_id, LabDeadlineExtension.group_id == ext_in.group_id
             )
         )
         if existing.scalar_one_or_none():
-            logger.error(f"[LabDeadlineService:create_deadline_extension] Extension already exists for lab {ext_in.lab_id} and group {ext_in.group_id}")
+            logger.error(
+                f"[LabDeadlineService:create_deadline_extension] Extension already exists for lab {ext_in.lab_id} and group {ext_in.group_id}"
+            )
             raise HTTPException(status_code=400, detail="Продление уже существует для этой лабы и группы")
 
         extension = LabDeadlineExtension(
@@ -102,7 +97,7 @@ class LabDeadlineService:
             bonus_lessons=ext_in.bonus_lessons,
             reason=ext_in.reason,
             expires_at=ext_in.expires_at,
-            created_by=created_by
+            created_by=created_by,
         )
         db.add(extension)
         await db.commit()
@@ -111,14 +106,13 @@ class LabDeadlineService:
         # Eager load relationships
         await db.refresh(extension, ["lab", "group", "creator"])
 
-        logger.info(f"[LabDeadlineService:create_deadline_extension] Created extension for lab {lab.number} group {group.name}: +{ext_in.bonus_lessons} lessons")
+        logger.info(
+            f"[LabDeadlineService:create_deadline_extension] Created extension for lab {lab.number} group {group.name}: +{ext_in.bonus_lessons} lessons"
+        )
         return extension
 
     async def update_deadline_extension(
-        self,
-        db: AsyncSession,
-        extension: LabDeadlineExtension,
-        ext_in: DeadlineExtensionUpdate
+        self, db: AsyncSession, extension: LabDeadlineExtension, ext_in: DeadlineExtensionUpdate
     ) -> LabDeadlineExtension:
         """[LabDeadlineService:update_deadline_extension] Обновить продление дедлайна."""
         update_data = ext_in.model_dump(exclude_unset=True)
@@ -135,11 +129,7 @@ class LabDeadlineService:
         logger.info(f"[LabDeadlineService:update_deadline_extension] Updated extension {extension.id}: {update_data}")
         return extension
 
-    async def delete_deadline_extension(
-        self,
-        db: AsyncSession,
-        extension: LabDeadlineExtension
-    ) -> None:
+    async def delete_deadline_extension(self, db: AsyncSession, extension: LabDeadlineExtension) -> None:
         """[LabDeadlineService:delete_deadline_extension] Удалить продление дедлайна."""
         extension_id = extension.id
         await db.delete(extension)

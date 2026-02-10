@@ -1,6 +1,7 @@
 """
 CRUD операции для моделей приложения.
 """
+
 from app.crud.attendance import (
     AttendanceValidationError,
     DuplicateAttendanceError,

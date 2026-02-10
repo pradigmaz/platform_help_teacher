@@ -1,4 +1,5 @@
 """Сервис перевода студентов между группами/подгруппами"""
+
 import logging
 from datetime import date
 from uuid import UUID
@@ -36,19 +37,14 @@ class TransferService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def _validate_attestation_period(
-        self,
-        attestation_type: AttestationType
-    ) -> None:
+    async def _validate_attestation_period(self, attestation_type: AttestationType) -> None:
         """
         Проверка, что период аттестации ещё не завершён.
 
         Raises:
             ValueError: Если period_end_date аттестации уже прошла.
         """
-        settings_query = select(AttestationSettings).where(
-            AttestationSettings.attestation_type == attestation_type
-        )
+        settings_query = select(AttestationSettings).where(AttestationSettings.attestation_type == attestation_type)
         result = await self.db.execute(settings_query)
         settings = result.scalar_one_or_none()
 
@@ -61,17 +57,12 @@ class TransferService:
                 )
 
     async def create_transfer(
-        self,
-        student_id: UUID,
-        request: TransferRequest,
-        created_by_id: UUID | None = None
+        self, student_id: UUID, request: TransferRequest, created_by_id: UUID | None = None
     ) -> TransferResponse:
         """Создать перевод студента с сохранением снапшота."""
 
         # Валидация: период аттестации не должен быть завершён
-        await self._validate_attestation_period(
-            AttestationType(request.attestation_type.value)
-        )
+        await self._validate_attestation_period(AttestationType(request.attestation_type.value))
 
         # Получаем студента
         student = await self.db.get(User, student_id)
@@ -93,12 +84,8 @@ class TransferService:
         attendance_data = await self._create_attendance_snapshot(
             student_id, from_group_id, from_subgroup, request.attestation_type
         )
-        lab_grades_data = await self._create_lab_grades_snapshot(
-            student_id, from_group_id, request.attestation_type
-        )
-        activity_points = await self._get_activity_points(
-            student_id, request.attestation_type
-        )
+        lab_grades_data = await self._create_lab_grades_snapshot(student_id, from_group_id, request.attestation_type)
+        activity_points = await self._get_activity_points(student_id, request.attestation_type)
 
         # Создаём запись перевода
         transfer = StudentTransfer(
@@ -112,7 +99,7 @@ class TransferService:
             attendance_data=attendance_data.model_dump(),
             lab_grades_data=[g.model_dump() for g in lab_grades_data],
             activity_points=activity_points,
-            created_by_id=created_by_id
+            created_by_id=created_by_id,
         )
         self.db.add(transfer)
 
@@ -144,15 +131,11 @@ class TransferService:
             attendance_data=attendance_data,
             lab_grades_data=lab_grades_data,
             activity_points=activity_points,
-            created_at=transfer.created_at.isoformat()
+            created_at=transfer.created_at.isoformat(),
         )
 
     async def _create_attendance_snapshot(
-        self,
-        student_id: UUID,
-        group_id: UUID | None,
-        subgroup: int | None,
-        attestation_type
+        self, student_id: UUID, group_id: UUID | None, subgroup: int | None, attestation_type
     ) -> AttendanceSnapshot:
         """Создать снапшот посещаемости с учётом подгруппы."""
         if not group_id:
@@ -160,6 +143,7 @@ class TransferService:
 
         # Получаем период аттестации
         from app.models import AttestationSettings
+
         settings_query = select(AttestationSettings).where(
             AttestationSettings.attestation_type == attestation_type.value
         )
@@ -175,9 +159,7 @@ class TransferService:
 
         # Фильтр по подгруппе
         if subgroup is not None:
-            lessons_query = lessons_query.where(
-                or_(Lesson.subgroup.is_(None), Lesson.subgroup == subgroup)
-            )
+            lessons_query = lessons_query.where(or_(Lesson.subgroup.is_(None), Lesson.subgroup == subgroup))
         else:
             lessons_query = lessons_query.where(Lesson.subgroup.is_(None))
 
@@ -190,9 +172,7 @@ class TransferService:
 
         # Получаем посещаемость
         attendance_query = select(Attendance).where(
-            Attendance.student_id == student_id,
-            Attendance.group_id == group_id,
-            Attendance.date.in_(relevant_dates)
+            Attendance.student_id == student_id, Attendance.group_id == group_id, Attendance.date.in_(relevant_dates)
         )
         attendance_result = await self.db.execute(attendance_query)
         records = list(attendance_result.scalars().all())
@@ -203,18 +183,11 @@ class TransferService:
         absent = sum(1 for r in records if r.status == AttendanceStatus.ABSENT)
 
         return AttendanceSnapshot(
-            total_lessons=len(relevant_lessons),
-            present=present,
-            late=late,
-            excused=excused,
-            absent=absent
+            total_lessons=len(relevant_lessons), present=present, late=late, excused=excused, absent=absent
         )
 
     async def _create_lab_grades_snapshot(
-        self,
-        student_id: UUID,
-        group_id: UUID | None,
-        attestation_type
+        self, student_id: UUID, group_id: UUID | None, attestation_type
     ) -> list[LabGradeSnapshot]:
         """Создать снапшот оценок за лабы."""
         if not group_id:
@@ -222,6 +195,7 @@ class TransferService:
 
         # Получаем период
         from app.models import AttestationSettings
+
         settings_query = select(AttestationSettings).where(
             AttestationSettings.attestation_type == attestation_type.value
         )
@@ -244,31 +218,20 @@ class TransferService:
 
         return [
             LabGradeSnapshot(
-                work_number=g.work_number or 0,
-                grade=g.grade,
-                lesson_id=str(g.lesson_id) if g.lesson_id else None
+                work_number=g.work_number or 0, grade=g.grade, lesson_id=str(g.lesson_id) if g.lesson_id else None
             )
             for g in grades
         ]
 
-    async def _get_activity_points(
-        self,
-        student_id: UUID,
-        attestation_type
-    ) -> float:
+    async def _get_activity_points(self, student_id: UUID, attestation_type) -> float:
         """Получить сумму баллов активности."""
         query = select(func.sum(Activity.points)).where(
-            Activity.student_id == student_id,
-            Activity.attestation_type == attestation_type.value,
-            Activity.is_active
+            Activity.student_id == student_id, Activity.attestation_type == attestation_type.value, Activity.is_active
         )
         result = await self.db.execute(query)
         return result.scalar() or 0.0
 
-    async def get_student_transfers(
-        self,
-        student_id: UUID
-    ) -> StudentTransfersResponse:
+    async def get_student_transfers(self, student_id: UUID) -> StudentTransfersResponse:
         """Получить историю переводов студента."""
         student = await self.db.get(User, student_id)
         if not student:
@@ -276,10 +239,7 @@ class TransferService:
 
         query = (
             select(StudentTransfer)
-            .options(
-                selectinload(StudentTransfer.from_group),
-                selectinload(StudentTransfer.to_group)
-            )
+            .options(selectinload(StudentTransfer.from_group), selectinload(StudentTransfer.to_group))
             .where(StudentTransfer.student_id == student_id)
             .order_by(StudentTransfer.transfer_date.desc())
         )
@@ -297,26 +257,18 @@ class TransferService:
                     to_group_name=t.to_group.name if t.to_group else None,
                     to_subgroup=t.to_subgroup,
                     transfer_date=t.transfer_date,
-                    attestation_type=t.attestation_type.value
+                    attestation_type=t.attestation_type.value,
                 )
                 for t in transfers
-            ]
+            ],
         )
 
     async def get_transfers_in_period(
-        self,
-        student_id: UUID,
-        attestation_type: str,
-        period_start: date | None = None,
-        period_end: date | None = None
+        self, student_id: UUID, attestation_type: str, period_start: date | None = None, period_end: date | None = None
     ) -> list[StudentTransfer]:
         """Получить переводы студента в периоде аттестации."""
-        query = (
-            select(StudentTransfer)
-            .where(
-                StudentTransfer.student_id == student_id,
-                StudentTransfer.attestation_type == attestation_type
-            )
+        query = select(StudentTransfer).where(
+            StudentTransfer.student_id == student_id, StudentTransfer.attestation_type == attestation_type
         )
         if period_start:
             query = query.where(StudentTransfer.transfer_date >= period_start)

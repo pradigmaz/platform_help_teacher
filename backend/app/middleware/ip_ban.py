@@ -4,6 +4,7 @@ IP Ban Middleware — временная блокировка IP после мн
 Защита от brute-force и DDoS атак.
 Интегрирован с RateLimitService для мягких предупреждений.
 """
+
 import logging
 from uuid import UUID
 
@@ -54,7 +55,9 @@ class IPBanMiddleware(BaseHTTPMiddleware):
                         "ban_until": ban_info.ban_until.isoformat() if ban_info.ban_until else None,
                         "warning_level": ban_info.warning_level.value if ban_info.warning_level else None,
                     },
-                    headers={"X-Rate-Limit-Warning": ban_info.warning_level.value if ban_info.warning_level else "banned"}
+                    headers={
+                        "X-Rate-Limit-Warning": ban_info.warning_level.value if ban_info.warning_level else "banned"
+                    },
                 )
 
             # Выполняем запрос

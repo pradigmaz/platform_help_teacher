@@ -1,6 +1,7 @@
 """
 Хелперы для работы с активностью студентов.
 """
+
 from typing import Any
 from uuid import UUID
 
@@ -11,10 +12,7 @@ from app.models.activity import Activity
 from app.schemas.report import ActivityRecord
 
 
-async def get_student_activity(
-    db: AsyncSession,
-    student_id: UUID
-) -> list[ActivityRecord]:
+async def get_student_activity(db: AsyncSession, student_id: UUID) -> list[ActivityRecord]:
     """Получить записи активности студента."""
     query = (
         select(Activity)
@@ -24,18 +22,10 @@ async def get_student_activity(
     result = await db.execute(query)
     activities = result.scalars().all()
 
-    return [
-        ActivityRecord(date=a.created_at, description=a.description or "", points=a.points)
-        for a in activities
-    ]
+    return [ActivityRecord(date=a.created_at, description=a.description or "", points=a.points) for a in activities]
 
 
-def generate_recommendations(
-    result: Any,
-    att_stats: dict,
-    labs_completed: int,
-    labs_total: int
-) -> list[str]:
+def generate_recommendations(result: Any, att_stats: dict, labs_completed: int, labs_total: int) -> list[str]:
     """Генерация рекомендаций для студента."""
     recommendations = []
 
@@ -51,11 +41,10 @@ def generate_recommendations(
             recommendations.append("Рекомендуется улучшить посещаемость занятий")
 
     if att_stats:
-        absent_rate = att_stats.get('absent', 0) / max(att_stats.get('total', 1), 1)
+        absent_rate = att_stats.get("absent", 0) / max(att_stats.get("total", 1), 1)
         if absent_rate > 0.3:
             recommendations.append(
-                f"Пропущено {att_stats.get('absent', 0)} занятий. "
-                "Рекомендуется посещать все занятия."
+                f"Пропущено {att_stats.get('absent', 0)} занятий. Рекомендуется посещать все занятия."
             )
 
     if not recommendations:

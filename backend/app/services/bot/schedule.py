@@ -1,4 +1,5 @@
 """Расписание преподавателя для ботов."""
+
 import logging
 from collections import defaultdict
 
@@ -57,8 +58,14 @@ def format_teacher_schedule(items: list[ScheduleItem], platform: Platform) -> st
     lines = ["📅 <b>Ваше расписание</b>\n"] if platform == "telegram" else ["📅 Ваше расписание\n"]
 
     # Сортируем дни по порядку
-    day_order = [DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
-                 DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY]
+    day_order = [
+        DayOfWeek.MONDAY,
+        DayOfWeek.TUESDAY,
+        DayOfWeek.WEDNESDAY,
+        DayOfWeek.THURSDAY,
+        DayOfWeek.FRIDAY,
+        DayOfWeek.SATURDAY,
+    ]
 
     for day in day_order:
         if day not in by_day:
@@ -78,11 +85,7 @@ def format_teacher_schedule(items: list[ScheduleItem], platform: Platform) -> st
     return "\n".join(lines)
 
 
-async def process_schedule_command(
-    db: AsyncSession,
-    social_id: int,
-    platform: Platform = "telegram"
-) -> str | None:
+async def process_schedule_command(db: AsyncSession, social_id: int, platform: Platform = "telegram") -> str | None:
     """Обработка команды /schedule для преподавателя. Возвращает None для студентов."""
     user = await find_user_by_social_id(db, social_id, platform)
 

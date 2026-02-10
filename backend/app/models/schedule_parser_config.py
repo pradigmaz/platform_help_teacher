@@ -1,6 +1,7 @@
 """
 Модель настроек автопарсера расписания
 """
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -13,6 +14,7 @@ from .base import Base, TimestampMixin
 
 class ScheduleParserConfig(Base, TimestampMixin):
     """Настройки автоматического парсинга расписания"""
+
     __tablename__ = "schedule_parser_configs"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

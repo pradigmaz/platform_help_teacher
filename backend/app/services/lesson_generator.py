@@ -1,6 +1,7 @@
 """
 Сервис генерации занятий из расписания.
 """
+
 import logging
 from datetime import date, timedelta
 from uuid import UUID
@@ -30,11 +31,7 @@ class LessonGenerator:
     """Генерация занятий из расписания"""
 
     async def generate_lessons_for_period(
-        self,
-        db: AsyncSession,
-        group_id: UUID,
-        start_date: date,
-        end_date: date
+        self, db: AsyncSession, group_id: UUID, start_date: date, end_date: date
     ) -> list[Lesson]:
         """
         Генерирует занятия на период по расписанию.
@@ -90,7 +87,7 @@ class LessonGenerator:
                     date=current,
                     lesson_number=item.lesson_number,
                     lesson_type=item.lesson_type,
-                    subgroup=item.subgroup
+                    subgroup=item.subgroup,
                 )
                 if lesson:
                     lessons.append(lesson)

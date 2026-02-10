@@ -1,6 +1,7 @@
 """
 Утилиты для работы с семестрами
 """
+
 from datetime import date
 
 from sqlalchemy import select
@@ -22,7 +23,7 @@ def get_semester(d: date) -> str:
     if d.month >= 9:  # сентябрь-декабрь → 1 семестр
         return f"{year}-1"
     elif d.month <= 1:  # январь → ещё 1 семестр прошлого года
-        return f"{year-1}-1"
+        return f"{year - 1}-1"
     else:  # февраль-август → 2 семестр
         return f"{year}-2"
 
@@ -56,25 +57,12 @@ def detect_semester_end(parsed_lessons: list[ParsedLesson], start_date: date, en
 
     # Если 2+ пустых недели после последнего занятия — конец семестра
     if empty_weeks >= SEMESTER_END_EMPTY_WEEKS_THRESHOLD:
-        return {
-            "detected": True,
-            "last_lesson_date": last_lesson_date.isoformat(),
-            "empty_weeks": empty_weeks
-        }
+        return {"detected": True, "last_lesson_date": last_lesson_date.isoformat(), "empty_weeks": empty_weeks}
 
-    return {
-        "detected": False,
-        "last_lesson_date": last_lesson_date.isoformat(),
-        "empty_weeks": empty_weeks
-    }
+    return {"detected": False, "last_lesson_date": last_lesson_date.isoformat(), "empty_weeks": empty_weeks}
 
 
 async def find_teacher(db: AsyncSession, teacher_name: str) -> User | None:
     """Найти преподавателя по имени"""
-    result = await db.execute(
-        select(User).where(
-            User.full_name == teacher_name,
-            User.role == UserRole.TEACHER
-        )
-    )
+    result = await db.execute(select(User).where(User.full_name == teacher_name, User.role == UserRole.TEACHER))
     return result.scalar_one_or_none()

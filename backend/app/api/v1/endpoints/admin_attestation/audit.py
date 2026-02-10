@@ -22,10 +22,7 @@ async def get_settings_audit_history(
     """Получить историю изменений настроек аттестации."""
     audit_service = AttestationAuditService(db)
 
-    logs = await audit_service.get_audit_history(
-        attestation_type=attestation_type,
-        limit=limit
-    )
+    logs = await audit_service.get_audit_history(attestation_type=attestation_type, limit=limit)
 
     return [
         {

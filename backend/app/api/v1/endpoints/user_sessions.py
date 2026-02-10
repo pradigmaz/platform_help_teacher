@@ -1,4 +1,5 @@
 """User session management endpoints."""
+
 import json
 import logging
 from datetime import datetime
@@ -103,13 +104,15 @@ async def get_my_sessions(
         except ValueError:
             created_at = datetime.now()
 
-        sessions.append(SessionResponse(
-            session_id=session_id,
-            created_at=created_at,
-            ip_address=_mask_ip(s.get("ip_address")),
-            device=_parse_device_info(s.get("device_fingerprint")),
-            is_current=(session_id == current_session_id),
-        ))
+        sessions.append(
+            SessionResponse(
+                session_id=session_id,
+                created_at=created_at,
+                ip_address=_mask_ip(s.get("ip_address")),
+                device=_parse_device_info(s.get("device_fingerprint")),
+                is_current=(session_id == current_session_id),
+            )
+        )
 
     # Sort: current first, then by created_at desc
     sessions.sort(key=lambda x: (not x.is_current, x.created_at), reverse=True)
@@ -134,10 +137,7 @@ async def revoke_session(
 
     # Can't revoke current session via this endpoint
     if session_id == current_session_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Нельзя завершить текущую сессию. Используйте выход из аккаунта."
-        )
+        raise HTTPException(status_code=400, detail="Нельзя завершить текущую сессию. Используйте выход из аккаунта.")
 
     # Check ownership
     owner_id = await session_service.get_session_owner(session_id)
@@ -150,10 +150,7 @@ async def revoke_session(
 
     logger.info(f"User {current_user.id} revoked session {session_id[:8]}...")
 
-    return RevokeSessionsResponse(
-        revoked_count=1,
-        message="Сессия завершена"
-    )
+    return RevokeSessionsResponse(revoked_count=1, message="Сессия завершена")
 
 
 @router.post("/me/sessions/revoke-all")
@@ -169,14 +166,8 @@ async def revoke_all_sessions(
     if not current_session_id:
         raise HTTPException(status_code=400, detail="Текущая сессия не определена")
 
-    count = await session_service.revoke_all_except_current(
-        current_user.id,
-        current_session_id
-    )
+    count = await session_service.revoke_all_except_current(current_user.id, current_session_id)
 
     logger.info(f"User {current_user.id} revoked {count} sessions (kept current)")
 
-    return RevokeSessionsResponse(
-        revoked_count=count,
-        message=f"Завершено сессий: {count}"
-    )
+    return RevokeSessionsResponse(revoked_count=count, message=f"Завершено сессий: {count}")

@@ -7,6 +7,7 @@
 - 2-я аттестация: макс 70 баллов (накопительно)
 - Коэффициенты: grade_5 = 1.0 (фикс), grade_2 = 0.0 (фикс)
 """
+
 from datetime import date, timedelta
 from enum import Enum
 from uuid import UUID, uuid4
@@ -28,8 +29,9 @@ GRADE_2_COEF = 0.0  # Фиксировано (работа не засчитан
 
 class AttestationType(str, Enum):
     """Тип аттестации"""
-    FIRST = "first"   # 1-я аттестация (макс 35 баллов)
-    SECOND = "second" # 2-я аттестация (макс 70 баллов, накопительно)
+
+    FIRST = "first"  # 1-я аттестация (макс 35 баллов)
+    SECOND = "second"  # 2-я аттестация (макс 70 баллов, накопительно)
 
     @property
     def number(self) -> int:
@@ -51,17 +53,16 @@ class AttestationSettings(Base, TimestampMixin):
 
     Система автоматически рассчитывает баллы за каждую работу.
     """
+
     __tablename__ = "attestation_settings"
 
-    __table_args__ = (
-        UniqueConstraint('attestation_type', name='uq_attestation_type'),
-    )
+    __table_args__ = (UniqueConstraint("attestation_type", name="uq_attestation_type"),)
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     attestation_type: Mapped[AttestationType] = mapped_column(
-        SQLEnum(AttestationType, name='attestationtype', create_constraint=False, native_enum=False),
+        SQLEnum(AttestationType, name="attestationtype", create_constraint=False, native_enum=False),
         nullable=False,
-        unique=True
+        unique=True,
     )
 
     # === ВЕСА КОМПОНЕНТОВ (сумма = 100%) ===
@@ -107,12 +108,7 @@ class AttestationSettings(Base, TimestampMixin):
 
     def get_grade_coef(self, grade: int) -> float:
         """Коэффициент для оценки (5=1.0, 4=настр., 3=настр., 2=0.0)"""
-        return {
-            5: GRADE_5_COEF,
-            4: self.grade_4_coef,
-            3: self.grade_3_coef,
-            2: GRADE_2_COEF
-        }.get(grade, 0.0)
+        return {5: GRADE_5_COEF, 4: self.grade_4_coef, 3: self.grade_3_coef, 2: GRADE_2_COEF}.get(grade, 0.0)
 
     def get_labs_count(self) -> int:
         """Количество лаб для текущего типа аттестации"""
@@ -169,14 +165,11 @@ class AttestationSettings(Base, TimestampMixin):
         return abs(total - 100.0) < 0.01
 
     @staticmethod
-    def calculate_attestation_period(
-        semester_start: date,
-        attestation_type: AttestationType
-    ) -> tuple[date, date]:
+    def calculate_attestation_period(semester_start: date, attestation_type: AttestationType) -> tuple[date, date]:
         """Вычисляет период аттестации"""
         if attestation_type == AttestationType.FIRST:
             return (semester_start, semester_start + timedelta(weeks=FIRST_ATTESTATION_WEEK))
         return (
             semester_start + timedelta(weeks=FIRST_ATTESTATION_WEEK),
-            semester_start + timedelta(weeks=SECOND_ATTESTATION_WEEK)
+            semester_start + timedelta(weeks=SECOND_ATTESTATION_WEEK),
         )

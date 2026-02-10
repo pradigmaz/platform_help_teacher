@@ -1,6 +1,7 @@
 """
 Pydantic схемы для аудита.
 """
+
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 
 class AuditContext(BaseModel):
     """Контекст аудита, собираемый во время запроса."""
+
     request_id: str
     correlation_id: str | None = None  # Для связи цепочки действий
 
@@ -46,6 +48,7 @@ class AuditContext(BaseModel):
 
 class AuditLogCreate(BaseModel):
     """Схема для создания записи аудита."""
+
     user_id: UUID | None = None
     session_id: str | None = None
     correlation_id: str | None = None
@@ -68,15 +71,16 @@ class AuditLogCreate(BaseModel):
 
 class IPInfo(BaseModel):
     """Информация об IP адресе."""
+
     real_ip: str
     forwarded_chain: str | None = None
     is_proxy: bool = False
 
 
-
 # Response schemas for API
 class AuditLogResponse(BaseModel):
     """Ответ с записью аудита."""
+
     id: UUID
     user_id: UUID | None = None
     user_name: str | None = None
@@ -104,6 +108,7 @@ class AuditLogResponse(BaseModel):
 
 class AuditLogListResponse(BaseModel):
     """Список записей аудита с пагинацией."""
+
     items: list[AuditLogResponse]
     total: int
     skip: int
@@ -112,6 +117,7 @@ class AuditLogListResponse(BaseModel):
 
 class AuditStatsResponse(BaseModel):
     """Статистика аудита."""
+
     total_logs: int
     unique_users: int
     unique_ips: int

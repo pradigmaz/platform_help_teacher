@@ -3,6 +3,7 @@ Public API endpoint для информации о семестре.
 
 Без авторизации. Rate limiting для защиты.
 """
+
 import logging
 
 from fastapi import APIRouter, Depends, Request

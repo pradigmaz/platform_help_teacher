@@ -1,6 +1,7 @@
 """
 Модель предмета (дисциплины).
 """
+
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -23,6 +24,7 @@ class Subject(Base, TimestampMixin):
     - Численные методы
     - Тестирование ИС
     """
+
     __tablename__ = "subjects"
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -33,10 +35,7 @@ class Subject(Base, TimestampMixin):
 
     # Relationships
     teacher_assignments: Mapped[list["TeacherSubjectAssignment"]] = relationship(
-        back_populates="subject",
-        cascade="all, delete-orphan"
+        back_populates="subject", cascade="all, delete-orphan"
     )
 
-    __table_args__ = (
-        Index('idx_subjects_name_lower', 'name'),
-    )
+    __table_args__ = (Index("idx_subjects_name_lower", "name"),)

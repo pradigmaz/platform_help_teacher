@@ -2,6 +2,7 @@
 VK Bot - Long Poll handler.
 Работает без внешнего URL, сам опрашивает VK.
 """
+
 import asyncio
 import contextlib
 import logging
@@ -50,11 +51,7 @@ def send_message_sync(user_id: int, message: str) -> bool:
     if not vk:
         return False
     try:
-        vk.messages.send(
-            user_id=user_id,
-            message=message,
-            random_id=secrets.randbelow(2**31) + 1
-        )
+        vk.messages.send(user_id=user_id, message=message, random_id=secrets.randbelow(2**31) + 1)
         return True
     except Exception as e:
         logger.error(f"Failed to send VK message: {e}")
@@ -103,10 +100,7 @@ async def handle_message(user_id: int, text: str):
             if command == "/start":
                 # /start без аргументов — только приветствие/OTP
                 response = await bot_service.process_start_command(
-                    db=db,
-                    social_id=user_id,
-                    username=None,
-                    platform="vk"
+                    db=db, social_id=user_id, username=None, platform="vk"
                 )
             elif command == "/code":
                 # /code или "код" — обработка кодов
@@ -114,33 +108,21 @@ async def handle_message(user_id: int, text: str):
                     response = "❌ Укажите код после команды.\n\nПример: код ABC123"
                 else:
                     response = await bot_service.process_code_command(
-                        db=db,
-                        social_id=user_id,
-                        full_name="",
-                        username=None,
-                        code=args,
-                        platform="vk"
+                        db=db, social_id=user_id, full_name="", username=None, code=args, platform="vk"
                     )
             elif command == "/status":
                 response = "✅ Бот работает в штатном режиме."
             elif command == "/schedule":
-                response = await bot_service.process_schedule_command(
-                    db=db,
-                    social_id=user_id,
-                    platform="vk"
-                )
+                response = await bot_service.process_schedule_command(db=db, social_id=user_id, platform="vk")
             elif command == "/cancel":
                 from app.core.redis import get_redis
+
                 redis = await get_redis()
                 await redis.delete(f"fsm:vk:{user_id}")
                 response = "❌ Действие отменено."
             elif args:
                 response = await bot_service.process_text_message(
-                    db=db,
-                    social_id=user_id,
-                    text=args,
-                    username=None,
-                    platform="vk"
+                    db=db, social_id=user_id, text=args, username=None, platform="vk"
                 )
     except Exception as e:
         logger.error(f"Error handling VK message: {e}", exc_info=True)

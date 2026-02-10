@@ -1,6 +1,7 @@
 """
 Аудит для бот-взаимодействий (Telegram/VK).
 """
+
 import logging
 from typing import Literal
 from uuid import UUID, uuid4
@@ -8,7 +9,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import User
+from app.models.user import User
 
 from .constants import ActionType, EntityType
 from .schemas import AuditContext
@@ -19,11 +20,7 @@ logger = logging.getLogger(__name__)
 Platform = Literal["telegram", "vk"]
 
 
-async def _resolve_user_id(
-    db: AsyncSession,
-    social_id: int,
-    platform: Platform
-) -> UUID | None:
+async def _resolve_user_id(db: AsyncSession, social_id: int, platform: Platform) -> UUID | None:
     """Резолвит user_id по social_id."""
     field = User.telegram_id if platform == "telegram" else User.vk_id
     result = await db.execute(select(User.id).where(field == social_id))

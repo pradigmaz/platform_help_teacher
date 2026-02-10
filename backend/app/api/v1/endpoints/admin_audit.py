@@ -1,6 +1,7 @@
 """
 Admin Audit API — просмотр логов действий студентов.
 """
+
 import logging
 from datetime import datetime, timedelta
 from uuid import UUID
@@ -79,9 +80,7 @@ async def get_audit_logs(
     user_ids = [log.user_id for log in logs if log.user_id]
     users_map = {}
     if user_ids:
-        users_result = await db.execute(
-            select(User).where(User.id.in_(user_ids))
-        )
+        users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
         users_map = {u.id: u.full_name for u in users_result.scalars().all()}
 
     # Получаем подозрения для анонимных запросов
@@ -121,13 +120,12 @@ async def get_audit_log_detail(
     _: User = Depends(get_current_active_superuser),
 ):
     """Получить детали записи аудита."""
-    result = await db.execute(
-        select(StudentAuditLog).where(StudentAuditLog.id == log_id)
-    )
+    result = await db.execute(select(StudentAuditLog).where(StudentAuditLog.id == log_id))
     log = result.scalar_one_or_none()
 
     if not log:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail=em.AUDIT_LOG_NOT_FOUND)
 
     user_name = None
@@ -170,9 +168,16 @@ async def get_user_audit_logs(
     """Получить логи конкретного пользователя."""
     return await get_audit_logs(
         request=request,
-        db=db, _=_, user_id=user_id, skip=skip, limit=limit,
-        action_type=None, ip_address=None, date_from=None,
-        date_to=None, path_contains=None
+        db=db,
+        _=_,
+        user_id=user_id,
+        skip=skip,
+        limit=limit,
+        action_type=None,
+        ip_address=None,
+        date_from=None,
+        date_to=None,
+        path_contains=None,
     )
 
 
@@ -188,10 +193,7 @@ async def get_audit_stats(
     since = datetime.utcnow() - timedelta(days=days)
 
     # Общее количество
-    total_result = await db.execute(
-        select(func.count(StudentAuditLog.id))
-        .where(StudentAuditLog.created_at >= since)
-    )
+    total_result = await db.execute(select(func.count(StudentAuditLog.id)).where(StudentAuditLog.created_at >= since))
     total = total_result.scalar() or 0
 
     # По типам действий
@@ -212,8 +214,7 @@ async def get_audit_stats(
 
     # Уникальные IP
     ips_result = await db.execute(
-        select(func.count(func.distinct(StudentAuditLog.ip_address)))
-        .where(StudentAuditLog.created_at >= since)
+        select(func.count(func.distinct(StudentAuditLog.ip_address))).where(StudentAuditLog.created_at >= since)
     )
     unique_ips = ips_result.scalar() or 0
 
@@ -281,9 +282,8 @@ async def preview_clear_logs(
     count = result.scalar() or 0
 
     # Статистика по статус кодам
-    stats_query = (
-        select(StudentAuditLog.response_status, func.count(StudentAuditLog.id))
-        .group_by(StudentAuditLog.response_status)
+    stats_query = select(StudentAuditLog.response_status, func.count(StudentAuditLog.id)).group_by(
+        StudentAuditLog.response_status
     )
     for f in filters:
         stats_query = stats_query.where(f)
@@ -299,7 +299,7 @@ async def preview_clear_logs(
             "date_to": date_to.isoformat() if date_to else None,
             "status_codes": codes_list,
             "action_type": action_type,
-        }
+        },
     }
 
 
@@ -366,5 +366,5 @@ async def clear_logs(
             "date_to": date_to.isoformat() if date_to else None,
             "status_codes": codes_list,
             "action_type": action_type,
-        }
+        },
     }

@@ -28,6 +28,7 @@ def validate_full_name(name: str) -> str:
 
     return name
 
+
 class UserCreate(BaseModel):
     telegram_id: int | None = None
     vk_id: int | None = None
@@ -35,6 +36,7 @@ class UserCreate(BaseModel):
     username: str | None = None
     role: UserRole = UserRole.STUDENT
     group_code: str | None = None
+
 
 class UserResponse(BaseModel):
     id: UUID
@@ -51,6 +53,7 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class UserUpdate(BaseModel):
     full_name: str | None = Field(None, min_length=2, max_length=200)
     onboarding_completed: bool | None = None
@@ -62,8 +65,10 @@ class UserUpdate(BaseModel):
             return v
         return validate_full_name(v)
 
+
 class StudentInGroup(BaseModel):
     """Студент в контексте группы"""
+
     id: UUID
     full_name: str
     username: str | None = None
@@ -76,8 +81,10 @@ class StudentInGroup(BaseModel):
 
 # ============ Teacher Contacts Schemas ============
 
+
 class TeacherContacts(BaseModel):
     """Контактные данные преподавателя (только мессенджеры)."""
+
     telegram: str | None = Field(None, max_length=100)
     vk: str | None = Field(None, max_length=100)
     max: str | None = Field(None, max_length=100)
@@ -85,6 +92,7 @@ class TeacherContacts(BaseModel):
 
 class ContactVisibilitySettings(BaseModel):
     """Настройки видимости для каждого контакта."""
+
     telegram: ContactVisibility = "none"
     vk: ContactVisibility = "none"
     max: ContactVisibility = "none"
@@ -92,18 +100,21 @@ class ContactVisibilitySettings(BaseModel):
 
 class TeacherContactsUpdate(BaseModel):
     """Запрос обновления контактов."""
+
     contacts: TeacherContacts
     visibility: ContactVisibilitySettings
 
 
 class TeacherContactsResponse(BaseModel):
     """Ответ с контактами преподавателя."""
+
     contacts: TeacherContacts
     visibility: ContactVisibilitySettings
 
 
 class PublicTeacherContacts(BaseModel):
     """Контакты для публичного отображения (отфильтрованные)."""
+
     telegram: str | None = None
     vk: str | None = None
     max: str | None = None
@@ -112,7 +123,9 @@ class PublicTeacherContacts(BaseModel):
 
 # ============ Relink Telegram Schemas ============
 
+
 class RelinkTelegramResponse(BaseModel):
     """Ответ с кодом для перепривязки Telegram."""
+
     code: str
     expires_in: int = Field(description="Время жизни кода в секундах")

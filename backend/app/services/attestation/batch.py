@@ -1,6 +1,7 @@
 """
 Пакетные операции расчёта баллов (автобалансировка).
 """
+
 import logging
 from collections import defaultdict
 from uuid import UUID
@@ -37,19 +38,14 @@ class BatchScoreCalculator:
         self.settings_manager = AttestationSettingsManager(db)
 
     async def calculate_group_batch(
-        self,
-        group_id: UUID,
-        attestation_type: AttestationType,
-        students: list[User] | None = None
+        self, group_id: UUID, attestation_type: AttestationType, students: list[User] | None = None
     ) -> tuple[list[AttestationResult], list[CalculationErrorInfo]]:
         """Пакетный расчёт для группы."""
         settings = await self.settings_manager.get_or_create_settings(attestation_type)
 
         if not students:
             students_query = select(User).where(
-                User.group_id == group_id,
-                User.role == UserRole.STUDENT,
-                User.is_active
+                User.group_id == group_id, User.role == UserRole.STUDENT, User.is_active
             )
             students_result = await self.db.execute(students_query)
             students = list(students_result.scalars().all())
@@ -82,17 +78,22 @@ class BatchScoreCalculator:
         for student in students:
             try:
                 result = self._calculate_student(
-                    student, settings, lessons_by_subgroup,
-                    lesson_grades_map, attendance_map, activity_map, transfers_map
+                    student,
+                    settings,
+                    lessons_by_subgroup,
+                    lesson_grades_map,
+                    attendance_map,
+                    activity_map,
+                    transfers_map,
                 )
                 results.append(result)
             except Exception as e:
                 logger.error(f"Error for student {student.id}: {e}")
-                errors.append(CalculationErrorInfo(
-                    student_id=student.id,
-                    student_name=student.full_name or str(student.id),
-                    error=str(e)
-                ))
+                errors.append(
+                    CalculationErrorInfo(
+                        student_id=student.id, student_name=student.full_name or str(student.id), error=str(e)
+                    )
+                )
 
         return results, errors
 
@@ -104,14 +105,15 @@ class BatchScoreCalculator:
         lesson_grades_map: dict,
         attendance_map: dict,
         activity_map: dict,
-        transfers_map: dict
+        transfers_map: dict,
     ) -> AttestationResult:
         """Расчёт для одного студента (sync)."""
         # Релевантные занятия для подгруппы (не отменённые)
         subgroup = student.subgroup
         if subgroup is not None:
             relevant_lessons = [
-                l for l in lessons_by_subgroup.get(None, []) + lessons_by_subgroup.get(subgroup, [])
+                l
+                for l in lessons_by_subgroup.get(None, []) + lessons_by_subgroup.get(subgroup, [])
                 if not l.is_cancelled
             ]
         else:
@@ -144,9 +146,7 @@ class BatchScoreCalculator:
 
         current_score = lab_result.score + attendance_result.score
         total_activity = activity_points + transfer_activity
-        activity_score, bonus_blocked = self.calculator.calculate_activity(
-            total_activity, current_score, settings
-        )
+        activity_score, bonus_blocked = self.calculator.calculate_activity(total_activity, current_score, settings)
 
         total_score, grade, is_passing = self.calculator.calculate_total(
             lab_result, attendance_result, activity_score, settings
@@ -198,9 +198,7 @@ class BatchScoreCalculator:
             grouped[lesson.subgroup].append(lesson)
         return grouped
 
-    async def _get_lesson_grades_batch(
-        self, student_ids: list[UUID], settings: AttestationSettings
-    ) -> dict:
+    async def _get_lesson_grades_batch(self, student_ids: list[UUID], settings: AttestationSettings) -> dict:
         query = (
             select(LessonGrade)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
@@ -219,10 +217,7 @@ class BatchScoreCalculator:
         return grouped
 
     async def _get_attendance_batch(self, group_id: UUID, student_ids: list[UUID]) -> dict:
-        query = select(Attendance).where(
-            Attendance.group_id == group_id,
-            Attendance.student_id.in_(student_ids)
-        )
+        query = select(Attendance).where(Attendance.group_id == group_id, Attendance.student_id.in_(student_ids))
         result = await self.db.execute(query)
 
         grouped = defaultdict(list)
@@ -230,28 +225,24 @@ class BatchScoreCalculator:
             grouped[a.student_id].append(a)
         return grouped
 
-    async def _get_activity_batch(
-        self, student_ids: list[UUID], attestation_type: AttestationType
-    ) -> dict:
-        query = select(Activity.student_id, func.sum(Activity.points)).where(
-            Activity.student_id.in_(student_ids),
-            Activity.attestation_type == attestation_type,
-            Activity.is_active
-        ).group_by(Activity.student_id)
+    async def _get_activity_batch(self, student_ids: list[UUID], attestation_type: AttestationType) -> dict:
+        query = (
+            select(Activity.student_id, func.sum(Activity.points))
+            .where(
+                Activity.student_id.in_(student_ids), Activity.attestation_type == attestation_type, Activity.is_active
+            )
+            .group_by(Activity.student_id)
+        )
 
         result = await self.db.execute(query)
         return {row[0]: row[1] for row in result.all()}
 
     async def _get_transfers_batch(
-        self,
-        student_ids: list[UUID],
-        attestation_type: AttestationType,
-        settings: AttestationSettings
+        self, student_ids: list[UUID], attestation_type: AttestationType, settings: AttestationSettings
     ) -> dict:
         """Batch-загрузка переводов студентов в периоде."""
         query = select(StudentTransfer).where(
-            StudentTransfer.student_id.in_(student_ids),
-            StudentTransfer.attestation_type == attestation_type
+            StudentTransfer.student_id.in_(student_ids), StudentTransfer.attestation_type == attestation_type
         )
         if settings.period_start_date:
             query = query.where(StudentTransfer.transfer_date >= settings.period_start_date)

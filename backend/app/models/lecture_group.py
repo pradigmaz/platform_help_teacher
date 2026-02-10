@@ -13,6 +13,4 @@ class LectureGroup(Base, TimestampMixin):
     lecture_id: Mapped[UUID] = mapped_column(ForeignKey("lectures.id", ondelete="CASCADE"), nullable=False)
     group_id: Mapped[UUID] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
 
-    __table_args__ = (
-        UniqueConstraint('lecture_id', 'group_id', name='uq_lecture_group'),
-    )
+    __table_args__ = (UniqueConstraint("lecture_id", "group_id", name="uq_lecture_group"),)

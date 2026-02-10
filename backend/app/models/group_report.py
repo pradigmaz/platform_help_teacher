@@ -2,6 +2,7 @@
 Модель публичного отчёта по группе.
 Позволяет генерировать уникальные ссылки для кураторов и родителей.
 """
+
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
 
 class ReportType(str, Enum):
     """Типы отчётов."""
+
     FULL = "full"
     ATTESTATION_ONLY = "attestation_only"
     ATTENDANCE_ONLY = "attendance_only"
@@ -31,22 +33,17 @@ class GroupReport(Base, TimestampMixin):
     Публичный отчёт по группе.
     Доступен по уникальному коду без авторизации (опционально с PIN).
     """
+
     __tablename__ = "group_reports"
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
 
     # Связи
     group_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("groups.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
+        UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True
     )
     created_by: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
     # Уникальный код (8 символов)
@@ -75,12 +72,10 @@ class GroupReport(Base, TimestampMixin):
     group: Mapped["Group"] = relationship("Group", lazy="joined")
     creator: Mapped["User"] = relationship("User", lazy="joined")
     views: Mapped[list["ReportView"]] = relationship(
-        "ReportView",
-        back_populates="report",
-        cascade="all, delete-orphan"
+        "ReportView", back_populates="report", cascade="all, delete-orphan"
     )
 
     __table_args__ = (
-        Index('idx_group_reports_group', 'group_id'),
-        Index('idx_group_reports_creator', 'created_by'),
+        Index("idx_group_reports_group", "group_id"),
+        Index("idx_group_reports_creator", "created_by"),
     )

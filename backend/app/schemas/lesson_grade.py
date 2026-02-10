@@ -1,6 +1,7 @@
 """
 Pydantic схемы для оценок за занятия.
 """
+
 from datetime import datetime
 from uuid import UUID
 
@@ -42,6 +43,7 @@ class LessonGradeWithStudent(LessonGradeResponse):
 
 class GradeItem(BaseModel):
     """Элемент для массового создания оценок."""
+
     student_id: UUID
     grade: int = Field(..., ge=2, le=5)
     work_number: int | None = Field(None, ge=1, le=20)
@@ -50,17 +52,20 @@ class GradeItem(BaseModel):
 
 class BulkGradeCreate(BaseModel):
     """Массовое создание/обновление оценок."""
+
     lesson_id: UUID
     grades: list[GradeItem]
 
 
 class AttendanceRecord(BaseModel):
     """Запись посещаемости для bulk операций."""
+
     student_id: UUID
     status: str  # AttendanceStatus value
 
 
 class BulkAttendanceUpdate(BaseModel):
     """Массовое обновление посещаемости."""
+
     lesson_id: UUID
     records: list[AttendanceRecord]

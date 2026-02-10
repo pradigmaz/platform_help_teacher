@@ -1,4 +1,5 @@
 """FSM диалоги для ботов (ввод ФИО)."""
+
 import json
 import logging
 import re
@@ -14,15 +15,11 @@ from .users import bind_social_id, find_student_by_fio
 logger = logging.getLogger(__name__)
 
 # Паттерн для валидации ФИО
-FIO_PATTERN = re.compile(r'^[А-ЯЁа-яё\s\-]+$')
+FIO_PATTERN = re.compile(r"^[А-ЯЁа-яё\s\-]+$")
 
 
 async def process_text_message(
-    db: AsyncSession,
-    social_id: int,
-    text: str,
-    username: str | None,
-    platform: Platform = "telegram"
+    db: AsyncSession, social_id: int, text: str, username: str | None, platform: Platform = "telegram"
 ) -> str | None:
     """Обработка текстовых сообщений (FSM диалоги)."""
     redis = await get_redis()
@@ -46,14 +43,12 @@ async def process_text_message(
 
     if state == "waiting_fio":
         return await _handle_waiting_fio(
-            db, redis, social_id, text, username, platform, fsm_platform,
-            fsm_data, group_id, group_name
+            db, redis, social_id, text, username, platform, fsm_platform, fsm_data, group_id, group_name
         )
 
     elif state == "confirm_fio":
         return await _handle_confirm_fio(
-            db, redis, social_id, text, username, platform, fsm_platform,
-            group_id, group_name
+            db, redis, social_id, text, username, platform, fsm_platform, group_id, group_name
         )
 
     await redis.delete(f"fsm:{platform}:{social_id}")
@@ -61,8 +56,7 @@ async def process_text_message(
 
 
 async def _handle_waiting_fio(
-    db, redis, social_id, text, username, platform, fsm_platform,
-    fsm_data, group_id, group_name
+    db, redis, social_id, text, username, platform, fsm_platform, fsm_data, group_id, group_name
 ) -> str:
     """Обработка состояния waiting_fio."""
     text = text.strip()
@@ -104,8 +98,7 @@ async def _handle_waiting_fio(
 
 
 async def _handle_confirm_fio(
-    db, redis, social_id, text, username, platform, fsm_platform,
-    group_id, group_name
+    db, redis, social_id, text, username, platform, fsm_platform, group_id, group_name
 ) -> str:
     """Обработка состояния confirm_fio."""
     if text.strip().lower() == "/cancel":

@@ -10,6 +10,7 @@
 - batch.py - пакетные операции
 - service.py - фасад модуля
 """
+
 from .attendance_calculator import AttendanceScoreCalculator, AttendanceScoreResult
 from .batch import BatchScoreCalculator
 from .calculator import AttestationCalculator

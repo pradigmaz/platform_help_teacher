@@ -2,6 +2,7 @@
 Pydantic схемы для публичных отчётов.
 Включает схемы для создания, обновления, публичного доступа и экспорта.
 """
+
 from datetime import date, datetime
 from enum import Enum
 from uuid import UUID
@@ -13,6 +14,7 @@ from app.schemas.user import PublicTeacherContacts
 
 class ReportType(str, Enum):
     """Типы отчётов."""
+
     FULL = "full"
     ATTESTATION_ONLY = "attestation_only"
     ATTENDANCE_ONLY = "attendance_only"
@@ -20,12 +22,14 @@ class ReportType(str, Enum):
 
 # ============== Admin Schemas ==============
 
+
 class ReportCreate(BaseModel):
     """Схема создания отчёта."""
+
     group_id: UUID
     report_type: ReportType = ReportType.FULL
     expires_in_days: int | None = Field(None, ge=1, le=365, description="Срок действия в днях (null = бессрочно)")
-    pin_code: str | None = Field(None, min_length=4, max_length=6, pattern=r'^\d+$', description="PIN-код (4-6 цифр)")
+    pin_code: str | None = Field(None, min_length=4, max_length=6, pattern=r"^\d+$", description="PIN-код (4-6 цифр)")
     show_names: bool = True
     show_grades: bool = True
     show_attendance: bool = True
@@ -35,8 +39,9 @@ class ReportCreate(BaseModel):
 
 class ReportUpdate(BaseModel):
     """Схема обновления отчёта."""
+
     expires_in_days: int | None = Field(None, ge=1, le=365, description="Срок действия в днях")
-    pin_code: str | None = Field(None, min_length=4, max_length=6, pattern=r'^\d+$', description="Новый PIN-код")
+    pin_code: str | None = Field(None, min_length=4, max_length=6, pattern=r"^\d+$", description="Новый PIN-код")
     remove_pin: bool = Field(False, description="Удалить PIN-защиту")
     show_names: bool | None = None
     show_grades: bool | None = None
@@ -48,6 +53,7 @@ class ReportUpdate(BaseModel):
 
 class ReportResponse(BaseModel):
     """Схема ответа с данными отчёта."""
+
     id: UUID
     code: str
     group_id: UUID
@@ -73,14 +79,17 @@ class ReportResponse(BaseModel):
 
 class ReportListResponse(BaseModel):
     """Схема списка отчётов."""
+
     reports: list[ReportResponse]
     total: int
 
 
 # ============== Public Report Schemas ==============
 
+
 class PublicStudentData(BaseModel):
     """Данные студента для публичного отчёта."""
+
     id: UUID
     name: str | None = Field(None, description="ФИО (null если show_names=False)")
     subgroup: int | None = Field(None, description="Подгруппа (1, 2 или null)")
@@ -113,6 +122,7 @@ class PublicStudentData(BaseModel):
 
 class AttendanceDistribution(BaseModel):
     """Распределение посещаемости для графика."""
+
     present: int = 0
     late: int = 0
     excused: int = 0
@@ -121,6 +131,7 @@ class AttendanceDistribution(BaseModel):
 
 class DateAttendance(BaseModel):
     """Посещаемость за дату для графика динамики."""
+
     date: str  # ISO date string
     rate: float  # % посещаемости
     subgroup: int | None = None
@@ -128,6 +139,7 @@ class DateAttendance(BaseModel):
 
 class AttendanceStats(BaseModel):
     """Расширенная статистика посещаемости."""
+
     distribution: AttendanceDistribution
     by_subgroup: dict[str, AttendanceDistribution] = Field(default_factory=dict)
     trend: list[DateAttendance] = Field(default_factory=list)
@@ -136,6 +148,7 @@ class AttendanceStats(BaseModel):
 
 class LabProgress(BaseModel):
     """Прогресс сдачи лабораторных для графика."""
+
     lab_name: str
     completed_count: int
     total_students: int
@@ -145,6 +158,7 @@ class LabProgress(BaseModel):
 
 class TodayLessonAttendance(BaseModel):
     """Посещаемость на конкретной паре (для 'сегодня на паре')."""
+
     date: date
     lesson_number: int = Field(description="Номер пары (1-8)")
     lesson_type: str = Field(description="lecture/practice/lab")
@@ -158,6 +172,7 @@ class TodayLessonAttendance(BaseModel):
 
 class LessonHistoryItem(BaseModel):
     """Элемент истории занятий."""
+
     date: date
     lesson_number: int = Field(description="Номер пары (1-8)")
     lesson_type: str = Field(description="lecture/practice/lab")
@@ -170,6 +185,7 @@ class LessonHistoryItem(BaseModel):
 
 class PublicReportData(BaseModel):
     """Данные для публичной страницы отчёта группы."""
+
     group_code: str
     group_name: str | None = None
     subject_name: str | None = None
@@ -199,8 +215,7 @@ class PublicReportData(BaseModel):
 
     # Шкала оценок (диапазоны баллов)
     grade_scale: dict[str, list[float]] | None = Field(
-        None,
-        description="Шкала оценок: {'неуд': [0, 19.99], 'уд': [20, 25], ...}"
+        None, description="Шкала оценок: {'неуд': [0, 19.99], 'уд': [20, 25], ...}"
     )
 
     # Тип аттестации
@@ -217,26 +232,26 @@ class PublicReportData(BaseModel):
     attendance_distribution: AttendanceDistribution | None = None
     attendance_stats: AttendanceStats | None = Field(None, description="Расширенная статистика посещаемости")
     lab_progress: list[LabProgress] | None = None
-    lab_progress_by_subgroup: dict[str, list[LabProgress]] | None = Field(None, description="Прогресс лаб по подгруппам: all, 1, 2")
+    lab_progress_by_subgroup: dict[str, list[LabProgress]] | None = Field(
+        None, description="Прогресс лаб по подгруппам: all, 1, 2"
+    )
 
     # Распределение оценок
     grade_distribution: dict[str, int] | None = None
 
     # Посещаемость по парам (сегодня)
-    today_lessons: list[TodayLessonAttendance] | None = Field(
-        None, description="Занятия на сегодня с посещаемостью"
-    )
+    today_lessons: list[TodayLessonAttendance] | None = Field(None, description="Занятия на сегодня с посещаемостью")
 
     # История занятий (последние N)
-    lesson_history: list[LessonHistoryItem] | None = Field(
-        None, description="История последних занятий"
-    )
+    lesson_history: list[LessonHistoryItem] | None = Field(None, description="История последних занятий")
 
 
 # ============== Student Detail Schemas ==============
 
+
 class AttendanceRecord(BaseModel):
     """Запись о посещении."""
+
     date: date
     status: str = Field(description="present/late/excused/absent")
     lesson_topic: str | None = None
@@ -247,6 +262,7 @@ class AttendanceRecord(BaseModel):
 
 class LabSubmission(BaseModel):
     """Информация о сдаче лабораторной."""
+
     lab_id: UUID
     lab_name: str
     lab_number: int
@@ -259,6 +275,7 @@ class LabSubmission(BaseModel):
 
 class ActivityRecord(BaseModel):
     """Запись об активности."""
+
     date: datetime
     description: str
     points: float
@@ -266,6 +283,7 @@ class ActivityRecord(BaseModel):
 
 class StudentDetailData(BaseModel):
     """Детальные данные студента для публичного отчёта."""
+
     id: UUID
     name: str | None = None
     group_code: str
@@ -318,13 +336,16 @@ class StudentDetailData(BaseModel):
 
 # ============== PIN Verification ==============
 
+
 class PinVerifyRequest(BaseModel):
     """Запрос проверки PIN-кода."""
-    pin: str = Field(..., min_length=4, max_length=6, pattern=r'^\d+$')
+
+    pin: str = Field(..., min_length=4, max_length=6, pattern=r"^\d+$")
 
 
 class PinVerifyResponse(BaseModel):
     """Ответ проверки PIN-кода."""
+
     success: bool
     message: str | None = None
     attempts_left: int | None = None
@@ -333,8 +354,10 @@ class PinVerifyResponse(BaseModel):
 
 # ============== Export Schemas ==============
 
+
 class ExportResponse(BaseModel):
     """Ответ с данными экспорта."""
+
     filename: str
     content_type: str
     generated_at: datetime
@@ -346,6 +369,7 @@ class ExportResponse(BaseModel):
 
 class ReportViewStats(BaseModel):
     """Статистика просмотров отчёта."""
+
     total_views: int
     unique_ips: int
     last_viewed_at: datetime | None
@@ -354,6 +378,7 @@ class ReportViewStats(BaseModel):
 
 class ReportViewRecord(BaseModel):
     """Запись о просмотре отчёта."""
+
     viewed_at: datetime
     ip_address: str
     user_agent: str | None = None
@@ -364,6 +389,7 @@ class ReportViewRecord(BaseModel):
 
 class ReportViewsResponse(BaseModel):
     """Ответ со статистикой просмотров."""
+
     report_id: UUID
     stats: ReportViewStats
     recent_views: list[ReportViewRecord] = Field(default_factory=list, description="Последние 50 просмотров")

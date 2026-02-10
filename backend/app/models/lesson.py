@@ -1,6 +1,7 @@
 """
 Модель конкретного занятия (инстанс из расписания).
 """
+
 from datetime import date
 from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
@@ -27,27 +28,21 @@ class Lesson(Base, TimestampMixin):
     Конкретное занятие (инстанс из расписания).
     Создаётся автоматически из ScheduleItem или вручную.
     """
+
     __tablename__ = "lessons"
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
 
     # Связь с расписанием (null если создано вручную)
     schedule_item_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("schedule_items.id", ondelete="SET NULL"),
-        nullable=True
+        ForeignKey("schedule_items.id", ondelete="SET NULL"), nullable=True
     )
 
-    group_id: Mapped[UUID] = mapped_column(
-        ForeignKey("groups.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
+    group_id: Mapped[UUID] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Связь с предметом
     subject_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("subjects.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True
+        ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     # Когда
@@ -56,8 +51,7 @@ class Lesson(Base, TimestampMixin):
 
     # Что
     lesson_type: Mapped[LessonType] = mapped_column(
-        SAEnum(LessonType, name="lessontype", create_constraint=False, native_enum=False),
-        nullable=False
+        SAEnum(LessonType, name="lessontype", create_constraint=False, native_enum=False), nullable=False
     )
     topic: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
@@ -68,10 +62,7 @@ class Lesson(Base, TimestampMixin):
     lecture_work_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # Связь с работой (если на этом занятии была контрольная/лаба)
-    work_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("works.id", ondelete="SET NULL"),
-        nullable=True
-    )
+    work_id: Mapped[UUID | None] = mapped_column(ForeignKey("works.id", ondelete="SET NULL"), nullable=True)
 
     # Подгруппа (null = вся группа)
     subgroup: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -95,9 +86,12 @@ class Lesson(Base, TimestampMixin):
     conflicts: Mapped[list["ScheduleConflict"]] = relationship(back_populates="lesson")
 
     __table_args__ = (
-        Index('idx_lessons_group_date', 'group_id', 'date'),
-        Index('idx_lessons_date', 'date'),
-        CheckConstraint('lesson_number >= 1 AND lesson_number <= 8', name='ck_lesson_lesson_number'),
-        CheckConstraint('subgroup IS NULL OR subgroup IN (1, 2)', name='ck_lesson_subgroup'),
-        CheckConstraint('max_labs_override IS NULL OR (max_labs_override >= 1 AND max_labs_override <= 10)', name='ck_lesson_max_labs_override'),
+        Index("idx_lessons_group_date", "group_id", "date"),
+        Index("idx_lessons_date", "date"),
+        CheckConstraint("lesson_number >= 1 AND lesson_number <= 8", name="ck_lesson_lesson_number"),
+        CheckConstraint("subgroup IS NULL OR subgroup IN (1, 2)", name="ck_lesson_subgroup"),
+        CheckConstraint(
+            "max_labs_override IS NULL OR (max_labs_override >= 1 AND max_labs_override <= 10)",
+            name="ck_lesson_max_labs_override",
+        ),
     )

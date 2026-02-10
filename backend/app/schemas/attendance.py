@@ -5,6 +5,7 @@ Requirements:
 - 8.1: store attendance records with student, group, date, and status
 - 8.2: support attendance status types: PRESENT, ABSENT, LATE, EXCUSED
 """
+
 from datetime import date as date_type
 from datetime import datetime
 from uuid import UUID
@@ -16,29 +17,29 @@ from app.models.attendance import AttendanceStatus as AttendanceStatusSchema
 
 class AttendanceCreate(BaseModel):
     """Схема создания записи посещаемости"""
+
     student_id: UUID = Field(description="ID студента")
     group_id: UUID = Field(description="ID группы")
     date: date_type = Field(description="Дата занятия")
-    status: AttendanceStatusSchema = Field(
-        default=AttendanceStatusSchema.ABSENT,
-        description="Статус посещаемости"
-    )
+    status: AttendanceStatusSchema = Field(default=AttendanceStatusSchema.ABSENT, description="Статус посещаемости")
 
     @field_validator("date")
     @classmethod
     def validate_date(cls, v: date_type) -> date_type:
         if v > date_type.today():
-             raise ValueError("Date cannot be in the future")
+            raise ValueError("Date cannot be in the future")
         return v
 
 
 class AttendanceUpdate(BaseModel):
     """Схема обновления записи посещаемости"""
+
     status: AttendanceStatusSchema = Field(description="Новый статус посещаемости")
 
 
 class AttendanceResponse(BaseModel):
     """Схема ответа с записью посещаемости"""
+
     id: UUID
     student_id: UUID
     group_id: UUID
@@ -54,12 +55,14 @@ class AttendanceResponse(BaseModel):
 
 class BulkAttendanceItem(BaseModel):
     """Элемент массового создания посещаемости"""
+
     student_id: UUID = Field(description="ID студента")
     status: AttendanceStatusSchema = Field(description="Статус посещаемости")
 
 
 class BulkAttendanceCreate(BaseModel):
     """Схема массового создания записей посещаемости"""
+
     group_id: UUID = Field(description="ID группы")
     date: date_type = Field(description="Дата занятия")
     records: list[BulkAttendanceItem] = Field(description="Список записей")
@@ -68,12 +71,13 @@ class BulkAttendanceCreate(BaseModel):
     @classmethod
     def validate_date(cls, v: date_type) -> date_type:
         if v > date_type.today():
-             raise ValueError("Date cannot be in the future")
+            raise ValueError("Date cannot be in the future")
         return v
 
 
 class BulkAttendanceResponse(BaseModel):
     """Ответ на массовое создание посещаемости"""
+
     created_count: int = Field(description="Количество созданных записей")
     skipped_count: int = Field(description="Количество пропущенных записей")
     records: list[AttendanceResponse] = Field(description="Созданные записи")
@@ -81,6 +85,7 @@ class BulkAttendanceResponse(BaseModel):
 
 class AttendanceStatsResponse(BaseModel):
     """Статистика посещаемости студента"""
+
     student_id: UUID
     total_classes: int = Field(description="Всего занятий")
     present_count: int = Field(description="Присутствовал")

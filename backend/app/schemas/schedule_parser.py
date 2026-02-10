@@ -1,6 +1,7 @@
 """
 Схемы для автопарсера расписания
 """
+
 from datetime import datetime
 from uuid import UUID
 

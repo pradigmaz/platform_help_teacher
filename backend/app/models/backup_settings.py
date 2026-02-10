@@ -2,6 +2,7 @@
 Backup settings model.
 Stores backup configuration in database.
 """
+
 from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -10,6 +11,7 @@ from .base import Base, TimestampMixin
 
 class BackupSettings(Base, TimestampMixin):
     """Global backup settings (singleton row)."""
+
     __tablename__ = "backup_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)

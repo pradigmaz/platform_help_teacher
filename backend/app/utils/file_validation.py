@@ -2,6 +2,7 @@
 Утилиты валидации файлов: magic bytes, MIME types, расширения.
 Security: Защита от file upload attacks.
 """
+
 import logging
 from pathlib import Path
 
@@ -15,24 +16,43 @@ logger = logging.getLogger(__name__)
 
 # Magic bytes signatures для критических типов
 MAGIC_SIGNATURES = {
-    b'%PDF': 'application/pdf',
-    b'\x89PNG': 'image/png',
-    b'\xff\xd8\xff': 'image/jpeg',
-    b'GIF87a': 'image/gif',
-    b'GIF89a': 'image/gif',
-    b'PK\x03\x04': 'application/zip',  # ZIP, DOCX, XLSX
-    b'RIFF': 'image/webp',  # WebP (RIFF....WEBP)
+    b"%PDF": "application/pdf",
+    b"\x89PNG": "image/png",
+    b"\xff\xd8\xff": "image/jpeg",
+    b"GIF87a": "image/gif",
+    b"GIF89a": "image/gif",
+    b"PK\x03\x04": "application/zip",  # ZIP, DOCX, XLSX
+    b"RIFF": "image/webp",  # WebP (RIFF....WEBP)
 }
 
 # Опасные расширения (никогда не разрешать)
 DANGEROUS_EXTENSIONS = {
-    '.php', '.php3', '.php4', '.php5', '.phtml',
-    '.exe', '.dll', '.bat', '.cmd', '.sh', '.bash',
-    '.js', '.jsx', '.ts', '.tsx',  # Серверный JS
-    '.py', '.pyc', '.pyo',
-    '.rb', '.pl', '.cgi',
-    '.asp', '.aspx', '.jsp',
-    '.htaccess', '.htpasswd',
+    ".php",
+    ".php3",
+    ".php4",
+    ".php5",
+    ".phtml",
+    ".exe",
+    ".dll",
+    ".bat",
+    ".cmd",
+    ".sh",
+    ".bash",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",  # Серверный JS
+    ".py",
+    ".pyc",
+    ".pyo",
+    ".rb",
+    ".pl",
+    ".cgi",
+    ".asp",
+    ".aspx",
+    ".jsp",
+    ".htaccess",
+    ".htpasswd",
 }
 
 
@@ -67,22 +87,14 @@ def validate_magic_bytes(content: bytes, claimed_mime: str | None = None) -> str
     # Проверяем, что тип разрешён
     if detected_mime not in ALLOWED_MIME_TYPES_SET:
         logger.warning(f"Blocked file upload: detected={detected_mime}, claimed={claimed_mime}")
-        raise HTTPException(
-            status_code=400,
-            detail=em.format_error(em.FILE_TYPE_NOT_ALLOWED, type=detected_mime)
-        )
+        raise HTTPException(status_code=400, detail=em.format_error(em.FILE_TYPE_NOT_ALLOWED, type=detected_mime))
 
     # Если заявлен MIME — проверяем совпадение
     if claimed_mime and claimed_mime != detected_mime:
         # Разрешаем некоторые эквиваленты
         if not _are_mime_equivalent(claimed_mime, detected_mime):
-            logger.warning(
-                f"MIME mismatch: claimed={claimed_mime}, detected={detected_mime}"
-            )
-            raise HTTPException(
-                status_code=400,
-                detail=em.FILE_CONTENT_MISMATCH
-            )
+            logger.warning(f"MIME mismatch: claimed={claimed_mime}, detected={detected_mime}")
+            raise HTTPException(status_code=400, detail=em.FILE_CONTENT_MISMATCH)
 
     return detected_mime
 
@@ -98,9 +110,9 @@ def _detect_by_signature(content: bytes) -> str | None:
 def _are_mime_equivalent(mime1: str, mime2: str) -> bool:
     """Проверяет эквивалентность MIME типов."""
     equivalents = [
-        {'image/jpeg', 'image/jpg'},
-        {'application/zip', 'application/x-zip-compressed'},
-        {'text/plain', 'text/x-python', 'text/x-script.python'},
+        {"image/jpeg", "image/jpg"},
+        {"application/zip", "application/x-zip-compressed"},
+        {"text/plain", "text/x-python", "text/x-script.python"},
     ]
     return any(mime1 in group and mime2 in group for group in equivalents)
 
@@ -119,7 +131,7 @@ def validate_filename(filename: str) -> tuple[str, str]:
         raise HTTPException(status_code=400, detail=em.FILENAME_REQUIRED)
 
     # Защита от path traversal
-    if '..' in filename or '/' in filename or '\\' in filename:
+    if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail=em.INVALID_FILENAME)
 
     path = Path(filename)
@@ -140,10 +152,7 @@ def validate_filename(filename: str) -> tuple[str, str]:
 
 
 def validate_file_upload(
-    content: bytes,
-    filename: str,
-    claimed_mime: str | None = None,
-    max_size: int | None = None
+    content: bytes, filename: str, claimed_mime: str | None = None, max_size: int | None = None
 ) -> tuple[str, str]:
     """
     Полная валидация загружаемого файла.
@@ -159,11 +168,8 @@ def validate_file_upload(
     """
     # 1. Проверка размера
     if max_size and len(content) > max_size:
-        max_mb = max_size // (1024*1024)
-        raise HTTPException(
-            status_code=400,
-            detail=em.format_error(em.FILE_TOO_LARGE, max=f"{max_mb}MB")
-        )
+        max_mb = max_size // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=em.format_error(em.FILE_TOO_LARGE, max=f"{max_mb}MB"))
 
     # 2. Валидация имени файла
     _, ext = validate_filename(filename)

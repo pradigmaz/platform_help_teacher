@@ -1,6 +1,7 @@
 """
 Модель конфликтов парсинга расписания
 """
+
 import enum
 from uuid import UUID, uuid4
 
@@ -13,12 +14,14 @@ from .base import Base, TimestampMixin
 
 class ConflictType(str, enum.Enum):
     """Тип конфликта"""
-    CHANGED = "changed"   # Занятие изменилось
-    DELETED = "deleted"   # Занятие исчезло из расписания
+
+    CHANGED = "changed"  # Занятие изменилось
+    DELETED = "deleted"  # Занятие исчезло из расписания
 
 
 class ScheduleConflict(Base, TimestampMixin):
     """Конфликт при парсинге расписания"""
+
     __tablename__ = "schedule_conflicts"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

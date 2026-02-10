@@ -1,4 +1,5 @@
 """Group settings and invite codes."""
+
 import logging
 from typing import Any
 from uuid import UUID

@@ -1,4 +1,5 @@
 """Student attendance endpoint."""
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -23,16 +24,14 @@ async def get_my_attendance(
     """Посещаемость студента со статистикой и деталями занятий."""
 
     # Фильтр по подгруппе: показываем записи без подгруппы (лекции) + записи подгруппы студента
-    query = select(Attendance).where(
-        Attendance.student_id == current_user.id
-    )
+    query = select(Attendance).where(Attendance.student_id == current_user.id)
 
     # Если у студента есть подгруппа — фильтруем
     if current_user.subgroup:
         query = query.where(
             or_(
                 Attendance.subgroup.is_(None),  # Лекции (без подгруппы)
-                Attendance.subgroup == current_user.subgroup  # Его подгруппа
+                Attendance.subgroup == current_user.subgroup,  # Его подгруппа
             )
         )
 

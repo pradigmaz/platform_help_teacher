@@ -1,4 +1,5 @@
 """API эндпоинты для управления расписанием и занятиями."""
+
 from datetime import date
 from uuid import UUID
 
@@ -31,6 +32,7 @@ router = APIRouter()
 
 # === Schedule Items ===
 
+
 @router.post("/groups/{group_id}/schedule", response_model=ScheduleItemResponse)
 async def create_schedule_item(
     group_id: UUID,
@@ -51,7 +53,7 @@ async def create_schedule_item(
         start_date=item_in.start_date,
         end_date=item_in.end_date,
         week_parity=item_in.week_parity,
-        subgroup=item_in.subgroup
+        subgroup=item_in.subgroup,
     )
     return item
 
@@ -99,6 +101,7 @@ async def delete_schedule_item(
 
 # === Lessons ===
 
+
 @router.post("/lessons", response_model=LessonResponse)
 async def create_lesson(
     lesson_in: LessonCreate,
@@ -115,7 +118,7 @@ async def create_lesson(
         lesson_type=lesson_in.lesson_type,
         topic=lesson_in.topic,
         work_id=lesson_in.work_id,
-        subgroup=lesson_in.subgroup
+        subgroup=lesson_in.subgroup,
     )
     return lesson
 
@@ -143,17 +146,12 @@ async def get_group_students(
 
     from app.models.group import Group
 
-    result = await db.execute(
-        select(Group).options(selectinload(Group.users)).where(Group.id == group_id)
-    )
+    result = await db.execute(select(Group).options(selectinload(Group.users)).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
 
-    students = sorted(
-        [u for u in group.users if u.is_active],
-        key=lambda u: u.full_name
-    )
+    students = sorted([u for u in group.users if u.is_active], key=lambda u: u.full_name)
     return [{"id": str(s.id), "full_name": s.full_name} for s in students]
 
 
@@ -167,9 +165,7 @@ async def get_lessons(
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Получить занятия группы за период."""
-    lessons = await crud_lesson.get_by_group_and_period(
-        db, group_id, start_date, end_date, lesson_type
-    )
+    lessons = await crud_lesson.get_by_group_and_period(db, group_id, start_date, end_date, lesson_type)
     return lessons
 
 
@@ -233,6 +229,7 @@ async def delete_lesson(
 
 # === Generate Lessons ===
 
+
 @router.post("/groups/{group_id}/generate-lessons", response_model=GenerateLessonsResponse)
 async def generate_lessons(
     group_id: UUID,
@@ -241,12 +238,9 @@ async def generate_lessons(
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Сгенерировать занятия из расписания на период."""
-    lessons = await lesson_generator.generate_lessons_for_period(
-        db, group_id, request.start_date, request.end_date
-    )
+    lessons = await lesson_generator.generate_lessons_for_period(db, group_id, request.start_date, request.end_date)
     return GenerateLessonsResponse(
-        created_count=len(lessons),
-        lessons=[LessonResponse.model_validate(l) for l in lessons]
+        created_count=len(lessons), lessons=[LessonResponse.model_validate(l) for l in lessons]
     )
 
 
@@ -259,6 +253,7 @@ from app.services.schedule_import_service import ScheduleImportService
 
 class ParseScheduleRequest(BaseModel):
     """Запрос на парсинг расписания"""
+
     teacher_name: str
     start_date: date
     end_date: date | None = None  # По умолчанию - сегодня
@@ -266,6 +261,7 @@ class ParseScheduleRequest(BaseModel):
 
 class ParseScheduleResponse(BaseModel):
     """Результат парсинга"""
+
     total_parsed: int
     groups_created: int
     lessons_created: int
@@ -294,9 +290,7 @@ async def parse_schedule(
 
     try:
         stats = await import_service.import_from_parser(
-            teacher_name=data.teacher_name,
-            start_date=data.start_date,
-            end_date=end_date
+            teacher_name=data.teacher_name, start_date=data.start_date, end_date=end_date
         )
 
         return ParseScheduleResponse(**stats)

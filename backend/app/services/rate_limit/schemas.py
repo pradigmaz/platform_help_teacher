@@ -1,6 +1,7 @@
 """
 Pydantic схемы для rate limit warnings.
 """
+
 from datetime import datetime
 from uuid import UUID
 
@@ -11,6 +12,7 @@ from .constants import WarningLevel
 
 class WarningResponse(BaseModel):
     """Ответ с информацией о предупреждении."""
+
     level: WarningLevel
     message: str
     ban_until: datetime | None = None
@@ -19,6 +21,7 @@ class WarningResponse(BaseModel):
 
 class WarningRecord(BaseModel):
     """Запись предупреждения из БД."""
+
     id: UUID
     user_id: UUID | None
     user_name: str | None = None
@@ -37,17 +40,20 @@ class WarningRecord(BaseModel):
 
 class WarningListResponse(BaseModel):
     """Список предупреждений."""
+
     items: list[WarningRecord]
     total: int
 
 
 class UnbanRequest(BaseModel):
     """Запрос на разбан."""
+
     reason: str
 
 
 class UnbanResponse(BaseModel):
     """Ответ на разбан."""
+
     success: bool
     message: str
     warning_id: UUID
@@ -55,6 +61,7 @@ class UnbanResponse(BaseModel):
 
 class ActiveBanInfo(BaseModel):
     """Информация об активном бане."""
+
     is_banned: bool
     ban_until: datetime | None = None
     warning_level: WarningLevel | None = None

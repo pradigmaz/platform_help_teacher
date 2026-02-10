@@ -5,6 +5,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 def check_deployment_settings():
     env = settings.ENVIRONMENT.lower()
     if env not in ["production", "prod"]:

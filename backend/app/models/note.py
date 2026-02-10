@@ -2,6 +2,7 @@
 Универсальная модель заметок.
 Может быть привязана к любой сущности через entity_type + entity_id.
 """
+
 from enum import Enum
 from uuid import uuid4
 
@@ -14,6 +15,7 @@ from .base import Base, TimestampMixin
 
 class EntityType(str, Enum):
     """Типы сущностей для привязки заметок."""
+
     LESSON = "lesson"
     STUDENT = "student"
     GROUP = "group"
@@ -23,6 +25,7 @@ class EntityType(str, Enum):
 
 class NoteColor(str, Enum):
     """Цвета заметок."""
+
     DEFAULT = "default"
     RED = "red"
     ORANGE = "orange"
@@ -37,6 +40,7 @@ class Note(Base, TimestampMixin):
     Универсальная заметка.
     Привязывается к сущности через entity_type + entity_id.
     """
+
     __tablename__ = "notes"
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -55,6 +59,4 @@ class Note(Base, TimestampMixin):
     # Автор (опционально, для будущего)
     author_id: Mapped[UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
-    __table_args__ = (
-        Index('idx_notes_entity', 'entity_type', 'entity_id'),
-    )
+    __table_args__ = (Index("idx_notes_entity", "entity_type", "entity_id"),)

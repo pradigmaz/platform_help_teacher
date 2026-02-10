@@ -1,4 +1,5 @@
 """Admin attestation API endpoints."""
+
 from fastapi import APIRouter
 
 from .audit import router as audit_router

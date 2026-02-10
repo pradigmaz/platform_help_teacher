@@ -1,6 +1,7 @@
 """
 Bulk операции с оценками (оптимизированные batch-запросы).
 """
+
 import logging
 from uuid import UUID
 
@@ -26,7 +27,7 @@ async def bulk_update_grades(
     request: Request,
     data: BulkGradeCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """Массовое создание/обновление оценок с проверкой дедлайна и слотов."""
     lesson_result = await db.execute(select(Lesson).where(Lesson.id == data.lesson_id))
@@ -42,11 +43,12 @@ async def bulk_update_grades(
         grades_by_student[grade_item.student_id].append(grade_item)
 
     # Валидируем слоты (batch)
-    if lesson.lesson_type == 'LAB':
+    if lesson.lesson_type == "LAB":
         from app.services.attestation.lab_slot_validator_batch import (
             get_grades_count_on_lesson_batch,
             get_max_labs_per_lesson_batch,
         )
+
         student_ids = list(grades_by_student.keys())
 
         current_counts = await get_grades_count_on_lesson_batch(db, student_ids, data.lesson_id)
@@ -59,12 +61,12 @@ async def bulk_update_grades(
 
             if current_count + new_grades_count > max_allowed:
                 raise HTTPException(
-                    status_code=400,
-                    detail=f"Лимит лаб за занятие: {max_allowed} (уже сдано: {current_count})"
+                    status_code=400, detail=f"Лимит лаб за занятие: {max_allowed} (уже сдано: {current_count})"
                 )
 
     # Валидируем дедлайны (batch)
     from app.services.attestation.deadline_validator_batch import get_max_allowed_grades_batch
+
     grade_items = [(g.student_id, g.work_number) for g in data.grades]
     max_grades = await get_max_allowed_grades_batch(db, lesson, grade_items)
 
@@ -74,27 +76,20 @@ async def bulk_update_grades(
         try:
             validate_grade_for_max(grade_item.grade, max_allowed)
         except ValueError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Студент {grade_item.student_id}: {str(e)}"
-            )
+            raise HTTPException(status_code=400, detail=f"Студент {grade_item.student_id}: {str(e)}")
 
     # Bulk upsert
     from app.crud.crud_lesson_grade import bulk_upsert_lesson_grades
+
     grades_data = [
-        {
-            "student_id": g.student_id,
-            "grade": g.grade,
-            "work_number": g.work_number,
-            "comment": g.comment
-        }
+        {"student_id": g.student_id, "grade": g.grade, "work_number": g.work_number, "comment": g.comment}
         for g in data.grades
     ]
     updated = await bulk_upsert_lesson_grades(db, data.lesson_id, grades_data, created_by=current_user.id)
 
     # Синхронизация с work_submission для лаб
     synced_count = 0
-    if lesson.lesson_type == 'LAB':
+    if lesson.lesson_type == "LAB":
         for grade_item in data.grades:
             if grade_item.work_number:
                 await journal_sync.sync_from_journal(
@@ -104,14 +99,11 @@ async def bulk_update_grades(
                     grade_item.work_number,
                     grade_item.grade,
                     grade_item.comment,
-                    current_user.id
+                    current_user.id,
                 )
                 synced_count += 1
 
-        logger.info(
-            f"[grades_bulk:bulk_update_grades] Synced {synced_count} submissions "
-            f"for lesson {data.lesson_id}"
-        )
+        logger.info(f"[grades_bulk:bulk_update_grades] Synced {synced_count} submissions for lesson {data.lesson_id}")
 
     logger.info(f"Bulk updated {len(updated)} grades for lesson {data.lesson_id}")
     return {"updated": len(updated)}

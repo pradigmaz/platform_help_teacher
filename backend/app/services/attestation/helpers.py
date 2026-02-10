@@ -8,10 +8,7 @@ from sqlalchemy.sql import Select
 from app.models.lesson import Lesson
 
 
-def filter_lessons_by_subgroup(
-    query: Select,
-    student_subgroup: int | None
-) -> Select:
+def filter_lessons_by_subgroup(query: Select, student_subgroup: int | None) -> Select:
     """
     Фильтрация занятий по подгруппе студента.
 
@@ -27,8 +24,6 @@ def filter_lessons_by_subgroup(
         Отфильтрованный запрос
     """
     if student_subgroup is not None:
-        return query.where(
-            or_(Lesson.subgroup.is_(None), Lesson.subgroup == student_subgroup)
-        )
+        return query.where(or_(Lesson.subgroup.is_(None), Lesson.subgroup == student_subgroup))
     else:
         return query.where(Lesson.subgroup.is_(None))

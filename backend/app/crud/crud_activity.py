@@ -16,7 +16,7 @@ class CRUDActivity:
             description=obj_in.description,
             attestation_type=obj_in.attestation_type,
             is_active=obj_in.is_active,
-            created_by_id=created_by_id
+            created_by_id=created_by_id,
         )
         db.add(db_obj)
         await db.commit()
@@ -32,7 +32,7 @@ class CRUDActivity:
         description: str,
         attestation_type: AttestationType,
         batch_id: UUID,
-        created_by_id: UUID
+        created_by_id: UUID,
     ) -> list[Activity]:
         activities = []
         for student_id in student_ids:
@@ -42,7 +42,7 @@ class CRUDActivity:
                 description=description,
                 attestation_type=attestation_type,
                 batch_id=batch_id,
-                created_by_id=created_by_id
+                created_by_id=created_by_id,
             )
             activities.append(activity)
             db.add(activity)
@@ -51,15 +51,9 @@ class CRUDActivity:
         return activities
 
     async def get_by_student(
-        self,
-        db: AsyncSession,
-        student_id: UUID,
-        attestation_type: AttestationType | None = None
+        self, db: AsyncSession, student_id: UUID, attestation_type: AttestationType | None = None
     ) -> list[Activity]:
-        query = select(Activity).where(
-            Activity.student_id == student_id,
-            Activity.is_active
-        )
+        query = select(Activity).where(Activity.student_id == student_id, Activity.is_active)
         if attestation_type:
             query = query.where(Activity.attestation_type == attestation_type)
 
@@ -68,11 +62,7 @@ class CRUDActivity:
         return list(result.scalars().all())
 
     async def get_all(
-        self,
-        db: AsyncSession,
-        attestation_type: AttestationType | None = None,
-        limit: int = 100,
-        offset: int = 0
+        self, db: AsyncSession, attestation_type: AttestationType | None = None, limit: int = 100, offset: int = 0
     ) -> list[Activity]:
         """Get all activities with student info, ordered by date desc."""
         query = select(Activity).where(Activity.is_active)
@@ -87,13 +77,7 @@ class CRUDActivity:
         result = await db.execute(select(Activity).where(Activity.id == id))
         return result.scalar_one_or_none()
 
-    async def update(
-        self,
-        db: AsyncSession,
-        *,
-        db_obj: Activity,
-        obj_in: ActivityUpdate
-    ) -> Activity:
+    async def update(self, db: AsyncSession, *, db_obj: Activity, obj_in: ActivityUpdate) -> Activity:
         update_data = obj_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_obj, field, value)
@@ -113,5 +97,5 @@ class CRUDActivity:
             await db.refresh(db_obj)
         return db_obj
 
-activity = CRUDActivity()
 
+activity = CRUDActivity()

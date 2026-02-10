@@ -1,4 +1,5 @@
 """Реэкспорт из модуля attestation/."""
+
 from app.services.attestation import (
     AttendanceScoreResult,
     AttestationCalculator,

@@ -9,6 +9,6 @@ class StatsResponse(BaseModel):
     active_labs: int
     total_submissions: int
 
+
 class DeleteResponse(BaseModel):
     status: str
-

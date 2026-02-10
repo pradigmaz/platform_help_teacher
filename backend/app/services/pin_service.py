@@ -1,6 +1,7 @@
 """
 Сервис для управления PIN-кодами и rate limiting попыток.
 """
+
 import logging
 
 from app.core.config import settings

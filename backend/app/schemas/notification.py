@@ -1,4 +1,5 @@
 """Pydantic schemas for notification settings."""
+
 from pydantic import BaseModel
 
 

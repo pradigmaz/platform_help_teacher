@@ -1,6 +1,7 @@
 """
 Сервис импорта расписания в БД
 """
+
 import logging
 from datetime import date
 
@@ -25,9 +26,7 @@ class ScheduleImportService:
 
     async def get_or_create_group(self, group_name: str) -> Group:
         """Получить или создать группу"""
-        result = await self.db.execute(
-            select(Group).where(Group.name == group_name)
-        )
+        result = await self.db.execute(select(Group).where(Group.name == group_name))
         group = result.scalar_one_or_none()
 
         if not group:
@@ -40,19 +39,12 @@ class ScheduleImportService:
         return group
 
     async def import_from_parser(
-        self,
-        teacher_name: str,
-        start_date: date,
-        end_date: date,
-        progress_callback=None,
-        smart_update: bool = True
+        self, teacher_name: str, start_date: date, end_date: date, progress_callback=None, smart_update: bool = True
     ) -> dict:
         """Импорт расписания из парсера с транзакцией"""
         parser = await get_parser()
 
-        parsed_lessons = await parser.parse_range(
-            teacher_name, start_date, end_date, progress_callback
-        )
+        parsed_lessons = await parser.parse_range(teacher_name, start_date, end_date, progress_callback)
 
         semester = get_semester(start_date)
         teacher = await find_teacher(self.db, teacher_name)
@@ -71,17 +63,13 @@ class ScheduleImportService:
 
         try:
             for parsed in parsed_lessons:
-                await self._process_lesson(
-                    parsed, teacher, semester, smart_update, stats, group_parsed_keys
-                )
+                await self._process_lesson(parsed, teacher, semester, smart_update, stats, group_parsed_keys)
 
             # Обнаруживаем удалённые занятия
             if smart_update:
                 for group_name, parsed_keys in group_parsed_keys.items():
                     group = await self.get_or_create_group(group_name)
-                    deleted = await self._lesson_importer.detect_deleted(
-                        group, start_date, end_date, parsed_keys
-                    )
+                    deleted = await self._lesson_importer.detect_deleted(group, start_date, end_date, parsed_keys)
                     stats["conflicts_created"] += deleted
 
             await self.db.commit()
@@ -121,7 +109,7 @@ class ScheduleImportService:
         semester: str,
         smart_update: bool,
         stats: dict,
-        group_parsed_keys: dict
+        group_parsed_keys: dict,
     ):
         """Обработать одно занятие"""
         subject_id = None
@@ -138,9 +126,7 @@ class ScheduleImportService:
 
             if group_name not in group_parsed_keys:
                 group_parsed_keys[group_name] = set()
-            group_parsed_keys[group_name].add(
-                (parsed.date, parsed.lesson_number, parsed.subgroup)
-            )
+            group_parsed_keys[group_name].add((parsed.date, parsed.lesson_number, parsed.subgroup))
 
             if teacher and parsed.subject:
                 assignment, created = await get_or_create_assignment_from_schedule(

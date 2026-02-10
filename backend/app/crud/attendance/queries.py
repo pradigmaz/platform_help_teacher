@@ -1,4 +1,5 @@
 """Attendance query functions."""
+
 from datetime import date
 from uuid import UUID
 
@@ -9,10 +10,7 @@ from app.models.attendance import Attendance
 
 
 async def check_attendance_exists(
-    db: AsyncSession,
-    student_id: UUID,
-    attendance_date: date,
-    lesson_number: int | None = None
+    db: AsyncSession, student_id: UUID, attendance_date: date, lesson_number: int | None = None
 ) -> Attendance | None:
     """
     Проверка существования записи посещаемости для студента на дату и пару.
@@ -26,10 +24,7 @@ async def check_attendance_exists(
     Returns:
         Attendance или None если запись не существует
     """
-    conditions = [
-        Attendance.student_id == student_id,
-        Attendance.date == attendance_date
-    ]
+    conditions = [Attendance.student_id == student_id, Attendance.date == attendance_date]
 
     if lesson_number is not None:
         conditions.append(Attendance.lesson_number == lesson_number)
@@ -42,9 +37,7 @@ async def check_attendance_exists(
 
 
 async def get_attendance_by_student(
-    db: AsyncSession,
-    student_id: UUID,
-    group_id: UUID | None = None
+    db: AsyncSession, student_id: UUID, group_id: UUID | None = None
 ) -> list[Attendance]:
     """
     Получение записей посещаемости студента.
@@ -67,11 +60,7 @@ async def get_attendance_by_student(
     return list(result.scalars().all())
 
 
-async def get_attendance_by_group_and_date(
-    db: AsyncSession,
-    group_id: UUID,
-    attendance_date: date
-) -> list[Attendance]:
+async def get_attendance_by_group_and_date(db: AsyncSession, group_id: UUID, attendance_date: date) -> list[Attendance]:
     """
     Получение записей посещаемости группы на дату.
 
@@ -83,21 +72,13 @@ async def get_attendance_by_group_and_date(
     Returns:
         List[Attendance]: Список записей посещаемости
     """
-    query = select(Attendance).where(
-        and_(
-            Attendance.group_id == group_id,
-            Attendance.date == attendance_date
-        )
-    )
+    query = select(Attendance).where(and_(Attendance.group_id == group_id, Attendance.date == attendance_date))
     result = await db.execute(query)
     return list(result.scalars().all())
 
 
 async def get_attendance_by_group_date_range(
-    db: AsyncSession,
-    group_id: UUID,
-    start_date: date,
-    end_date: date
+    db: AsyncSession, group_id: UUID, start_date: date, end_date: date
 ) -> list[Attendance]:
     """
     Получение записей посещаемости группы за период.
@@ -111,12 +92,10 @@ async def get_attendance_by_group_date_range(
     Returns:
         List[Attendance]: Список записей посещаемости
     """
-    query = select(Attendance).where(
-        and_(
-            Attendance.group_id == group_id,
-            Attendance.date >= start_date,
-            Attendance.date <= end_date
-        )
-    ).order_by(Attendance.date)
+    query = (
+        select(Attendance)
+        .where(and_(Attendance.group_id == group_id, Attendance.date >= start_date, Attendance.date <= end_date))
+        .order_by(Attendance.date)
+    )
     result = await db.execute(query)
     return list(result.scalars().all())

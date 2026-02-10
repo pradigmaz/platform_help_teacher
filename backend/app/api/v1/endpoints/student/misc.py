@@ -1,4 +1,5 @@
 """Student misc endpoints - contacts, semesters."""
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request

@@ -1,4 +1,5 @@
 """API endpoints для лекций (админ)."""
+
 import logging
 from uuid import UUID, uuid4
 
@@ -64,7 +65,6 @@ async def create_lecture(
     """Создать лекцию."""
     lecture = await crud_lecture.create(db, lecture_in)
     return lecture
-
 
 
 @router.get("/{lecture_id}", response_model=LectureResponse)
@@ -144,10 +144,7 @@ async def publish_lecture(
         raise HTTPException(status_code=404, detail="Лекция не найдена")
 
     public_code = await lecture_service.publish(db, lecture)
-    return PublicLinkResponse(
-        public_code=public_code,
-        url=f"/lectures/view/{public_code}"
-    )
+    return PublicLinkResponse(public_code=public_code, url=f"/lectures/view/{public_code}")
 
 
 @router.post("/{lecture_id}/unpublish")
@@ -184,27 +181,23 @@ async def export_lecture_pdf(
     try:
         # Хэш updated_at для кэширования
         import hashlib
+
         updated_at_hash = hashlib.md5(str(lecture.updated_at).encode()).hexdigest()[:8]
 
         pdf_bytes = await pdf_service.generate_pdf(lecture_id, updated_at_hash)
 
         # Формируем имя файла из заголовка лекции
-        safe_title = "".join(c for c in lecture.title if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_title = "".join(c for c in lecture.title if c.isalnum() or c in (" ", "-", "_")).strip()
         filename = f"{safe_title or 'lecture'}.pdf"
 
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
-            }
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     except Exception as e:
         logger.error(f"PDF generation failed for lecture {lecture_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Не удалось сгенерировать PDF"
-        )
+        raise HTTPException(status_code=500, detail="Не удалось сгенерировать PDF")
 
 
 @router.post("/{lecture_id}/images", response_model=LectureImageResponse)
@@ -225,23 +218,17 @@ async def upload_lecture_image(
 
     # Проверяем MIME-тип
     if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail="Недопустимый тип файла. Разрешены: JPG, PNG, GIF, WebP"
-        )
+        raise HTTPException(status_code=400, detail="Недопустимый тип файла. Разрешены: JPG, PNG, GIF, WebP")
 
     # Читаем содержимое файла
     content = await file.read()
 
     # Проверяем размер
     if len(content) > settings.MAX_IMAGE_SIZE:
-        raise HTTPException(
-            status_code=400,
-            detail="Размер файла превышает 10MB"
-        )
+        raise HTTPException(status_code=400, detail="Размер файла превышает 10MB")
 
     # Генерируем уникальный путь для хранения
-    file_ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    file_ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
     storage_path = f"lectures/{lecture_id}/{uuid4()}.{file_ext}"
 
     try:
@@ -249,22 +236,16 @@ async def upload_lecture_image(
         upload_url = await storage_service.create_presigned_upload_url(
             storage_path,
             file.content_type,
-            content  # Передаём контент для проверки magic bytes
+            content,  # Передаём контент для проверки magic bytes
         )
 
         # Загружаем файл напрямую в MinIO через presigned URL
         import httpx
+
         async with httpx.AsyncClient(timeout=float(MINIO_UPLOAD_TIMEOUT_SECONDS)) as client:
-            response = await client.put(
-                upload_url,
-                content=content,
-                headers={"Content-Type": file.content_type}
-            )
+            response = await client.put(upload_url, content=content, headers={"Content-Type": file.content_type})
             if response.status_code not in (200, 204):
-                raise HTTPException(
-                    status_code=500,
-                    detail="Ошибка загрузки файла в хранилище"
-                )
+                raise HTTPException(status_code=500, detail="Ошибка загрузки файла в хранилище")
 
         # Создаём запись в БД
         image = LectureImage(
@@ -272,7 +253,7 @@ async def upload_lecture_image(
             filename=file.filename,
             storage_path=storage_path,
             mime_type=file.content_type,
-            size_bytes=len(content)
+            size_bytes=len(content),
         )
         db.add(image)
         await db.commit()
@@ -284,10 +265,7 @@ async def upload_lecture_image(
         raise
     except Exception as e:
         logger.error(f"Image upload failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Ошибка загрузки изображения"
-        )
+        raise HTTPException(status_code=500, detail="Ошибка загрузки изображения")
 
 
 @router.delete("/{lecture_id}/images/{image_id}")
@@ -302,10 +280,7 @@ async def delete_lecture_image(
 
     # Проверяем существование изображения
     result = await db.execute(
-        select(LectureImage).where(
-            LectureImage.id == image_id,
-            LectureImage.lecture_id == lecture_id
-        )
+        select(LectureImage).where(LectureImage.id == image_id, LectureImage.lecture_id == lecture_id)
     )
     image = result.scalar_one_or_none()
 

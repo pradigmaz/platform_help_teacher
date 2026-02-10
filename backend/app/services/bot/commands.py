@@ -1,4 +1,5 @@
 """Обработка команд /start и /code."""
+
 import asyncio
 import json
 import logging
@@ -23,10 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 async def process_start_command(
-    db: AsyncSession,
-    social_id: int,
-    username: str | None,
-    platform: Platform = "telegram"
+    db: AsyncSession, social_id: int, username: str | None, platform: Platform = "telegram"
 ) -> str:
     """Обработка команды /start (только приветствие и OTP)."""
     await log_bot_start(db, social_id, platform, username, None)
@@ -47,7 +45,7 @@ async def process_start_command(
         return (
             f"🔐 <b>Вход в систему</b>\n\n"
             f"Твой код: <code>{otp}</code>\n\n"
-            f"🔗 <a href=\"{login_url}\">Войти в один клик</a>\n\n"
+            f'🔗 <a href="{login_url}">Войти в один клик</a>\n\n'
             f"⚠️ Код действует 5 минут. Никому не сообщай его."
         )
     else:
@@ -55,12 +53,7 @@ async def process_start_command(
 
 
 async def process_code_command(
-    db: AsyncSession,
-    social_id: int,
-    full_name: str,
-    username: str | None,
-    code: str,
-    platform: Platform = "telegram"
+    db: AsyncSession, social_id: int, full_name: str, username: str | None, code: str, platform: Platform = "telegram"
 ) -> str:
     """Обработка команды /code (ввод инвайт-кодов, relink-кодов)."""
     start_time = time.monotonic()
@@ -85,16 +78,13 @@ async def process_code_command(
     user_task = db.execute(select(User).where(User.invite_code == code))
     group_task = db.execute(select(Group).where(Group.invite_code == code))
 
-    relink_data, user_result, group_result = await asyncio.gather(
-        relink_task, user_task, group_task
-    )
+    relink_data, user_result, group_result = await asyncio.gather(relink_task, user_task, group_task)
 
     existing_student = user_result.scalar_one_or_none()
     group = group_result.scalar_one_or_none()
 
     response = await _process_code_result(
-        db, redis, social_id, full_name, username, code, platform,
-        relink_data, existing_student, group
+        db, redis, social_id, full_name, username, code, platform, relink_data, existing_student, group
     )
 
     # Гарантируем минимальное время ответа
@@ -229,10 +219,7 @@ async def _handle_group_invite(db, redis, social_id, full_name, username, platfo
         user.username = username  # username можно обновлять
         await db.commit()
 
-        logger.info(
-            f"User {user.id} ({user.full_name}) transferred to group {group.name} "
-            f"from group_id={old_group_id}"
-        )
+        logger.info(f"User {user.id} ({user.full_name}) transferred to group {group.name} from group_id={old_group_id}")
         return f"✅ Вы переведены в группу {group.name}!"
 
     # SECURITY: Проверяем, не использовал ли этот social_id уже групповой код
@@ -248,11 +235,8 @@ async def _handle_group_invite(db, redis, social_id, full_name, username, platfo
     # Помечаем код как использованный для этого social_id (30 дней)
     await redis.setex(used_key, 86400 * 30, group.invite_code)
 
-    fsm_data = json.dumps({
-        "state": "waiting_fio",
-        "group_id": str(group.id),
-        "group_name": group.name,
-        "platform": platform
-    })
+    fsm_data = json.dumps(
+        {"state": "waiting_fio", "group_id": str(group.id), "group_name": group.name, "platform": platform}
+    )
     await redis.setex(f"fsm:{platform}:{social_id}", FSM_TTL, fsm_data)
     return f"👋 Привязка к группе {group.name}\n\nВведите ваше ФИО точно как в списке группы:\nНапример: Иванов Иван Иванович"

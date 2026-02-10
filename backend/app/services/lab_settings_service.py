@@ -1,4 +1,5 @@
 """Сервис для работы с настройками лабораторных работ."""
+
 import logging
 
 from sqlalchemy import select
@@ -12,21 +13,14 @@ logger = logging.getLogger(__name__)
 class LabSettingsService:
     """Сервис для управления глобальными настройками лаб."""
 
-    async def get_lab_settings(
-        self,
-        db: AsyncSession
-    ) -> LabSettings | None:
+    async def get_lab_settings(self, db: AsyncSession) -> LabSettings | None:
         """[LabSettingsService:get_lab_settings] Получить глобальные настройки лаб."""
         result = await db.execute(select(LabSettings).limit(1))
         settings = result.scalar_one_or_none()
         logger.info(f"[LabSettingsService:get_lab_settings] Settings found: {settings is not None}")
         return settings
 
-    async def update_lab_settings(
-        self,
-        db: AsyncSession,
-        settings_in
-    ) -> LabSettings:
+    async def update_lab_settings(self, db: AsyncSession, settings_in) -> LabSettings:
         """[LabSettingsService:update_lab_settings] Обновить или создать настройки лаб."""
         result = await db.execute(select(LabSettings).limit(1))
         settings = result.scalar_one_or_none()

@@ -1,4 +1,5 @@
 """Admin impersonate endpoint - login as any user for testing."""
+
 import logging
 from uuid import UUID, uuid4
 
@@ -38,10 +39,7 @@ async def exit_impersonation(
     original_token = request.cookies.get(ADMIN_TOKEN_COOKIE)
 
     if not original_token:
-        raise HTTPException(
-            status_code=400,
-            detail=em.INVALID_ADMIN_TOKEN
-        )
+        raise HTTPException(status_code=400, detail=em.INVALID_ADMIN_TOKEN)
 
     # Валидируем original_token и проверяем что это действительно админ
     try:
@@ -174,9 +172,7 @@ async def impersonate_user(
         max_age=IMPERSONATE_TOKEN_TTL_MINUTES * 60,
     )
 
-    logger.warning(
-        f"Admin {admin.id} ({admin.full_name}) impersonated user {target_user.id} ({target_user.full_name})"
-    )
+    logger.warning(f"Admin {admin.id} ({admin.full_name}) impersonated user {target_user.id} ({target_user.full_name})")
 
     return {
         "message": "Impersonation successful",
@@ -185,7 +181,7 @@ async def impersonate_user(
             "id": str(target_user.id),
             "full_name": target_user.full_name,
             "role": target_user.role.value,
-        }
+        },
     }
 
 
@@ -201,9 +197,7 @@ async def revoke_all_student_sessions(
     from app.models.user import UserRole
 
     # Получаем всех студентов
-    result = await db.execute(
-        select(User.id).where(User.role == UserRole.STUDENT)
-    )
+    result = await db.execute(select(User.id).where(User.role == UserRole.STUDENT))
     student_ids = [row[0] for row in result.fetchall()]
 
     total_revoked = 0
@@ -219,5 +213,5 @@ async def revoke_all_student_sessions(
     return {
         "message": f"Revoked {total_revoked} sessions for {len(student_ids)} students",
         "students_count": len(student_ids),
-        "sessions_revoked": total_revoked
+        "sessions_revoked": total_revoked,
     }

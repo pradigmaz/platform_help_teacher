@@ -2,6 +2,7 @@
 Pydantic схемы для API аттестации.
 Система автобалансировки: веса + количество работ → автоматический расчёт баллов.
 """
+
 from datetime import UTC, date, datetime
 from uuid import UUID
 
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field, model_validator
 from app.models.attestation_settings import AttestationType
 
 # ============== Settings Schemas ==============
+
 
 class AttestationSettingsBase(BaseModel):
     """Базовая схема настроек автобалансировки"""
@@ -53,36 +55,39 @@ class AttestationSettingsBase(BaseModel):
     period_end_date: date | None = Field(default=None, description="Конец периода")
     semester_start_date: date | None = Field(default=None, description="Начало семестра")
 
-    @model_validator(mode='after')
-    def validate_period_dates(self) -> 'AttestationSettingsBase':
+    @model_validator(mode="after")
+    def validate_period_dates(self) -> "AttestationSettingsBase":
         if self.period_start_date and self.period_end_date and self.period_start_date > self.period_end_date:
-            raise ValueError('period_start_date должен быть раньше period_end_date')
+            raise ValueError("period_start_date должен быть раньше period_end_date")
         return self
 
-    @model_validator(mode='after')
-    def validate_weights_sum(self) -> 'AttestationSettingsBase':
+    @model_validator(mode="after")
+    def validate_weights_sum(self) -> "AttestationSettingsBase":
         total = self.labs_weight + self.attendance_weight + self.activity_reserve
         if self.self_works_enabled:
             total += self.self_works_weight
         if self.colloquium_enabled:
             total += self.colloquium_weight
         if abs(total - 100.0) > 0.01:
-            raise ValueError(f'Веса должны суммироваться в 100%, текущая сумма: {total}%')
+            raise ValueError(f"Веса должны суммироваться в 100%, текущая сумма: {total}%")
         return self
 
 
 class AttestationSettingsCreate(AttestationSettingsBase):
     """Схема создания настроек"""
+
     attestation_type: AttestationType
 
 
 class AttestationSettingsUpdate(AttestationSettingsBase):
     """Схема обновления настроек"""
+
     attestation_type: AttestationType
 
 
 class ScorePreview(BaseModel):
     """Превью расчёта баллов (для UI)"""
+
     component: str = Field(description="Название компонента")
     weight: float = Field(description="Вес (%)")
     max_points: float = Field(description="Макс баллов")
@@ -92,6 +97,7 @@ class ScorePreview(BaseModel):
 
 class AttestationSettingsResponse(AttestationSettingsBase):
     """Схема ответа с настройками"""
+
     id: UUID
     attestation_type: AttestationType
     created_at: datetime
@@ -115,8 +121,10 @@ class AttestationSettingsResponse(AttestationSettingsBase):
 
 # ============== Calculation Result Schemas ==============
 
+
 class ComponentBreakdown(BaseModel):
     """Детализация расчёта по компонентам"""
+
     # Лабораторные
     labs_score: float = Field(description="Баллы за лабы")
     labs_count: int = Field(description="Сдано лаб")
@@ -146,6 +154,7 @@ class ComponentBreakdown(BaseModel):
 
 class AttestationResult(BaseModel):
     """Результат расчёта аттестации"""
+
     student_id: UUID
     student_name: str
     attestation_type: AttestationType
@@ -163,6 +172,7 @@ class AttestationResult(BaseModel):
 
 class CalculationErrorInfo(BaseModel):
     """Ошибка расчёта"""
+
     student_id: UUID
     student_name: str
     error: str
@@ -170,6 +180,7 @@ class CalculationErrorInfo(BaseModel):
 
 class AttestationResultResponse(AttestationResult):
     """Ответ API"""
+
     calculated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     class Config:
@@ -178,6 +189,7 @@ class AttestationResultResponse(AttestationResult):
 
 class GroupAttestationResponse(BaseModel):
     """Результаты для группы"""
+
     group_id: UUID | None = None
     group_code: str
     attestation_type: AttestationType

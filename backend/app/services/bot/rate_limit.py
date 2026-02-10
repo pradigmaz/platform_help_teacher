@@ -1,4 +1,5 @@
 """Rate limiting для бот-команд."""
+
 import logging
 
 from app.core.redis import get_redis

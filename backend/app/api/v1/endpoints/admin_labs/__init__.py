@@ -1,4 +1,5 @@
 """Admin labs API endpoints."""
+
 from fastapi import APIRouter
 
 from .deadline_extensions import router as deadline_extensions_router

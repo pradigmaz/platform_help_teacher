@@ -1,6 +1,7 @@
 """
 Backup restore and verify operations.
 """
+
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -45,8 +46,7 @@ async def restore_backup(
     expected_confirmation = f"RESTORE-{backup_key}"
     if data.confirmation != expected_confirmation:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid confirmation. Expected: '{expected_confirmation}'"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid confirmation. Expected: '{expected_confirmation}'"
         )
 
     logger.warning(f"Restore initiated by {current_user.id}: {backup_key}")

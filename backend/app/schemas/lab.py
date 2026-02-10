@@ -14,6 +14,7 @@ from app.models.submission import SubmissionStatus
 
 # === Validators ===
 
+
 def validate_jsonb_size(v: dict[str, Any] | None, max_bytes: int = LAB_CONTENT_MAX_SIZE_BYTES) -> dict[str, Any] | None:
     """Валидация размера JSONB контента."""
     if v is not None:
@@ -25,8 +26,10 @@ def validate_jsonb_size(v: dict[str, Any] | None, max_bytes: int = LAB_CONTENT_M
 
 # === Submission Schemas ===
 
+
 class SubmissionDTO(BaseModel):
     """Базовая схема Submission для встраивания в Lab."""
+
     id: UUID
     status: SubmissionStatus
     grade: int | None = None
@@ -40,8 +43,10 @@ class SubmissionDTO(BaseModel):
 
 # === Lab Create/Update Schemas ===
 
+
 class LabCreate(BaseModel):
     """Схема создания лабораторной работы."""
+
     number: int = Field(default=1, ge=1, description="Порядковый номер лабы")
     title: str = Field(..., min_length=1, max_length=200)
     topic: str | None = None
@@ -59,12 +64,12 @@ class LabCreate(BaseModel):
     subject_id: UUID | None = None
     lesson_id: UUID | None = None
 
-    @field_validator('theory_content', 'practice_content')
+    @field_validator("theory_content", "practice_content")
     @classmethod
     def validate_content_size(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         return validate_jsonb_size(v)
 
-    @field_validator('variants')
+    @field_validator("variants")
     @classmethod
     def validate_variants(cls, v: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
         if v is not None:
@@ -76,7 +81,7 @@ class LabCreate(BaseModel):
                 raise ValueError(f"Variants too large: {size} bytes")
         return v
 
-    @field_validator('questions')
+    @field_validator("questions")
     @classmethod
     def validate_questions(cls, v: list[Any] | None) -> list[Any] | None:
         if v is not None and len(v) > LAB_MAX_QUESTIONS:
@@ -86,6 +91,7 @@ class LabCreate(BaseModel):
 
 class LabUpdate(BaseModel):
     """Схема обновления лабораторной работы."""
+
     number: int | None = Field(default=None, ge=1)
     title: str | None = Field(default=None, min_length=1, max_length=200)
     topic: str | None = None
@@ -103,12 +109,12 @@ class LabUpdate(BaseModel):
     subject_id: UUID | None = None
     lesson_id: UUID | None = None
 
-    @field_validator('theory_content', 'practice_content')
+    @field_validator("theory_content", "practice_content")
     @classmethod
     def validate_content_size(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         return validate_jsonb_size(v)
 
-    @field_validator('variants')
+    @field_validator("variants")
     @classmethod
     def validate_variants(cls, v: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
         if v is not None:
@@ -119,7 +125,7 @@ class LabUpdate(BaseModel):
                 raise ValueError(f"Variants too large: {size} bytes")
         return v
 
-    @field_validator('questions')
+    @field_validator("questions")
     @classmethod
     def validate_questions(cls, v: list[Any] | None) -> list[Any] | None:
         if v is not None and len(v) > LAB_MAX_QUESTIONS:
@@ -129,8 +135,10 @@ class LabUpdate(BaseModel):
 
 # === Lab Response Schemas ===
 
+
 class LabOut(BaseModel):
     """Краткая схема лабы для списков."""
+
     id: UUID
     number: int
     title: str
@@ -148,6 +156,7 @@ class LabOut(BaseModel):
 
 class LabResponse(BaseModel):
     """Схема лабы для списка с submission."""
+
     id: UUID
     title: str
     description: str | None = None
@@ -163,6 +172,7 @@ class LabResponse(BaseModel):
 
 class LabDetailResponse(BaseModel):
     """Полная схема лабы для детального просмотра."""
+
     id: UUID
     number: int
     title: str
@@ -191,5 +201,6 @@ class LabDetailResponse(BaseModel):
 
 class PublishLabResponse(BaseModel):
     """Ответ на публикацию лабы."""
+
     status: str
     public_code: str | None = None

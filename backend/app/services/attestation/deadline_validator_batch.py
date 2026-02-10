@@ -1,6 +1,7 @@
 """
 Batch-версия валидатора дедлайнов для оптимизации bulk-операций.
 """
+
 import logging
 from uuid import UUID
 
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 async def get_max_allowed_grades_batch(
     db: AsyncSession,
     lesson: Lesson,
-    grade_items: list[tuple[UUID, int | None]]  # [(student_id, work_number), ...]
+    grade_items: list[tuple[UUID, int | None]],  # [(student_id, work_number), ...]
 ) -> dict[tuple[UUID, int | None], int]:
     """
     Batch-версия get_max_allowed_grade.
@@ -45,11 +46,9 @@ async def get_max_allowed_grades_batch(
         return {item: 5 for item in grade_items}
 
     # 1. Загружаем все нужные лабы одним запросом
-    labs_query = select(Lab).where(and_(
-        Lab.subject_id == lesson.subject_id,
-        Lab.number.in_(work_numbers),
-        Lab.deleted_at.is_(None)
-    ))
+    labs_query = select(Lab).where(
+        and_(Lab.subject_id == lesson.subject_id, Lab.number.in_(work_numbers), Lab.deleted_at.is_(None))
+    )
     result = await db.execute(labs_query)
     labs = {lab.number: lab for lab in result.scalars().all()}
 
@@ -63,14 +62,13 @@ async def get_max_allowed_grades_batch(
     # 3. Загружаем EXCUSED статусы одним запросом
     excused_pairs: set[tuple[UUID, UUID]] = set()  # (student_id, lesson_id)
     if origin_lesson_ids and student_ids:
-        excused_query = select(
-            Attendance.student_id,
-            Attendance.lesson_id
-        ).where(and_(
-            Attendance.lesson_id.in_(origin_lesson_ids),
-            Attendance.student_id.in_(student_ids),
-            Attendance.status == AttendanceStatus.EXCUSED
-        ))
+        excused_query = select(Attendance.student_id, Attendance.lesson_id).where(
+            and_(
+                Attendance.lesson_id.in_(origin_lesson_ids),
+                Attendance.student_id.in_(student_ids),
+                Attendance.status == AttendanceStatus.EXCUSED,
+            )
+        )
         result = await db.execute(excused_query)
         excused_pairs = {(row[0], row[1]) for row in result.fetchall()}
 
@@ -87,13 +85,15 @@ async def get_max_allowed_grades_batch(
         min_date = min(ol.date for ol in origin_lessons.values())
         lessons_query = (
             select(Lesson.id, Lesson.date, Lesson.lesson_number)
-            .where(and_(
-                Lesson.group_id == lesson.group_id,
-                Lesson.subject_id == lesson.subject_id,
-                Lesson.lesson_type == 'LAB',
-                not Lesson.is_cancelled,
-                Lesson.date >= min_date
-            ))
+            .where(
+                and_(
+                    Lesson.group_id == lesson.group_id,
+                    Lesson.subject_id == lesson.subject_id,
+                    Lesson.lesson_type == "LAB",
+                    not Lesson.is_cancelled,
+                    Lesson.date >= min_date,
+                )
+            )
             .order_by(Lesson.date, Lesson.lesson_number)
         )
         result = await db.execute(lessons_query)

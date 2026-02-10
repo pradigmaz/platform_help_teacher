@@ -2,12 +2,14 @@
 PDF Service - генерация PDF из лекций через Playwright.
 Requirements: 6.1, 6.2, 6.3, 6.4, 6.5
 """
+
 import logging
 from uuid import UUID
 
 # Условный импорт Playwright (может отсутствовать в dev)
 try:
     from playwright.async_api import Browser, Page, async_playwright
+
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
@@ -38,8 +40,7 @@ class PDFService:
         """Lazy initialization браузера."""
         if not PLAYWRIGHT_AVAILABLE:
             raise RuntimeError(
-                "Playwright не установлен. PDF экспорт недоступен в dev режиме. "
-                "Используйте production Docker образ."
+                "Playwright не установлен. PDF экспорт недоступен в dev режиме. Используйте production Docker образ."
             )
 
         if self._browser is None or not self._browser.is_connected():
@@ -47,11 +48,11 @@ class PDFService:
             self._browser = await playwright.chromium.launch(
                 headless=True,
                 args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                ]
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                ],
             )
         return self._browser
 
@@ -68,7 +69,7 @@ class PDFService:
             cached = await redis.get(key)
             if cached:
                 logger.info(f"PDF cache hit for lecture {lecture_id}")
-                return cached.encode('latin-1')  # Redis decode_responses=True
+                return cached.encode("latin-1")  # Redis decode_responses=True
         except Exception as e:
             logger.warning(f"Redis cache get failed: {e}")
         return None
@@ -79,7 +80,7 @@ class PDFService:
             redis = await get_redis()
             key = self._cache_key(lecture_id, updated_at_hash)
             # Сохраняем как latin-1 строку (decode_responses=True)
-            await redis.setex(key, PDF_CACHE_TTL, pdf_bytes.decode('latin-1'))
+            await redis.setex(key, PDF_CACHE_TTL, pdf_bytes.decode("latin-1"))
             logger.info(f"PDF cached for lecture {lecture_id}")
         except Exception as e:
             logger.warning(f"Redis cache set failed: {e}")
@@ -109,11 +110,11 @@ class PDFService:
             render_url = f"{settings.FRONTEND_URL}/lectures/render/{lecture_id}?mode=pdf"
             logger.info(f"Generating PDF for lecture {lecture_id}, URL: {render_url}")
 
-            await page.goto(render_url, wait_until='networkidle')
+            await page.goto(render_url, wait_until="networkidle")
 
             # Ждём загрузки всех визуализаций (маркер .visualization-ready)
             try:
-                await page.wait_for_selector('.lecture-content', timeout=LECTURE_PDF_TIMEOUT_MS)
+                await page.wait_for_selector(".lecture-content", timeout=LECTURE_PDF_TIMEOUT_MS)
                 # Даём время на рендер визуализаций
                 await page.wait_for_timeout(LECTURE_PDF_RENDER_DELAY_MS)
             except Exception as e:
@@ -121,14 +122,9 @@ class PDFService:
 
             # Генерируем PDF
             pdf_bytes = await page.pdf(
-                format='A4',
+                format="A4",
                 print_background=True,
-                margin={
-                    'top': '1cm',
-                    'bottom': '1cm',
-                    'left': '1cm',
-                    'right': '1cm'
-                },
+                margin={"top": "1cm", "bottom": "1cm", "left": "1cm", "right": "1cm"},
                 scale=0.9,
             )
 

@@ -13,6 +13,7 @@ class StudentImport(BaseModel):
     username: str | None = None
     email: str | None = None
 
+
 # Студент в ответе группы
 class StudentInGroupResponse(BaseModel):
     id: UUID
@@ -47,6 +48,7 @@ class AssignSubgroupResponse(BaseModel):
 
 class ClearSubgroupsResponse(BaseModel):
     cleared: int
+
 
 # То, что присылает фронтенд при создании
 class GroupCreate(BaseModel):

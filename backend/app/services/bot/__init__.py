@@ -10,6 +10,7 @@
 - fsm: FSM диалоги (ввод ФИО)
 - schedule: Расписание преподавателя
 """
+
 from .auth import generate_otp, generate_relink_code
 from .commands import process_code_command, process_start_command
 from .constants import FSM_TTL, RELINK_TTL, Platform

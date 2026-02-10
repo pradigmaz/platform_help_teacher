@@ -2,6 +2,7 @@
 Telegram-specific сервис.
 Делегирует основную логику в bot_service.
 """
+
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,61 +23,27 @@ async def generate_otp(telegram_id: int) -> str:
     return await bot_service.generate_otp(telegram_id, "telegram")
 
 
-async def process_start_command(
-    db: AsyncSession,
-    social_id: int,
-    username: str | None
-) -> str:
+async def process_start_command(db: AsyncSession, social_id: int, username: str | None) -> str:
     """Обработка команды /start для Telegram (только приветствие/OTP)."""
-    return await bot_service.process_start_command(
-        db=db,
-        social_id=social_id,
-        username=username,
-        platform="telegram"
-    )
+    return await bot_service.process_start_command(db=db, social_id=social_id, username=username, platform="telegram")
 
 
 async def process_code_command(
-    db: AsyncSession,
-    social_id: int,
-    full_name: str,
-    username: str | None,
-    code: str
+    db: AsyncSession, social_id: int, full_name: str, username: str | None, code: str
 ) -> str:
     """Обработка команды /code для Telegram (ввод кодов)."""
     return await bot_service.process_code_command(
-        db=db,
-        social_id=social_id,
-        full_name=full_name,
-        username=username,
-        code=code,
-        platform="telegram"
+        db=db, social_id=social_id, full_name=full_name, username=username, code=code, platform="telegram"
     )
 
 
-async def process_text_message(
-    db: AsyncSession,
-    social_id: int,
-    text: str,
-    username: str | None
-) -> str | None:
+async def process_text_message(db: AsyncSession, social_id: int, text: str, username: str | None) -> str | None:
     """Обработка текстовых сообщений для Telegram."""
     return await bot_service.process_text_message(
-        db=db,
-        social_id=social_id,
-        text=text,
-        username=username,
-        platform="telegram"
+        db=db, social_id=social_id, text=text, username=username, platform="telegram"
     )
 
 
-async def process_schedule_command(
-    db: AsyncSession,
-    social_id: int
-) -> str | None:
+async def process_schedule_command(db: AsyncSession, social_id: int) -> str | None:
     """Обработка команды /schedule для Telegram (расписание преподавателя)."""
-    return await bot_service.process_schedule_command(
-        db=db,
-        social_id=social_id,
-        platform="telegram"
-    )
+    return await bot_service.process_schedule_command(db=db, social_id=social_id, platform="telegram")

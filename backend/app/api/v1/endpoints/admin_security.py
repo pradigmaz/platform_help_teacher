@@ -1,6 +1,7 @@
 """
 Admin Security Endpoints — управление системой безопасности.
 """
+
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -20,8 +21,10 @@ router = APIRouter()
 
 # === Schemas ===
 
+
 class StrikeDetail(BaseModel):
     """Детали одного страйка."""
+
     timestamp: str
     url: str
     attack_type: str
@@ -31,6 +34,7 @@ class StrikeDetail(BaseModel):
 
 class SecurityStrikesResponse(BaseModel):
     """Ответ со страйками пользователя/IP."""
+
     identifier: str
     strike_count: int
     is_banned: bool
@@ -40,6 +44,7 @@ class SecurityStrikesResponse(BaseModel):
 
 class SecurityStatsResponse(BaseModel):
     """Статистика безопасности."""
+
     total_bans: int
     active_bans: int
     strikes_today: int
@@ -48,18 +53,21 @@ class SecurityStatsResponse(BaseModel):
 
 class ClearStrikesRequest(BaseModel):
     """Запрос на очистку страйков."""
+
     identifier: str  # "ip:1.2.3.4" или "user:uuid"
     reason: str | None = None
 
 
 class ClearStrikesResponse(BaseModel):
     """Ответ на очистку страйков."""
+
     success: bool
     identifier: str
     message: str
 
 
 # === Endpoints ===
+
 
 @router.get("/security/strikes/{identifier}", response_model=SecurityStrikesResponse)
 async def get_user_strikes(
@@ -142,18 +150,20 @@ async def list_active_bans(
             break
 
     # Получаем детали для каждого бана
-    for key in ban_keys[skip:skip + limit]:
+    for key in ban_keys[skip : skip + limit]:
         identifier = key.replace("sec:ban:", "")
         count, details = await detector.get_strikes(identifier)
         ban_ttl = await redis.ttl(key)
 
-        results.append(SecurityStrikesResponse(
-            identifier=identifier,
-            strike_count=count,
-            is_banned=True,
-            ban_ttl=ban_ttl,
-            strikes=[StrikeDetail(**d) for d in details],
-        ))
+        results.append(
+            SecurityStrikesResponse(
+                identifier=identifier,
+                strike_count=count,
+                is_banned=True,
+                ban_ttl=ban_ttl,
+                strikes=[StrikeDetail(**d) for d in details],
+            )
+        )
 
     return results
 
@@ -193,6 +203,7 @@ async def get_security_stats(
             total_strikes += len(details)
 
             import json
+
             for d in details:
                 try:
                     data = json.loads(d)
@@ -214,6 +225,7 @@ async def get_security_stats(
 
 class UserInfoResponse(BaseModel):
     """Краткая информация о пользователе для идентификации."""
+
     user_id: str
     full_name: str
     group_name: str | None = None
@@ -234,6 +246,7 @@ async def get_user_info_for_security(
 
     try:
         from uuid import UUID
+
         uuid_obj = UUID(user_id)
     except ValueError:
         raise HTTPException(status_code=400, detail=em.INVALID_UUID_FORMAT)

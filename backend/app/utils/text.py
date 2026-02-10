@@ -2,6 +2,7 @@
 Утилиты для работы с текстом.
 Единая точка для нормализации ФИО и других текстовых операций.
 """
+
 import re
 
 
@@ -12,7 +13,7 @@ def normalize_fio(text: str) -> str:
     """
     if not text:
         return ""
-    return ' '.join(word.capitalize() for word in text.strip().split())
+    return " ".join(word.capitalize() for word in text.strip().split())
 
 
 def normalize_fio_for_comparison(text: str) -> str:
@@ -21,10 +22,10 @@ def normalize_fio_for_comparison(text: str) -> str:
     """
     if not text:
         return ""
-    return ' '.join(text.lower().split())
+    return " ".join(text.lower().split())
 
 
-def sanitize_name(raw_name: str, pattern: str = r'[^а-яёА-ЯЁa-zA-Z\s\-]') -> str | None:
+def sanitize_name(raw_name: str, pattern: str = r"[^а-яёА-ЯЁa-zA-Z\s\-]") -> str | None:
     """
     Очищает имя от мусора (цифры, спецсимволы).
     Возвращает None если результат невалидный.
@@ -32,7 +33,7 @@ def sanitize_name(raw_name: str, pattern: str = r'[^а-яёА-ЯЁa-zA-Z\s\-]') 
     if not isinstance(raw_name, str):
         return None
 
-    clean = re.sub(pattern, ' ', raw_name)
+    clean = re.sub(pattern, " ", raw_name)
     clean = " ".join(clean.split())
 
     parts = [p.strip().capitalize() for p in clean.split() if len(p.strip()) > 1]

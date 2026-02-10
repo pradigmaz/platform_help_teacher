@@ -42,9 +42,9 @@ log_dir = "/app/logs"
 os.makedirs(log_dir, exist_ok=True)
 file_handler = RotatingFileHandler(
     f"{log_dir}/app.log",
-    maxBytes=10*1024*1024,  # 10MB
+    maxBytes=10 * 1024 * 1024,  # 10MB
     backupCount=5,
-    encoding="utf-8"
+    encoding="utf-8",
 )
 file_handler.setFormatter(logging.Formatter(log_format))
 file_handler.setLevel(log_level)
@@ -53,6 +53,7 @@ file_handler.setLevel(log_level)
 logging.getLogger().addHandler(file_handler)
 
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -69,7 +70,7 @@ async def lifespan(app: FastAPI):
                 url=webhook_url,
                 secret_token=settings.TELEGRAM_WEBHOOK_SECRET,
                 drop_pending_updates=True,
-                allowed_updates=["message", "callback_query"]
+                allowed_updates=["message", "callback_query"],
             )
             logger.info("Webhook registered successfully.")
         except Exception as e:
@@ -93,7 +94,7 @@ async def lifespan(app: FastAPI):
                         full_name="Super Admin",
                         role=UserRole.ADMIN,
                         is_active=True,
-                        group_id=None
+                        group_id=None,
                     )
                     db.add(new_superuser)
                     await db.commit()
@@ -110,6 +111,7 @@ async def lifespan(app: FastAPI):
     # --- LOAD ADMIN IDS FOR RATE LIMIT BYPASS ---
     async with AsyncSessionLocal() as db:
         from app.services.rate_limit.service import load_admin_ids_from_db
+
         await load_admin_ids_from_db(db)
 
     yield
@@ -121,6 +123,7 @@ async def lifespan(app: FastAPI):
     await pdf_service.close()
     with suppress(Exception):
         await bot.delete_webhook()
+
 
 # Отключаем Swagger/OpenAPI в production для безопасности
 _docs_url = "/docs" if settings.ENVIRONMENT == "development" else None
@@ -139,6 +142,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
 # CSRF Protection
 @app.exception_handler(CsrfProtectError)
 def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
@@ -156,10 +160,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     ]
     set_audit_extra(request, "validation_errors", error_details)
 
-    return JSONResponse(
-        status_code=422,
-        content={"detail": exc.errors()}
-    )
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
 # HTTP Exception Handler — логирует 4xx ошибки в аудит
@@ -169,23 +170,16 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     if 400 <= exc.status_code < 500:
         set_audit_extra(request, "error_detail", str(exc.detail)[:200])
 
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail}
-    )
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 # Global Exception Handler — ловит все необработанные ошибки
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Логирует все необработанные исключения."""
-    logger.exception(
-        f"Unhandled exception on {request.method} {request.url.path}: {exc}"
-    )
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"}
-    )
+    logger.exception(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -216,6 +210,7 @@ app.add_middleware(CSRFMiddleware)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 app.include_router(api_router, prefix="/api/v1")
+
 
 @app.get("/health")
 async def health_check():

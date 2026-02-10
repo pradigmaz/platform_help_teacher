@@ -1,6 +1,7 @@
 """
 Декораторы для добавления семантики в аудит.
 """
+
 import contextlib
 import functools
 import logging
@@ -34,13 +35,14 @@ def audit_action(
         async def mark_lab_ready(lab_id: UUID, request: Request, ...):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
             # Ищем Request в аргументах
             request = _find_request(args, kwargs)
 
-            if request and hasattr(request.state, 'audit_context'):
+            if request and hasattr(request.state, "audit_context"):
                 ctx = request.state.audit_context
                 ctx.action_type = action_type.value
 
@@ -57,15 +59,17 @@ def audit_action(
                             ctx.entity_id = UUID(entity_id)
 
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 def _find_request(args: tuple, kwargs: dict) -> Request | None:
     """Найти объект Request в аргументах функции."""
     # Проверяем kwargs
-    if 'request' in kwargs:
-        return kwargs['request']
+    if "request" in kwargs:
+        return kwargs["request"]
 
     # Проверяем args
     for arg in args:

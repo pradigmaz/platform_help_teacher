@@ -1,4 +1,5 @@
 """Student activities endpoint — история начислений/штрафов."""
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request

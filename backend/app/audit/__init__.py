@@ -2,6 +2,7 @@
 Student Audit System - полный сбор данных о действиях.
 Тихий режим: студенты не знают о логировании.
 """
+
 from .bot_audit import (
     log_bot_action,
     log_bot_auth,

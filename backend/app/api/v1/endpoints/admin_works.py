@@ -1,4 +1,5 @@
 """API эндпоинты для управления работами (контрольные, самостоятельные, коллоквиумы, проекты)."""
+
 from datetime import datetime
 from uuid import UUID
 
@@ -61,7 +62,7 @@ async def create_work(
         description=work_in.description,
         max_grade=work_in.max_grade,
         deadline=work_in.deadline,
-        s3_key=work_in.s3_key
+        s3_key=work_in.s3_key,
     )
     return work_obj
 
@@ -114,7 +115,7 @@ async def update_work(
         description=work_in.description,
         max_grade=work_in.max_grade,
         deadline=work_in.deadline,
-        s3_key=work_in.s3_key
+        s3_key=work_in.s3_key,
     )
     return work_obj
 

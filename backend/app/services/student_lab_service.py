@@ -1,4 +1,5 @@
 """Сервис бизнес-логики для студенческих лабораторных работ."""
+
 import logging
 from datetime import datetime
 from uuid import UUID
@@ -31,34 +32,27 @@ class StudentLabService:
         """Получить лабу по ID."""
         return await db.get(Lab, lab_id)
 
-    async def get_user_submissions(
-        self, db: AsyncSession, user_id: UUID
-    ) -> dict[UUID, Submission]:
+    async def get_user_submissions(self, db: AsyncSession, user_id: UUID) -> dict[UUID, Submission]:
         """Получить все submissions пользователя как dict {lab_id: submission}."""
-        result = await db.execute(
-            select(Submission).where(Submission.user_id == user_id)
-        )
+        result = await db.execute(select(Submission).where(Submission.user_id == user_id))
         return {s.lab_id: s for s in result.scalars().all()}
 
-    async def get_user_submission_for_lab(
-        self, db: AsyncSession, user_id: UUID, lab_id: UUID
-    ) -> Submission | None:
+    async def get_user_submission_for_lab(self, db: AsyncSession, user_id: UUID, lab_id: UUID) -> Submission | None:
         """Получить последнюю submission пользователя для конкретной лабы."""
         result = await db.execute(
-            select(Submission).where(
+            select(Submission)
+            .where(
                 Submission.user_id == user_id,
                 Submission.lab_id == lab_id,
-            ).order_by(Submission.created_at.desc()).limit(1)
+            )
+            .order_by(Submission.created_at.desc())
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
-    async def get_user_journal_grades(
-        self, db: AsyncSession, student_id: UUID
-    ) -> dict[int, LessonGrade]:
+    async def get_user_journal_grades(self, db: AsyncSession, student_id: UUID) -> dict[int, LessonGrade]:
         """Получить лучшие оценки из журнала по work_number."""
-        result = await db.execute(
-            select(LessonGrade).where(LessonGrade.student_id == student_id)
-        )
+        result = await db.execute(select(LessonGrade).where(LessonGrade.student_id == student_id))
         journal_grades: dict[int, LessonGrade] = {}
         for g in result.scalars().all():
             if g.work_number is not None:
@@ -66,9 +60,7 @@ class StudentLabService:
                     journal_grades[g.work_number] = g
         return journal_grades
 
-    async def get_student_position(
-        self, db: AsyncSession, user: User
-    ) -> int | None:
+    async def get_student_position(self, db: AsyncSession, user: User) -> int | None:
         """Получить позицию студента в списке группы."""
         if not user.group_id:
             return None
@@ -83,9 +75,7 @@ class StudentLabService:
                 return i + 1
         return None
 
-    async def check_lab_availability(
-        self, db: AsyncSession, user_id: UUID, lab: Lab
-    ) -> bool:
+    async def check_lab_availability(self, db: AsyncSession, user_id: UUID, lab: Lab) -> bool:
         """Проверить доступность лабы (предыдущая сдана)."""
         if lab.number == 1 or not lab.is_sequential:
             return True
@@ -139,9 +129,7 @@ class StudentLabService:
         logger.info(f"Student {user_id} marked lab {lab_id} as ready, variant={variant_number}")
         return sub
 
-    async def cancel_ready(
-        self, db: AsyncSession, user_id: UUID, lab_id: UUID
-    ) -> None:
+    async def cancel_ready(self, db: AsyncSession, user_id: UUID, lab_id: UUID) -> None:
         """Отменить готовность к сдаче."""
         sub = await self.get_user_submission_for_lab(db, user_id, lab_id)
         if not sub:

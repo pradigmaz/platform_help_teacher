@@ -1,6 +1,7 @@
 """
 Базовые хелперы для сбора данных отчётов.
 """
+
 from uuid import UUID
 
 from sqlalchemy import select
@@ -29,11 +30,7 @@ async def get_group_students(db: AsyncSession, group_id: UUID) -> list[User]:
     """Получить активных студентов группы."""
     query = (
         select(User)
-        .where(
-            User.group_id == group_id,
-            User.role == UserRole.STUDENT,
-            User.is_active
-        )
+        .where(User.group_id == group_id, User.role == UserRole.STUDENT, User.is_active)
         .order_by(User.full_name)
     )
     result = await db.execute(query)
@@ -42,7 +39,7 @@ async def get_group_students(db: AsyncSession, group_id: UUID) -> list[User]:
 
 def get_filtered_teacher_contacts(
     teacher: User,
-    target: str  # "student" or "report"
+    target: str,  # "student" or "report"
 ) -> PublicTeacherContacts | None:
     """
     Фильтрация контактов преподавателя по видимости.

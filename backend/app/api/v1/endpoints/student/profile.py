@@ -1,4 +1,5 @@
 """Student profile endpoint."""
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request

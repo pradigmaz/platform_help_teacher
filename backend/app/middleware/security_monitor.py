@@ -1,6 +1,7 @@
 """
 Security Monitor Middleware — детекция атак в реальном времени.
 """
+
 import json
 import logging
 from typing import Any
@@ -117,7 +118,7 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
             headers={
                 "X-Security-Warning": "banned",
                 "X-Security-Strike": str(result.strike_count),
-            }
+            },
         )
 
     def _get_client_ip(self, request: Request) -> str | None:
@@ -142,9 +143,7 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
             return None
 
         try:
-            payload = jwt.decode(
-                token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-            )
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             user_id_str = payload.get("sub")
             if user_id_str:
                 return UUID(user_id_str)

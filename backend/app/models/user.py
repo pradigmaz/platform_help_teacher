@@ -15,11 +15,13 @@ if TYPE_CHECKING:
     from .submission import Submission
     from .work_submission import WorkSubmission
 
+
 # Enum для ролей - никаких хардкодных строк "admin" в коде!
 class UserRole(str, enum.Enum):
     STUDENT = "student"
     TEACHER = "teacher"
     ADMIN = "admin"
+
 
 class User(Base, TimestampMixin):
     __tablename__ = "users"
@@ -52,20 +54,10 @@ class User(Base, TimestampMixin):
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Контакты преподавателя (только для TEACHER/ADMIN)
-    contacts: Mapped[dict] = mapped_column(
-        JSONB,
-        nullable=False,
-        default=dict,
-        server_default='{}'
-    )
+    contacts: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
 
     # Настройки видимости контактов
-    contact_visibility: Mapped[dict] = mapped_column(
-        JSONB,
-        nullable=False,
-        default=dict,
-        server_default='{}'
-    )
+    contact_visibility: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
 
     # Настройки преподавателя (только для TEACHER/ADMIN)
     # hide_previous_semester: bool - скрывать прошлый семестр от студентов
@@ -73,7 +65,7 @@ class User(Base, TimestampMixin):
         JSONB,
         nullable=False,
         default=lambda: {"hide_previous_semester": True},
-        server_default='{"hide_previous_semester": true}'
+        server_default='{"hide_previous_semester": true}',
     )
 
     # Relationships

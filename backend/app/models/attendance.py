@@ -25,6 +25,7 @@ class AttendanceStatus(str, enum.Enum):
 
 class LessonType(str, enum.Enum):
     """Тип занятия для посещаемости"""
+
     LECTURE = "lecture"
     PRACTICE = "practice"
     LAB = "lab"
@@ -42,17 +43,13 @@ class Attendance(Base, TimestampMixin):
     status: Mapped[AttendanceStatus] = mapped_column(
         SAEnum(AttendanceStatus, name="attendance_status_enum", create_constraint=False, native_enum=False),
         default=AttendanceStatus.ABSENT,
-        nullable=False
+        nullable=False,
     )
 
     # Новые поля для связи с расписанием
-    lesson_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("lessons.id", ondelete="SET NULL"),
-        nullable=True
-    )
+    lesson_id: Mapped[UUID | None] = mapped_column(ForeignKey("lessons.id", ondelete="SET NULL"), nullable=True)
     lesson_type: Mapped[LessonType | None] = mapped_column(
-        SAEnum(LessonType, name="attendancelessontype", create_constraint=False, native_enum=False),
-        nullable=True
+        SAEnum(LessonType, name="attendancelessontype", create_constraint=False, native_enum=False), nullable=True
     )
     lesson_number: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Номер пары
     subgroup: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Подгруппа
@@ -64,7 +61,7 @@ class Attendance(Base, TimestampMixin):
     lesson: Mapped[Optional["Lesson"]] = relationship()
 
     __table_args__ = (
-        UniqueConstraint('student_id', 'date', 'lesson_number', name='uq_attendance_student_date_lesson'),
-        Index('idx_attendance_group_date', 'group_id', 'date'),
-        Index('idx_attendance_lesson', 'lesson_id'),
+        UniqueConstraint("student_id", "date", "lesson_number", name="uq_attendance_student_date_lesson"),
+        Index("idx_attendance_group_date", "group_id", "date"),
+        Index("idx_attendance_lesson", "lesson_id"),
     )

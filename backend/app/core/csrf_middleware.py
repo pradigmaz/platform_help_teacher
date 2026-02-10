@@ -2,6 +2,7 @@
 CSRF Middleware для защиты мутирующих запросов.
 Применяется ко всем POST/PUT/DELETE/PATCH запросам.
 """
+
 import logging
 from collections.abc import Callable
 
@@ -16,15 +17,15 @@ logger = logging.getLogger(__name__)
 # Endpoints исключённые из CSRF проверки
 CSRF_EXEMPT_PATHS: set[str] = {
     "/api/v1/webhooks/telegram",  # Telegram webhook (проверяется по IP + secret)
-    "/api/v1/webhooks/vk",        # VK webhook
-    "/api/v1/auth/csrf-token",    # Получение CSRF токена
-    "/api/v1/admin/schedule/parse",      # Парсинг расписания (защищён JWT)
+    "/api/v1/webhooks/vk",  # VK webhook
+    "/api/v1/auth/csrf-token",  # Получение CSRF токена
+    "/api/v1/admin/schedule/parse",  # Парсинг расписания (защищён JWT)
     "/api/v1/admin/schedule/parse-now",  # Ручной парсинг (защищён JWT)
     "/api/v1/admin/schedule/parser-config",  # Конфиг парсера (защищён JWT)
-    "/api/v1/admin/backups",      # Бэкапы (защищены JWT)
-    "/health",                     # Health check
-    "/docs",                       # Swagger
-    "/openapi.json",              # OpenAPI spec
+    "/api/v1/admin/backups",  # Бэкапы (защищены JWT)
+    "/health",  # Health check
+    "/docs",  # Swagger
+    "/openapi.json",  # OpenAPI spec
 }
 
 # Методы требующие CSRF защиты
@@ -59,16 +60,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 f"IP: {request.client.host if request.client else 'unknown'} | "
                 f"Error: {e.message}"
             )
-            return JSONResponse(
-                status_code=e.status_code,
-                content={"detail": e.message}
-            )
+            return JSONResponse(status_code=e.status_code, content={"detail": e.message})
         except Exception as e:
             logger.error(f"CSRF middleware error: {e}")
-            return JSONResponse(
-                status_code=403,
-                content={"detail": "CSRF validation error"}
-            )
+            return JSONResponse(status_code=403, content={"detail": "CSRF validation error"})
 
         return await call_next(request)
 

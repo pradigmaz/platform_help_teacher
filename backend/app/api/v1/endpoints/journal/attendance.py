@@ -1,6 +1,7 @@
 """
 API endpoints для посещаемости журнала.
 """
+
 import logging
 from uuid import UUID
 
@@ -24,7 +25,7 @@ async def get_journal_attendance(
     group_id: UUID,
     lesson_ids: list[UUID] = Query(default=[]),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """Получить посещаемость для списка занятий."""
     if not lesson_ids:
@@ -32,10 +33,7 @@ async def get_journal_attendance(
 
     result = await db.execute(
         select(Attendance)
-        .where(and_(
-            Attendance.group_id == group_id,
-            Attendance.lesson_id.in_(lesson_ids)
-        ))
+        .where(and_(Attendance.group_id == group_id, Attendance.lesson_id.in_(lesson_ids)))
         .options(selectinload(Attendance.student))
     )
     attendance_list = result.scalars().all()
@@ -46,7 +44,7 @@ async def get_journal_attendance(
             "lesson_id": str(a.lesson_id) if a.lesson_id else None,
             "student_id": str(a.student_id),
             "student_name": a.student.full_name if a.student else None,
-            "status": a.status.value if hasattr(a.status, 'value') else a.status,
+            "status": a.status.value if hasattr(a.status, "value") else a.status,
             "date": a.date.isoformat(),
             "lesson_number": a.lesson_number,
         }
@@ -60,30 +58,23 @@ async def bulk_update_attendance(
     request: Request,
     data: BulkAttendanceUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """Массовое обновление посещаемости."""
     lesson_result = await db.execute(
-        select(Lesson)
-        .where(Lesson.id == data.lesson_id)
-        .options(selectinload(Lesson.group))
+        select(Lesson).where(Lesson.id == data.lesson_id).options(selectinload(Lesson.group))
     )
     lesson = lesson_result.scalar_one_or_none()
     if not lesson:
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
 
     # Проверка принадлежности студентов к группе
-    group_result = await db.execute(
-        select(User.id).where(User.group_id == lesson.group_id)
-    )
+    group_result = await db.execute(select(User.id).where(User.group_id == lesson.group_id))
     group_student_ids = {row[0] for row in group_result.fetchall()}
 
     for record in data.records:
         if record.student_id not in group_student_ids:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Student {record.student_id} not in group {lesson.group_id}"
-            )
+            raise HTTPException(status_code=400, detail=f"Student {record.student_id} not in group {lesson.group_id}")
 
     updated = []
     for record in data.records:
@@ -91,11 +82,13 @@ async def bulk_update_attendance(
 
         # Проверяем по student_id, date, lesson_number (соответствует UniqueConstraint)
         existing_result = await db.execute(
-            select(Attendance).where(and_(
-                Attendance.student_id == record.student_id,
-                Attendance.date == lesson.date,
-                Attendance.lesson_number == lesson.lesson_number
-            ))
+            select(Attendance).where(
+                and_(
+                    Attendance.student_id == record.student_id,
+                    Attendance.date == lesson.date,
+                    Attendance.lesson_number == lesson.lesson_number,
+                )
+            )
         )
         existing = existing_result.scalar_one_or_none()
 
@@ -113,7 +106,7 @@ async def bulk_update_attendance(
                 lesson_type=lesson.lesson_type,
                 subgroup=lesson.subgroup,
                 status=status,
-                created_by=current_user.id
+                created_by=current_user.id,
             )
             db.add(new_attendance)
             updated.append(new_attendance)
@@ -129,14 +122,11 @@ async def delete_attendance(
     lesson_id: UUID = Query(...),
     student_id: UUID = Query(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_teacher)
+    current_user: User = Depends(get_current_teacher),
 ):
     """Удалить запись посещаемости по lesson_id и student_id."""
     result = await db.execute(
-        select(Attendance).where(and_(
-            Attendance.lesson_id == lesson_id,
-            Attendance.student_id == student_id
-        ))
+        select(Attendance).where(and_(Attendance.lesson_id == lesson_id, Attendance.student_id == student_id))
     )
     attendance = result.scalar_one_or_none()
     if not attendance:

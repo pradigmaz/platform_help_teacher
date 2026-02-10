@@ -16,9 +16,10 @@ if TYPE_CHECKING:
 
 class GradingScale(str, Enum):
     """Система оценивания"""
-    FIVE = "5"      # 5-балльная
-    TEN = "10"      # 10-балльная
-    HUNDRED = "100" # 100-балльная
+
+    FIVE = "5"  # 5-балльная
+    TEN = "10"  # 10-балльная
+    HUNDRED = "100"  # 100-балльная
 
 
 class Group(Base, TimestampMixin):
@@ -45,15 +46,13 @@ class Group(Base, TimestampMixin):
     # Настройки лабораторных
     labs_count: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     grading_scale: Mapped[GradingScale | None] = mapped_column(
-        SQLEnum(GradingScale, name='gradingscale', create_constraint=False, native_enum=False),
-        nullable=True, default=GradingScale.TEN
+        SQLEnum(GradingScale, name="gradingscale", create_constraint=False, native_enum=False),
+        nullable=True,
+        default=GradingScale.TEN,
     )
     default_max_grade: Mapped[int | None] = mapped_column(Integer, nullable=True, default=10)
 
     # Relationships
     users: Mapped[list["User"]] = relationship(back_populates="group")
 
-    lectures: Mapped[list["Lecture"]] = relationship(
-        secondary="lecture_groups",
-        back_populates="groups"
-    )
+    lectures: Mapped[list["Lecture"]] = relationship(secondary="lecture_groups", back_populates="groups")

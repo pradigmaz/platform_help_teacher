@@ -1,4 +1,5 @@
 """Attendance CRUD operations."""
+
 import logging
 from datetime import date
 from uuid import UUID
@@ -28,7 +29,7 @@ async def create_attendance(
     attendance_date: date,
     status: AttendanceStatus,
     created_by: UUID | None = None,
-    lesson_number: int | None = None
+    lesson_number: int | None = None,
 ) -> Attendance:
     """
     Создание записи посещаемости с валидацией.
@@ -68,7 +69,7 @@ async def create_attendance(
         date=attendance_date,
         status=status,
         created_by=created_by,
-        lesson_number=lesson_number
+        lesson_number=lesson_number,
     )
     db.add(attendance)
 
@@ -77,21 +78,14 @@ async def create_attendance(
             await db.flush()
     except IntegrityError as e:
         if "uq_attendance_student_date" in str(e):
-            raise DuplicateAttendanceError(
-                f"Запись для студента {student_id} на {attendance_date} уже существует"
-            )
+            raise DuplicateAttendanceError(f"Запись для студента {student_id} на {attendance_date} уже существует")
         raise
 
     logger.info(f"Created attendance: student={student_id}, date={attendance_date}, status={status}")
     return attendance
 
 
-
-async def update_attendance(
-    db: AsyncSession,
-    attendance_id: UUID,
-    status: AttendanceStatus
-) -> Attendance | None:
+async def update_attendance(db: AsyncSession, attendance_id: UUID, status: AttendanceStatus) -> Attendance | None:
     """
     Обновление статуса посещаемости.
 
@@ -124,7 +118,7 @@ async def upsert_attendance(
     attendance_date: date,
     status: AttendanceStatus,
     created_by: UUID | None = None,
-    lesson_number: int | None = None
+    lesson_number: int | None = None,
 ) -> Attendance:
     """
     Создание или обновление записи посещаемости.
@@ -146,7 +140,9 @@ async def upsert_attendance(
     if existing:
         existing.status = status
         await db.flush()
-        logger.info(f"Updated attendance: student={student_id}, date={attendance_date}, lesson={lesson_number}, status={status}")
+        logger.info(
+            f"Updated attendance: student={student_id}, date={attendance_date}, lesson={lesson_number}, status={status}"
+        )
         return existing
 
     return await create_attendance(
@@ -156,14 +152,11 @@ async def upsert_attendance(
         attendance_date=attendance_date,
         status=status,
         created_by=created_by,
-        lesson_number=lesson_number
+        lesson_number=lesson_number,
     )
 
 
-async def delete_attendance(
-    db: AsyncSession,
-    attendance_id: UUID
-) -> bool:
+async def delete_attendance(db: AsyncSession, attendance_id: UUID) -> bool:
     """
     Удаление записи посещаемости.
 
@@ -194,7 +187,7 @@ async def bulk_create_attendance(
     attendance_date: date,
     student_statuses: list[tuple[UUID, AttendanceStatus]],
     created_by: UUID | None = None,
-    lesson_number: int | None = None
+    lesson_number: int | None = None,
 ) -> list[Attendance]:
     """
     Массовое создание записей посещаемости для группы.
@@ -222,7 +215,7 @@ async def bulk_create_attendance(
                     attendance_date=attendance_date,
                     status=status,
                     created_by=created_by,
-                    lesson_number=lesson_number
+                    lesson_number=lesson_number,
                 )
                 created_records.append(attendance)
         except (AttendanceValidationError, IntegrityError) as e:

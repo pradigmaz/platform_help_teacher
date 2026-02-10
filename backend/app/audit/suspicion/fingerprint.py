@@ -1,4 +1,5 @@
 """Fingerprint extraction и matching utilities."""
+
 from typing import Any
 
 from .constants import (

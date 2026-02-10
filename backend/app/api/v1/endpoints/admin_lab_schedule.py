@@ -1,4 +1,5 @@
 """Lab schedule attachment endpoints."""
+
 import logging
 from datetime import date, timedelta
 from uuid import UUID
@@ -41,6 +42,7 @@ class GroupSlots(BaseModel):
 
 class AttachmentBlockInfo(BaseModel):
     """Информация о блокировке привязки."""
+
     blocking_lab_number: int
     can_attach_from: date | None
     message: str
@@ -99,19 +101,19 @@ async def get_schedule_slots(
     for lesson in lessons:
         if lesson.group_id not in groups_map:
             groups_map[lesson.group_id] = GroupSlots(
-                group_id=str(lesson.group_id),
-                group_name=lesson.group.name if lesson.group else "???",
-                slots=[]
+                group_id=str(lesson.group_id), group_name=lesson.group.name if lesson.group else "???", slots=[]
             )
 
-        groups_map[lesson.group_id].slots.append(ScheduleSlot(
-            lesson_id=str(lesson.id),
-            date=lesson.date,
-            lesson_number=lesson.lesson_number,
-            subgroup=lesson.subgroup,
-            current_work_number=lesson.work_number,
-            is_attached=lesson.work_number == lab.number,
-        ))
+        groups_map[lesson.group_id].slots.append(
+            ScheduleSlot(
+                lesson_id=str(lesson.id),
+                date=lesson.date,
+                lesson_number=lesson.lesson_number,
+                subgroup=lesson.subgroup,
+                current_work_number=lesson.work_number,
+                is_attached=lesson.work_number == lab.number,
+            )
+        )
 
     # Проверяем блокировку привязки для каждой группы
     attachment_blocked = None
@@ -123,19 +125,17 @@ async def get_schedule_slots(
             lab_to_attach=lab,
             target_lesson_date=first_lesson.date,
             group_id=first_lesson.group_id,
-            subject_id=lab.subject_id
+            subject_id=lab.subject_id,
         )
         if not validation.is_valid:
             attachment_blocked = AttachmentBlockInfo(
                 blocking_lab_number=validation.blocking_lab_number,
                 can_attach_from=validation.can_attach_from,
-                message=validation.message
+                message=validation.message,
             )
 
     return ScheduleSlotsResponse(
-        lab_number=lab.number,
-        groups=list(groups_map.values()),
-        attachment_blocked=attachment_blocked
+        lab_number=lab.number, groups=list(groups_map.values()), attachment_blocked=attachment_blocked
     )
 
 
@@ -167,7 +167,7 @@ async def attach_to_lessons(
         lab_to_attach=lab,
         target_lesson_date=first_lesson.date,
         group_id=first_lesson.group_id,
-        subject_id=lab.subject_id
+        subject_id=lab.subject_id,
     )
 
     if not validation.is_valid:
@@ -177,8 +177,8 @@ async def attach_to_lessons(
                 "error": "previous_lab_active",
                 "blocking_lab_number": validation.blocking_lab_number,
                 "can_attach_from": validation.can_attach_from.isoformat() if validation.can_attach_from else None,
-                "message": validation.message
-            }
+                "message": validation.message,
+            },
         )
 
     # Update work_number for selected lessons

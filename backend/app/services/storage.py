@@ -11,9 +11,7 @@ from app.utils.file_validation import validate_filename, validate_magic_bytes
 logger = logging.getLogger(__name__)
 
 
-def validate_file(
-    filename: str, content_type: str = None, content: bytes = None
-) -> str:
+def validate_file(filename: str, content_type: str = None, content: bytes = None) -> str:
     """
     Validate file extension, MIME type, and magic bytes.
 
@@ -114,9 +112,7 @@ class StorageService:
                 Params=params,
                 ExpiresIn=self.expiry,
             )
-        logger.info(
-            f"[Attachment] Presigned URL generated successfully for: {object_name}"
-        )
+        logger.info(f"[Attachment] Presigned URL generated successfully for: {object_name}")
         return url
 
     async def create_presigned_download_url(self, object_name: str) -> str:
@@ -129,14 +125,10 @@ class StorageService:
                     Params={"Bucket": self.bucket, "Key": object_name},
                     ExpiresIn=self.expiry,
                 )
-                logger.info(
-                    f"[Attachment] Presigned download URL generated successfully for: {object_name}"
-                )
+                logger.info(f"[Attachment] Presigned download URL generated successfully for: {object_name}")
                 return url
             except Exception as e:
-                logger.error(
-                    f"[Attachment] Failed to generate download URL for {object_name}: {e}"
-                )
+                logger.error(f"[Attachment] Failed to generate download URL for {object_name}: {e}")
                 raise
 
     async def delete_object(self, object_name: str) -> bool:

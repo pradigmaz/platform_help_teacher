@@ -1,4 +1,5 @@
 """Attendance CRUD operations."""
+
 from .crud import (
     bulk_create_attendance,
     create_attendance,

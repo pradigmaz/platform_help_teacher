@@ -2,6 +2,7 @@
 HTML санитизация для защиты от XSS.
 Используется для очистки контента из Tiptap/Lexical редакторов.
 """
+
 import logging
 from typing import Any
 
@@ -12,49 +13,99 @@ logger = logging.getLogger(__name__)
 # Разрешённые HTML теги для редактора лекций
 ALLOWED_TAGS = [
     # Структура
-    'p', 'br', 'hr', 'div', 'span',
+    "p",
+    "br",
+    "hr",
+    "div",
+    "span",
     # Заголовки
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
     # Форматирование
-    'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'del',
-    'sub', 'sup', 'mark', 'code', 'pre',
+    "strong",
+    "b",
+    "em",
+    "i",
+    "u",
+    "s",
+    "strike",
+    "del",
+    "sub",
+    "sup",
+    "mark",
+    "code",
+    "pre",
     # Списки
-    'ul', 'ol', 'li',
+    "ul",
+    "ol",
+    "li",
     # Таблицы
-    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
     # Цитаты
-    'blockquote', 'q',
+    "blockquote",
+    "q",
     # Ссылки и медиа
-    'a', 'img',
+    "a",
+    "img",
     # Lexical специфичные
-    'figure', 'figcaption',
+    "figure",
+    "figcaption",
 ]
 
 # Разрешённые атрибуты
 ALLOWED_ATTRIBUTES = {
-    '*': ['class', 'id', 'style', 'data-*'],
-    'a': ['href', 'title', 'target', 'rel'],
-    'img': ['src', 'alt', 'title', 'width', 'height', 'loading'],
-    'td': ['colspan', 'rowspan'],
-    'th': ['colspan', 'rowspan', 'scope'],
-    'ol': ['start', 'type'],
-    'li': ['value'],
+    "*": ["class", "id", "style", "data-*"],
+    "a": ["href", "title", "target", "rel"],
+    "img": ["src", "alt", "title", "width", "height", "loading"],
+    "td": ["colspan", "rowspan"],
+    "th": ["colspan", "rowspan", "scope"],
+    "ol": ["start", "type"],
+    "li": ["value"],
 }
 
 # Разрешённые CSS свойства
 ALLOWED_STYLES = [
-    'color', 'background-color', 'background',
-    'font-size', 'font-weight', 'font-style', 'font-family',
-    'text-align', 'text-decoration', 'text-indent',
-    'margin', 'margin-top', 'margin-bottom', 'margin-left', 'margin-right',
-    'padding', 'padding-top', 'padding-bottom', 'padding-left', 'padding-right',
-    'border', 'border-radius',
-    'width', 'height', 'max-width', 'max-height',
-    'display', 'vertical-align',
+    "color",
+    "background-color",
+    "background",
+    "font-size",
+    "font-weight",
+    "font-style",
+    "font-family",
+    "text-align",
+    "text-decoration",
+    "text-indent",
+    "margin",
+    "margin-top",
+    "margin-bottom",
+    "margin-left",
+    "margin-right",
+    "padding",
+    "padding-top",
+    "padding-bottom",
+    "padding-left",
+    "padding-right",
+    "border",
+    "border-radius",
+    "width",
+    "height",
+    "max-width",
+    "max-height",
+    "display",
+    "vertical-align",
 ]
 
 # Разрешённые протоколы для ссылок
-ALLOWED_PROTOCOLS = ['http', 'https', 'mailto', 'tel']
+ALLOWED_PROTOCOLS = ["http", "https", "mailto", "tel"]
 
 
 def sanitize_html(html: str) -> str:
@@ -111,22 +162,19 @@ def sanitize_lexical_content(content: dict[str, Any]) -> dict[str, Any]:
     result = {}
 
     for key, value in content.items():
-        if key == 'text' and isinstance(value, str):
+        if key == "text" and isinstance(value, str):
             # Текстовые ноды — экранируем HTML entities
             result[key] = bleach.clean(value, tags=[], strip=True)
-        elif key == 'html' and isinstance(value, str):
+        elif key == "html" and isinstance(value, str):
             # HTML ноды — полная санитизация
             result[key] = sanitize_html(value)
-        elif key == 'url' and isinstance(value, str):
+        elif key == "url" and isinstance(value, str):
             # URL — проверяем протокол
             result[key] = _sanitize_url(value)
         elif isinstance(value, dict):
             result[key] = sanitize_lexical_content(value)
         elif isinstance(value, list):
-            result[key] = [
-                sanitize_lexical_content(item) if isinstance(item, dict) else item
-                for item in value
-            ]
+            result[key] = [sanitize_lexical_content(item) if isinstance(item, dict) else item for item in value]
         else:
             result[key] = value
 
@@ -141,11 +189,11 @@ def _sanitize_url(url: str) -> str:
     url_lower = url.lower().strip()
 
     # Блокируем опасные протоколы
-    dangerous_protocols = ['javascript:', 'vbscript:', 'data:text']
+    dangerous_protocols = ["javascript:", "vbscript:", "data:text"]
     for proto in dangerous_protocols:
         if url_lower.startswith(proto):
             logger.warning(f"Blocked dangerous URL: {url[:50]}")
-            return '#blocked'
+            return "#blocked"
 
     return url
 

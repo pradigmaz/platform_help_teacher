@@ -1,6 +1,7 @@
 """
 Модуль управления настройками аттестации (автобалансировка).
 """
+
 import logging
 
 from sqlalchemy import select
@@ -40,9 +41,7 @@ class AttestationSettingsManager:
             logger.warning(f"Redis cache invalidation error: {e}")
 
     async def get_settings(self, attestation_type: AttestationType) -> AttestationSettings | None:
-        query = select(AttestationSettings).where(
-            AttestationSettings.attestation_type == attestation_type
-        )
+        query = select(AttestationSettings).where(AttestationSettings.attestation_type == attestation_type)
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
@@ -83,7 +82,7 @@ class AttestationSettingsManager:
     async def update_settings(self, settings_update: AttestationSettingsUpdate) -> AttestationSettings:
         att_settings = await self.get_or_create_settings(settings_update.attestation_type)
 
-        update_data = settings_update.model_dump(exclude={'attestation_type'})
+        update_data = settings_update.model_dump(exclude={"attestation_type"})
         for field, value in update_data.items():
             setattr(att_settings, field, value)
 
@@ -106,56 +105,66 @@ class AttestationSettingsManager:
         # Лабораторные
         labs_max = att_settings.get_max_component_points(att_settings.labs_weight)
         labs_per_work = att_settings.get_points_per_work(att_settings.labs_weight, labs_count)
-        previews.append(ScorePreview(
-            component=f"Лабораторные ({labs_count})",
-            weight=att_settings.labs_weight,
-            max_points=round(labs_max, 2),
-            points_per_unit=round(labs_per_work, 2),
-            unit_label="за 5"
-        ))
+        previews.append(
+            ScorePreview(
+                component=f"Лабораторные ({labs_count})",
+                weight=att_settings.labs_weight,
+                max_points=round(labs_max, 2),
+                points_per_unit=round(labs_per_work, 2),
+                unit_label="за 5",
+            )
+        )
 
         # Посещаемость
         att_max = att_settings.get_max_component_points(att_settings.attendance_weight)
-        previews.append(ScorePreview(
-            component="Посещаемость",
-            weight=att_settings.attendance_weight,
-            max_points=round(att_max, 2),
-            points_per_unit=100.0,
-            unit_label="% от посещённых"
-        ))
+        previews.append(
+            ScorePreview(
+                component="Посещаемость",
+                weight=att_settings.attendance_weight,
+                max_points=round(att_max, 2),
+                points_per_unit=100.0,
+                unit_label="% от посещённых",
+            )
+        )
 
         # Резерв активности
         reserve_max = att_settings.get_max_component_points(att_settings.activity_reserve)
-        previews.append(ScorePreview(
-            component="Резерв (активность)",
-            weight=att_settings.activity_reserve,
-            max_points=round(reserve_max, 2),
-            points_per_unit=0.0,
-            unit_label="бонусы/штрафы"
-        ))
+        previews.append(
+            ScorePreview(
+                component="Резерв (активность)",
+                weight=att_settings.activity_reserve,
+                max_points=round(reserve_max, 2),
+                points_per_unit=0.0,
+                unit_label="бонусы/штрафы",
+            )
+        )
 
         # Опциональные компоненты
         if att_settings.self_works_enabled:
             sw_max = att_settings.get_max_component_points(att_settings.self_works_weight)
             sw_per = att_settings.get_points_per_work(att_settings.self_works_weight, att_settings.self_works_count)
-            previews.append(ScorePreview(
-                component=f"СР ({att_settings.self_works_count})",
-                weight=att_settings.self_works_weight,
-                max_points=round(sw_max, 2),
-                points_per_unit=round(sw_per, 2),
-                unit_label="за 5"
-            ))
+            previews.append(
+                ScorePreview(
+                    component=f"СР ({att_settings.self_works_count})",
+                    weight=att_settings.self_works_weight,
+                    max_points=round(sw_max, 2),
+                    points_per_unit=round(sw_per, 2),
+                    unit_label="за 5",
+                )
+            )
 
         if att_settings.colloquium_enabled:
             coll_max = att_settings.get_max_component_points(att_settings.colloquium_weight)
             coll_per = att_settings.get_points_per_work(att_settings.colloquium_weight, att_settings.colloquium_count)
-            previews.append(ScorePreview(
-                component=f"Коллоквиум ({att_settings.colloquium_count})",
-                weight=att_settings.colloquium_weight,
-                max_points=round(coll_max, 2),
-                points_per_unit=round(coll_per, 2),
-                unit_label="за 5"
-            ))
+            previews.append(
+                ScorePreview(
+                    component=f"Коллоквиум ({att_settings.colloquium_count})",
+                    weight=att_settings.colloquium_weight,
+                    max_points=round(coll_max, 2),
+                    points_per_unit=round(coll_per, 2),
+                    unit_label="за 5",
+                )
+            )
 
         return previews
 
@@ -165,8 +174,7 @@ class AttestationSettingsManager:
         calculated_start, calculated_end = None, None
         if att_settings.semester_start_date:
             calculated_start, calculated_end = AttestationSettings.calculate_attestation_period(
-                att_settings.semester_start_date,
-                att_settings.attestation_type
+                att_settings.semester_start_date, att_settings.attestation_type
             )
 
         return AttestationSettingsResponse(

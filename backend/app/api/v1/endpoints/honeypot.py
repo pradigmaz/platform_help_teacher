@@ -3,6 +3,7 @@ Honeypot Endpoints — ловушки для сканеров и скрипт-к
 
 Любое обращение к этим эндпоинтам = мгновенный бан.
 """
+
 import logging
 
 from fastapi import APIRouter, Request
@@ -19,7 +20,7 @@ HONEYPOT_ATTACK = AttackPattern(
     pattern=None,  # type: ignore
     attack_type=AttackType.HONEYPOT,
     description="Honeypot trap triggered",
-    severity=10
+    severity=10,
 )
 
 # "Вкусные" пути для сканеров

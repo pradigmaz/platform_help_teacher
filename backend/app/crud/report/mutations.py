@@ -1,4 +1,5 @@
 """Операции записи для публичных отчётов."""
+
 import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -141,11 +142,7 @@ class ReportMutations:
         logger.info(f"Updated report {report.code}")
         return report
 
-    async def deactivate(
-        self,
-        db: AsyncSession,
-        report: GroupReport
-    ) -> GroupReport:
+    async def deactivate(self, db: AsyncSession, report: GroupReport) -> GroupReport:
         """
         Деактивировать отчёт.
 
@@ -163,11 +160,7 @@ class ReportMutations:
         logger.info(f"Deactivated report {report.code}")
         return report
 
-    async def regenerate_code(
-        self,
-        db: AsyncSession,
-        report: GroupReport
-    ) -> GroupReport:
+    async def regenerate_code(self, db: AsyncSession, report: GroupReport) -> GroupReport:
         """
         Сгенерировать новый код для отчёта.
         Старый код становится недействительным.
@@ -188,11 +181,7 @@ class ReportMutations:
         logger.info(f"Regenerated code: {old_code} -> {report.code}")
         return report
 
-    async def delete(
-        self,
-        db: AsyncSession,
-        report: GroupReport
-    ) -> bool:
+    async def delete(self, db: AsyncSession, report: GroupReport) -> bool:
         """
         Удалить отчёт (физическое удаление).
 
@@ -208,11 +197,7 @@ class ReportMutations:
         logger.info(f"Deleted report {report.code}")
         return True
 
-    async def increment_views(
-        self,
-        db: AsyncSession,
-        report: GroupReport
-    ) -> GroupReport:
+    async def increment_views(self, db: AsyncSession, report: GroupReport) -> GroupReport:
         """
         Увеличить счётчик просмотров.
 
@@ -246,9 +231,7 @@ class ReportMutations:
         max_attempts = 10
         for _ in range(max_attempts):
             code = generate_code()
-            existing = await db.execute(
-                select(GroupReport.id).where(GroupReport.code == code)
-            )
+            existing = await db.execute(select(GroupReport.id).where(GroupReport.code == code))
             if existing.scalar_one_or_none() is None:
                 return code
 

@@ -1,4 +1,5 @@
 """CRUD операции для настроек уведомлений."""
+
 from uuid import UUID
 
 from sqlalchemy import select
@@ -8,22 +9,12 @@ from app.models.notification_settings import NotificationSettings
 
 
 class CRUDNotificationSettings:
-    async def get_by_user(
-        self,
-        db: AsyncSession,
-        user_id: UUID
-    ) -> NotificationSettings | None:
+    async def get_by_user(self, db: AsyncSession, user_id: UUID) -> NotificationSettings | None:
         """Получить настройки пользователя."""
-        result = await db.execute(
-            select(NotificationSettings).where(NotificationSettings.user_id == user_id)
-        )
+        result = await db.execute(select(NotificationSettings).where(NotificationSettings.user_id == user_id))
         return result.scalar_one_or_none()
 
-    async def get_or_create(
-        self,
-        db: AsyncSession,
-        user_id: UUID
-    ) -> NotificationSettings:
+    async def get_or_create(self, db: AsyncSession, user_id: UUID) -> NotificationSettings:
         """Получить или создать настройки с дефолтами."""
         settings = await self.get_by_user(db, user_id)
         if not settings:
@@ -40,7 +31,7 @@ class CRUDNotificationSettings:
         channel_telegram: bool | None = None,
         channel_vk: bool | None = None,
         channel_web: bool | None = None,
-        notify_announcements: bool | None = None
+        notify_announcements: bool | None = None,
     ) -> NotificationSettings:
         """Обновить настройки."""
         if channel_telegram is not None:

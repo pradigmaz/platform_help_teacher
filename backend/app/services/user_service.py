@@ -3,6 +3,7 @@ User Service - бизнес-логика для работы с пользова
 
 Паттерн: Endpoint → Service → CRUD → Model
 """
+
 import logging
 
 from fastapi import HTTPException, status
@@ -44,18 +45,13 @@ class UserService:
         existing_user = await crud_user.get_by_social_id(db, user_in.social_id)
         if existing_user:
             logger.warning(f"[UserService:create_user] User with social_id={user_in.social_id} already exists")
-            raise HTTPException(
-                status_code=400,
-                detail="User with this social ID already exists"
-            )
+            raise HTTPException(status_code=400, detail="User with this social ID already exists")
 
         # 2. Поиск группы по коду (если указан)
         group_id = None
         if user_in.group_code:
             logger.info(f"[UserService:create_user] Looking for group with code={user_in.group_code}")
-            group_result = await db.execute(
-                select(models.Group).where(models.Group.code == user_in.group_code)
-            )
+            group_result = await db.execute(select(models.Group).where(models.Group.code == user_in.group_code))
             group = group_result.scalar_one_or_none()
             if group:
                 group_id = group.id
@@ -71,7 +67,7 @@ class UserService:
                 username=user_in.username,
                 role=user_in.role,
                 group_id=group_id,
-                is_active=True
+                is_active=True,
             )
             db.add(user)
 
@@ -86,8 +82,7 @@ class UserService:
             await db.rollback()
             logger.error(f"[UserService:create_user] Database error: {e}", exc_info=True)
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database error during user creation"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error during user creation"
             )
 
     async def update_user(
@@ -119,7 +114,9 @@ class UserService:
                 user.full_name = user_in.full_name
 
             if user_in.onboarding_completed is not None:
-                logger.info(f"[UserService:update_user] Updating onboarding_completed={user_in.onboarding_completed} for user id={user.id}")
+                logger.info(
+                    f"[UserService:update_user] Updating onboarding_completed={user_in.onboarding_completed} for user id={user.id}"
+                )
                 user.onboarding_completed = user_in.onboarding_completed
 
             await db.commit()
@@ -132,8 +129,7 @@ class UserService:
             await db.rollback()
             logger.error(f"[UserService:update_user] Database error: {e}", exc_info=True)
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database error during user update"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error during user update"
             )
 
     async def update_contacts(
@@ -172,8 +168,7 @@ class UserService:
             await db.rollback()
             logger.error(f"[UserService:update_contacts] Database error: {e}", exc_info=True)
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database error during contacts update"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error during contacts update"
             )
 
     async def update_settings(
@@ -202,7 +197,9 @@ class UserService:
             settings = user.teacher_settings or {}
 
             if hide_previous_semester is not None:
-                logger.info(f"[UserService:update_settings] Setting hide_previous_semester={hide_previous_semester} for user id={user.id}")
+                logger.info(
+                    f"[UserService:update_settings] Setting hide_previous_semester={hide_previous_semester} for user id={user.id}"
+                )
                 settings["hide_previous_semester"] = hide_previous_semester
 
             user.teacher_settings = settings
@@ -217,8 +214,7 @@ class UserService:
             await db.rollback()
             logger.error(f"[UserService:update_settings] Database error: {e}", exc_info=True)
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database error during settings update"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error during settings update"
             )
 
 

@@ -1,4 +1,5 @@
 """Сервис синхронизации сдач лабораторных работ с журналом."""
+
 import logging
 from datetime import UTC, datetime
 from uuid import UUID
@@ -15,12 +16,7 @@ logger = logging.getLogger(__name__)
 class SubmissionJournalSync:
     """Сервис синхронизации Submission ↔ Journal (LessonGrade)."""
 
-    async def find_published_lab(
-        self,
-        db: AsyncSession,
-        subject_id: UUID,
-        work_number: int
-    ) -> Lab | None:
+    async def find_published_lab(self, db: AsyncSession, subject_id: UUID, work_number: int) -> Lab | None:
         """
         Найти опубликованную лабу по subject_id и номеру работы.
 
@@ -33,12 +29,11 @@ class SubmissionJournalSync:
             Lab или None если не найдена
         """
         result = await db.execute(
-            select(Lab).where(and_(
-                Lab.subject_id == subject_id,
-                Lab.number == work_number,
-                Lab.is_published,
-                Lab.deleted_at.is_(None)
-            ))
+            select(Lab).where(
+                and_(
+                    Lab.subject_id == subject_id, Lab.number == work_number, Lab.is_published, Lab.deleted_at.is_(None)
+                )
+            )
         )
         return result.scalar_one_or_none()
 
@@ -50,7 +45,7 @@ class SubmissionJournalSync:
         work_number: int,
         grade: int,
         comment: str | None,
-        created_by: UUID
+        created_by: UUID,
     ) -> Submission | None:
         """
         Создать или обновить Submission на основе оценки из журнала.
@@ -74,9 +69,7 @@ class SubmissionJournalSync:
 
         # Проверяем что у занятия есть subject_id
         if not lesson.subject_id:
-            logger.warning(
-                f"[SubmissionJournalSync:sync_from_journal] Lesson {lesson.id} has no subject_id"
-            )
+            logger.warning(f"[SubmissionJournalSync:sync_from_journal] Lesson {lesson.id} has no subject_id")
             return None
 
         # Ищем опубликованную лабу
@@ -90,11 +83,9 @@ class SubmissionJournalSync:
 
         # Ищем существующую сдачу
         result = await db.execute(
-            select(Submission).where(and_(
-                Submission.user_id == student_id,
-                Submission.lab_id == lab.id,
-                Submission.deleted_at.is_(None)
-            ))
+            select(Submission).where(
+                and_(Submission.user_id == student_id, Submission.lab_id == lab.id, Submission.deleted_at.is_(None))
+            )
         )
         submission = result.scalar_one_or_none()
 
@@ -102,27 +93,26 @@ class SubmissionJournalSync:
 
         if submission:
             # Обновляем существующую сдачу
-            logger.info(
-                f"[SubmissionJournalSync:sync_from_journal] Updating existing submission {submission.id}"
-            )
+            logger.info(f"[SubmissionJournalSync:sync_from_journal] Updating existing submission {submission.id}")
             submission.grade = grade
             submission.status = SubmissionStatus.ACCEPTED
             submission.feedback = comment
             submission.accepted_at = now
 
             # Добавляем в историю
-            submission.history = submission.history + [{
-                "action": "graded_from_journal",
-                "grade": grade,
-                "comment": comment,
-                "by": str(created_by),
-                "at": now.isoformat(),
-            }]
+            submission.history = submission.history + [
+                {
+                    "action": "graded_from_journal",
+                    "grade": grade,
+                    "comment": comment,
+                    "by": str(created_by),
+                    "at": now.isoformat(),
+                }
+            ]
         else:
             # Создаём новую сдачу
             logger.info(
-                f"[SubmissionJournalSync:sync_from_journal] Creating new submission: "
-                f"student={student_id}, lab={lab.id}"
+                f"[SubmissionJournalSync:sync_from_journal] Creating new submission: student={student_id}, lab={lab.id}"
             )
             submission = Submission(
                 user_id=student_id,
@@ -132,13 +122,15 @@ class SubmissionJournalSync:
                 grade=grade,
                 feedback=comment,
                 accepted_at=now,
-                history=[{
-                    "action": "created_from_journal",
-                    "grade": grade,
-                    "comment": comment,
-                    "by": str(created_by),
-                    "at": now.isoformat(),
-                }]
+                history=[
+                    {
+                        "action": "created_from_journal",
+                        "grade": grade,
+                        "comment": comment,
+                        "by": str(created_by),
+                        "at": now.isoformat(),
+                    }
+                ],
             )
 
             try:
@@ -154,11 +146,13 @@ class SubmissionJournalSync:
 
                 # Повторяем SELECT — submission уже создан
                 result = await db.execute(
-                    select(Submission).where(and_(
-                        Submission.user_id == student_id,
-                        Submission.lab_id == lab.id,
-                        Submission.deleted_at.is_(None)
-                    ))
+                    select(Submission).where(
+                        and_(
+                            Submission.user_id == student_id,
+                            Submission.lab_id == lab.id,
+                            Submission.deleted_at.is_(None),
+                        )
+                    )
                 )
                 submission = result.scalar_one_or_none()
 
@@ -173,13 +167,15 @@ class SubmissionJournalSync:
                     submission.accepted_at = now
 
                     # Добавляем в историю
-                    submission.history = submission.history + [{
-                        "action": "graded_from_journal",
-                        "grade": grade,
-                        "comment": comment,
-                        "by": str(created_by),
-                        "at": now.isoformat(),
-                    }]
+                    submission.history = submission.history + [
+                        {
+                            "action": "graded_from_journal",
+                            "grade": grade,
+                            "comment": comment,
+                            "by": str(created_by),
+                            "at": now.isoformat(),
+                        }
+                    ]
                 else:
                     # Не должно произойти, но на всякий случай
                     logger.error(
@@ -194,12 +190,7 @@ class SubmissionJournalSync:
         )
         return submission
 
-    async def find_lesson_for_student(
-        self,
-        db: AsyncSession,
-        lab: Lab,
-        student_id: UUID
-    ) -> Lesson | None:
+    async def find_lesson_for_student(self, db: AsyncSession, lab: Lab, student_id: UUID) -> Lesson | None:
         """
         Найти подходящее занятие для записи оценки.
         Ищет ближайшее прошедшее или сегодняшнее LAB-занятие для группы/подгруппы студента.
@@ -234,10 +225,7 @@ class SubmissionJournalSync:
                 Lesson.date <= today,
                 not Lesson.is_cancelled,
                 # Подгруппа: либо совпадает, либо занятие для всех (NULL)
-                or_(
-                    Lesson.subgroup == student.subgroup,
-                    Lesson.subgroup.is_(None)
-                )
+                or_(Lesson.subgroup == student.subgroup, Lesson.subgroup.is_(None)),
             )
             .order_by(Lesson.date.desc())  # Ближайшее к сегодня
             .limit(1)
@@ -247,19 +235,12 @@ class SubmissionJournalSync:
         return result.scalar_one_or_none()
 
     async def sync_with_journal(
-        self,
-        db: AsyncSession,
-        submission: Submission,
-        grade: int,
-        comment: str | None,
-        created_by: UUID
+        self, db: AsyncSession, submission: Submission, grade: int, comment: str | None, created_by: UUID
     ) -> bool:
         """Синхронизировать оценку с журналом (LessonGrade)."""
         # Нужно загрузить lab если не загружен
         if not submission.lab:
-            result = await db.execute(
-                select(Lab).where(Lab.id == submission.lab_id)
-            )
+            result = await db.execute(select(Lab).where(Lab.id == submission.lab_id))
             lab = result.scalar_one_or_none()
         else:
             lab = submission.lab
@@ -270,19 +251,18 @@ class SubmissionJournalSync:
         # Ищем подходящее занятие для студента
         lesson = await self.find_lesson_for_student(db, lab, submission.user_id)
         if not lesson:
-            logger.warning(
-                f"No lesson found for student {submission.user_id}, "
-                f"lab {lab.id}, subject {lab.subject_id}"
-            )
+            logger.warning(f"No lesson found for student {submission.user_id}, lab {lab.id}, subject {lab.subject_id}")
             return False
 
         # Проверяем существующую оценку
         existing = await db.execute(
-            select(LessonGrade).where(and_(
-                LessonGrade.lesson_id == lesson.id,
-                LessonGrade.student_id == submission.user_id,
-                LessonGrade.work_number == lab.number,
-            ))
+            select(LessonGrade).where(
+                and_(
+                    LessonGrade.lesson_id == lesson.id,
+                    LessonGrade.student_id == submission.user_id,
+                    LessonGrade.work_number == lab.number,
+                )
+            )
         )
         lesson_grade = existing.scalar_one_or_none()
 
@@ -300,10 +280,7 @@ class SubmissionJournalSync:
             )
             db.add(lesson_grade)
 
-        logger.info(
-            f"Synced grade {grade} for student {submission.user_id} "
-            f"to lesson {lesson.id} (work #{lab.number})"
-        )
+        logger.info(f"Synced grade {grade} for student {submission.user_id} to lesson {lesson.id} (work #{lab.number})")
         return True
 
 

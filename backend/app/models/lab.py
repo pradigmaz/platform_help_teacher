@@ -22,12 +22,13 @@ class Lab(Base, TimestampMixin):
     Новый формат: 4 секции (шапка, теория, практика с вариантами, контрольные вопросы).
     Выполняется в тетради, сдаётся устно преподавателю.
     """
+
     __tablename__ = "labs"
     __table_args__ = (
         CheckConstraint("length(title) <= 200", name="ck_labs_title_len"),
         CheckConstraint("length(s3_key) <= 500", name="ck_labs_s3_key_len"),
         CheckConstraint("number > 0", name="ck_labs_number_positive"),
-        Index('idx_labs_subject_number', 'subject_id', 'number'),
+        Index("idx_labs_subject_number", "subject_id", "number"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -37,16 +38,11 @@ class Lab(Base, TimestampMixin):
 
     # Связь с предметом
     subject_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("subjects.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True
+        ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     # Связь с занятием из расписания (для синхронизации оценок с журналом)
-    lesson_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("lessons.id", ondelete="SET NULL"),
-        nullable=True
-    )
+    lesson_id: Mapped[UUID | None] = mapped_column(ForeignKey("lessons.id", ondelete="SET NULL"), nullable=True)
 
     # === Секция 1: Шапка ===
     title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -56,24 +52,20 @@ class Lab(Base, TimestampMixin):
 
     # === Секция 2: Теория ===
     theory_content: Mapped[dict[str, Any] | None] = mapped_column(
-        JSONB, nullable=True, default=None,
-        comment="Теоретическая часть (Lexical JSON)"
+        JSONB, nullable=True, default=None, comment="Теоретическая часть (Lexical JSON)"
     )
 
     # === Секция 3: Практика ===
     practice_content: Mapped[dict[str, Any] | None] = mapped_column(
-        JSONB, nullable=True, default=None,
-        comment="Общее задание практики (Lexical JSON)"
+        JSONB, nullable=True, default=None, comment="Общее задание практики (Lexical JSON)"
     )
     variants: Mapped[list[dict[str, Any]] | None] = mapped_column(
-        JSONB, nullable=True, default=None,
-        comment="Массив вариантов [{number, description, test_data}, ...]"
+        JSONB, nullable=True, default=None, comment="Массив вариантов [{number, description, test_data}, ...]"
     )
 
     # === Секция 4: Контрольные вопросы ===
     questions: Mapped[list[Any] | None] = mapped_column(
-        JSONB, nullable=True, default=None,
-        comment="Список контрольных вопросов (str или Lexical JSON)"
+        JSONB, nullable=True, default=None, comment="Список контрольных вопросов (str или Lexical JSON)"
     )
 
     # === Настройки ===
@@ -83,8 +75,7 @@ class Lab(Base, TimestampMixin):
     deadline_4_lessons: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_grade: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
     is_sequential: Mapped[bool] = mapped_column(
-        Boolean, default=True, nullable=False,
-        comment="Требуется ли сдача предыдущей лабы для доступа"
+        Boolean, default=True, nullable=False, comment="Требуется ли сдача предыдущей лабы для доступа"
     )
 
     # Legacy поля (для обратной совместимости)

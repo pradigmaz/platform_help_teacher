@@ -22,10 +22,7 @@ class AttestationCalculator:
         self._attendance_calc = AttendanceScoreCalculator()
 
     def calculate_labs(
-        self,
-        lesson_grades: list[LessonGrade],
-        settings: AttestationSettings,
-        transfer_grades: list[dict] = None
+        self, lesson_grades: list[LessonGrade], settings: AttestationSettings, transfer_grades: list[dict] = None
     ) -> LabScoreResult:
         """Расчёт баллов за лабораторные (с учётом снапшотов переводов)"""
         return self._lab_calc.calculate(lesson_grades, settings, transfer_grades)
@@ -35,18 +32,13 @@ class AttestationCalculator:
         attendance_records: list[Attendance],
         settings: AttestationSettings,
         expected_lessons: int,
-        transfer_attendance: dict = None
+        transfer_attendance: dict = None,
     ) -> AttendanceScoreResult:
         """Расчёт баллов за посещаемость (фиксированные баллы за занятие)"""
-        return self._attendance_calc.calculate(
-            attendance_records, settings, expected_lessons, transfer_attendance
-        )
+        return self._attendance_calc.calculate(attendance_records, settings, expected_lessons, transfer_attendance)
 
     def calculate_activity(
-        self,
-        activity_points: float,
-        current_score: float,
-        settings: AttestationSettings
+        self, activity_points: float, current_score: float, settings: AttestationSettings
     ) -> tuple[float, bool]:
         """
         Расчёт баллов за активность с учётом лимита.
@@ -88,7 +80,7 @@ class AttestationCalculator:
         lab_result: LabScoreResult,
         attendance_result: AttendanceScoreResult,
         activity_score: float,
-        settings: AttestationSettings
+        settings: AttestationSettings,
     ) -> tuple[float, str, bool]:
         """
         Расчёт итогового балла и оценки.

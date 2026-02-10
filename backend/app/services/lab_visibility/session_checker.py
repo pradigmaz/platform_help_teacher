@@ -1,4 +1,5 @@
 """Проверка текущей лабораторной сессии по расписанию."""
+
 from datetime import datetime
 from datetime import time as dt_time
 from uuid import UUID
@@ -12,10 +13,7 @@ from app.services.schedule_constants import MSK_TZ, TIME_TO_LESSON_NUMBER
 
 
 async def is_lab_session_now(
-    db: AsyncSession,
-    group_id: UUID,
-    subgroup: int | None,
-    subject_id: UUID | None = None
+    db: AsyncSession, group_id: UUID, subgroup: int | None, subject_id: UUID | None = None
 ) -> bool:
     """
     Проверить идёт ли сейчас лабораторное занятие для студента.
@@ -34,9 +32,9 @@ async def is_lab_session_now(
     # Определяем номер текущей пары по времени
     current_lesson_number = None
     for time_range, lesson_num in TIME_TO_LESSON_NUMBER.items():
-        start_str, end_str = time_range.split('-')
-        start_h, start_m = map(int, start_str.split(':'))
-        end_h, end_m = map(int, end_str.split(':'))
+        start_str, end_str = time_range.split("-")
+        start_h, start_m = map(int, start_str.split(":"))
+        end_h, end_m = map(int, end_str.split(":"))
 
         start_time = dt_time(start_h, start_m)
         end_time = dt_time(end_h, end_m)

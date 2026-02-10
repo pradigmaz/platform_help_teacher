@@ -4,12 +4,13 @@
 Все коды в системе должны генерироваться через этот модуль
 для обеспечения единообразия и безопасности.
 """
+
 import secrets
 import string
 
 # Алфавиты для разных типов кодов
 ALPHANUMERIC_UPPER = string.ascii_uppercase + string.digits  # A-Z, 0-9
-ALPHANUMERIC_SAFE = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'  # Без O/0, I/1/l
+ALPHANUMERIC_SAFE = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # Без O/0, I/1/l
 DIGITS_ONLY = string.digits  # 0-9
 ALPHANUMERIC_LOWER = string.ascii_lowercase + string.digits  # a-z, 0-9
 
@@ -28,7 +29,7 @@ def generate_code(
     Returns:
         Сгенерированный код
     """
-    return ''.join(secrets.choice(alphabet) for _ in range(length))
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def generate_otp(length: int = 6) -> str:

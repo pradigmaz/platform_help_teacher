@@ -1,6 +1,7 @@
 """
 CRUD для истории парсинга
 """
+
 from datetime import datetime
 from uuid import UUID
 
@@ -10,32 +11,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.parse_history import ParseHistory
 
 
-async def create_history(
-    db: AsyncSession,
-    teacher_id: UUID,
-    config_id: UUID | None = None
-) -> ParseHistory:
+async def create_history(db: AsyncSession, teacher_id: UUID, config_id: UUID | None = None) -> ParseHistory:
     """Создать запись истории (начало парсинга)"""
-    history = ParseHistory(
-        teacher_id=teacher_id,
-        config_id=config_id,
-        status="running"
-    )
+    history = ParseHistory(teacher_id=teacher_id, config_id=config_id, status="running")
     db.add(history)
     await db.flush()
     return history
 
 
 async def complete_history(
-    db: AsyncSession,
-    history_id: UUID,
-    stats: dict,
-    error: str | None = None
+    db: AsyncSession, history_id: UUID, stats: dict, error: str | None = None
 ) -> ParseHistory | None:
     """Завершить запись истории"""
-    result = await db.execute(
-        select(ParseHistory).where(ParseHistory.id == history_id)
-    )
+    result = await db.execute(select(ParseHistory).where(ParseHistory.id == history_id))
     history = result.scalar_one_or_none()
     if not history:
         return None
@@ -50,11 +38,7 @@ async def complete_history(
     return history
 
 
-async def get_history(
-    db: AsyncSession,
-    teacher_id: UUID,
-    limit: int = 20
-) -> list[ParseHistory]:
+async def get_history(db: AsyncSession, teacher_id: UUID, limit: int = 20) -> list[ParseHistory]:
     """Получить историю парсинга"""
     result = await db.execute(
         select(ParseHistory)
@@ -65,10 +49,7 @@ async def get_history(
     return list(result.scalars().all())
 
 
-async def get_last_history(
-    db: AsyncSession,
-    teacher_id: UUID
-) -> ParseHistory | None:
+async def get_last_history(db: AsyncSession, teacher_id: UUID) -> ParseHistory | None:
     """Получить последнюю запись истории"""
     result = await db.execute(
         select(ParseHistory)

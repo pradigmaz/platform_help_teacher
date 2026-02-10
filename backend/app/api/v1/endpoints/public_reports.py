@@ -3,6 +3,7 @@ Public API endpoints для публичных отчётов.
 
 Без авторизации. Rate limiting для защиты от brute-force.
 """
+
 import logging
 from datetime import UTC, datetime
 from uuid import UUID
@@ -119,7 +120,9 @@ async def verify_report_pin(
 
     logger.warning(
         "Invalid PIN attempt for report %s from %s, %s attempts left",
-        code, client_ip, attempts_left,
+        code,
+        client_ip,
+        attempts_left,
     )
 
     if attempts_left == 0:
@@ -213,8 +216,5 @@ async def check_report_status(
         "expired": is_expired,
         "has_pin": report.pin_hash is not None,
         "report_type": report.report_type,
-        "message": (
-            "Report expired" if is_expired
-            else ("Report not available" if not report.is_active else "OK")
-        ),
+        "message": ("Report expired" if is_expired else ("Report not available" if not report.is_active else "OK")),
     }

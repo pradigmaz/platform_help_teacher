@@ -1,6 +1,7 @@
 """
 Константы для Security Monitor.
 """
+
 import re
 from enum import Enum
 from re import Pattern
@@ -17,6 +18,7 @@ from app.core.time_constants import (
 
 class AttackType(str, Enum):
     """Типы атак."""
+
     SQL_INJECTION = "sql_injection"
     PATH_TRAVERSAL = "path_traversal"
     XSS = "xss"
@@ -27,14 +29,16 @@ class AttackType(str, Enum):
 
 class StrikeLevel(str, Enum):
     """Уровни страйков."""
+
     NONE = "none"
-    WARNING = "warning"      # 1-й страйк: только лог
-    RECORDED = "recorded"    # 2-й страйк: запись в БД
-    BANNED = "banned"        # 3-й страйк: бан
+    WARNING = "warning"  # 1-й страйк: только лог
+    RECORDED = "recorded"  # 2-й страйк: запись в БД
+    BANNED = "banned"  # 3-й страйк: бан
 
 
 class AttackPattern(NamedTuple):
     """Паттерн атаки."""
+
     pattern: Pattern
     attack_type: AttackType
     description: str
@@ -49,10 +53,12 @@ ATTACK_PATTERNS: list[AttackPattern] = [
     # УБРАНО: r"['\"](\s*(OR|AND)\s*['\"]?\d|--|;)" — слишком много false positives
     # Срабатывал на легитимные запросы с кавычками в тексте
     AttackPattern(
-        re.compile(r"(UNION\s+(ALL\s+)?SELECT|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|DROP\s+TABLE)", re.IGNORECASE),
+        re.compile(
+            r"(UNION\s+(ALL\s+)?SELECT|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|DROP\s+TABLE)", re.IGNORECASE
+        ),
         AttackType.SQL_INJECTION,
         "SQL injection: dangerous statement",
-        severity=2  # Было 3 — снижено, чтобы не банить сразу
+        severity=2,  # Было 3 — снижено, чтобы не банить сразу
     ),
     # УБРАНО: r"%27|%22|%3B|%2D%2D" — URL-encoded кавычки встречаются в легитимных запросах
     # Поиск текста, названия с кавычками, JSON в query params
@@ -60,36 +66,34 @@ ATTACK_PATTERNS: list[AttackPattern] = [
         re.compile(r"(\x00|%00)"),  # Null byte — это точно атака
         AttackType.SQL_INJECTION,
         "Null byte injection",
-        severity=2  # Было 3
+        severity=2,  # Было 3
     ),
-
     # Path Traversal
     AttackPattern(
         re.compile(r"\.\.(/|\\|%2f|%5c)", re.IGNORECASE),
         AttackType.PATH_TRAVERSAL,
         "Path traversal attempt",
-        severity=2  # Было 3
+        severity=2,  # Было 3
     ),
     AttackPattern(
         re.compile(r"%2e%2e(%2f|%5c)", re.IGNORECASE),
         AttackType.PATH_TRAVERSAL,
         "Path traversal: URL-encoded",
-        severity=2  # Было 3
+        severity=2,  # Было 3
     ),
-
     # XSS
     AttackPattern(
         re.compile(r"<script[^>]*>|javascript:", re.IGNORECASE),
         AttackType.XSS,
         "XSS: script tag or javascript protocol",
-        severity=2
+        severity=2,
     ),
     # XSS event handlers — только в контексте HTML-тегов
     AttackPattern(
         re.compile(r"<[^>]+\s+on(click|load|error|mouse\w+|key\w+|focus|blur|change|submit)\s*=", re.IGNORECASE),
         AttackType.XSS,
         "XSS: event handler in HTML tag",
-        severity=2
+        severity=2,
     ),
 ]
 

@@ -3,6 +3,7 @@
 
 Логирование просмотров и статистика.
 """
+
 import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -24,12 +25,7 @@ class ReportAuditService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def log_view(
-        self,
-        report_id: UUID,
-        ip_address: str,
-        user_agent: str | None = None
-    ) -> ReportView:
+    async def log_view(self, report_id: UUID, ip_address: str, user_agent: str | None = None) -> ReportView:
         """
         Логирование просмотра отчёта.
 
@@ -42,9 +38,7 @@ class ReportAuditService:
             ReportView: Созданная запись
         """
         view = ReportView(
-            report_id=report_id,
-            ip_address=ip_address,
-            user_agent=user_agent[:512] if user_agent else None
+            report_id=report_id, ip_address=ip_address, user_agent=user_agent[:512] if user_agent else None
         )
         self.db.add(view)
 
@@ -74,9 +68,7 @@ class ReportAuditService:
             ReportViewStats: Статистика просмотров
         """
         # Общее количество просмотров
-        total_query = select(func.count(ReportView.id)).where(
-            ReportView.report_id == report_id
-        )
+        total_query = select(func.count(ReportView.id)).where(ReportView.report_id == report_id)
         total_result = await self.db.execute(total_query)
         total_views = total_result.scalar() or 0
 
@@ -88,44 +80,26 @@ class ReportAuditService:
         unique_ips = unique_ips_result.scalar() or 0
 
         # Последний просмотр
-        last_view_query = select(func.max(ReportView.viewed_at)).where(
-            ReportView.report_id == report_id
-        )
+        last_view_query = select(func.max(ReportView.viewed_at)).where(ReportView.report_id == report_id)
         last_view_result = await self.db.execute(last_view_query)
         last_viewed_at = last_view_result.scalar()
 
         # Просмотры по датам (последние 30 дней)
         thirty_days_ago = datetime.now(UTC) - timedelta(days=AUDIT_REPORT_LOOKBACK_DAYS)
         views_by_date_query = (
-            select(
-                func.date(ReportView.viewed_at).label('date'),
-                func.count(ReportView.id).label('count')
-            )
-            .where(
-                ReportView.report_id == report_id,
-                ReportView.viewed_at >= thirty_days_ago
-            )
+            select(func.date(ReportView.viewed_at).label("date"), func.count(ReportView.id).label("count"))
+            .where(ReportView.report_id == report_id, ReportView.viewed_at >= thirty_days_ago)
             .group_by(func.date(ReportView.viewed_at))
             .order_by(func.date(ReportView.viewed_at))
         )
         views_by_date_result = await self.db.execute(views_by_date_query)
-        views_by_date = {
-            str(row.date): row.count
-            for row in views_by_date_result.all()
-        }
+        views_by_date = {str(row.date): row.count for row in views_by_date_result.all()}
 
         return ReportViewStats(
-            total_views=total_views,
-            unique_ips=unique_ips,
-            last_viewed_at=last_viewed_at,
-            views_by_date=views_by_date
+            total_views=total_views, unique_ips=unique_ips, last_viewed_at=last_viewed_at, views_by_date=views_by_date
         )
 
-    async def get_recent_views(
-        self,
-        report_id: UUID,
-        limit: int = 50
-    ) -> list[ReportViewRecord]:
+    async def get_recent_views(self, report_id: UUID, limit: int = 50) -> list[ReportViewRecord]:
         """
         Получение последних просмотров отчёта.
 
@@ -146,10 +120,5 @@ class ReportAuditService:
         views = result.scalars().all()
 
         return [
-            ReportViewRecord(
-                viewed_at=v.viewed_at,
-                ip_address=v.ip_address,
-                user_agent=v.user_agent
-            )
-            for v in views
+            ReportViewRecord(viewed_at=v.viewed_at, ip_address=v.ip_address, user_agent=v.user_agent) for v in views
         ]

@@ -1,28 +1,30 @@
 """
 Константы для системы аудита.
 """
+
 import enum
 
 
 class ActionType(str, enum.Enum):
     """Типы действий для логирования."""
+
     VIEW = "view"
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"
     AUTH_LOGIN = "auth_login"
     AUTH_LOGOUT = "auth_logout"
-    SUBMIT = "submit"          # Отправка на проверку (ready)
-    CANCEL = "cancel"          # Отмена действия
+    SUBMIT = "submit"  # Отправка на проверку (ready)
+    CANCEL = "cancel"  # Отмена действия
     DOWNLOAD = "download"
     ERROR = "error"
     # Bot actions
-    BOT_START = "bot_start"              # /start command
-    BOT_AUTH = "bot_auth"                # OTP generation for login
-    BOT_BIND = "bot_bind"                # Account binding
-    BOT_RELINK = "bot_relink"            # Account relinking
-    BOT_MESSAGE = "bot_message"          # Text message processing
-    BOT_INVITE = "bot_invite"            # Invite code usage
+    BOT_START = "bot_start"  # /start command
+    BOT_AUTH = "bot_auth"  # OTP generation for login
+    BOT_BIND = "bot_bind"  # Account binding
+    BOT_RELINK = "bot_relink"  # Account relinking
+    BOT_MESSAGE = "bot_message"  # Text message processing
+    BOT_INVITE = "bot_invite"  # Invite code usage
     # Backup actions (admin-only, security-critical)
     BACKUP_CREATE = "backup_create"
     BACKUP_RESTORE = "backup_restore"
@@ -32,6 +34,7 @@ class ActionType(str, enum.Enum):
 
 class EntityType(str, enum.Enum):
     """Типы сущностей."""
+
     PROFILE = "profile"
     LAB = "lab"
     LAB_DETAIL = "lab_detail"
@@ -42,8 +45,8 @@ class EntityType(str, enum.Enum):
     TEACHER_CONTACTS = "teacher_contacts"
     SEMESTER = "semester"
     AUTH = "auth"
-    BOT = "bot"                # Bot interactions
-    BACKUP = "backup"          # Database backups (security-critical)
+    BOT = "bot"  # Bot interactions
+    BACKUP = "backup"  # Database backups (security-critical)
 
 
 # Поля, которые нужно маскировать в логах
@@ -94,11 +97,13 @@ AUDIT_PATH_PREFIXES = (
 MAX_BODY_SIZE = 10 * 1024  # 10KB
 
 # Security-critical actions requiring synchronous write with retry
-SECURITY_CRITICAL_ACTIONS: frozenset[str] = frozenset({
-    ActionType.AUTH_LOGIN.value,
-    ActionType.AUTH_LOGOUT.value,
-    ActionType.BACKUP_CREATE.value,
-    ActionType.BACKUP_RESTORE.value,
-    ActionType.BACKUP_DELETE.value,
-    ActionType.BACKUP_VERIFY.value,
-})
+SECURITY_CRITICAL_ACTIONS: frozenset[str] = frozenset(
+    {
+        ActionType.AUTH_LOGIN.value,
+        ActionType.AUTH_LOGOUT.value,
+        ActionType.BACKUP_CREATE.value,
+        ActionType.BACKUP_RESTORE.value,
+        ActionType.BACKUP_DELETE.value,
+        ActionType.BACKUP_VERIFY.value,
+    }
+)

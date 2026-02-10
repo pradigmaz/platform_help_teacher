@@ -12,12 +12,10 @@ from app.core.limiter import limiter
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
 @router.post("/telegram", dependencies=[Depends(deps.verify_telegram_ip)])
 @limiter.limit("100/minute")
-async def telegram_webhook(
-    request: Request,
-    x_telegram_bot_api_secret_token: str = Header(None)
-):
+async def telegram_webhook(request: Request, x_telegram_bot_api_secret_token: str = Header(None)):
     """
     Эндпоинт для получения обновлений от Telegram через Webhook.
     """
@@ -27,10 +25,7 @@ async def telegram_webhook(
     if x_telegram_bot_api_secret_token != settings.TELEGRAM_WEBHOOK_SECRET:
         # SECURITY FIX: Don't log the actual wrong token
         logger.warning("Invalid secret token received (masked: ***)")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=em.INVALID_SECRET_TOKEN
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=em.INVALID_SECRET_TOKEN)
 
     try:
         # Обработка обновления
@@ -51,6 +46,7 @@ async def telegram_webhook(
         # Return 500 so Telegram knows to retry
         raise HTTPException(status_code=500, detail=em.INTERNAL_PROCESSING_ERROR)
 
+
 @router.get("/status")
 async def get_webhook_status():
     """
@@ -68,8 +64,8 @@ async def get_webhook_status():
                 "last_error_date": webhook_info.last_error_date,
                 "last_error_message": webhook_info.last_error_message,
                 "max_connections": webhook_info.max_connections,
-                "allowed_updates": webhook_info.allowed_updates
-            }
+                "allowed_updates": webhook_info.allowed_updates,
+            },
         }
     except Exception as e:
         logger.error(f"Failed to get webhook info: {e}", exc_info=True)

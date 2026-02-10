@@ -7,6 +7,7 @@ Format v1: [version:1][salt:16][nonce:12][ciphertext][tag:16]
 - Supports chunked encryption for large files (streaming)
 - Key rotation via key_id in metadata
 """
+
 import logging
 import os
 import struct
@@ -87,12 +88,12 @@ class BackupEncryption:
 
         file_size = input_path.stat().st_size
 
-        with open(output_path, 'wb') as out_f:
+        with open(output_path, "wb") as out_f:
             # Write header
-            out_f.write(struct.pack('B', FORMAT_VERSION))
+            out_f.write(struct.pack("B", FORMAT_VERSION))
             out_f.write(salt)
 
-            with open(input_path, 'rb') as in_f:
+            with open(input_path, "rb") as in_f:
                 chunk_num = 0
                 while True:
                     chunk = in_f.read(CHUNK_SIZE)
@@ -106,7 +107,7 @@ class BackupEncryption:
                         out_f.write(base_nonce)  # Store base nonce in header
 
                     # Construct chunk nonce: base_nonce (8) + chunk_num (4)
-                    chunk_nonce = base_nonce + struct.pack('>I', chunk_num)
+                    chunk_nonce = base_nonce + struct.pack(">I", chunk_num)
 
                     aesgcm = AESGCM(key)
                     ciphertext = aesgcm.encrypt(chunk_nonce, chunk, None)
@@ -127,9 +128,9 @@ class BackupEncryption:
             ValueError: If format version is unsupported
             InvalidTag: If tampered or wrong key
         """
-        with open(input_path, 'rb') as in_f:
+        with open(input_path, "rb") as in_f:
             # Read header
-            version = struct.unpack('B', in_f.read(VERSION_SIZE))[0]
+            version = struct.unpack("B", in_f.read(VERSION_SIZE))[0]
 
             if version != FORMAT_VERSION:
                 # Try legacy format (no version byte)
@@ -145,20 +146,17 @@ class BackupEncryption:
             key = self._derive_key(salt)
             aesgcm = AESGCM(key)
 
-            with open(output_path, 'wb') as out_f:
+            with open(output_path, "wb") as out_f:
                 chunk_num = 0
                 remaining = in_f.read()
                 pos = 0
 
                 while pos < len(remaining):
                     # Each chunk is CHUNK_SIZE + TAG_SIZE (except possibly last)
-                    chunk_ciphertext_size = min(
-                        CHUNK_SIZE + TAG_SIZE,
-                        len(remaining) - pos
-                    )
-                    chunk_ciphertext = remaining[pos:pos + chunk_ciphertext_size]
+                    chunk_ciphertext_size = min(CHUNK_SIZE + TAG_SIZE, len(remaining) - pos)
+                    chunk_ciphertext = remaining[pos : pos + chunk_ciphertext_size]
 
-                    chunk_nonce = base_nonce + struct.pack('>I', chunk_num)
+                    chunk_nonce = base_nonce + struct.pack(">I", chunk_num)
                     plaintext = aesgcm.decrypt(chunk_nonce, chunk_ciphertext, None)
                     out_f.write(plaintext)
 
@@ -187,8 +185,8 @@ class BackupEncryption:
     def verify_file(self, encrypted_path: Path) -> bool:
         """Verify encrypted file header integrity."""
         try:
-            with open(encrypted_path, 'rb') as f:
-                version = struct.unpack('B', f.read(VERSION_SIZE))[0]
+            with open(encrypted_path, "rb") as f:
+                version = struct.unpack("B", f.read(VERSION_SIZE))[0]
 
                 if version == FORMAT_VERSION:
                     salt = f.read(SALT_SIZE)
@@ -217,8 +215,8 @@ class BackupEncryption:
 
     def get_file_version(self, encrypted_path: Path) -> int:
         """Get encryption format version of a file."""
-        with open(encrypted_path, 'rb') as f:
-            version = struct.unpack('B', f.read(VERSION_SIZE))[0]
+        with open(encrypted_path, "rb") as f:
+            version = struct.unpack("B", f.read(VERSION_SIZE))[0]
             if version == FORMAT_VERSION:
                 return version
             return 0  # Legacy format

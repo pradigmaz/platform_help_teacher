@@ -2,6 +2,7 @@
 Remote storage abstraction for backups.
 Supports MinIO/S3 (reuses existing StorageService pattern).
 """
+
 import hashlib
 import logging
 from dataclasses import dataclass
@@ -28,8 +29,8 @@ def _get_session() -> Session:
 def _compute_md5(file_path: Path) -> str:
     """Compute MD5 hash of file for integrity verification."""
     md5 = hashlib.md5()
-    with open(file_path, 'rb') as f:
-        for chunk in iter(lambda: f.read(64 * 1024), b''):
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(64 * 1024), b""):
             md5.update(chunk)
     return md5.hexdigest()
 
@@ -37,6 +38,7 @@ def _compute_md5(file_path: Path) -> str:
 @dataclass
 class BackupMetadata:
     """Backup file metadata."""
+
     name: str
     size: int
     created_at: datetime
@@ -99,28 +101,24 @@ class BackupStorage:
                 resp = await client.head_object(Bucket=self.bucket, Key=remote_key)
                 # S3 ETag for non-multipart uploads is MD5 in quotes
                 # For multipart uploads, ETag is "hash-partcount" - skip MD5 check
-                remote_etag = resp.get('ETag', '').strip('"')
+                remote_etag = resp.get("ETag", "").strip('"')
 
                 # Multipart ETag contains "-" (e.g., "abc123-2")
-                is_multipart = '-' in remote_etag
+                is_multipart = "-" in remote_etag
 
                 if is_multipart:
                     # For multipart, verify by re-downloading and comparing
                     # This is expensive, so just log warning and verify size
-                    remote_size = resp.get('ContentLength', 0)
+                    remote_size = resp.get("ContentLength", 0)
                     local_size = local_path.stat().st_size
                     if remote_size != local_size:
                         await client.delete_object(Bucket=self.bucket, Key=remote_key)
-                        raise RuntimeError(
-                            f"Upload size mismatch: local={local_size}, remote={remote_size}"
-                        )
+                        raise RuntimeError(f"Upload size mismatch: local={local_size}, remote={remote_size}")
                     logger.info(f"Upload verified (multipart, size check): {remote_key}")
                 elif remote_etag != local_md5:
                     # Cleanup corrupted upload
                     await client.delete_object(Bucket=self.bucket, Key=remote_key)
-                    raise RuntimeError(
-                        f"Upload verification failed: local={local_md5}, remote={remote_etag}"
-                    )
+                    raise RuntimeError(f"Upload verification failed: local={local_md5}, remote={remote_etag}")
                 else:
                     logger.info(f"Upload verified: {remote_key} (MD5: {local_md5})")
 
@@ -137,15 +135,17 @@ class BackupStorage:
         await self.ensure_bucket()
         backups = []
         async with await self._get_client() as client:
-            paginator = client.get_paginator('list_objects_v2')
+            paginator = client.get_paginator("list_objects_v2")
             async for page in paginator.paginate(Bucket=self.bucket):
-                for obj in page.get('Contents', []):
-                    backups.append(BackupMetadata(
-                        name=Path(obj['Key']).stem,
-                        size=obj['Size'],
-                        created_at=obj['LastModified'],
-                        key=obj['Key'],
-                    ))
+                for obj in page.get("Contents", []):
+                    backups.append(
+                        BackupMetadata(
+                            name=Path(obj["Key"]).stem,
+                            size=obj["Size"],
+                            created_at=obj["LastModified"],
+                            key=obj["Key"],
+                        )
+                    )
         return sorted(backups, key=lambda x: x.created_at, reverse=True)
 
     async def delete(self, remote_key: str) -> None:
@@ -161,8 +161,8 @@ class BackupStorage:
                 resp = await client.head_object(Bucket=self.bucket, Key=remote_key)
                 return BackupMetadata(
                     name=Path(remote_key).stem,
-                    size=resp['ContentLength'],
-                    created_at=resp['LastModified'],
+                    size=resp["ContentLength"],
+                    created_at=resp["LastModified"],
                     key=remote_key,
                 )
             except Exception:
@@ -173,6 +173,7 @@ class BackupStorage:
     def _get_sync_client(self):
         """Get synchronous boto3 client."""
         import boto3
+
         return boto3.client(
             "s3",
             endpoint_url=self.endpoint,
@@ -203,15 +204,17 @@ class BackupStorage:
         client = self._get_sync_client()
         backups = []
 
-        paginator = client.get_paginator('list_objects_v2')
+        paginator = client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=self.bucket):
-            for obj in page.get('Contents', []):
-                backups.append(BackupMetadata(
-                    name=Path(obj['Key']).stem,
-                    size=obj['Size'],
-                    created_at=obj['LastModified'],
-                    key=obj['Key'],
-                ))
+            for obj in page.get("Contents", []):
+                backups.append(
+                    BackupMetadata(
+                        name=Path(obj["Key"]).stem,
+                        size=obj["Size"],
+                        created_at=obj["LastModified"],
+                        key=obj["Key"],
+                    )
+                )
         return sorted(backups, key=lambda x: x.created_at, reverse=True)
 
     def delete_sync(self, remote_key: str) -> None:

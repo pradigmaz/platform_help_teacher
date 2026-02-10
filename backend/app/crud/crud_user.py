@@ -19,13 +19,14 @@ async def get_by_social_id(db: AsyncSession, social_id: int) -> User | None:
     result = await db.execute(select(User).where(User.social_id == social_id))
     return result.scalar_one_or_none()
 
+
 async def upsert_user(
     db: AsyncSession,
     social_id: int,
     full_name: str,
     username: str | None,
     group_id: UUID,
-    role: UserRole = UserRole.STUDENT
+    role: UserRole = UserRole.STUDENT,
 ) -> User:
     """
     Создание или обновление пользователя (upsert).
@@ -42,12 +43,7 @@ async def upsert_user(
     else:
         # Создаем нового пользователя
         user = User(
-            social_id=social_id,
-            full_name=full_name,
-            username=username,
-            group_id=group_id,
-            role=role,
-            is_active=True
+            social_id=social_id, full_name=full_name, username=username, group_id=group_id, role=role, is_active=True
         )
         db.add(user)
 

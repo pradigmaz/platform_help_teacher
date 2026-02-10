@@ -1,4 +1,5 @@
 """Генератор CSV файлов для экспорта журнала."""
+
 import csv
 import logging
 from io import StringIO
@@ -98,6 +99,7 @@ def generate_grades_csv(data: JournalExportData) -> str:
             date_str = parts[0]
             try:
                 from datetime import datetime
+
                 dt = datetime.strptime(date_str, "%Y-%m-%d")
                 col_header = dt.strftime("%d.%m")
             except ValueError:
@@ -149,8 +151,7 @@ def generate_csv(
         CSV строка с данными
     """
     logger.info(
-        "Генерация CSV: группа=%s, attendance=%s, grades=%s",
-        data.meta.group_code, include_attendance, include_grades
+        "Генерация CSV: группа=%s, attendance=%s, grades=%s", data.meta.group_code, include_attendance, include_grades
     )
 
     sections = []
@@ -159,10 +160,9 @@ def generate_csv(
     meta_section = StringIO()
     meta_writer = csv.writer(meta_section, delimiter=CSV_DELIMITER)
     meta_writer.writerow(["Группа", data.meta.group_code])
-    meta_writer.writerow([
-        "Период",
-        f"{data.meta.period_start.strftime('%d.%m.%Y')} - {data.meta.period_end.strftime('%d.%m.%Y')}"
-    ])
+    meta_writer.writerow(
+        ["Период", f"{data.meta.period_start.strftime('%d.%m.%Y')} - {data.meta.period_end.strftime('%d.%m.%Y')}"]
+    )
     meta_writer.writerow(["Студентов", data.meta.total_students])
     meta_writer.writerow(["Занятий", data.meta.total_lessons])
     sections.append(meta_section.getvalue())

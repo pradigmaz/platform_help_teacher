@@ -2,6 +2,7 @@
 Валидатор дедлайнов для оценок лабораторных.
 Проверяет максимально допустимую оценку с учётом количества прошедших пар.
 """
+
 import logging
 from datetime import UTC, datetime
 from uuid import UUID
@@ -18,10 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_max_allowed_grade_for_lab(
-    db: AsyncSession,
-    lab: Lab,
-    current_lesson: Lesson,
-    student_id: UUID | None = None
+    db: AsyncSession, lab: Lab, current_lesson: Lesson, student_id: UUID | None = None
 ) -> int:
     """
     Получить максимально допустимую оценку для лабораторной с учётом дедлайна.
@@ -42,11 +40,13 @@ async def get_max_allowed_grade_for_lab(
     # Проверяем EXCUSED на занятии создания лабы (origin_lesson)
     # Если студент был EXCUSED когда лаба создана — дедлайн не применяется
     if student_id:
-        excused_query = select(Attendance).where(and_(
-            Attendance.lesson_id == lab.lesson_id,
-            Attendance.student_id == student_id,
-            Attendance.status == AttendanceStatus.EXCUSED
-        ))
+        excused_query = select(Attendance).where(
+            and_(
+                Attendance.lesson_id == lab.lesson_id,
+                Attendance.student_id == student_id,
+                Attendance.status == AttendanceStatus.EXCUSED,
+            )
+        )
         excused_result = await db.execute(excused_query)
         if excused_result.scalar_one_or_none() is not None:
             return 5  # EXCUSED-лаба — без дедлайна
@@ -64,11 +64,7 @@ async def get_max_allowed_grade_for_lab(
     bonus_lessons = await _get_extension_bonus(db, lab.id, current_lesson.group_id)
 
     # Считаем номер текущей пары относительно создания лабы
-    lesson_index = await _get_lesson_index(
-        db,
-        origin_lesson=origin_lesson,
-        current_lesson=current_lesson
-    )
+    lesson_index = await _get_lesson_index(db, origin_lesson=origin_lesson, current_lesson=current_lesson)
 
     if lesson_index is None:
         return 5
@@ -90,24 +86,22 @@ async def get_max_allowed_grade_for_lab(
     return 5  # Вовремя
 
 
-async def _get_extension_bonus(
-    db: AsyncSession,
-    lab_id: UUID,
-    group_id: UUID | None
-) -> int:
+async def _get_extension_bonus(db: AsyncSession, lab_id: UUID, group_id: UUID | None) -> int:
     """Получить бонус пар от продления дедлайна для группы."""
     if not group_id:
         return 0
 
     now = datetime.now(UTC)
 
-    query = select(LabDeadlineExtension.bonus_lessons).where(and_(
-        LabDeadlineExtension.lab_id == lab_id,
-        LabDeadlineExtension.group_id == group_id,
-        LabDeadlineExtension.is_active,
-        # Не истекло (expires_at is NULL или > now)
-        (LabDeadlineExtension.expires_at.is_(None)) | (LabDeadlineExtension.expires_at > now)
-    ))
+    query = select(LabDeadlineExtension.bonus_lessons).where(
+        and_(
+            LabDeadlineExtension.lab_id == lab_id,
+            LabDeadlineExtension.group_id == group_id,
+            LabDeadlineExtension.is_active,
+            # Не истекло (expires_at is NULL или > now)
+            (LabDeadlineExtension.expires_at.is_(None)) | (LabDeadlineExtension.expires_at > now),
+        )
+    )
 
     result = await db.execute(query)
     bonus = result.scalar_one_or_none()
@@ -115,11 +109,7 @@ async def _get_extension_bonus(
     return bonus or 0
 
 
-async def _get_lesson_index(
-    db: AsyncSession,
-    origin_lesson: Lesson,
-    current_lesson: Lesson
-) -> int | None:
+async def _get_lesson_index(db: AsyncSession, origin_lesson: Lesson, current_lesson: Lesson) -> int | None:
     """
     Получить индекс текущего занятия относительно занятия создания лабы.
     Считаются только LAB-занятия той же группы и предмета.
@@ -129,13 +119,15 @@ async def _get_lesson_index(
     """
     query = (
         select(Lesson.id, Lesson.date, Lesson.lesson_number)
-        .where(and_(
-            Lesson.group_id == origin_lesson.group_id,
-            Lesson.subject_id == origin_lesson.subject_id,
-            Lesson.lesson_type == 'LAB',
-            not Lesson.is_cancelled,
-            Lesson.date >= origin_lesson.date
-        ))
+        .where(
+            and_(
+                Lesson.group_id == origin_lesson.group_id,
+                Lesson.subject_id == origin_lesson.subject_id,
+                Lesson.lesson_type == "LAB",
+                not Lesson.is_cancelled,
+                Lesson.date >= origin_lesson.date,
+            )
+        )
         .order_by(Lesson.date, Lesson.lesson_number)
     )
 
@@ -157,16 +149,11 @@ def validate_grade_for_max(grade: int, max_allowed: int) -> None:
         ValueError: Если оценка превышает максимум
     """
     if grade > max_allowed:
-        raise ValueError(
-            f"Максимальная оценка для этой работы: {max_allowed} (просрочка дедлайна)"
-        )
+        raise ValueError(f"Максимальная оценка для этой работы: {max_allowed} (просрочка дедлайна)")
 
 
 async def get_max_allowed_grade(
-    db: AsyncSession,
-    lesson: Lesson,
-    student_id: UUID | None = None,
-    work_number: int | None = None
+    db: AsyncSession, lesson: Lesson, student_id: UUID | None = None, work_number: int | None = None
 ) -> int:
     """
     Получить максимально допустимую оценку для занятия.
@@ -180,18 +167,16 @@ async def get_max_allowed_grade(
     Returns:
         Максимально допустимая оценка (2-5)
     """
-    if lesson.lesson_type != 'LAB':
+    if lesson.lesson_type != "LAB":
         return 5
 
     lab_number = work_number or lesson.work_number
     if not lab_number:
         return 5
 
-    lab_query = select(Lab).where(and_(
-        Lab.subject_id == lesson.subject_id,
-        Lab.number == lab_number,
-        Lab.deleted_at.is_(None)
-    ))
+    lab_query = select(Lab).where(
+        and_(Lab.subject_id == lesson.subject_id, Lab.number == lab_number, Lab.deleted_at.is_(None))
+    )
     result = await db.execute(lab_query)
     lab = result.scalar_one_or_none()
 

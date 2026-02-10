@@ -1,6 +1,7 @@
 """
 Backup settings, health check, and bot status.
 """
+
 import logging
 import shutil
 
@@ -78,7 +79,7 @@ async def backup_health_check(
         health["status"] = "unhealthy"
         health["checks"]["encryption_key"] = {
             "status": "error",
-            "message": "BACKUP_ENCRYPTION_KEY not configured or too short"
+            "message": "BACKUP_ENCRYPTION_KEY not configured or too short",
         }
     else:
         health["checks"]["encryption_key"] = {"status": "ok"}

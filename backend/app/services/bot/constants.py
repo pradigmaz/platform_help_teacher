@@ -1,4 +1,5 @@
 """Константы и типы для бот-сервисов."""
+
 import re
 from typing import Literal
 
@@ -26,7 +27,7 @@ CODE_LOCKOUT_SECONDS = CODE_LOCKOUT_TIME
 CODE_ATTEMPTS_WINDOW = CODE_ATTEMPTS_WINDOW_SECONDS
 
 # Паттерн валидации кодов (6-8 символов, A-Z и 0-9)
-CODE_PATTERN = re.compile(r'^[A-Z0-9]{6,8}$')
+CODE_PATTERN = re.compile(r"^[A-Z0-9]{6,8}$")
 
 # Минимальное время ответа для защиты от timing attack
 MIN_RESPONSE_TIME = 0.1  # 100ms

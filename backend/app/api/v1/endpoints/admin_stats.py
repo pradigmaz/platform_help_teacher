@@ -14,6 +14,7 @@ from app.services.student_service import StudentService
 
 router = APIRouter()
 
+
 @router.get("/stats", response_model=StatsResponse)
 @limiter.limit("30/minute")
 async def get_stats(
@@ -29,9 +30,7 @@ async def get_stats(
     total_users = users_result.scalar() or 0
 
     # Считаем количество групп (не архивных)
-    groups_result = await db.execute(
-        select(func.count(Group.id)).where(not Group.is_archived)
-    )
+    groups_result = await db.execute(select(func.count(Group.id)).where(not Group.is_archived))
     total_groups = groups_result.scalar() or 0
 
     # Считаем активных студентов (у кого есть роль student)
@@ -44,10 +43,7 @@ async def get_stats(
 
     # Считаем количество опубликованных лекций (не удалённых)
     lectures_result = await db.execute(
-        select(func.count(Lecture.id)).where(
-            Lecture.is_published,
-            Lecture.deleted_at.is_(None)
-        )
+        select(func.count(Lecture.id)).where(Lecture.is_published, Lecture.deleted_at.is_(None))
     )
     total_lectures = lectures_result.scalar() or 0
 
@@ -57,8 +53,9 @@ async def get_stats(
         "total_students": total_students,
         "total_lectures": total_lectures,
         "active_labs": active_labs,
-        "total_submissions": 0
+        "total_submissions": 0,
     }
+
 
 @router.get("/students/{student_id}", response_model=StudentProfileOut)
 async def get_student_profile(
@@ -87,6 +84,7 @@ async def reset_student_social(
 ):
     """Сбросить привязку социальных сетей у студента."""
     import logging
+
     logger = logging.getLogger(__name__)
 
     result = await db.execute(select(User).where(User.id == student_id))
@@ -143,9 +141,7 @@ async def transfer_student(
     service = TransferService(db)
     try:
         result = await service.create_transfer(
-            student_id=student_id,
-            request=transfer_request,
-            created_by_id=current_user.id
+            student_id=student_id, request=transfer_request, created_by_id=current_user.id
         )
         return result
     except ValueError as e:

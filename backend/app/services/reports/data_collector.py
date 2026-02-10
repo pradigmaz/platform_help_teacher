@@ -3,6 +3,7 @@
 
 Facade для агрегации данных из различных источников.
 """
+
 import logging
 from typing import Any
 from uuid import UUID
@@ -46,9 +47,7 @@ class ReportDataCollector:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_group_report_data(
-        self, report: GroupReport, attestation_type: str = "first"
-    ) -> PublicReportData:
+    async def get_group_report_data(self, report: GroupReport, attestation_type: str = "first") -> PublicReportData:
         """Сбор данных для публичного отчёта группы."""
         att_type = AttestationType.SECOND if attestation_type == "second" else AttestationType.FIRST
 
@@ -75,9 +74,7 @@ class ReportDataCollector:
         # Получаем баллы аттестации
         attestation_service = AttestationService(self.db)
         attestation_results, _ = await attestation_service.calculate_group_scores_batch(
-            group_id=report.group_id,
-            attestation_type=att_type,
-            students=students
+            group_id=report.group_id, attestation_type=att_type, students=students
         )
 
         results_map = {r.student_id: r for r in attestation_results}
@@ -104,11 +101,15 @@ class ReportDataCollector:
         attendance_stats = None
         today_lessons = None
         lesson_history = None
-        has_subgroups = group.has_subgroups if group and hasattr(group, 'has_subgroups') else False
+        has_subgroups = group.has_subgroups if group and hasattr(group, "has_subgroups") else False
 
         if report.show_attendance:
-            attendance_distribution = await get_attendance_distribution(self.db, report.group_id, students, semester_start)
-            attendance_stats = await get_full_attendance_stats(self.db, report.group_id, students, has_subgroups, semester_start, subject_id)
+            attendance_distribution = await get_attendance_distribution(
+                self.db, report.group_id, students, semester_start
+            )
+            attendance_stats = await get_full_attendance_stats(
+                self.db, report.group_id, students, has_subgroups, semester_start, subject_id
+            )
             today_lessons = await get_today_lessons_attendance(
                 self.db, report.group_id, students, show_names=report.show_names
             )
@@ -173,9 +174,7 @@ class ReportDataCollector:
         attestation_service = AttestationService(self.db)
         try:
             result = await attestation_service.calculate_student_score(
-                student_id=student_id,
-                group_id=report.group_id,
-                attestation_type=att_type
+                student_id=student_id, group_id=report.group_id, attestation_type=att_type
             )
         except Exception as e:
             logger.error(f"Error calculating score for student {student_id}: {e}")
@@ -215,12 +214,10 @@ class ReportDataCollector:
         rank_in_group = None
         total_in_group = None
         if report.show_rating and result:
-            group_stats = await self._get_group_comparison_stats(
-                report.group_id, student_id, result.total_score
-            )
-            group_average = group_stats.get('average')
-            rank_in_group = group_stats.get('rank')
-            total_in_group = group_stats.get('total')
+            group_stats = await self._get_group_comparison_stats(report.group_id, student_id, result.total_score)
+            group_average = group_stats.get("average")
+            rank_in_group = group_stats.get("rank")
+            total_in_group = group_stats.get("total")
 
         # Рекомендации
         is_passing = result.is_passing if result else False
@@ -244,13 +241,13 @@ class ReportDataCollector:
             group_average_score=group_average,
             rank_in_group=rank_in_group,
             total_in_group=total_in_group,
-            attendance_rate=att_stats.get('rate'),
+            attendance_rate=att_stats.get("rate"),
             attendance_history=attendance_history,
-            present_count=att_stats.get('present', 0),
-            absent_count=att_stats.get('absent', 0),
-            late_count=att_stats.get('late', 0),
-            excused_count=att_stats.get('excused', 0),
-            total_lessons=att_stats.get('total', 0),
+            present_count=att_stats.get("present", 0),
+            absent_count=att_stats.get("absent", 0),
+            late_count=att_stats.get("late", 0),
+            excused_count=att_stats.get("excused", 0),
+            total_lessons=att_stats.get("total", 0),
             labs_completed=labs_completed if report.show_grades else None,
             labs_total=labs_total if report.show_grades else None,
             lab_submissions=lab_submissions,
@@ -261,17 +258,13 @@ class ReportDataCollector:
             needs_attention=not is_passing,
         )
 
-    async def _get_group_comparison_stats(
-        self, group_id: UUID, student_id: UUID, student_score: float
-    ) -> dict:
+    async def _get_group_comparison_stats(self, group_id: UUID, student_id: UUID, student_score: float) -> dict:
         """Получить статистику сравнения с группой."""
         students = await get_group_students(self.db, group_id)
 
         attestation_service = AttestationService(self.db)
         results, _ = await attestation_service.calculate_group_scores_batch(
-            group_id=group_id,
-            attestation_type=AttestationType.FIRST,
-            students=students
+            group_id=group_id, attestation_type=AttestationType.FIRST, students=students
         )
 
         if not results:
@@ -282,32 +275,37 @@ class ReportDataCollector:
         sorted_scores = sorted(scores, reverse=True)
         rank = sorted_scores.index(student_score) + 1 if student_score in sorted_scores else len(scores)
 
-        return {'average': round(average, 2), 'rank': rank, 'total': len(students)}
+        return {"average": round(average, 2), "rank": rank, "total": len(students)}
 
     def apply_visibility_filter(self, data: dict[str, Any], report: GroupReport) -> dict[str, Any]:
         """Применение фильтра видимости к данным."""
         filtered = data.copy()
 
         if not report.show_names:
-            filtered.pop('name', None)
-            filtered.pop('full_name', None)
+            filtered.pop("name", None)
+            filtered.pop("full_name", None)
 
         if not report.show_grades:
-            for key in ['total_score', 'lab_score', 'attendance_score',
-                       'activity_score', 'grade', 'is_passing']:
+            for key in ["total_score", "lab_score", "attendance_score", "activity_score", "grade", "is_passing"]:
                 filtered.pop(key, None)
 
         if not report.show_attendance:
-            for key in ['attendance_rate', 'present_count', 'absent_count',
-                       'late_count', 'excused_count', 'attendance_history']:
+            for key in [
+                "attendance_rate",
+                "present_count",
+                "absent_count",
+                "late_count",
+                "excused_count",
+                "attendance_history",
+            ]:
                 filtered.pop(key, None)
 
         if not report.show_notes:
-            filtered.pop('notes', None)
+            filtered.pop("notes", None)
 
         if not report.show_rating:
-            filtered.pop('rank_in_group', None)
-            filtered.pop('group_average_score', None)
+            filtered.pop("rank_in_group", None)
+            filtered.pop("group_average_score", None)
 
         return filtered
 
@@ -319,13 +317,7 @@ class ReportDataCollector:
         semester_start = await get_semester_start_date(self.db)
 
         # Берём subject_id из занятий группы текущего семестра
-        query = (
-            select(Lesson.subject_id)
-            .where(
-                Lesson.group_id == group_id,
-                Lesson.subject_id.isnot(None)
-            )
-        )
+        query = select(Lesson.subject_id).where(Lesson.group_id == group_id, Lesson.subject_id.isnot(None))
         if semester_start:
             query = query.where(Lesson.date >= semester_start)
         query = query.order_by(Lesson.date.desc()).limit(1)

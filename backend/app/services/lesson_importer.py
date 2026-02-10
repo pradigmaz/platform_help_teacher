@@ -1,6 +1,7 @@
 """
 Импорт занятий в БД с обнаружением конфликтов
 """
+
 import logging
 from datetime import date
 from uuid import UUID
@@ -24,12 +25,7 @@ class LessonImporter:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def import_smart(
-        self,
-        parsed: ParsedLesson,
-        group: Group,
-        subject_id: UUID | None = None
-    ) -> dict:
+    async def import_smart(self, parsed: ParsedLesson, group: Group, subject_id: UUID | None = None) -> dict:
         """
         Умный импорт занятия с обнаружением конфликтов.
         Returns: {"action": "created"|"skipped"|"conflict", "lesson": Lesson|None}
@@ -51,12 +47,7 @@ class LessonImporter:
         await self._create_conflict(existing, parsed, lesson_type)
         return {"action": "conflict", "lesson": existing}
 
-    async def import_simple(
-        self,
-        parsed: ParsedLesson,
-        group: Group,
-        subject_id: UUID | None = None
-    ) -> Lesson | None:
+    async def import_simple(self, parsed: ParsedLesson, group: Group, subject_id: UUID | None = None) -> Lesson | None:
         """Импортировать одно занятие (без конфликтов)"""
         existing = await self._find_existing(group.id, parsed)
 
@@ -68,23 +59,14 @@ class LessonImporter:
         self.db.add(lesson)
         return lesson
 
-    async def detect_deleted(
-        self,
-        group: Group,
-        start_date: date,
-        end_date: date,
-        parsed_keys: set
-    ) -> int:
+    async def detect_deleted(self, group: Group, start_date: date, end_date: date, parsed_keys: set) -> int:
         """
         Обнаружить занятия, которые исчезли из расписания.
         parsed_keys: set of (date, lesson_number, subgroup) tuples
         """
         result = await self.db.execute(
             select(Lesson).where(
-                Lesson.group_id == group.id,
-                Lesson.date >= start_date,
-                Lesson.date <= end_date,
-                not Lesson.is_cancelled
+                Lesson.group_id == group.id, Lesson.date >= start_date, Lesson.date <= end_date, not Lesson.is_cancelled
             )
         )
         existing_lessons = result.scalars().all()
@@ -106,17 +88,13 @@ class LessonImporter:
                 Lesson.group_id == group_id,
                 Lesson.date == parsed.date,
                 Lesson.lesson_number == parsed.lesson_number,
-                Lesson.subgroup == parsed.subgroup
+                Lesson.subgroup == parsed.subgroup,
             )
         )
         return result.scalar_one_or_none()
 
     def _create_lesson(
-        self,
-        parsed: ParsedLesson,
-        group: Group,
-        lesson_type: LessonType,
-        subject_id: UUID | None
+        self, parsed: ParsedLesson, group: Group, lesson_type: LessonType, subject_id: UUID | None
     ) -> Lesson:
         """Создать объект занятия"""
         return Lesson(
@@ -127,7 +105,7 @@ class LessonImporter:
             topic=parsed.subject,
             subgroup=parsed.subgroup,
             is_cancelled=False,
-            subject_id=subject_id
+            subject_id=subject_id,
         )
 
     def _detect_changes(self, existing: Lesson, parsed: ParsedLesson, lesson_type: LessonType) -> dict:
@@ -145,20 +123,17 @@ class LessonImporter:
             "topic": existing.topic,
             "lesson_type": existing.lesson_type.value,
             "date": str(existing.date),
-            "lesson_number": existing.lesson_number
+            "lesson_number": existing.lesson_number,
         }
         new_data = {
             "topic": parsed.subject,
             "lesson_type": lesson_type.value,
             "date": str(parsed.date),
-            "lesson_number": parsed.lesson_number
+            "lesson_number": parsed.lesson_number,
         }
 
         conflict = ScheduleConflict(
-            lesson_id=existing.id,
-            conflict_type=ConflictType.CHANGED.value,
-            old_data=old_data,
-            new_data=new_data
+            lesson_id=existing.id, conflict_type=ConflictType.CHANGED.value, old_data=old_data, new_data=new_data
         )
         self.db.add(conflict)
         logger.info(f"Conflict detected for lesson {existing.id}")
@@ -169,12 +144,9 @@ class LessonImporter:
             "topic": lesson.topic,
             "lesson_type": lesson.lesson_type.value,
             "date": str(lesson.date),
-            "lesson_number": lesson.lesson_number
+            "lesson_number": lesson.lesson_number,
         }
         conflict = ScheduleConflict(
-            lesson_id=lesson.id,
-            conflict_type=ConflictType.DELETED.value,
-            old_data=old_data,
-            new_data=None
+            lesson_id=lesson.id, conflict_type=ConflictType.DELETED.value, old_data=old_data, new_data=None
         )
         self.db.add(conflict)

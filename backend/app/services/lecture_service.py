@@ -1,4 +1,5 @@
 """Сервис бизнес-логики для лекций."""
+
 import logging
 import secrets
 import string
@@ -21,13 +22,9 @@ class LectureService:
     def generate_public_code() -> str:
         """Генерировать уникальный код для публичной ссылки."""
         alphabet = string.ascii_lowercase + string.digits
-        return ''.join(secrets.choice(alphabet) for _ in range(LECTURE_PUBLIC_CODE_LENGTH))
+        return "".join(secrets.choice(alphabet) for _ in range(LECTURE_PUBLIC_CODE_LENGTH))
 
-    async def get_by_public_code(
-        self,
-        db: AsyncSession,
-        public_code: str
-    ) -> Lecture | None:
+    async def get_by_public_code(self, db: AsyncSession, public_code: str) -> Lecture | None:
         """Получить лекцию по публичному коду."""
         result = await db.execute(
             select(Lecture)
@@ -37,11 +34,7 @@ class LectureService:
         )
         return result.scalar_one_or_none()
 
-    async def publish(
-        self,
-        db: AsyncSession,
-        lecture: Lecture
-    ) -> str:
+    async def publish(self, db: AsyncSession, lecture: Lecture) -> str:
         """Опубликовать лекцию и вернуть публичный код."""
         if lecture.public_code:
             lecture.is_published = True
@@ -61,11 +54,7 @@ class LectureService:
 
         raise ValueError("Failed to generate unique public code")
 
-    async def unpublish(
-        self,
-        db: AsyncSession,
-        lecture: Lecture
-    ) -> None:
+    async def unpublish(self, db: AsyncSession, lecture: Lecture) -> None:
         """Снять лекцию с публикации."""
         lecture.public_code = None
         lecture.is_published = False
@@ -73,21 +62,13 @@ class LectureService:
         await db.refresh(lecture)
         logger.info(f"Lecture {lecture.id} unpublished")
 
-    async def soft_delete(
-        self,
-        db: AsyncSession,
-        lecture: Lecture
-    ) -> None:
+    async def soft_delete(self, db: AsyncSession, lecture: Lecture) -> None:
         """Мягкое удаление лекции."""
         lecture.deleted_at = datetime.now(UTC)
         await db.commit()
         logger.info(f"Lecture {lecture.id} soft-deleted")
 
-    async def restore(
-        self,
-        db: AsyncSession,
-        lecture: Lecture
-    ) -> None:
+    async def restore(self, db: AsyncSession, lecture: Lecture) -> None:
         """Восстановить удалённую лекцию."""
         lecture.deleted_at = None
         await db.commit()

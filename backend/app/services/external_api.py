@@ -1,6 +1,7 @@
 """
 Абстракция для внешних API с retry и circuit breaker.
 """
+
 import logging
 
 import httpx
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class ExternalAPIError(Exception):
     """Ошибка внешнего API."""
+
     pass
 
 
@@ -38,7 +40,7 @@ class ExternalAPIClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
-        reraise=True
+        reraise=True,
     )
     async def get(self, path: str, params: dict | None = None) -> str:
         """GET запрос с retry."""

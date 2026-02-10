@@ -1,6 +1,7 @@
 """
 Student API endpoints - личный кабинет студента.
 """
+
 from fastapi import APIRouter
 
 from .activities import router as activities_router

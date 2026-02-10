@@ -22,10 +22,7 @@ from app.core.time_constants import (
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=[".env", "../deploy/.env"],
-        env_file_encoding="utf-8",
-        extra="ignore",
-        case_sensitive=True
+        env_file=[".env", "../deploy/.env"], env_file_encoding="utf-8", extra="ignore", case_sensitive=True
     )
 
     ENVIRONMENT: str = "development"
@@ -37,7 +34,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
 
     # CORS
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"] # Default safe
+    CORS_ORIGINS: list[str] = ["http://localhost:3000"]  # Default safe
 
     # Cookie domain (None = текущий домен, ".example.com" для поддоменов)
     COOKIE_DOMAIN: str | None = None
@@ -55,7 +52,7 @@ class Settings(BaseSettings):
         # В продакшене нельзя использовать '*'
         env = os.getenv("ENVIRONMENT", "development")
         if env == "production" and "*" in v:
-             raise ValueError("Wildcard CORS (*) is not allowed in production!")
+            raise ValueError("Wildcard CORS (*) is not allowed in production!")
         return v
 
     # SECURITY
@@ -71,7 +68,7 @@ class Settings(BaseSettings):
         if len(v) < 32:
             raise ValueError("SECRET_KEY is too short! Use 'openssl rand -hex 32'")
         if v in ["changeme", "dev_secret", "secret"]:
-             raise ValueError("Default SECRET_KEY is not allowed!")
+            raise ValueError("Default SECRET_KEY is not allowed!")
         return v
 
     # DATABASE
@@ -124,7 +121,7 @@ class Settings(BaseSettings):
     MAX_IMPORT_FILE_SIZE: int = MAX_FILE_SIZE_BYTES
     MAX_IMAGE_SIZE: int = 10 * 1024 * 1024  # 10MB
     MAX_PIN_ATTEMPTS: int = 5
-    NAME_SANITIZATION_REGEX: str = r'[\d\.\,\;\t]'
+    NAME_SANITIZATION_REGEX: str = r"[\d\.\,\;\t]"
 
     # Backup Settings
     BACKUP_ENCRYPTION_KEY: str = Field(default="", repr=False)
@@ -138,5 +135,6 @@ class Settings(BaseSettings):
         if v and len(v) < 32:
             raise ValueError("BACKUP_ENCRYPTION_KEY must be at least 32 characters")
         return v
+
 
 settings = Settings()

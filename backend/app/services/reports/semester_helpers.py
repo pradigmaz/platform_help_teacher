@@ -1,6 +1,7 @@
 """
 Хелперы для работы с семестром и аттестацией.
 """
+
 from datetime import date, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,10 +50,7 @@ async def get_current_semester_from_settings(db: AsyncSession) -> tuple[int, int
         return (now.year - 1, 2)
 
 
-async def get_semester_info(
-    db: AsyncSession,
-    attestation_type: AttestationType
-) -> tuple[bool, int, int, bool]:
+async def get_semester_info(db: AsyncSession, attestation_type: AttestationType) -> tuple[bool, int, int, bool]:
     """Получить информацию о семестре.
 
     Returns:

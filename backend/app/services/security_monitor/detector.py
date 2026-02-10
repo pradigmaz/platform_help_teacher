@@ -7,6 +7,7 @@ Security Detector — детекция атак и управление стра
 - НЕ банить fingerprint глобально — это вызывает массовые баны в компьютерных классах
 - IP бан — только как fallback для неавторизованных
 """
+
 import hashlib
 import json
 import logging
@@ -125,9 +126,7 @@ class SecurityDetector:
             return True, ttl
         return False, None
 
-    async def _save_fingerprint_mapping(
-        self, redis, user_id: UUID, fp_hash: str
-    ) -> None:
+    async def _save_fingerprint_mapping(self, redis, user_id: UUID, fp_hash: str) -> None:
         """Сохранить связь fingerprint → user_id для будущей идентификации."""
         # Mapping fp → user
         fp_key = REDIS_FP_TO_USER.format(fp_hash=fp_hash)
@@ -183,8 +182,7 @@ class SecurityDetector:
                 is_banned, ttl = await self._is_user_banned(redis, linked_user_id)
                 if is_banned:
                     logger.warning(
-                        f"🚫 Banned user detected by fingerprint: "
-                        f"user={linked_user_id} fp={fp_hash} ip={ip_address}"
+                        f"🚫 Banned user detected by fingerprint: user={linked_user_id} fp={fp_hash} ip={ip_address}"
                     )
                     return DetectionResult(
                         is_suspicious=True,
@@ -217,20 +215,19 @@ class SecurityDetector:
                 pattern=None,  # type: ignore
                 attack_type=AttackType.IDOR,
                 description="Possible IDOR: 404 on UUID resource",
-                severity=1
+                severity=1,
             )
 
         if not attack:
             return DetectionResult()
 
         # Записываем страйк
-        return await self._record_strike(
-            redis, identifier, ip_address, effective_user_id, url, attack, fp_hash
-        )
+        return await self._record_strike(redis, identifier, ip_address, effective_user_id, url, attack, fp_hash)
 
     def _looks_like_idor(self, url: str) -> bool:
         """Проверяет, похож ли URL на попытку IDOR."""
         import re
+
         uuid_pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
         if re.search(uuid_pattern, url, re.IGNORECASE):
             public_paths = ["/public/", "/lectures/", "/report/"]
@@ -253,7 +250,7 @@ class SecurityDetector:
         details_key = REDIS_STRIKE_DETAILS.format(identifier=identifier)
 
         # Инкрементируем счётчик (с учётом severity)
-        increment = attack.severity if hasattr(attack, 'severity') else 1
+        increment = attack.severity if hasattr(attack, "severity") else 1
         count = await redis.incrby(count_key, increment)
 
         if count == increment:  # Первый страйк
@@ -266,7 +263,7 @@ class SecurityDetector:
             "url": url[:500],
             "attack_type": attack.attack_type.value,
             "description": attack.description,
-            "severity": getattr(attack, 'severity', 1),
+            "severity": getattr(attack, "severity", 1),
         }
         await redis.rpush(details_key, json.dumps(detail))
 
@@ -279,33 +276,23 @@ class SecurityDetector:
             if user_id:
                 user_ban_key = REDIS_USER_BAN.format(user_id=user_id)
                 await redis.setex(user_ban_key, BAN_DURATION, attack.attack_type.value)
-                logger.warning(
-                    f"🚫 USER BAN: user={user_id} | "
-                    f"attack={attack.attack_type.value} | url={url[:100]}"
-                )
+                logger.warning(f"🚫 USER BAN: user={user_id} | attack={attack.attack_type.value} | url={url[:100]}")
             else:
                 # Fallback: бан по IP для неавторизованных
                 ip_ban_key = REDIS_IP_BAN.format(ip=ip_address)
                 await redis.setex(ip_ban_key, BAN_DURATION, attack.attack_type.value)
-                logger.warning(
-                    f"🚫 IP BAN: ip={ip_address} | "
-                    f"attack={attack.attack_type.value} | url={url[:100]}"
-                )
+                logger.warning(f"🚫 IP BAN: ip={ip_address} | attack={attack.attack_type.value} | url={url[:100]}")
 
         elif count >= 2:
             level = StrikeLevel.RECORDED
             ban_until = None
             logger.warning(
-                f"⚠️ STRIKE {count}/{MAX_STRIKES}: {identifier} | "
-                f"attack={attack.attack_type.value} | url={url[:100]}"
+                f"⚠️ STRIKE {count}/{MAX_STRIKES}: {identifier} | attack={attack.attack_type.value} | url={url[:100]}"
             )
         else:
             level = StrikeLevel.WARNING
             ban_until = None
-            logger.info(
-                f"⚠️ WARNING: {identifier} | "
-                f"attack={attack.attack_type.value} | url={url[:100]}"
-            )
+            logger.info(f"⚠️ WARNING: {identifier} | attack={attack.attack_type.value} | url={url[:100]}")
 
         return DetectionResult(
             is_suspicious=True,

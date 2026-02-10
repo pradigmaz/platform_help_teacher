@@ -3,6 +3,7 @@
 
 Фасад для работы с отчётами, объединяющий все модули.
 """
+
 import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -66,20 +67,13 @@ class ReportService:
         max_attempts = 10
         for _ in range(max_attempts):
             code = generate_code()
-            existing = await self.db.execute(
-                select(GroupReport.id).where(GroupReport.code == code)
-            )
+            existing = await self.db.execute(select(GroupReport.id).where(GroupReport.code == code))
             if existing.scalar_one_or_none() is None:
                 return code
 
         raise RuntimeError("Failed to generate unique code after max attempts")
 
-    async def create_report(
-        self,
-        group_id: UUID,
-        teacher_id: UUID,
-        settings: ReportCreate
-    ) -> GroupReport:
+    async def create_report(self, group_id: UUID, teacher_id: UUID, settings: ReportCreate) -> GroupReport:
         """Создание нового публичного отчёта."""
         code = await self.generate_unique_code()
 
@@ -113,10 +107,7 @@ class ReportService:
         return report
 
     async def get_report_by_code(
-        self,
-        code: str,
-        check_active: bool = True,
-        check_expiry: bool = True
+        self, code: str, check_active: bool = True, check_expiry: bool = True
     ) -> GroupReport | None:
         """Получение отчёта по коду с проверками."""
         query = select(GroupReport).where(GroupReport.code == code)
@@ -144,19 +135,11 @@ class ReportService:
 
     async def get_reports_by_teacher(self, teacher_id: UUID) -> list[GroupReport]:
         """Получение всех отчётов преподавателя."""
-        query = (
-            select(GroupReport)
-            .where(GroupReport.created_by == teacher_id)
-            .order_by(GroupReport.created_at.desc())
-        )
+        query = select(GroupReport).where(GroupReport.created_by == teacher_id).order_by(GroupReport.created_at.desc())
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def update_report(
-        self,
-        report: GroupReport,
-        update_data: ReportUpdate
-    ) -> GroupReport:
+    async def update_report(self, report: GroupReport, update_data: ReportUpdate) -> GroupReport:
         """Обновление настроек отчёта."""
         update_dict = update_data.model_dump(exclude_unset=True)
 
@@ -165,13 +148,10 @@ class ReportService:
         elif update_data.pin_code:
             report.pin_hash = hash_pin(update_data.pin_code)
 
-        if 'expires_in_days' in update_dict and update_dict['expires_in_days']:
-            report.expires_at = datetime.now(UTC) + timedelta(
-                days=update_dict['expires_in_days']
-            )
+        if "expires_in_days" in update_dict and update_dict["expires_in_days"]:
+            report.expires_at = datetime.now(UTC) + timedelta(days=update_dict["expires_in_days"])
 
-        for field in ['show_names', 'show_grades', 'show_attendance',
-                      'show_notes', 'show_rating', 'is_active']:
+        for field in ["show_names", "show_grades", "show_attendance", "show_notes", "show_rating", "is_active"]:
             if field in update_dict and update_dict[field] is not None:
                 setattr(report, field, update_dict[field])
 
@@ -200,17 +180,12 @@ class ReportService:
 
     # ==================== Data Collection (delegated) ====================
 
-    async def get_group_report_data(
-        self, report: GroupReport, attestation_type: str = "first"
-    ) -> PublicReportData:
+    async def get_group_report_data(self, report: GroupReport, attestation_type: str = "first") -> PublicReportData:
         """Сбор данных для публичного отчёта группы."""
         return await self._collector.get_group_report_data(report, attestation_type)
 
     async def get_student_report_data(
-        self,
-        report: GroupReport,
-        student_id: UUID,
-        attestation_type: str = "first"
+        self, report: GroupReport, student_id: UUID, attestation_type: str = "first"
     ) -> StudentDetailData | None:
         """Сбор детальных данных для отчёта по студенту."""
         return await self._collector.get_student_report_data(report, student_id, attestation_type)
@@ -221,12 +196,7 @@ class ReportService:
 
     # ==================== Audit (delegated) ====================
 
-    async def log_view(
-        self,
-        report_id: UUID,
-        ip_address: str,
-        user_agent: str | None = None
-    ):
+    async def log_view(self, report_id: UUID, ip_address: str, user_agent: str | None = None):
         """Логирование просмотра отчёта."""
         return await self._audit.log_view(report_id, ip_address, user_agent)
 
@@ -234,10 +204,6 @@ class ReportService:
         """Получение статистики просмотров отчёта."""
         return await self._audit.get_view_stats(report_id)
 
-    async def get_recent_views(
-        self,
-        report_id: UUID,
-        limit: int = 50
-    ) -> list[ReportViewRecord]:
+    async def get_recent_views(self, report_id: UUID, limit: int = 50) -> list[ReportViewRecord]:
         """Получение последних просмотров отчёта."""
         return await self._audit.get_recent_views(report_id, limit)

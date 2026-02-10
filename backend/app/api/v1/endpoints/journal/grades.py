@@ -1,6 +1,7 @@
 """
 Агрегатор роутеров для оценок и посещаемости журнала.
 """
+
 from fastapi import APIRouter
 
 from .attendance import router as attendance_router

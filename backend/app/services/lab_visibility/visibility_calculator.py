@@ -1,4 +1,5 @@
 """Расчёт видимости и дедлайнов лаб по расписанию."""
+
 import logging
 from datetime import date
 from uuid import UUID
@@ -27,11 +28,7 @@ def _build_subgroup_filter(subgroup: int | None) -> list:
     return []
 
 
-def _build_base_filter(
-    group_id: UUID,
-    subgroup: int | None,
-    subject_id: UUID | None = None
-) -> list:
+def _build_base_filter(group_id: UUID, subgroup: int | None, subject_id: UUID | None = None) -> list:
     """Построить базовый фильтр для запросов к занятиям."""
     base_filter = [
         Lesson.group_id == group_id,
@@ -45,10 +42,7 @@ def _build_base_filter(
 
 
 def _calculate_deadline_status(
-    labs_after: int,
-    effective_deadline: int | None,
-    visible_from: date,
-    today: date
+    labs_after: int, effective_deadline: int | None, visible_from: date, today: date
 ) -> tuple[str | None, int | None]:
     """
     Рассчитать статус дедлайна и оставшиеся пары.
@@ -60,9 +54,9 @@ def _calculate_deadline_status(
         return None, None
 
     if labs_after >= effective_deadline:
-        return 'expired', None
+        return "expired", None
     elif visible_from <= today:
-        return 'active', effective_deadline - labs_after
+        return "active", effective_deadline - labs_after
 
     return None, None
 
@@ -76,7 +70,7 @@ async def calculate_visibility_for_subject(
     subject_id: UUID | None,
     today: date,
     labs_ids: dict[int, UUID] | None = None,
-    extensions_map: dict[UUID, int] | None = None
+    extensions_map: dict[UUID, int] | None = None,
 ) -> dict[int, LabVisibilityInfo]:
     """Получить visibility для лаб одного предмета."""
     labs_ids = labs_ids or {}
@@ -85,24 +79,22 @@ async def calculate_visibility_for_subject(
     base_filter = _build_base_filter(group_id, subgroup, subject_id)
 
     # 1. MIN/MAX даты для всех лаб одним запросом
-    dates_query = select(
-        Lesson.work_number,
-        func.min(Lesson.date).label('min_date'),
-        func.max(Lesson.date).label('max_date')
-    ).where(
-        and_(*base_filter, Lesson.work_number.in_(lab_numbers))
-    ).group_by(Lesson.work_number)
+    dates_query = (
+        select(Lesson.work_number, func.min(Lesson.date).label("min_date"), func.max(Lesson.date).label("max_date"))
+        .where(and_(*base_filter, Lesson.work_number.in_(lab_numbers)))
+        .group_by(Lesson.work_number)
+    )
 
     dates_result = await db.execute(dates_query)
     lab_dates = {row.work_number: (row.min_date, row.max_date) for row in dates_result.all()}
 
     # 2. Все уникальные work_number с датами для подсчёта дедлайнов
-    all_labs_query = select(
-        Lesson.work_number,
-        func.min(Lesson.date).label('first_date')
-    ).where(
-        and_(*base_filter, Lesson.work_number is not None, Lesson.date <= today)
-    ).group_by(Lesson.work_number).order_by(func.min(Lesson.date))
+    all_labs_query = (
+        select(Lesson.work_number, func.min(Lesson.date).label("first_date"))
+        .where(and_(*base_filter, Lesson.work_number is not None, Lesson.date <= today))
+        .group_by(Lesson.work_number)
+        .order_by(func.min(Lesson.date))
+    )
 
     all_labs_result = await db.execute(all_labs_query)
     all_labs_ordered = [(row.work_number, row.first_date) for row in all_labs_result.all()]
@@ -117,7 +109,7 @@ async def calculate_visibility_for_subject(
             labs_deadlines=labs_deadlines,
             labs_ids=labs_ids,
             extensions_map=extensions_map,
-            today=today
+            today=today,
         )
 
     return result
@@ -130,7 +122,7 @@ def _calculate_single_lab_visibility(
     labs_deadlines: dict[int, tuple],
     labs_ids: dict[int, UUID],
     extensions_map: dict[UUID, int],
-    today: date
+    today: date,
 ) -> LabVisibilityInfo:
     """Рассчитать видимость и дедлайны для одной лабы."""
     dates = lab_dates.get(lab_number)
@@ -145,14 +137,11 @@ def _calculate_single_lab_visibility(
             lab_number=lab_number,
             is_visible=False,
             visible_from=visible_from,
-            deadline_active_from=deadline_active_from
+            deadline_active_from=deadline_active_from,
         )
 
     # Уникальные лабы после первого занятия этой лабы
-    labs_after = sum(
-        1 for wn, first_date in all_labs_ordered
-        if first_date > visible_from and wn != lab_number
-    )
+    labs_after = sum(1 for wn, first_date in all_labs_ordered if first_date > visible_from and wn != lab_number)
 
     # Дедлайны и продления
     deadline_5, deadline_4 = labs_deadlines.get(lab_number, (None, None))
@@ -168,7 +157,7 @@ def _calculate_single_lab_visibility(
     deadline_5_status, lessons_until_5 = _calculate_deadline_status(
         labs_after, effective_deadline_5, visible_from, today
     )
-    if deadline_5_status == 'expired':
+    if deadline_5_status == "expired":
         current_max_grade = 4
 
     if effective_deadline_5 is not None:
@@ -180,7 +169,7 @@ def _calculate_single_lab_visibility(
     deadline_4_status, lessons_until_4 = _calculate_deadline_status(
         labs_after, effective_deadline_4, visible_from, today
     )
-    if deadline_4_status == 'expired':
+    if deadline_4_status == "expired":
         current_max_grade = 3
 
     return LabVisibilityInfo(
@@ -195,5 +184,5 @@ def _calculate_single_lab_visibility(
         lessons_until_deadline_4=lessons_until_4,
         current_max_grade=current_max_grade,
         has_extension=has_extension,
-        extension_bonus=extension_bonus
+        extension_bonus=extension_bonus,
     )

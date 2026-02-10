@@ -1,6 +1,7 @@
 """
 Утилиты для аудита: извлечение IP, санитизация.
 """
+
 import json
 import logging
 from typing import Any
@@ -44,11 +45,7 @@ def extract_ip_info(request: Request) -> IPInfo:
     if not _is_valid_ip(real_ip):
         real_ip = client_ip
 
-    return IPInfo(
-        real_ip=real_ip,
-        forwarded_chain=forwarded_for,
-        is_proxy=is_proxy
-    )
+    return IPInfo(real_ip=real_ip, forwarded_chain=forwarded_for, is_proxy=is_proxy)
 
 
 def _is_valid_ip(ip: str) -> bool:
@@ -146,7 +143,7 @@ def should_audit(path: str) -> bool:
 def extract_fingerprint(request: Request) -> dict[str, Any] | None:
     """Извлечь fingerprint из заголовков."""
     fp_header = request.headers.get("X-Device-Fingerprint")
-    if not fp_header or fp_header == '{}':
+    if not fp_header or fp_header == "{}":
         return None
 
     try:

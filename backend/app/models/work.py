@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 class Work(Base, TimestampMixin):
     """Универсальная модель работы (контрольные, самостоятельные, коллоквиумы, проекты)"""
+
     __tablename__ = "works"
     __table_args__ = (
         CheckConstraint("length(title) <= 200", name="ck_works_title_len"),
@@ -29,9 +30,9 @@ class Work(Base, TimestampMixin):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     work_type: Mapped[WorkType] = mapped_column(
-        SAEnum(WorkType, name='worktype', create_constraint=False, native_enum=True, create_type=False),
+        SAEnum(WorkType, name="worktype", create_constraint=False, native_enum=True, create_type=False),
         nullable=False,
-        index=True
+        index=True,
     )
     max_grade: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
     deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -39,19 +40,13 @@ class Work(Base, TimestampMixin):
 
     # Привязка к предмету и группе
     subject_id: Mapped[UUID | None] = mapped_column(
-        PGUUID(as_uuid=True),
-        ForeignKey("subjects.id", ondelete="SET NULL"),
-        nullable=True
+        PGUUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True
     )
     group_id: Mapped[UUID | None] = mapped_column(
-        PGUUID(as_uuid=True),
-        ForeignKey("groups.id", ondelete="SET NULL"),
-        nullable=True
+        PGUUID(as_uuid=True), ForeignKey("groups.id", ondelete="SET NULL"), nullable=True
     )
 
     # Связи
-    submissions: Mapped[list["WorkSubmission"]] = relationship(
-        back_populates="work", cascade="all, delete-orphan"
-    )
+    submissions: Mapped[list["WorkSubmission"]] = relationship(back_populates="work", cascade="all, delete-orphan")
     subject: Mapped[Optional["Subject"]] = relationship()
     group: Mapped[Optional["Group"]] = relationship()

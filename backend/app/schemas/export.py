@@ -57,9 +57,7 @@ class JournalExportRequest(BaseModel):
         """Валидация: period_value обязателен для всех типов кроме SEMESTER."""
         period_type = info.data.get("period_type")
         if period_type and period_type != ExportPeriodType.SEMESTER and not v:
-            raise ValueError(
-                f"period_value обязателен для period_type={period_type}"
-            )
+            raise ValueError(f"period_value обязателен для period_type={period_type}")
         return v
 
 

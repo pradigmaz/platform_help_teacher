@@ -1,4 +1,5 @@
 """Group CRUD operations: list, get, create, delete, parse."""
+
 import logging
 from typing import Any
 from uuid import UUID
@@ -77,11 +78,7 @@ async def read_group(
     current_user: models.User = Depends(deps.get_current_teacher),
 ) -> Any:
     """Детали группы."""
-    query = (
-        select(models.Group)
-        .options(selectinload(models.Group.users))
-        .where(models.Group.id == group_id)
-    )
+    query = select(models.Group).options(selectinload(models.Group.users)).where(models.Group.id == group_id)
     result = await db.execute(query)
     group = result.scalar_one_or_none()
 

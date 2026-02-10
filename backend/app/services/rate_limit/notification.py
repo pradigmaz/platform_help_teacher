@@ -1,6 +1,7 @@
 """
 Уведомления преподавателям о rate limit нарушениях.
 """
+
 import logging
 from uuid import UUID
 

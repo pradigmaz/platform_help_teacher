@@ -21,6 +21,7 @@ from app.services.user_service import user_service
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
 @router.post("/", response_model=schemas.UserResponse)
 @limiter.limit("20/minute")
 async def create_user(
@@ -36,6 +37,7 @@ async def create_user(
     """
     logger.info(f"[users:create_user] Admin {current_user.id} creating user with social_id={user_in.social_id}")
     return await user_service.create_user(db, user_in)
+
 
 @router.get("/me", response_model=schemas.UserResponse)
 async def read_user_me(
@@ -63,10 +65,7 @@ async def update_user_me(
     # Students cannot change their full_name
     if user_in.full_name is not None and current_user.role == models.UserRole.STUDENT:
         logger.warning(f"[users:update_user_me] Student {current_user.id} attempted to change full_name")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Students cannot change their name"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Students cannot change their name")
 
     return await user_service.update_user(db, current_user, user_in)
 
@@ -86,11 +85,9 @@ async def relink_telegram(
     Если у пользователя уже есть привязка, код может использовать только он.
     """
     from app.services import bot_service
+
     code = await bot_service.generate_relink_code(
-        db,
-        current_user.id,
-        "telegram",
-        current_social_id=current_user.telegram_id
+        db, current_user.id, "telegram", current_social_id=current_user.telegram_id
     )
 
     return RelinkTelegramResponse(
@@ -114,12 +111,8 @@ async def link_vk(
     Если у пользователя уже есть привязка, код может использовать только он.
     """
     from app.services import bot_service
-    code = await bot_service.generate_relink_code(
-        db,
-        current_user.id,
-        "vk",
-        current_social_id=current_user.vk_id
-    )
+
+    code = await bot_service.generate_relink_code(db, current_user.id, "vk", current_social_id=current_user.vk_id)
 
     return RelinkTelegramResponse(
         code=code,
@@ -127,8 +120,8 @@ async def link_vk(
     )
 
 
-
 # ============ Teacher Contacts Endpoints ============
+
 
 @router.get("/profile/contacts", response_model=TeacherContactsResponse)
 async def get_my_contacts(
@@ -165,8 +158,8 @@ async def update_my_contacts(
     )
 
 
-
 # ============ Teacher Settings Endpoints ============
+
 
 class TeacherSettingsResponse(BaseModel):
     hide_previous_semester: bool = True
@@ -201,9 +194,7 @@ async def update_my_settings(
     logger.info(f"[users:update_my_settings] Teacher {current_user.id} updating settings")
 
     updated_user = await user_service.update_settings(
-        db,
-        current_user,
-        hide_previous_semester=data.hide_previous_semester
+        db, current_user, hide_previous_semester=data.hide_previous_semester
     )
 
     settings = updated_user.teacher_settings or {}

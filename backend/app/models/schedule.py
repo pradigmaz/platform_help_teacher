@@ -1,6 +1,7 @@
 """
 Модель расписания занятий.
 """
+
 import enum
 from datetime import date
 from typing import TYPE_CHECKING, Optional
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
 
 class DayOfWeek(str, enum.Enum):
     """День недели"""
+
     MONDAY = "monday"
     TUESDAY = "tuesday"
     WEDNESDAY = "wednesday"
@@ -31,15 +33,17 @@ class DayOfWeek(str, enum.Enum):
 
 class LessonType(str, enum.Enum):
     """Тип занятия"""
-    LECTURE = "lecture"      # Лекция
-    PRACTICE = "practice"    # Практика
-    LAB = "lab"              # Лабораторная
+
+    LECTURE = "lecture"  # Лекция
+    PRACTICE = "practice"  # Практика
+    LAB = "lab"  # Лабораторная
 
 
 class WeekParity(str, enum.Enum):
     """Чётность недели"""
-    ODD = "odd"      # Нечётная
-    EVEN = "even"    # Чётная
+
+    ODD = "odd"  # Нечётная
+    EVEN = "even"  # Чётная
 
 
 class ScheduleItem(Base, TimestampMixin):
@@ -47,40 +51,30 @@ class ScheduleItem(Base, TimestampMixin):
     Элемент расписания (одна пара).
     Описывает регулярное занятие в расписании группы.
     """
+
     __tablename__ = "schedule_items"
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    group_id: Mapped[UUID] = mapped_column(
-        ForeignKey("groups.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
+    group_id: Mapped[UUID] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Когда
     day_of_week: Mapped[DayOfWeek] = mapped_column(
-        SAEnum(DayOfWeek, name="dayofweek", create_constraint=False, native_enum=False),
-        nullable=False
+        SAEnum(DayOfWeek, name="dayofweek", create_constraint=False, native_enum=False), nullable=False
     )
     lesson_number: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-8
 
     # Что
     lesson_type: Mapped[LessonType] = mapped_column(
-        SAEnum(LessonType, name="lessontype", create_constraint=False, native_enum=False),
-        nullable=False
+        SAEnum(LessonType, name="lessontype", create_constraint=False, native_enum=False), nullable=False
     )
     subject: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Legacy string
     subject_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("subjects.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True
+        ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True
     )
     room: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Кто ведёт
-    teacher_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True
-    )
+    teacher_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     # Период действия
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -88,8 +82,7 @@ class ScheduleItem(Base, TimestampMixin):
 
     # Чётность недели (null = каждую неделю)
     week_parity: Mapped[WeekParity | None] = mapped_column(
-        SAEnum(WeekParity, name="weekparity", create_constraint=False, native_enum=False),
-        nullable=True
+        SAEnum(WeekParity, name="weekparity", create_constraint=False, native_enum=False), nullable=True
     )
 
     # Подгруппа (null = вся группа)
@@ -103,7 +96,7 @@ class ScheduleItem(Base, TimestampMixin):
     subject_ref: Mapped[Optional["Subject"]] = relationship()
 
     __table_args__ = (
-        Index('idx_schedule_group_day', 'group_id', 'day_of_week'),
-        CheckConstraint('lesson_number >= 1 AND lesson_number <= 8', name='ck_schedule_lesson_number'),
-        CheckConstraint('subgroup IS NULL OR subgroup IN (1, 2)', name='ck_schedule_subgroup'),
+        Index("idx_schedule_group_day", "group_id", "day_of_week"),
+        CheckConstraint("lesson_number >= 1 AND lesson_number <= 8", name="ck_schedule_lesson_number"),
+        CheckConstraint("subgroup IS NULL OR subgroup IN (1, 2)", name="ck_schedule_subgroup"),
     )

@@ -1,4 +1,5 @@
 """Session schemas for user session management."""
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -6,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class DeviceInfo(BaseModel):
     """Parsed device information from fingerprint."""
+
     platform: str | None = None
     browser: str | None = None
     screen: str | None = None
@@ -13,6 +15,7 @@ class DeviceInfo(BaseModel):
 
 class SessionResponse(BaseModel):
     """Single session info."""
+
     session_id: str
     created_at: datetime
     ip_address: str | None = Field(None, description="Masked IP (e.g., 192.168.x.x)")
@@ -22,6 +25,7 @@ class SessionResponse(BaseModel):
 
 class SessionListResponse(BaseModel):
     """List of user sessions."""
+
     sessions: list[SessionResponse]
     total: int
     max_sessions: int
@@ -29,5 +33,6 @@ class SessionListResponse(BaseModel):
 
 class RevokeSessionsResponse(BaseModel):
     """Response after revoking sessions."""
+
     revoked_count: int
     message: str

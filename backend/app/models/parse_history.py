@@ -1,6 +1,7 @@
 """
 Модель истории парсинга расписания
 """
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -12,6 +13,7 @@ from .base import Base
 
 class ParseHistory(Base):
     """История запусков парсинга"""
+
     __tablename__ = "parse_history"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -20,9 +22,7 @@ class ParseHistory(Base):
     teacher_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
 
     # Связь с конфигом (опционально, для ручного парсинга может быть null)
-    config_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("schedule_parser_configs.id"), nullable=True
-    )
+    config_id: Mapped[UUID | None] = mapped_column(ForeignKey("schedule_parser_configs.id"), nullable=True)
 
     # Временные метки
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

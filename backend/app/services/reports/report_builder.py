@@ -18,7 +18,7 @@ def build_empty_report(
     attestation_type: str = "first",
     max_points: int = 35,
     min_passing_points: int = 20,
-    is_second_available: bool = False
+    is_second_available: bool = False,
 ) -> PublicReportData:
     """Построить пустой отчёт."""
     att_type = AttestationType.SECOND if attestation_type == "second" else AttestationType.FIRST

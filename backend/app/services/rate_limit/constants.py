@@ -1,21 +1,24 @@
 """
 Константы для системы rate limit предупреждений.
 """
+
 from enum import Enum
 from typing import NamedTuple
 
 
 class WarningLevel(str, Enum):
     """Уровни предупреждений."""
+
     NONE = "none"
-    SOFT_WARNING = "soft_warning"      # Просто header в ответе
-    RECORDED_WARNING = "recorded"       # Записано в БД
-    SOFT_BAN = "soft_ban"              # Временный бан 10 мин
-    HARD_BAN = "hard_ban"              # Бан 1 час
+    SOFT_WARNING = "soft_warning"  # Просто header в ответе
+    RECORDED_WARNING = "recorded"  # Записано в БД
+    SOFT_BAN = "soft_ban"  # Временный бан 10 мин
+    HARD_BAN = "hard_ban"  # Бан 1 час
 
 
 class Threshold(NamedTuple):
     """Порог для уровня предупреждения."""
+
     count: int
     level: WarningLevel
     ban_duration: int  # секунды, 0 = нет бана

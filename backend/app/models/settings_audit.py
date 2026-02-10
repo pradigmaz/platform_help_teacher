@@ -2,6 +2,7 @@
 Модель аудита изменений настроек.
 Логирует все изменения настроек аттестации.
 """
+
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
@@ -22,6 +23,7 @@ class SettingsAuditLog(Base):
 
     Хранит историю всех изменений для audit trail.
     """
+
     __tablename__ = "settings_audit_log"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -43,25 +45,15 @@ class SettingsAuditLog(Base):
     changed_fields: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     # Кто изменил
-    changed_by_id: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True
-    )
-    changed_by: Mapped["User | None"] = relationship(
-        "User",
-        foreign_keys=[changed_by_id],
-        lazy="selectin"
-    )
+    changed_by_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    changed_by: Mapped["User | None"] = relationship("User", foreign_keys=[changed_by_id], lazy="selectin")
 
     # IP адрес
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
 
     # Время изменения
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        nullable=False,
-        index=True
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False, index=True
     )
 
     # Комментарий (опционально)

@@ -1,6 +1,7 @@
 """
 Backup CRUD operations: create, list, delete, upload.
 """
+
 import logging
 import tempfile
 from pathlib import Path
@@ -67,10 +68,7 @@ async def list_backups(
     """List all available backups."""
     backups = await service.list_backups()
     return BackupListResponse(
-        backups=[
-            BackupInfo(name=b.name, key=b.key, size=b.size, created_at=b.created_at)
-            for b in backups
-        ],
+        backups=[BackupInfo(name=b.name, key=b.key, size=b.size, created_at=b.created_at) for b in backups],
         total=len(backups),
     )
 
@@ -108,17 +106,14 @@ async def upload_backup(
     service: BackupService = Depends(get_backup_service),
 ):
     """Upload encrypted backup file to storage. Max size: 50MB."""
-    if not file.filename or not file.filename.endswith('.enc'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=em.FILE_MUST_HAVE_ENC_EXTENSION
-        )
+    if not file.filename or not file.filename.endswith(".enc"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.FILE_MUST_HAVE_ENC_EXTENSION)
 
     content = await file.read()
     if len(content) > MAX_BACKUP_UPLOAD_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File too large. Max size: {MAX_BACKUP_UPLOAD_SIZE // (1024*1024)}MB"
+            detail=f"File too large. Max size: {MAX_BACKUP_UPLOAD_SIZE // (1024 * 1024)}MB",
         )
 
     if len(content) == 0:
@@ -129,44 +124,36 @@ async def upload_backup(
     # Format v0 (legacy): [salt:16][nonce:12]... minimum 28 bytes
     MIN_ENCRYPTED_SIZE = 25 + 16  # header + at least one tag
     if len(content) < MIN_ENCRYPTED_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=em.FILE_TOO_SMALL
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.FILE_TOO_SMALL)
 
     # Check format version byte
     version_byte = content[0]
     if version_byte == 1:
         # v1 format: version(1) + salt(16) + base_nonce(8) = 25 bytes header
         if len(content) < 25 + 16:  # header + minimum ciphertext with tag
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=em.INVALID_BACKUP_FORMAT
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.INVALID_BACKUP_FORMAT)
     elif version_byte <= 16:
         # Likely legacy format (first byte is part of salt)
         # Legacy: salt(16) + nonce(12) = 28 bytes header
         if len(content) < 28 + 16:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=em.INVALID_BACKUP_FORMAT
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.INVALID_BACKUP_FORMAT)
     else:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unknown encryption format version: {version_byte}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown encryption format version: {version_byte}"
         )
 
     try:
         safe_filename = validate_backup_key(file.filename)
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.enc') as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".enc") as tmp:
             tmp.write(content)
             tmp_path = Path(tmp.name)
 
         try:
             await service.storage.upload(tmp_path, safe_filename)
-            logger.info(f"Backup uploaded by {current_user.id}: {safe_filename} (v{version_byte if version_byte == 1 else 0})")
+            logger.info(
+                f"Backup uploaded by {current_user.id}: {safe_filename} (v{version_byte if version_byte == 1 else 0})"
+            )
             return UploadBackupResponse(success=True, backup_key=safe_filename, size=len(content))
         finally:
             tmp_path.unlink(missing_ok=True)

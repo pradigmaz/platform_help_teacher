@@ -1,4 +1,5 @@
 """Модели данных для suspicion detection."""
+
 from typing import Any
 
 

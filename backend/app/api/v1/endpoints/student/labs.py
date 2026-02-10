@@ -1,4 +1,5 @@
 """Student labs endpoints."""
+
 from typing import Any
 from uuid import UUID
 
@@ -98,28 +99,34 @@ async def get_my_labs(
                 "accepted_at": journal_grade.created_at.isoformat() if journal_grade.created_at else None,
             }
 
-        result.append({
-            "id": str(lab.id),
-            "number": lab.number,
-            "title": lab.title,
-            "topic": lab.topic,
-            "description": lab.description,
-            "deadline_5_lessons": lab.deadline_5_lessons,
-            "deadline_4_lessons": lab.deadline_4_lessons,
-            "max_grade": lab.max_grade,
-            "current_max_grade": visibility_info.current_max_grade if visibility_info else lab.max_grade,
-            "is_available": is_available,
-            "variant_number": variant_number,
-            "submission": submission_data,
-            "visible_from": visibility_info.visible_from.isoformat() if visibility_info and visibility_info.visible_from else None,
-            "deadline_active_from": visibility_info.deadline_active_from.isoformat() if visibility_info and visibility_info.deadline_active_from else None,
-            "deadline_5_status": visibility_info.deadline_5_status if visibility_info else None,
-            "deadline_4_status": visibility_info.deadline_4_status if visibility_info else None,
-            "lessons_until_deadline_5": visibility_info.lessons_until_deadline_5 if visibility_info else None,
-            "lessons_until_deadline_4": visibility_info.lessons_until_deadline_4 if visibility_info else None,
-            "has_extension": visibility_info.has_extension if visibility_info else False,
-            "extension_bonus": visibility_info.extension_bonus if visibility_info else 0,
-        })
+        result.append(
+            {
+                "id": str(lab.id),
+                "number": lab.number,
+                "title": lab.title,
+                "topic": lab.topic,
+                "description": lab.description,
+                "deadline_5_lessons": lab.deadline_5_lessons,
+                "deadline_4_lessons": lab.deadline_4_lessons,
+                "max_grade": lab.max_grade,
+                "current_max_grade": visibility_info.current_max_grade if visibility_info else lab.max_grade,
+                "is_available": is_available,
+                "variant_number": variant_number,
+                "submission": submission_data,
+                "visible_from": visibility_info.visible_from.isoformat()
+                if visibility_info and visibility_info.visible_from
+                else None,
+                "deadline_active_from": visibility_info.deadline_active_from.isoformat()
+                if visibility_info and visibility_info.deadline_active_from
+                else None,
+                "deadline_5_status": visibility_info.deadline_5_status if visibility_info else None,
+                "deadline_4_status": visibility_info.deadline_4_status if visibility_info else None,
+                "lessons_until_deadline_5": visibility_info.lessons_until_deadline_5 if visibility_info else None,
+                "lessons_until_deadline_4": visibility_info.lessons_until_deadline_4 if visibility_info else None,
+                "has_extension": visibility_info.has_extension if visibility_info else False,
+                "extension_bonus": visibility_info.extension_bonus if visibility_info else 0,
+            }
+        )
 
         is_accepted = (sub and sub.status.value == "ACCEPTED") or journal_grade is not None
         if is_accepted:
@@ -193,14 +200,18 @@ async def get_lab_detail(
     }
 
     if visibility_info:
-        response.update({
-            "visible_from": visibility_info.visible_from.isoformat() if visibility_info.visible_from else None,
-            "deadline_active_from": visibility_info.deadline_active_from.isoformat() if visibility_info.deadline_active_from else None,
-            "deadline_5_status": visibility_info.deadline_5_status,
-            "deadline_4_status": visibility_info.deadline_4_status,
-            "lessons_until_deadline_5": visibility_info.lessons_until_deadline_5,
-            "lessons_until_deadline_4": visibility_info.lessons_until_deadline_4,
-        })
+        response.update(
+            {
+                "visible_from": visibility_info.visible_from.isoformat() if visibility_info.visible_from else None,
+                "deadline_active_from": visibility_info.deadline_active_from.isoformat()
+                if visibility_info.deadline_active_from
+                else None,
+                "deadline_5_status": visibility_info.deadline_5_status,
+                "deadline_4_status": visibility_info.deadline_4_status,
+                "lessons_until_deadline_5": visibility_info.lessons_until_deadline_5,
+                "lessons_until_deadline_4": visibility_info.lessons_until_deadline_4,
+            }
+        )
 
     can_submit_now = False
     if current_user.group_id and visibility_service:

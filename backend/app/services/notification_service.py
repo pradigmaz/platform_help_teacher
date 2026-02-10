@@ -1,6 +1,7 @@
 """
 Сервис уведомлений через Telegram/VK
 """
+
 import logging
 
 from app.models.user import User
@@ -28,6 +29,7 @@ async def _send_telegram(chat_id: int, message: str) -> bool:
     """Отправить сообщение в Telegram"""
     try:
         from app.bots.telegram_bot import bot
+
         await bot.send_message(chat_id=chat_id, text=message)
         logger.info(f"Telegram notification sent to {chat_id}")
         return True
@@ -40,6 +42,7 @@ async def _send_vk(user_id: int, message: str) -> bool:
     """Отправить сообщение в VK"""
     try:
         from app.bots.vk_bot import send_message_sync
+
         success = send_message_sync(user_id, message)
         if success:
             logger.info(f"VK notification sent to {user_id}")

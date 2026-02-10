@@ -7,6 +7,7 @@
 - audit.py: Логирование просмотров
 - data_collector.py: Сбор данных для отчётов
 """
+
 from .audit import ReportAuditService
 from .data_collector import ReportDataCollector
 from .security import generate_code, hash_pin, verify_pin

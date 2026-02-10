@@ -2,6 +2,7 @@
 Калькулятор баллов за посещаемость.
 Фиксированные баллы за занятие: points_per_lesson = max_attendance / expected_lessons
 """
+
 from dataclasses import dataclass
 
 from app.models.attendance import Attendance, AttendanceStatus
@@ -11,10 +12,11 @@ from app.models.attestation_settings import AttestationSettings
 @dataclass
 class AttendanceScoreResult:
     """Результат расчёта баллов за посещаемость"""
-    score: float           # Итоговые баллы
-    max_score: float       # Максимум возможных баллов
-    ratio: float           # Процент посещаемости (0-1)
-    total_classes: int     # Всего занятий
+
+    score: float  # Итоговые баллы
+    max_score: float  # Максимум возможных баллов
+    ratio: float  # Процент посещаемости (0-1)
+    total_classes: int  # Всего занятий
     expected_lessons: int  # Ожидаемое количество занятий
     present_count: int
     late_count: int
@@ -30,7 +32,7 @@ class AttendanceScoreCalculator:
         attendance_records: list[Attendance],
         settings: AttestationSettings,
         expected_lessons: int,
-        transfer_attendance: dict = None
+        transfer_attendance: dict = None,
     ) -> AttendanceScoreResult:
         """
         Расчёт баллов за посещаемость.
@@ -79,9 +81,7 @@ class AttendanceScoreCalculator:
             points_per_lesson = max_score / expected_lessons
             # Эффективная посещаемость с коэффициентами
             effective_attendance = (
-                present_count * 1.0 +
-                late_count * settings.late_coef +
-                absent_count * settings.absent_coef
+                present_count * 1.0 + late_count * settings.late_coef + absent_count * settings.absent_coef
             )
             score = effective_attendance * points_per_lesson
             # Ratio — реальный процент посещаемости с учётом коэффициентов
@@ -103,5 +103,5 @@ class AttendanceScoreCalculator:
             present_count=present_count,
             late_count=late_count,
             excused_count=excused_count,
-            absent_count=absent_count
+            absent_count=absent_count,
         )

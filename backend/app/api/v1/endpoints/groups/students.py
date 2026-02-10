@@ -1,4 +1,5 @@
 """Student management within groups."""
+
 import logging
 from typing import Any
 from uuid import UUID
@@ -81,10 +82,7 @@ async def add_students_bulk(
 ) -> Any:
     """Массовое добавление студентов в группу (для импорта)."""
     if len(data.names) > settings.MAX_STUDENTS_COUNT:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Слишком много студентов (максимум {settings.MAX_STUDENTS_COUNT})"
-        )
+        raise HTTPException(status_code=400, detail=f"Слишком много студентов (максимум {settings.MAX_STUDENTS_COUNT})")
 
     result = await db.execute(select(models.Group).where(models.Group.id == group_id))
     group = result.scalar_one_or_none()
@@ -108,10 +106,7 @@ async def add_students_bulk(
         await db.commit()
         for s in added_students:
             await db.refresh(s)
-        return BulkStudentsResponse(
-            added=len(added_students),
-            students=added_students
-        )
+        return BulkStudentsResponse(added=len(added_students), students=added_students)
     except SQLAlchemyError as e:
         await db.rollback()
         logger.error(f"Error bulk adding students: {e}")
@@ -128,12 +123,7 @@ async def remove_student(
     current_user: models.User = Depends(deps.get_current_active_superuser),
 ) -> None:
     """Удалить студента."""
-    result = await db.execute(
-        select(models.User).where(
-            models.User.id == student_id,
-            models.User.group_id == group_id
-        )
-    )
+    result = await db.execute(select(models.User).where(models.User.id == student_id, models.User.group_id == group_id))
     student = result.scalar_one_or_none()
     if not student:
         raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
@@ -155,12 +145,7 @@ async def update_student(
     current_user: models.User = Depends(deps.get_current_active_superuser),
 ) -> Any:
     """Обновить студента (ФИО, подгруппа)."""
-    result = await db.execute(
-        select(models.User).where(
-            models.User.id == student_id,
-            models.User.group_id == group_id
-        )
-    )
+    result = await db.execute(select(models.User).where(models.User.id == student_id, models.User.group_id == group_id))
     student = result.scalar_one_or_none()
     if not student:
         raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
@@ -168,7 +153,7 @@ async def update_student(
     try:
         if student_in.full_name is not None:
             student.full_name = student_in.full_name
-        if student_in.subgroup is not None or 'subgroup' in student_in.model_fields_set:
+        if student_in.subgroup is not None or "subgroup" in student_in.model_fields_set:
             student.subgroup = student_in.subgroup
         await db.commit()
         await db.refresh(student)
@@ -190,10 +175,7 @@ async def delete_students_bulk(
 ) -> Any:
     """Массовое удаление студентов из группы."""
     result = await db.execute(
-        select(models.User).where(
-            models.User.id.in_(data.student_ids),
-            models.User.group_id == group_id
-        )
+        select(models.User).where(models.User.id.in_(data.student_ids), models.User.group_id == group_id)
     )
     students = list(result.scalars().all())
 

@@ -41,14 +41,15 @@ async def login_with_otp(
     otp: str = Body(...),
     remember_device: bool = Body(False),
     db: AsyncSession = Depends(get_db),
-    redis = Depends(get_redis),
-    csrf_protect: CsrfProtect = Depends()
+    redis=Depends(get_redis),
+    csrf_protect: CsrfProtect = Depends(),
 ) -> Any:
     """
     Обмен OTP кода на HttpOnly Cookie.
     Поддерживает Telegram и VK.
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     await csrf_protect.validate_csrf(request)
@@ -65,6 +66,7 @@ async def login_with_otp(
 
     # Парсим данные (JSON с social_id и platform)
     import json
+
     try:
         data = json.loads(auth_data)
         social_id = data.get("social_id")
@@ -91,7 +93,7 @@ async def login_with_otp(
         raise HTTPException(status_code=404, detail=em.USER_NOT_FOUND)
 
     if not user.is_active:
-         raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN)
+        raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN)
 
     access_token = security.create_access_token(user.id, role=user.role.value)
 
@@ -100,9 +102,7 @@ async def login_with_otp(
     # Для студентов: session cookie по умолчанию (умирает при закрытии браузера)
     # Для admin/teacher: всегда persistent cookie
     # remember_device=True: persistent cookie для всех
-    use_persistent_cookie = (
-        user.role in (UserRole.ADMIN, UserRole.TEACHER) or remember_device
-    )
+    use_persistent_cookie = user.role in (UserRole.ADMIN, UserRole.TEACHER) or remember_device
     cookie_max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60 if use_persistent_cookie else None
 
     response.set_cookie(
@@ -111,7 +111,7 @@ async def login_with_otp(
         httponly=True,
         secure=is_production,
         samesite="lax",
-        max_age=cookie_max_age
+        max_age=cookie_max_age,
     )
 
     # Generate session_id for audit tracking and session management
@@ -133,10 +133,11 @@ async def login_with_otp(
         httponly=True,
         secure=is_production,
         samesite="lax",
-        max_age=cookie_max_age
+        max_age=cookie_max_age,
     )
 
     return {"message": "Logged in successfully", "user": {"full_name": user.full_name, "role": user.role}}
+
 
 @router.post("/logout")
 @audit_action(ActionType.AUTH_LOGOUT, EntityType.AUTH)
@@ -149,18 +150,6 @@ async def logout(request: Request, response: Response):
     is_production = settings.ENVIRONMENT == "production"
 
     # Удаляем cookies с теми же параметрами, что и при создании
-    response.delete_cookie(
-        key="access_token",
-        httponly=True,
-        samesite="lax",
-        secure=is_production,
-        path="/"
-    )
-    response.delete_cookie(
-        key=SESSION_COOKIE_NAME,
-        httponly=True,
-        samesite="lax",
-        secure=is_production,
-        path="/"
-    )
+    response.delete_cookie(key="access_token", httponly=True, samesite="lax", secure=is_production, path="/")
+    response.delete_cookie(key=SESSION_COOKIE_NAME, httponly=True, samesite="lax", secure=is_production, path="/")
     return {"message": "Logged out"}

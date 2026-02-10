@@ -17,9 +17,7 @@ class StudentService:
         Получить профиль студента с его лабораторными работами и статистикой.
         """
         # Получаем студента
-        result = await self.db.execute(
-            select(User).where(User.id == student_id)
-        )
+        result = await self.db.execute(select(User).where(User.id == student_id))
         student = result.scalar_one_or_none()
         if not student:
             return None
@@ -43,9 +41,7 @@ class StudentService:
         labs = labs_result.scalars().all()
 
         # Получаем сдачи студента из submissions
-        subs_result = await self.db.execute(
-            select(Submission).where(Submission.user_id == student_id)
-        )
+        subs_result = await self.db.execute(select(Submission).where(Submission.user_id == student_id))
         submissions = subs_result.scalars().all()
         subs_map = {sub.lab_id: sub for sub in submissions}
 
@@ -65,10 +61,7 @@ class StudentService:
             # Получаем сумму баллов для каждого студента группы одним запросом
             scores_query = (
                 select(Submission.user_id, func.sum(Submission.grade))
-                .where(
-                    Submission.user_id.in_(group_student_ids),
-                    Submission.status == SubmissionStatus.ACCEPTED
-                )
+                .where(Submission.user_id.in_(group_student_ids), Submission.status == SubmissionStatus.ACCEPTED)
                 .group_by(Submission.user_id)
             )
             scores_result = await self.db.execute(scores_query)
@@ -121,9 +114,7 @@ class StudentService:
         """
         # Получаем все оценки студента с загрузкой lesson
         grades_result = await self.db.execute(
-            select(LessonGrade)
-            .options(selectinload(LessonGrade.lesson))
-            .where(LessonGrade.student_id == student_id)
+            select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(LessonGrade.student_id == student_id)
         )
         grades = grades_result.scalars().all()
 
@@ -138,7 +129,9 @@ class StudentService:
 
         return grades_map
 
-    def _calculate_stats(self, labs: list[Lab], subs_map: dict, grades_map: dict[int, LessonGrade]) -> tuple[list[StudentLabSubmission], StudentStats]:
+    def _calculate_stats(
+        self, labs: list[Lab], subs_map: dict, grades_map: dict[int, LessonGrade]
+    ) -> tuple[list[StudentLabSubmission], StudentStats]:
         """
         Расчет статистики по лабам.
         """
@@ -183,22 +176,23 @@ class StudentService:
 
             stats.points_max += lab.max_grade
 
-            labs_data.append(StudentLabSubmission(
-                lab_id=lab.id,
-                lab_title=lab.title,
-                status=status,
-                grade=grade,
-                max_grade=lab.max_grade,
-                deadline_5_lessons=lab.deadline_5_lessons,
-                deadline_4_lessons=lab.deadline_4_lessons,
-                submitted_at=submitted_at,
-                feedback=feedback,
-                is_overdue=is_overdue,
-            ))
+            labs_data.append(
+                StudentLabSubmission(
+                    lab_id=lab.id,
+                    lab_title=lab.title,
+                    status=status,
+                    grade=grade,
+                    max_grade=lab.max_grade,
+                    deadline_5_lessons=lab.deadline_5_lessons,
+                    deadline_4_lessons=lab.deadline_4_lessons,
+                    submitted_at=submitted_at,
+                    feedback=feedback,
+                    is_overdue=is_overdue,
+                )
+            )
 
         # Процент баллов
         if stats.points_max > 0:
             stats.points_percent = round((stats.points_earned / stats.points_max) * 100, 1)
 
         return labs_data, stats
-

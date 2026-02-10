@@ -1,6 +1,7 @@
 """
 SQLAlchemy модели для rate limit warnings.
 """
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -20,10 +21,7 @@ class RateLimitWarning(Base):
 
     # Идентификация
     user_id: UUID | None = Column(
-        PGUUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=True,
-        index=True
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
     )
     ip_address: str = Column(String(45), nullable=False, index=True)
     fingerprint_hash: str | None = Column(String(64), nullable=True, index=True)
@@ -36,11 +34,7 @@ class RateLimitWarning(Base):
     # Бан
     ban_until: datetime | None = Column(DateTime(timezone=True), nullable=True)
     unbanned_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
-    unbanned_by: UUID | None = Column(
-        PGUUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True
-    )
+    unbanned_by: UUID | None = Column(PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     unban_reason: str | None = Column(Text, nullable=True)
 
     # Уведомления

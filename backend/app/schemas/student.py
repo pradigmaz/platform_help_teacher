@@ -16,6 +16,7 @@ class StudentLabSubmission(BaseModel):
     feedback: str | None = None
     is_overdue: bool = False  # Просрочено
 
+
 class StudentStats(BaseModel):
     labs_total: int = 0
     labs_submitted: int = 0
@@ -33,6 +34,7 @@ class StudentStats(BaseModel):
     group_total: int = 0  # Всего студентов в группе
     group_percentile: float | None = None  # Процентиль в группе
 
+
 class StudentProfileOut(BaseModel):
     id: UUID
     full_name: str
@@ -48,4 +50,3 @@ class StudentProfileOut(BaseModel):
 
     class Config:
         from_attributes = True
-

@@ -1,6 +1,7 @@
 """
 Сервис аудита — асинхронная и синхронная запись в БД.
 """
+
 import logging
 from uuid import uuid4
 
@@ -52,9 +53,7 @@ class AuditService:
                     return True
             except Exception as e:
                 last_error = e
-                logger.warning(
-                    f"Audit sync write attempt {attempt + 1}/{self.MAX_RETRIES} failed: {e}"
-                )
+                logger.warning(f"Audit sync write attempt {attempt + 1}/{self.MAX_RETRIES} failed: {e}")
 
         # Все попытки исчерпаны — пишем в fallback
         logger.error(f"Audit sync write failed after {self.MAX_RETRIES} attempts: {last_error}")
@@ -95,10 +94,7 @@ class AuditService:
 
     async def write_from_schema(self, data: AuditLogCreate) -> None:
         """Запись из Pydantic схемы."""
-        context = AuditContext(
-            request_id=str(uuid4()),
-            **data.model_dump()
-        )
+        context = AuditContext(request_id=str(uuid4()), **data.model_dump())
         await self.write_log(context)
 
     def is_security_critical(self, action_type: str) -> bool:

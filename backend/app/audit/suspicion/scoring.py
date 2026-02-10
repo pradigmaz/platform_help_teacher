@@ -1,4 +1,5 @@
 """Scoring utilities для suspicion detection."""
+
 from .constants import THRESHOLD_HIGH, THRESHOLD_PROBABLE
 
 

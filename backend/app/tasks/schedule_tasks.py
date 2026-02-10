@@ -4,6 +4,7 @@ Celery tasks для автопарсинга расписания.
 ВАЖНО: Используем синхронные сессии (SyncSessionLocal) для совместимости
 с Celery prefork worker. asyncio.run() в prefork вызывает "Event loop is closed".
 """
+
 import logging
 from datetime import datetime, timedelta
 from uuid import UUID
@@ -27,9 +28,7 @@ RETRY_DELAYS = [60, 300, 900]  # 1min, 5min, 15min
 
 def _get_all_enabled_configs_sync(db) -> list[ScheduleParserConfig]:
     """Синхронная версия get_all_enabled_configs для Celery"""
-    result = db.execute(
-        select(ScheduleParserConfig).where(ScheduleParserConfig.enabled)
-    )
+    result = db.execute(select(ScheduleParserConfig).where(ScheduleParserConfig.enabled))
     return list(result.scalars().all())
 
 
@@ -41,11 +40,7 @@ def _get_user_by_id_sync(db, user_id: UUID) -> User | None:
 
 def _create_history_sync(db, teacher_id: UUID, config_id: UUID | None = None) -> ParseHistory:
     """Синхронная версия create_history для Celery"""
-    history = ParseHistory(
-        teacher_id=teacher_id,
-        config_id=config_id,
-        status="running"
-    )
+    history = ParseHistory(teacher_id=teacher_id, config_id=config_id, status="running")
     db.add(history)
     db.flush()
     return history
@@ -77,10 +72,9 @@ def _send_notification_sync(user: User, message: str):
             bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
             if bot_token:
                 url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-                requests.post(url, json={
-                    "chat_id": user.telegram_id,
-                    "text": message
-                }, timeout=TELEGRAM_SEND_TIMEOUT_SECONDS)
+                requests.post(
+                    url, json={"chat_id": user.telegram_id, "text": message}, timeout=TELEGRAM_SEND_TIMEOUT_SECONDS
+                )
                 logger.info(f"Telegram notification sent to {user.telegram_id}")
         except Exception as e:
             logger.error(f"Failed to send Telegram notification: {e}")
@@ -88,6 +82,7 @@ def _send_notification_sync(user: User, message: str):
     if user.vk_id:
         try:
             from app.bots.vk_bot import send_message_sync
+
             send_message_sync(user.vk_id, message)
             logger.info(f"VK notification sent to {user.vk_id}")
         except Exception as e:
@@ -123,7 +118,7 @@ def parse_schedule_task(
     days_ahead: int = DEFAULT_PARSE_DAYS_AHEAD,
     teacher_id: str = None,
     notify: bool = True,
-    config_id: str = None
+    config_id: str = None,
 ):
     """
     Task для парсинга расписания конкретного преподавателя.
@@ -148,10 +143,7 @@ def parse_schedule_task(
                 logger.info(f"Starting schedule parse for {teacher_name}: {start_date} - {end_date}")
 
                 stats = parser.parse_and_import_sync(
-                    db=db,
-                    teacher_name=teacher_name,
-                    start_date=start_date,
-                    end_date=end_date
+                    db=db, teacher_name=teacher_name, start_date=start_date, end_date=end_date
                 )
 
                 logger.info(f"Parse complete for {teacher_name}: {stats}")
@@ -207,17 +199,13 @@ def check_all_schedules():
             if _should_run(config, now, current_day):
                 logger.info(f"Triggering parse for {config.teacher_name}")
                 parse_schedule_task.delay(
-                    config.teacher_name,
-                    config.parse_days_ahead,
-                    str(config.teacher_id),
-                    True,
-                    str(config.id)
+                    config.teacher_name, config.parse_days_ahead, str(config.teacher_id), True, str(config.id)
                 )
                 # Обновляем last_run_at
                 config.last_run_at = now
                 db.commit()
 
-    return {"checked": len(configs) if 'configs' in dir() else 0}
+    return {"checked": len(configs) if "configs" in dir() else 0}
 
 
 def _should_run(config, now: datetime, current_day: int) -> bool:

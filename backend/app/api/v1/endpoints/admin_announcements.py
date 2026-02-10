@@ -1,4 +1,5 @@
 """API endpoints для объявлений (админ)."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -39,10 +40,7 @@ async def create_announcement(
 ):
     """Создать черновик объявления."""
     announcement = await crud_announcement.create(
-        db,
-        title=data.title,
-        content=data.content,
-        created_by=current_user.id
+        db, title=data.title, content=data.content, created_by=current_user.id
     )
     # Reload with author
     announcement = await crud_announcement.get(db, announcement.id)
@@ -74,11 +72,7 @@ async def update_announcement(
     if not announcement:
         raise HTTPException(status_code=404, detail="Объявление не найдено")
 
-    announcement = await crud_announcement.update(
-        db, announcement,
-        title=data.title,
-        content=data.content
-    )
+    announcement = await crud_announcement.update(db, announcement, title=data.title, content=data.content)
     return _to_response(announcement)
 
 
@@ -142,5 +136,5 @@ def _to_response(announcement) -> AnnouncementResponse:
         is_draft=announcement.is_draft,
         published_at=announcement.published_at,
         created_at=announcement.created_at,
-        updated_at=announcement.updated_at
+        updated_at=announcement.updated_at,
     )

@@ -12,14 +12,12 @@ from app.services import telegram_service
 logger = logging.getLogger(__name__)
 
 # Инициализация бота
-bot = Bot(
-    token=settings.TELEGRAM_BOT_TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-)
+bot = Bot(token=settings.TELEGRAM_BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 # Диспетчер и роутер
 dp = Dispatcher()
 router = Router()
+
 
 @router.message(CommandStart())
 async def command_start_handler(message: types.Message, command: CommandObject) -> None:
@@ -40,11 +38,7 @@ async def command_start_handler(message: types.Message, command: CommandObject) 
         try:
             async with AsyncSessionLocal() as db:
                 response_text = await telegram_service.process_code_command(
-                    db=db,
-                    social_id=social_id,
-                    full_name=full_name,
-                    username=username,
-                    code=args
+                    db=db, social_id=social_id, full_name=full_name, username=username, code=args
                 )
                 await message.answer(response_text)
         except Exception as e:
@@ -55,11 +49,7 @@ async def command_start_handler(message: types.Message, command: CommandObject) 
     # Без аргументов — только приветствие/OTP
     try:
         async with AsyncSessionLocal() as db:
-            response_text = await telegram_service.process_start_command(
-                db=db,
-                social_id=social_id,
-                username=username
-            )
+            response_text = await telegram_service.process_start_command(db=db, social_id=social_id, username=username)
             await message.answer(response_text)
     except Exception as e:
         logger.error(f"Error in command_start_handler: {e}", exc_info=True)
@@ -86,16 +76,13 @@ async def command_code_handler(message: types.Message, command: CommandObject) -
     try:
         async with AsyncSessionLocal() as db:
             response_text = await telegram_service.process_code_command(
-                db=db,
-                social_id=social_id,
-                full_name=full_name,
-                username=username,
-                code=code
+                db=db, social_id=social_id, full_name=full_name, username=username, code=code
             )
             await message.answer(response_text)
     except Exception as e:
         logger.error(f"Error in command_code_handler: {e}", exc_info=True)
         await message.answer("Произошла внутренняя ошибка сервера.")
+
 
 @router.message(lambda message: message.text == "/status")
 async def command_status_handler(message: types.Message) -> None:
@@ -114,17 +101,15 @@ async def command_schedule_handler(message: types.Message) -> None:
 
     try:
         async with AsyncSessionLocal() as db:
-            response_text = await telegram_service.process_schedule_command(
-                db=db,
-                social_id=social_id
-            )
+            response_text = await telegram_service.process_schedule_command(db=db, social_id=social_id)
             if response_text:
                 await message.answer(response_text)
     except Exception as e:
         logger.error(f"Error in command_schedule_handler: {e}", exc_info=True)
         await message.answer("Произошла внутренняя ошибка сервера.")
 
-@router.message(lambda message: message.text and not message.text.startswith('/'))
+
+@router.message(lambda message: message.text and not message.text.startswith("/"))
 async def text_message_handler(message: types.Message) -> None:
     """
     Обработка текстовых сообщений (FSM диалоги).
@@ -136,16 +121,14 @@ async def text_message_handler(message: types.Message) -> None:
     try:
         async with AsyncSessionLocal() as db:
             response_text = await telegram_service.process_text_message(
-                db=db,
-                social_id=social_id,
-                text=text,
-                username=username
+                db=db, social_id=social_id, text=text, username=username
             )
             if response_text:
                 await message.answer(response_text)
     except Exception as e:
         logger.error(f"Error in text_message_handler: {e}", exc_info=True)
         await message.answer("Произошла внутренняя ошибка сервера.")
+
 
 # Регистрируем роутер в диспетчере
 dp.include_router(router)
