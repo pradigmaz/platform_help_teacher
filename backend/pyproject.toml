@@ -18,15 +18,17 @@ select = [
     "ASYNC", # flake8-async (async ошибки)
 ]
 ignore = [
-    "E501",   # line too long (контролируется line-length)
-    "B008",   # Depends() в аргументах — норма для FastAPI
-    "B905",   # zip strict — не критично
-    "UP007",  # X | Y union syntax — пока на 3.11
-    "B904",   # exception chaining - временно игнорируем
-    "E741",   # ambiguous variable name - временно игнорируем
-    "E402",   # module level import not at top - временно игнорируем
-    "F401",   # unused imports - часто для __init__.py
-    "SIM102", # nested if - не критично
+    "E501",     # line too long (контролируется line-length)
+    "B008",     # Depends() в аргументах — норма для FastAPI
+    "B905",     # zip strict — не критично
+    "UP007",    # X | Y union syntax — пока на 3.11
+    "B904",     # exception chaining - временно игнорируем
+    "E741",     # ambiguous variable name - временно игнорируем
+    "E402",     # module level import not at top - временно игнорируем
+    "F401",     # unused imports - часто для __init__.py
+    "SIM102",   # nested if - не критично
+    "UP042",    # str, Enum → StrEnum (Python 3.11+, не критично)
+    "ASYNC240", # pathlib в async - не критично для наших кейсов
 ]
 
 [tool.ruff.lint.isort]

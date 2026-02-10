@@ -3,6 +3,7 @@
 """
 from collections import defaultdict
 from datetime import date
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -19,6 +20,9 @@ from app.schemas.report import (
     TodayLessonAttendance,
 )
 from app.services.schedule_constants import today_msk
+
+if TYPE_CHECKING:
+    from app.schemas.report import LessonHistoryItem
 
 
 async def get_group_attendance_stats(
@@ -420,7 +424,6 @@ async def get_recent_lessons_history(
     semester_start_date: date | None = None
 ) -> list["LessonHistoryItem"]:
     """Получить историю последних занятий с посещаемостью."""
-    from app.schemas.report import LessonHistoryItem
 
     check_date = today_msk()
     student_ids = [s.id for s in students]

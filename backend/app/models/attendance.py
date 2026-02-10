@@ -11,7 +11,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
+    from .group import Group
     from .lesson import Lesson
+    from .user import User
 
 
 class AttendanceStatus(str, enum.Enum):

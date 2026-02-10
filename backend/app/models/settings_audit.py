@@ -3,7 +3,7 @@
 Логирует все изменения настроек аттестации.
 """
 from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
@@ -11,6 +11,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .user import User
 
 
 class SettingsAuditLog(Base):
@@ -44,7 +47,7 @@ class SettingsAuditLog(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )
-    changed_by: Mapped[Optional["User"]] = relationship(
+    changed_by: Mapped["User | None"] = relationship(
         "User",
         foreign_keys=[changed_by_id],
         lazy="selectin"
