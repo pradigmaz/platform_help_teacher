@@ -97,6 +97,23 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Create test .env
+        run: |
+          cat > .env << EOF
+          ENVIRONMENT=test
+          SECRET_KEY=test-secret-key-for-ci
+          DATABASE_URL=postgresql+asyncpg://test:test@localhost/test
+          REDIS_URL=redis://localhost:6379/0
+          CORS_ORIGINS=["http://localhost:3000"]
+          TELEGRAM_BOT_TOKEN=test
+          TELEGRAM_WEBHOOK_SECRET=test
+          VK_BOT_TOKEN=test
+          MINIO_ENDPOINT=localhost:9000
+          MINIO_ACCESS_KEY=test
+          MINIO_SECRET_KEY=test
+          MINIO_BUCKET=test
+          EOF
+
       - name: Run tests
         run: pytest -v --tb=short
 
