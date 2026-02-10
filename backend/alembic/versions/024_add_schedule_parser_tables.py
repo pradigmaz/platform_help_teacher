@@ -8,7 +8,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = '024_add_schedule_parser_tables'
+revision = '024_schedule_parser'
 down_revision = '023_update_lessons_subject_id'
 branch_labels = None
 depends_on = None

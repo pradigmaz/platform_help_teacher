@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
-revision = '076_add_deadline_extensions'
+revision = '076_deadline_extensions'
 down_revision = '075_link_admin_to_subjects'
 branch_labels = None
 depends_on = None

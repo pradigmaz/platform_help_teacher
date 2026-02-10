@@ -7,8 +7,8 @@ Create Date: 2026-01-13
 from alembic import op
 import sqlalchemy as sa
 
-revision = '070_add_expected_lessons_per_week'
-down_revision = '069_add_feedback_table'
+revision = '070_expected_lessons'
+down_revision = '069_feedback_table'
 branch_labels = None
 depends_on = None
 

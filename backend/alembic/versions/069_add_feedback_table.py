@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = '069_add_feedback_table'
+revision = '069_feedback_table'
 down_revision = '068_add_lesson_visibility_index'
 branch_labels = None
 depends_on = None

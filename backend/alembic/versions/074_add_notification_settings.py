@@ -8,7 +8,7 @@ Create Date: 2026-01-17
 from alembic import op
 import sqlalchemy as sa
 
-revision = '074_add_notification_settings'
+revision = '074_notification_settings'
 down_revision = '073_add_announcements'
 branch_labels = None
 depends_on = None

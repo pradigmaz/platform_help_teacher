@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '025_add_ended_early'
-down_revision: Union[str, None] = '024_add_schedule_parser_tables'
+down_revision: Union[str, None] = '024_schedule_parser'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

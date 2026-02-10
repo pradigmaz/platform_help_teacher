@@ -8,7 +8,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = '067_lab_deadline_lessons'
+revision = '067_deadline_lessons'
 down_revision = '066_add_absent_coef'
 branch_labels = None
 depends_on = None

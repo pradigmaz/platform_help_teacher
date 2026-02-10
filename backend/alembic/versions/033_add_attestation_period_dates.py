@@ -7,7 +7,7 @@ Create Date: 2026-01-06
 from alembic import op
 import sqlalchemy as sa
 
-revision = '033_add_attestation_period_dates'
+revision = '033_attestation_periods'
 down_revision = '032_teacher_settings'
 branch_labels = None
 depends_on = None

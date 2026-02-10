@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
 
-revision = "077_add_uploaded_fields_to_attachments"
-down_revision = "076_add_deadline_extensions"
+revision = "077_uploaded_fields"
+down_revision = "076_deadline_extensions"
 branch_labels = None
 depends_on = None
 

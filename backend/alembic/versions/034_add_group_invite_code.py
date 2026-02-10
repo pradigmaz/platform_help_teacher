@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = '034_group_invite_code'
-down_revision: Union[str, None] = '033_add_attestation_period_dates'
+down_revision: Union[str, None] = '033_attestation_periods'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

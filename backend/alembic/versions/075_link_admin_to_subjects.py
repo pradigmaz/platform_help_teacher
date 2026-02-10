@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision: str = '075_link_admin_to_subjects'
-down_revision: Union[str, None] = '074_add_notification_settings'
+down_revision: Union[str, None] = '074_notification_settings'
 branch_labels: Union[str, None] = None
 depends_on: Union[str, None] = None
 

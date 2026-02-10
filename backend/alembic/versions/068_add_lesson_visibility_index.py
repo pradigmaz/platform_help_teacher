@@ -12,7 +12,7 @@ from alembic import op
 
 
 revision = "068_add_lesson_visibility_index"
-down_revision = "067_lab_deadline_lessons"
+down_revision = "067_deadline_lessons"
 branch_labels = None
 depends_on = None
 

@@ -11,8 +11,8 @@ Create Date: 2026-01-30
 from alembic import op
 
 # revision identifiers
-revision = '078_fix_lesson_grade_null_constraint'
-down_revision = '077_add_uploaded_fields_to_attachments'
+revision = '078_lesson_grade_null_fix'
+down_revision = '077_uploaded_fields'
 branch_labels = None
 depends_on = None
 
