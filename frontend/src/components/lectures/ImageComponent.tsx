@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { $getNodeByKey, type NodeKey } from 'lexical';
 import { motion } from 'motion/react';
@@ -218,20 +219,26 @@ export function ImageComponent({
       >
         {/* Image */}
         <div className="relative overflow-hidden rounded-lg">
-          <img
+          <div 
             ref={imageRef}
-            src={src}
-            alt={altText}
-            className={cn(
-              "block max-w-full h-auto rounded-lg",
-              isResizing && "pointer-events-none select-none"
-            )}
+            className="relative"
             style={{
               width: width === 'auto' ? 'auto' : `${width}px`,
               height: height === 'auto' ? 'auto' : `${height}px`,
             }}
-            draggable={false}
-          />
+          >
+            <Image
+              src={src}
+              alt={altText}
+              width={width === 'auto' ? 500 : Number(width)}
+              height={height === 'auto' ? 300 : Number(height)}
+              className={cn(
+                "block max-w-full h-auto rounded-lg",
+                isResizing && "pointer-events-none select-none"
+              )}
+              draggable={false}
+            />
+          </div>
           
           {/* Resize handle */}
           <div

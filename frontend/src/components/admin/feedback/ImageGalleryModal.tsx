@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Loader2, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -93,11 +94,14 @@ export function ImageGalleryModal({
             </div>
           ) : currentUrl ? (
             <div className="relative">
-              <img 
-                src={currentUrl} 
-                alt={currentAttachment.filename}
-                className="max-w-full max-h-[70vh] mx-auto rounded-lg object-contain"
-              />
+              <div className="relative max-w-full max-h-[70vh] mx-auto" style={{ width: '100%', height: '70vh' }}>
+                <Image 
+                  src={currentUrl} 
+                  alt={currentAttachment.filename}
+                  fill
+                  className="rounded-lg object-contain"
+                />
+              </div>
               
               {attachments.length > 1 && (
                 <>
@@ -137,12 +141,12 @@ export function ImageGalleryModal({
                 <button
                   key={att.id}
                   onClick={() => setCurrentIndex(index)}
-                  className={`flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden ${
+                  className={`flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden relative ${
                     index === currentIndex ? 'border-primary' : 'border-muted'
                   }`}
                 >
                   {urls[att.id] ? (
-                    <img src={urls[att.id]} alt={att.filename} className="w-full h-full object-cover" />
+                    <Image src={urls[att.id]} alt={att.filename} fill className="object-cover" />
                   ) : (
                     <div className="w-full h-full bg-muted flex items-center justify-center">
                       <ImageIcon className="h-4 w-4 text-muted-foreground" />

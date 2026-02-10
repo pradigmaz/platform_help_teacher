@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Loader2, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/api';
@@ -36,8 +37,8 @@ export function AttachmentPreview({ feedbackId, attachment, onClick }: Attachmen
       onClick={onClick}
     >
       {url ? (
-        <div className="relative">
-          <img src={url} alt={attachment.filename} className="h-24 w-24 object-cover" />
+        <div className="relative h-24 w-24">
+          <Image src={url} alt={attachment.filename} fill className="object-cover" />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
             <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 rounded-full p-2">
               <ImageIcon className="h-4 w-4 text-white" />

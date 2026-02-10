@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import type { ImageDimension } from './nodes/ImageNode';
@@ -35,15 +36,16 @@ export function ImageViewerComponent({
       transition={{ duration: 0.3 }}
     >
       <div className="overflow-hidden rounded-lg">
-        <img
+        <Image
           src={src}
           alt={altText}
+          width={width === 'auto' ? 500 : Number(width)}
+          height={height === 'auto' ? 300 : Number(height)}
           className="block max-w-full h-auto rounded-lg"
           style={{
             width: width === 'auto' ? 'auto' : `${width}px`,
             height: height === 'auto' ? 'auto' : `${height}px`,
           }}
-          loading="lazy"
         />
       </div>
       

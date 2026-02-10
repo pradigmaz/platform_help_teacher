@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Save, Loader2, Eye, EyeOff, Users, FileText, MessageSquare } from 'lucide-react';
 import { IconBrandTelegram, IconBrandVk, IconMessage } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { ContactVisibility } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { contactsSchema, type ContactsFormValues } from './contacts-schema';
 
 const visibilityOptions: { value: ContactVisibility; label: string; icon: React.ReactNode; description: string }[] = [
   { value: 'student', label: 'Студентам', icon: <Users className="h-4 w-4" />, description: 'Видно в ЛК студента' },
@@ -40,6 +44,35 @@ export function ContactsCard({
   contacts, visibility, isSaving,
   onContactChange, onVisibilityChange, onSave
 }: ContactsCardProps) {
+  const form = useForm<ContactsFormValues>({
+    resolver: zodResolver(contactsSchema),
+    mode: 'onChange',
+    defaultValues: {
+      telegram: contacts.telegram || '',
+      telegram_visibility: visibility.telegram || 'none',
+      vk: contacts.vk || '',
+      vk_visibility: visibility.vk || 'none',
+      max: contacts.max || '',
+      max_visibility: visibility.max || 'none',
+    },
+  });
+
+  useEffect(() => {
+    console.log('[ContactsCard] Form errors:', form.formState.errors);
+  }, [form.formState.errors]);
+
+  const handleSave = form.handleSubmit((values) => {
+    console.log('[ContactsCard] Submitting:', values);
+    // Update parent state with form values
+    onContactChange('telegram', values.telegram);
+    onContactChange('vk', values.vk);
+    onContactChange('max', values.max);
+    onVisibilityChange('telegram', values.telegram_visibility);
+    onVisibilityChange('vk', values.vk_visibility);
+    onVisibilityChange('max', values.max_visibility);
+    onSave();
+  });
+
   const getVisibilityBadge = (vis: ContactVisibility) => {
     const option = visibilityOptions.find(o => o.value === vis);
     if (!option || vis === 'none') return null;
@@ -80,20 +113,24 @@ export function ContactsCard({
                     <p className="text-xs text-muted-foreground">{field.description}</p>
                   </div>
                 </div>
-                {getVisibilityBadge(visibility[field.key])}
+                {getVisibilityBadge(form.watch(`${field.key}_visibility` as keyof ContactsFormValues) as ContactVisibility)}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-[1fr,180px]">
-                <Input
-                  id={field.key}
-                  placeholder={field.placeholder}
-                  value={contacts[field.key]}
-                  onChange={(e) => onContactChange(field.key, e.target.value)}
-                  className="h-11"
-                />
+                <div className="space-y-1">
+                  <Input
+                    id={field.key}
+                    placeholder={field.placeholder}
+                    {...form.register(field.key)}
+                    className="h-11"
+                  />
+                  {form.formState.errors[field.key] && (
+                    <p className="text-xs text-destructive">{form.formState.errors[field.key]?.message}</p>
+                  )}
+                </div>
                 <Select
-                  value={visibility[field.key]}
-                  onValueChange={(value) => onVisibilityChange(field.key, value as ContactVisibility)}
+                  value={form.watch(`${field.key}_visibility` as keyof ContactsFormValues) as string}
+                  onValueChange={(value) => form.setValue(`${field.key}_visibility` as keyof ContactsFormValues, value as ContactVisibility)}
                 >
                   <SelectTrigger className="h-11">
                     <SelectValue placeholder="Видимость" />
@@ -115,7 +152,7 @@ export function ContactsCard({
         ))}
 
         <div className="flex justify-end pt-4 border-t">
-          <Button onClick={onSave} disabled={isSaving} size="lg" className="min-w-[140px]">
+          <Button onClick={handleSave} disabled={isSaving || !form.formState.isValid} size="lg" className="min-w-[140px]">
             {isSaving ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Сохранение...</>
             ) : (

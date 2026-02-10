@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +19,7 @@ import { User, Calendar, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { Progress } from '@/components/ui/progress';
+import { onboardingSchema, onboardingDefaults, type OnboardingFormValues } from './onboarding-schema';
 
 interface OnboardingDialogProps {
   open: boolean;
@@ -24,34 +27,32 @@ interface OnboardingDialogProps {
 }
 
 export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
-  const [fullName, setFullName] = useState('');
-  const [mode, setMode] = useState<'auto' | 'manual'>('auto');
-  const [startDate, setStartDate] = useState('2025-09-01');
   const [saving, setSaving] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = fullName.trim();
-    if (!trimmed) {
-      toast.error('Введите ФИО');
-      return;
-    }
-    
+  const form = useForm<OnboardingFormValues>({
+    resolver: zodResolver(onboardingSchema),
+    mode: 'onChange',
+    defaultValues: onboardingDefaults,
+  });
+
+  const mode = form.watch('mode');
+
+  const handleSubmit = form.handleSubmit(async (values) => {
     setSaving(true);
     try {
       // Сохраняем ФИО
-      await api.patch('/users/me', { full_name: trimmed });
+      await api.patch('/users/me', { full_name: values.fullName.trim() });
       
-      if (mode === 'auto') {
+      if (values.mode === 'auto') {
         // Запускаем парсинг
         setParsing(true);
         setProgress(10);
         
         const response = await api.post('/admin/schedule/parse', {
-          teacher_name: trimmed,
-          start_date: startDate,
+          teacher_name: values.fullName.trim(),
+          start_date: values.startDate,
         });
         
         setProgress(100);
@@ -65,7 +66,7 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
       // Завершаем onboarding
       await api.patch('/users/me', { onboarding_completed: true });
       
-      onComplete(trimmed);
+      onComplete(values.fullName.trim());
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Ошибка сохранения';
       toast.error(message);
@@ -73,7 +74,7 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
       setSaving(false);
       setParsing(false);
     }
-  };
+  });
 
   return (
     <Dialog open={open}>
@@ -95,12 +96,16 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
               <Label htmlFor="fullName">ФИО преподавателя</Label>
               <Input
                 id="fullName"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                {...form.register('fullName')}
                 placeholder="Миронов Г.Д."
                 autoFocus
                 disabled={saving}
               />
+              {form.formState.errors.fullName && (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.fullName.message}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 Формат: Фамилия И.О. (как на сайте расписания)
               </p>
@@ -109,7 +114,11 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
             {/* Режим */}
             <div className="grid gap-2">
               <Label>Расписание</Label>
-              <RadioGroup value={mode} onValueChange={(v) => setMode(v as 'auto' | 'manual')} disabled={saving}>
+              <RadioGroup 
+                value={form.watch('mode')} 
+                onValueChange={(v) => form.setValue('mode', v as 'auto' | 'manual')} 
+                disabled={saving}
+              >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="auto" id="auto" />
                   <Label htmlFor="auto" className="font-normal cursor-pointer">
@@ -135,10 +144,14 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
                 <Input
                   id="startDate"
                   type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  {...form.register('startDate')}
                   disabled={saving}
                 />
+                {form.formState.errors.startDate && (
+                  <p className="text-xs text-destructive">
+                    {form.formState.errors.startDate.message}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Расписание будет загружено с этой даты по сегодня
                 </p>
@@ -155,7 +168,7 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={saving || !fullName.trim()}>
+            <Button type="submit" disabled={saving || !form.formState.isValid}>
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

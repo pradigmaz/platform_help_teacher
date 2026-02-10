@@ -2,6 +2,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: '**.unsplash.com' },
+      { protocol: 'http', hostname: 'localhost', port: '9000' },
+      { protocol: 'https', hostname: 'platform-edu.ru' },
+    ],
+  },
   env: {
     NEXT_PUBLIC_BOT_URL: process.env.NEXT_PUBLIC_BOT_URL,
   },

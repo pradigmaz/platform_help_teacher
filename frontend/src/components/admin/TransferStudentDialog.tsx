@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight, Calendar, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,11 +21,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { GroupsAPI, TransfersAPI } from '@/lib/api';
 import type { GroupResponse, TransferAttestationType } from '@/lib/api/types';
+import { transferSchema, transferDefaults, type TransferFormValues } from './transfer-schema';
 
 interface TransferStudentDialogProps {
   studentId: string;
@@ -47,18 +58,17 @@ export function TransferStudentDialog({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const [toGroupId, setToGroupId] = useState<string>('');
-  const [toSubgroup, setToSubgroup] = useState<string>('none');
-  const [transferDate, setTransferDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
-  const [attestationType, setAttestationType] = useState<TransferAttestationType>('first');
+  const form = useForm<TransferFormValues>({
+    resolver: zodResolver(transferSchema),
+    defaultValues: transferDefaults,
+  });
 
   useEffect(() => {
     if (open) {
       loadGroups();
+      form.reset(transferDefaults);
     }
-  }, [open]);
+  }, [open, form]);
 
   const loadGroups = async () => {
     setLoading(true);
@@ -72,37 +82,36 @@ export function TransferStudentDialog({
     }
   };
 
-  const handleSubmit = async () => {
-    if (!toGroupId) {
-      toast.error('Выберите группу');
-      return;
-    }
-
+  const handleSubmit = async (values: TransferFormValues) => {
+    console.log('[TransferStudentDialog:handleSubmit] Starting transfer', { studentId, values });
+    
     setSubmitting(true);
     try {
       await TransfersAPI.transfer(studentId, {
-        to_group_id: toGroupId,
-        to_subgroup: toSubgroup === 'none' ? null : parseInt(toSubgroup),
-        transfer_date: transferDate,
-        attestation_type: attestationType,
+        to_group_id: values.toGroupId,
+        to_subgroup: values.toSubgroup === 'none' ? null : parseInt(values.toSubgroup),
+        transfer_date: values.transferDate,
+        attestation_type: values.attestationType,
       });
 
-      const toGroup = groups.find(g => g.id === toGroupId);
+      const toGroup = groups.find(g => g.id === values.toGroupId);
       toast.success(
         `Студент переведён в ${toGroup?.name || 'группу'}${
-          toSubgroup !== 'none' ? ` (подгруппа ${toSubgroup})` : ''
+          values.toSubgroup !== 'none' ? ` (подгруппа ${values.toSubgroup})` : ''
         }`
       );
+      console.log('[TransferStudentDialog:handleSubmit] Transfer successful');
       setOpen(false);
       onSuccess?.();
     } catch (e) {
+      console.error('[TransferStudentDialog:handleSubmit] Transfer failed', e);
       toast.error('Ошибка при переводе');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const selectedGroup = groups.find(g => g.id === toGroupId);
+  const selectedGroup = groups.find(g => g.id === form.watch('toGroupId'));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -126,93 +135,135 @@ export function TransferStudentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          {/* Группа */}
-          <div className="grid gap-2">
-            <Label htmlFor="group">Новая группа</Label>
-            <Select value={toGroupId} onValueChange={setToGroupId} disabled={loading}>
-              <SelectTrigger>
-                <SelectValue placeholder={loading ? 'Загрузка...' : 'Выберите группу'} />
-              </SelectTrigger>
-              <SelectContent>
-                {groups
-                  .filter(g => g.id !== currentGroupId)
-                  .map(group => (
-                    <SelectItem key={group.id} value={group.id}>
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-muted-foreground" />
-                        {group.name}
-                        <span className="text-muted-foreground text-xs">
-                          ({group.students_count} чел.)
-                        </span>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <div className="grid gap-4 py-4">
+              {/* Группа */}
+              <FormField
+                control={form.control}
+                name="toGroupId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Новая группа</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={loading}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={loading ? 'Загрузка...' : 'Выберите группу'} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {groups
+                          .filter(g => g.id !== currentGroupId)
+                          .map(group => (
+                            <SelectItem key={group.id} value={group.id}>
+                              <div className="flex items-center gap-2">
+                                <Users className="w-4 h-4 text-muted-foreground" />
+                                {group.name}
+                                <span className="text-muted-foreground text-xs">
+                                  ({group.students_count} чел.)
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Подгруппа */}
+              {selectedGroup?.has_subgroups && (
+                <FormField
+                  control={form.control}
+                  name="toSubgroup"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Подгруппа</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">Без подгруппы</SelectItem>
+                          <SelectItem value="1">Подгруппа 1</SelectItem>
+                          <SelectItem value="2">Подгруппа 2</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Дата перевода */}
+              <FormField
+                control={form.control}
+                name="transferDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Дата перевода</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="date"
+                          className="pl-10"
+                          {...field}
+                        />
                       </div>
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          {/* Подгруппа */}
-          {selectedGroup?.has_subgroups && (
-            <div className="grid gap-2">
-              <Label htmlFor="subgroup">Подгруппа</Label>
-              <Select value={toSubgroup} onValueChange={setToSubgroup}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Без подгруппы</SelectItem>
-                  <SelectItem value="1">Подгруппа 1</SelectItem>
-                  <SelectItem value="2">Подгруппа 2</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Дата перевода */}
-          <div className="grid gap-2">
-            <Label htmlFor="date">Дата перевода</Label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="date"
-                type="date"
-                value={transferDate}
-                onChange={e => setTransferDate(e.target.value)}
-                className="pl-10"
+              {/* Тип аттестации */}
+              <FormField
+                control={form.control}
+                name="attestationType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Аттестация</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="first">1-я аттестация</SelectItem>
+                        <SelectItem value="second">2-я аттестация</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Снапшот данных будет сохранён для выбранной аттестации
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
 
-          {/* Тип аттестации */}
-          <div className="grid gap-2">
-            <Label htmlFor="attestation">Аттестация</Label>
-            <Select
-              value={attestationType}
-              onValueChange={v => setAttestationType(v as TransferAttestationType)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="first">1-я аттестация</SelectItem>
-                <SelectItem value="second">2-я аттестация</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Снапшот данных будет сохранён для выбранной аттестации
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Отмена
-          </Button>
-          <Button onClick={handleSubmit} disabled={submitting || !toGroupId}>
-            {submitting ? 'Перевод...' : 'Перевести'}
-          </Button>
-        </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Отмена
+              </Button>
+              <Button
+                type="submit"
+                disabled={submitting || !form.formState.isValid}
+              >
+                {submitting ? 'Перевод...' : 'Перевести'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -23,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ActivitiesAPI, AttestationType } from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { activitySchema, activityDefaults, type ActivityFormValues } from './activity-schema';
 
 interface AddActivityDialogProps {
   open: boolean;
@@ -42,20 +45,22 @@ export function AddActivityDialog({
   onSuccess,
 }: AddActivityDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [points, setPoints] = useState<string>('0.5');
-  const [description, setDescription] = useState('');
-  const [attestationType, setAttestationType] = useState<AttestationType>('first');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const form = useForm<ActivityFormValues>({
+    resolver: zodResolver(activitySchema),
+    mode: 'onChange',
+    defaultValues: activityDefaults,
+  });
+
+  const handleSubmit = form.handleSubmit(async (values) => {
     setLoading(true);
 
     try {
       await ActivitiesAPI.create({
         [mode === 'group' ? 'group_id' : 'student_id']: targetId,
-        points: parseFloat(points),
-        description,
-        attestation_type: attestationType,
+        points: values.points,
+        description: values.description,
+        attestation_type: values.attestationType,
         is_active: true,
       });
 
@@ -69,15 +74,14 @@ export function AddActivityDialog({
       onOpenChange(false);
       
       // Reset form
-      setPoints('0.5');
-      setDescription('');
+      form.reset(activityDefaults);
     } catch (error) {
       toast.error('Ошибка при начислении активности');
-      console.error(error);
+      console.error('[AddActivityDialog] Error:', error);
     } finally {
       setLoading(false);
     }
-  };
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -96,8 +100,8 @@ export function AddActivityDialog({
             <div className="grid gap-2">
               <Label htmlFor="attestation">Аттестация</Label>
               <Select 
-                value={attestationType} 
-                onValueChange={(v) => setAttestationType(v as AttestationType)}
+                value={form.watch('attestationType')} 
+                onValueChange={(v) => form.setValue('attestationType', v as AttestationType)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Выберите аттестацию" />
@@ -116,16 +120,19 @@ export function AddActivityDialog({
                   id="points"
                   type="number"
                   step="0.1"
-                  value={points}
-                  onChange={(e) => setPoints(e.target.value)}
+                  {...form.register('points', { valueAsNumber: true })}
                   placeholder="0.5"
                   className="pl-8"
-                  required
                 />
                 <span className="absolute left-3 top-2.5 text-muted-foreground font-bold text-sm">
-                  {parseFloat(points) > 0 ? '+' : ''}
+                  {form.watch('points') > 0 ? '+' : ''}
                 </span>
               </div>
+              {form.formState.errors.points && (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.points.message}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 Используйте отрицательные значения для штрафов (например, -0.5)
               </p>
@@ -135,18 +142,21 @@ export function AddActivityDialog({
               <Label htmlFor="description">Описание / Причина</Label>
               <Textarea
                 id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                {...form.register('description')}
                 placeholder="За активное участие в..."
-                required
               />
+              {form.formState.errors.description && (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.description.message}
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Отмена
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !form.formState.isValid}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Начислить
             </Button>

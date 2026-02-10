@@ -2,10 +2,13 @@
 'use no memo';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { GradeData, Lesson } from '../lib/journal-constants';
+import { gradeCellSchema, type GradeCellFormValues } from './schema';
 
 const DEBOUNCE_MS = 500;
 
@@ -22,15 +25,27 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
   const lessonWorkNum = lesson.work_number;
   const lessonType = lesson.lesson_type.toLowerCase();
   
-  const [value, setValue] = useState(gradeValue?.toString() || '');
   const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(gradeValue?.toString() || '');
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  const form = useForm<GradeCellFormValues>({
+    resolver: zodResolver(gradeCellSchema),
+    mode: 'onChange',
+    defaultValues: {
+      grade: gradeValue?.toString() || '',
+      work_number: workNum ?? null,
+    },
+  });
+
   // Sync with external changes
   useEffect(() => {
-    setValue(gradeValue?.toString() || '');
-  }, [gradeValue]);
+    const newGrade = gradeValue?.toString() || '';
+    setValue(newGrade);
+    form.setValue('grade', newGrade, { shouldValidate: false });
+    form.setValue('work_number', workNum ?? null, { shouldValidate: false });
+  }, [gradeValue, workNum, form]);
 
   // Cleanup debounce on unmount
   useEffect(() => {
@@ -39,18 +54,11 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
     };
   }, []);
 
-  const debouncedSave = useCallback((newGrade: number | null, workNumber: number | null) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      onGradeChange(newGrade, workNumber);
-    }, DEBOUNCE_MS);
-  }, [onGradeChange]);
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value;
-    // Only allow 2-5 or empty
     if (v === '' || /^[2-5]$/.test(v)) {
       setValue(v);
+      form.setValue('grade', v, { shouldValidate: true });
     }
   };
 
@@ -59,13 +67,12 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
     if (debounceRef.current) clearTimeout(debounceRef.current);
     
     const newGrade = value ? parseInt(value) : null;
+    const currentWorkNum = form.watch('work_number');
     
     if (newGrade === null && gradeValue) {
       onGradeChange(null, null);
     } else if (newGrade && newGrade !== gradeValue) {
-      // Используем только workNum если он уже есть, иначе null
-      // НЕ берём lessonWorkNum автоматически — студент может сдавать долг
-      onGradeChange(newGrade, workNum ?? null);
+      onGradeChange(newGrade, currentWorkNum ?? null);
     }
   };
 
@@ -74,6 +81,7 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
       inputRef.current?.blur();
     } else if (e.key === 'Escape') {
       setValue(gradeValue?.toString() || '');
+      form.setValue('grade', gradeValue?.toString() || '');
       setIsEditing(false);
     }
   };
@@ -84,7 +92,6 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
     setTimeout(() => inputRef.current?.select(), 0);
   };
 
-  // Show work number indicator if different from lesson's or if not set
   const showWorkNum = workNum && workNum !== lessonWorkNum;
   const needsWorkNum = !workNum && gradeValue && (lessonType === 'lab' || lessonType === 'practice');
   const workNumbers = Array.from({ length: Math.max(maxWorkNum, 8) }, (_, i) => i + 1);
@@ -132,7 +139,10 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
                   variant={workNum === n ? 'default' : 'outline'}
                   size="sm"
                   className="h-5 w-5 text-[10px] p-0"
-                  onClick={() => onGradeChange(gradeValue, n)}
+                  onClick={() => {
+                    form.setValue('work_number', n);
+                    onGradeChange(gradeValue, n);
+                  }}
                 >
                   {n}
                 </Button>

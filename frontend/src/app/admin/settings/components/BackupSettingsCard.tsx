@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Save, Loader2, Clock, Database, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { BackupSettings, BackupSettingsUpdate } from '@/lib/api';
+import { backupSettingsSchema, type BackupSettingsFormValues } from './backup-settings-schema';
 
 interface BackupSettingsCardProps {
   settings: BackupSettings;
@@ -16,28 +19,28 @@ interface BackupSettingsCardProps {
 }
 
 export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSettingsCardProps) {
-  const [form, setForm] = useState<BackupSettings>({
-    enabled: settings?.enabled ?? true,
-    schedule_hour: settings?.schedule_hour ?? 3,
-    schedule_minute: settings?.schedule_minute ?? 0,
-    retention_days: settings?.retention_days ?? 30,
-    max_backups: settings?.max_backups ?? 10,
-    storage_bucket: settings?.storage_bucket ?? 'edu-backups',
-    notify_on_success: settings?.notify_on_success ?? false,
-    notify_on_failure: settings?.notify_on_failure ?? true,
+  const form = useForm<BackupSettingsFormValues>({
+    resolver: zodResolver(backupSettingsSchema),
+    mode: 'onChange',
+    defaultValues: {
+      enabled: settings?.enabled ?? true,
+      schedule_hour: settings?.schedule_hour ?? 3,
+      schedule_minute: settings?.schedule_minute ?? 0,
+      retention_days: settings?.retention_days ?? 30,
+      max_backups: settings?.max_backups ?? 10,
+      notify_on_success: settings?.notify_on_success ?? false,
+      notify_on_failure: settings?.notify_on_failure ?? true,
+    },
   });
 
-  const handleSave = () => {
-    onSave({
-      enabled: form.enabled,
-      schedule_hour: form.schedule_hour,
-      schedule_minute: form.schedule_minute,
-      retention_days: form.retention_days,
-      max_backups: form.max_backups,
-      notify_on_success: form.notify_on_success,
-      notify_on_failure: form.notify_on_failure,
-    });
-  };
+  useEffect(() => {
+    console.log('[BackupSettingsCard] Form errors:', form.formState.errors);
+  }, [form.formState.errors]);
+
+  const handleSave = form.handleSubmit((values) => {
+    console.log('[BackupSettingsCard] Submitting:', values);
+    onSave(values);
+  });
 
   return (
     <Card className="border-border/50">
@@ -61,8 +64,8 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
             <p className="text-xs text-muted-foreground">Бэкапы создаются автоматически по расписанию</p>
           </div>
           <Switch
-            checked={form.enabled}
-            onCheckedChange={(checked) => setForm({ ...form, enabled: checked })}
+            checked={form.watch('enabled')}
+            onCheckedChange={(checked) => form.setValue('enabled', checked)}
           />
         </div>
 
@@ -77,8 +80,7 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
               type="number"
               min={0}
               max={23}
-              value={form.schedule_hour}
-              onChange={(e) => setForm({ ...form, schedule_hour: parseInt(e.target.value) || 0 })}
+              {...form.register('schedule_hour', { valueAsNumber: true })}
               className="w-20"
             />
             <span className="text-muted-foreground">:</span>
@@ -86,12 +88,16 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
               type="number"
               min={0}
               max={59}
-              value={form.schedule_minute}
-              onChange={(e) => setForm({ ...form, schedule_minute: parseInt(e.target.value) || 0 })}
+              {...form.register('schedule_minute', { valueAsNumber: true })}
               className="w-20"
             />
             <span className="text-sm text-muted-foreground ml-2">(по МСК)</span>
           </div>
+          {(form.formState.errors.schedule_hour || form.formState.errors.schedule_minute) && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.schedule_hour?.message || form.formState.errors.schedule_minute?.message}
+            </p>
+          )}
         </div>
 
         {/* Retention */}
@@ -102,9 +108,11 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
               type="number"
               min={1}
               max={365}
-              value={form.retention_days}
-              onChange={(e) => setForm({ ...form, retention_days: parseInt(e.target.value) || 30 })}
+              {...form.register('retention_days', { valueAsNumber: true })}
             />
+            {form.formState.errors.retention_days && (
+              <p className="text-xs text-destructive">{form.formState.errors.retention_days.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Макс. бэкапов</Label>
@@ -112,9 +120,11 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
               type="number"
               min={1}
               max={100}
-              value={form.max_backups}
-              onChange={(e) => setForm({ ...form, max_backups: parseInt(e.target.value) || 10 })}
+              {...form.register('max_backups', { valueAsNumber: true })}
             />
+            {form.formState.errors.max_backups && (
+              <p className="text-xs text-destructive">{form.formState.errors.max_backups.message}</p>
+            )}
           </div>
         </div>
 
@@ -128,22 +138,22 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
             <div className="flex items-center justify-between">
               <Label className="font-normal">При успешном бэкапе (+ файл)</Label>
               <Switch
-                checked={form.notify_on_success}
-                onCheckedChange={(checked) => setForm({ ...form, notify_on_success: checked })}
+                checked={form.watch('notify_on_success')}
+                onCheckedChange={(checked) => form.setValue('notify_on_success', checked)}
               />
             </div>
             <div className="flex items-center justify-between">
               <Label className="font-normal">При ошибке бэкапа</Label>
               <Switch
-                checked={form.notify_on_failure}
-                onCheckedChange={(checked) => setForm({ ...form, notify_on_failure: checked })}
+                checked={form.watch('notify_on_failure')}
+                onCheckedChange={(checked) => form.setValue('notify_on_failure', checked)}
               />
             </div>
           </div>
         </div>
 
         <div className="flex justify-end pt-4 border-t">
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving || !form.formState.isValid}>
             {isSaving ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Сохранение...</>
             ) : (

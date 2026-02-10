@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { StickyNote, Plus, Trash2, Pin, PinOff, Calendar } from 'lucide-react';
@@ -20,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { noteSchema, noteDefaults, type NoteFormValues } from './schema';
 
 const NOTE_COLORS: { value: NoteColor; label: string; bg: string; dot: string }[] = [
   { value: 'default', label: 'Без цвета', bg: 'bg-muted', dot: 'bg-muted-foreground' },
@@ -73,23 +76,28 @@ export function NoteButton({ entityType, entityId, size = 'sm', className }: Not
   };
 
   const [isOpen, setIsOpen] = useState(false);
-  const [newNoteText, setNewNoteText] = useState('');
-  const [newNoteColor, setNewNoteColor] = useState<NoteColor>('default');
   const [editingNote, setEditingNote] = useState<Note | null>(null);
 
+  const form = useForm<NoteFormValues>({
+    resolver: zodResolver(noteSchema),
+    mode: 'onChange',
+    defaultValues: noteDefaults,
+  });
+
   const handleCreate = async () => {
-    if (!newNoteText.trim()) return;
-    await createNote(newNoteText.trim(), newNoteColor);
-    setNewNoteText('');
-    setNewNoteColor('default');
+    const values = form.getValues();
+    if (!values.text.trim()) return;
+    await createNote(values.text.trim(), values.color);
+    form.reset(noteDefaults);
   };
 
   const handleUpdate = async () => {
-    if (!editingNote || !newNoteText.trim()) return;
-    await updateNote(editingNote.id, { content: newNoteText.trim(), color: newNoteColor });
+    if (!editingNote) return;
+    const values = form.getValues();
+    if (!values.text.trim()) return;
+    await updateNote(editingNote.id, { content: values.text.trim(), color: values.color });
     setEditingNote(null);
-    setNewNoteText('');
-    setNewNoteColor('default');
+    form.reset(noteDefaults);
   };
 
   const handleDelete = async (noteId: string) => {
@@ -102,14 +110,13 @@ export function NoteButton({ entityType, entityId, size = 'sm', className }: Not
 
   const startEdit = (note: Note) => {
     setEditingNote(note);
-    setNewNoteText(note.content);
-    setNewNoteColor(note.color);
+    form.setValue('text', note.content);
+    form.setValue('color', note.color);
   };
 
   const cancelEdit = () => {
     setEditingNote(null);
-    setNewNoteText('');
-    setNewNoteColor('default');
+    form.reset(noteDefaults);
   };
 
   const getColorConfig = (color: NoteColor) => 
@@ -214,16 +221,19 @@ export function NoteButton({ entityType, entityId, size = 'sm', className }: Not
           <div className="space-y-2 pt-2 border-t">
             <Textarea
               placeholder={editingNote ? 'Редактировать заметку...' : 'Новая заметка...'}
-              value={newNoteText}
-              onChange={(e) => setNewNoteText(e.target.value)}
+              value={form.watch('text')}
+              onChange={(e) => form.setValue('text', e.target.value, { shouldValidate: true })}
               className="min-h-[60px] text-sm resize-none"
             />
+            {form.formState.errors.text && (
+              <p className="text-xs text-destructive">{form.formState.errors.text.message}</p>
+            )}
             <div className="flex items-center justify-between">
               {/* Выбор цвета */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-7 gap-1.5">
-                    <div className={cn('h-3 w-3 rounded-full', getColorConfig(newNoteColor).dot)} />
+                    <div className={cn('h-3 w-3 rounded-full', getColorConfig(form.watch('color')).dot)} />
                     <span className="text-xs">Цвет</span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -231,7 +241,7 @@ export function NoteButton({ entityType, entityId, size = 'sm', className }: Not
                   {NOTE_COLORS.map((color) => (
                     <DropdownMenuItem
                       key={color.value}
-                      onClick={() => setNewNoteColor(color.value)}
+                      onClick={() => form.setValue('color', color.value, { shouldValidate: true })}
                       className="gap-2"
                     >
                       <div className={cn('h-3 w-3 rounded-full', color.dot)} />
@@ -251,7 +261,7 @@ export function NoteButton({ entityType, entityId, size = 'sm', className }: Not
                   size="sm" 
                   className="h-7"
                   onClick={editingNote ? handleUpdate : handleCreate}
-                  disabled={!newNoteText.trim()}
+                  disabled={!form.formState.isValid || !form.watch('text').trim()}
                 >
                   <Plus className="h-3 w-3 mr-1" />
                   {editingNote ? 'Сохранить' : 'Добавить'}
