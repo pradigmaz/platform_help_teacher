@@ -42,7 +42,7 @@ async def read_groups(
     )
 
     if not include_archived:
-        query = query.where(not models.Group.is_archived)
+        query = query.where(models.Group.is_archived.is_(False))
 
     result = await db.execute(query)
     groups = []

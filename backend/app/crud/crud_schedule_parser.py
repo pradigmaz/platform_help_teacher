@@ -60,7 +60,7 @@ async def get_unresolved_conflicts(db: AsyncSession, teacher_id: UUID) -> list[S
     """Получить неразрешённые конфликты для преподавателя"""
     # Получаем конфликты через lessons -> groups -> teacher assignments
     result = await db.execute(
-        select(ScheduleConflict).where(not ScheduleConflict.resolved).order_by(ScheduleConflict.created_at.desc())
+        select(ScheduleConflict).where(ScheduleConflict.resolved.is_(False)).order_by(ScheduleConflict.created_at.desc())
     )
     return list(result.scalars().all())
 

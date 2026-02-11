@@ -24,7 +24,7 @@ class CRUDAnnouncement:
         """Получить все объявления (для админа)."""
         query = select(Announcement).options(selectinload(Announcement.author))
         if not include_drafts:
-            query = query.where(not Announcement.is_draft)
+            query = query.where(Announcement.is_draft.is_(False))
         query = query.order_by(Announcement.created_at.desc()).offset(skip).limit(limit)
         result = await db.execute(query)
         return list(result.scalars().all())
@@ -33,7 +33,7 @@ class CRUDAnnouncement:
         """Получить опубликованные объявления (для студентов)."""
         result = await db.execute(
             select(Announcement)
-            .where(not Announcement.is_draft)
+            .where(Announcement.is_draft.is_(False))
             .order_by(Announcement.published_at.desc())
             .offset(skip)
             .limit(limit)
