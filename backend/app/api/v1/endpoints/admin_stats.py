@@ -30,7 +30,7 @@ async def get_stats(
     total_users = users_result.scalar() or 0
 
     # Считаем количество групп (не архивных)
-    groups_result = await db.execute(select(func.count(Group.id)).where(not Group.is_archived))
+    groups_result = await db.execute(select(func.count(Group.id)).where(Group.is_archived.is_(False)))
     total_groups = groups_result.scalar() or 0
 
     # Считаем активных студентов (у кого есть роль student)
