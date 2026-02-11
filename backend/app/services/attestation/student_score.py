@@ -163,7 +163,7 @@ class StudentScoreCalculator:
         - Если меньше (праздники, начало семестра) — используем минимум из настроек
         """
         # Считаем занятия в БД (не отменённые)
-        query = select(func.count(Lesson.id)).where(Lesson.group_id == group_id, not Lesson.is_cancelled)
+        query = select(func.count(Lesson.id)).where(Lesson.group_id == group_id, Lesson.is_cancelled.is_(False))
 
         # Фильтр по периоду
         if settings.period_start_date:
@@ -173,7 +173,7 @@ class StudentScoreCalculator:
 
         # Фильтр по подгруппе: занятия для всей группы (subgroup IS NULL) или для конкретной подгруппы
         if subgroup:
-            query = query.where((Lesson.subgroup is None) | (Lesson.subgroup == subgroup))
+            query = query.where((Lesson.subgroup.is_(None)) | (Lesson.subgroup == subgroup))
 
         result = await self.db.execute(query)
         lessons_in_db = result.scalar() or 0

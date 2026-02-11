@@ -124,7 +124,7 @@ async def _get_lesson_index(db: AsyncSession, origin_lesson: Lesson, current_les
                 Lesson.group_id == origin_lesson.group_id,
                 Lesson.subject_id == origin_lesson.subject_id,
                 Lesson.lesson_type == "LAB",
-                not Lesson.is_cancelled,
+                Lesson.is_cancelled.is_(False),
                 Lesson.date >= origin_lesson.date,
             )
         )

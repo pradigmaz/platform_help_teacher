@@ -81,7 +81,7 @@ async def get_schedule_slots(
         Lesson.lesson_type == LessonType.LAB,
         Lesson.date >= today,
         Lesson.date <= end_date,
-        not Lesson.is_cancelled,
+        Lesson.is_cancelled.is_(False),
     ]
     if lab.subject_id:
         filters.append(Lesson.subject_id == lab.subject_id)

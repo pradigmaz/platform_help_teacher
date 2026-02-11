@@ -9,10 +9,11 @@ Before running: delete existing duplicates with SQL:
 
 DELETE FROM submissions s1
 USING submissions s2
-WHERE s1.user_id = s2.user_id 
-  AND s1.lab_id = s2.lab_id 
+WHERE s1.user_id = s2.user_id
+  AND s1.lab_id = s2.lab_id
   AND s1.created_at < s2.created_at;
 """
+
 from alembic import op
 
 
@@ -23,11 +24,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_unique_constraint(
-        "uq_submission_user_lab",
-        "submissions",
-        ["user_id", "lab_id"]
-    )
+    op.create_unique_constraint("uq_submission_user_lab", "submissions", ["user_id", "lab_id"])
 
 
 def downgrade() -> None:

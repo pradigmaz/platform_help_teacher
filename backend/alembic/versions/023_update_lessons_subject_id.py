@@ -4,11 +4,12 @@ Revision ID: 023_update_lessons_subject_id
 Revises: 022_create_attendance_table
 Create Date: 2026-01-03
 """
+
 from typing import Union
 from alembic import op
 
-revision: str = '023_update_lessons_subject_id'
-down_revision: Union[str, None] = '022_create_attendance_table'
+revision: str = "023_update_lessons_subject_id"
+down_revision: Union[str, None] = "022_create_attendance_table"
 branch_labels: Union[str, None] = None
 depends_on: Union[str, None] = None
 

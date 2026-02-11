@@ -119,7 +119,7 @@ class LabAttachmentValidator:
             Lesson.group_id == group_id,
             Lesson.lesson_type == LessonType.LAB,
             Lesson.work_number == work_number,
-            not Lesson.is_cancelled,
+            Lesson.is_cancelled.is_(False),
         ]
         if subject_id:
             filters.append(Lesson.subject_id == subject_id)
@@ -140,8 +140,8 @@ class LabAttachmentValidator:
             Lesson.lesson_type == LessonType.LAB,
             Lesson.date >= from_date,
             Lesson.date <= today,
-            Lesson.work_number is not None,
-            not Lesson.is_cancelled,
+            Lesson.work_number.isnot(None),
+            Lesson.is_cancelled.is_(False),
         ]
         if subject_id:
             filters.append(Lesson.subject_id == subject_id)
@@ -163,8 +163,8 @@ class LabAttachmentValidator:
             Lesson.group_id == group_id,
             Lesson.lesson_type == LessonType.LAB,
             Lesson.date >= first_lesson_date,
-            Lesson.work_number is not None,
-            not Lesson.is_cancelled,
+            Lesson.work_number.isnot(None),
+            Lesson.is_cancelled.is_(False),
         ]
         if subject_id:
             filters.append(Lesson.subject_id == subject_id)

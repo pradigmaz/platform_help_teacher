@@ -55,7 +55,7 @@ class ExportDataCollector:
                     Lesson.group_id == group_id,
                     Lesson.date >= start_date,
                     Lesson.date <= end_date,
-                    not Lesson.is_cancelled,
+                    Lesson.is_cancelled.is_(False),
                 )
             )
             .order_by(Lesson.date, Lesson.lesson_number)

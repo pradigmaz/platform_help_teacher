@@ -4,6 +4,7 @@ Revision ID: 071_feedback_attachments
 Revises: 070_add_expected_lessons_per_week
 Create Date: 2026-01-13
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID

@@ -9,13 +9,14 @@ Create Date: 2026-01-08
 - Эффективные запросы по временным диапазонам
 - Параллельное сканирование партиций
 """
+
 from alembic import op
 import sqlalchemy as sa
 from datetime import datetime, timedelta
 
 
-revision = '053'
-down_revision = '052'
+revision = "053"
+down_revision = "052"
 branch_labels = None
 depends_on = None
 
@@ -46,7 +47,7 @@ def upgrade() -> None:
             PRIMARY KEY (id, created_at)
         ) PARTITION BY RANGE (created_at)
     """)
-    
+
     # 2. Создаём партиции на 12 месяцев вперёд
     now = datetime.utcnow()
     for i in range(12):
@@ -54,22 +55,22 @@ def upgrade() -> None:
         month_start = datetime(month_start.year, month_start.month, 1)
         next_month = month_start + timedelta(days=32)
         next_month = datetime(next_month.year, next_month.month, 1)
-        
+
         partition_name = f"student_audit_log_y{month_start.year}m{month_start.month:02d}"
-        
+
         op.execute(f"""
             CREATE TABLE IF NOT EXISTS {partition_name}
             PARTITION OF student_audit_log_partitioned
-            FOR VALUES FROM ('{month_start.strftime('%Y-%m-%d')}') 
-            TO ('{next_month.strftime('%Y-%m-%d')}')
+            FOR VALUES FROM ('{month_start.strftime("%Y-%m-%d")}') 
+            TO ('{next_month.strftime("%Y-%m-%d")}')
         """)
-    
+
     # 3. Создаём default партицию для данных вне диапазона
     op.execute("""
         CREATE TABLE IF NOT EXISTS student_audit_log_default
         PARTITION OF student_audit_log_partitioned DEFAULT
     """)
-    
+
     # 4. Копируем данные из старой таблицы (явный порядок колонок)
     op.execute("""
         INSERT INTO student_audit_log_partitioned 
@@ -81,28 +82,28 @@ def upgrade() -> None:
                ip_address, ip_forwarded, user_agent, fingerprint, extra_data, created_at
         FROM student_audit_log
     """)
-    
+
     # 5. Переименовываем таблицы (atomic swap)
     op.execute("ALTER TABLE student_audit_log RENAME TO student_audit_log_old")
     op.execute("ALTER TABLE student_audit_log_partitioned RENAME TO student_audit_log")
-    
+
     # 6. Пересоздаём индексы на новой таблице
-    op.create_index('idx_student_audit_user_id_new', 'student_audit_log', ['user_id'])
-    op.create_index('idx_student_audit_created_at_new', 'student_audit_log', ['created_at'])
-    op.create_index('idx_student_audit_action_type_new', 'student_audit_log', ['action_type'])
-    op.create_index('idx_student_audit_ip_new', 'student_audit_log', ['ip_address'])
-    op.create_index('idx_student_audit_session_new', 'student_audit_log', ['session_id'])
-    op.create_index('idx_audit_entity_new', 'student_audit_log', ['entity_type', 'entity_id'])
-    op.create_index('idx_audit_user_time_new', 'student_audit_log', ['user_id', 'created_at'])
-    op.create_index('idx_student_audit_actor_role_new', 'student_audit_log', ['actor_role'])
+    op.create_index("idx_student_audit_user_id_new", "student_audit_log", ["user_id"])
+    op.create_index("idx_student_audit_created_at_new", "student_audit_log", ["created_at"])
+    op.create_index("idx_student_audit_action_type_new", "student_audit_log", ["action_type"])
+    op.create_index("idx_student_audit_ip_new", "student_audit_log", ["ip_address"])
+    op.create_index("idx_student_audit_session_new", "student_audit_log", ["session_id"])
+    op.create_index("idx_audit_entity_new", "student_audit_log", ["entity_type", "entity_id"])
+    op.create_index("idx_audit_user_time_new", "student_audit_log", ["user_id", "created_at"])
+    op.create_index("idx_student_audit_actor_role_new", "student_audit_log", ["actor_role"])
     op.create_index(
-        'idx_audit_fingerprint_gin_new', 
-        'student_audit_log', 
-        ['fingerprint'],
-        postgresql_using='gin',
-        postgresql_ops={'fingerprint': 'jsonb_path_ops'}
+        "idx_audit_fingerprint_gin_new",
+        "student_audit_log",
+        ["fingerprint"],
+        postgresql_using="gin",
+        postgresql_ops={"fingerprint": "jsonb_path_ops"},
     )
-    
+
     # 7. Функция для автоматического создания партиций (вызывать через cron/celery)
     op.execute(
         "CREATE OR REPLACE FUNCTION create_audit_partition_if_needed() "

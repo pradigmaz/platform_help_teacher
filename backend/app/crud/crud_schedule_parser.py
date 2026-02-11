@@ -117,7 +117,7 @@ async def resolve_all_conflicts(db: AsyncSession, action: str, teacher_id: UUID)
         select(ScheduleConflict)
         .join(Lesson, ScheduleConflict.lesson_id == Lesson.id)
         .where(
-            not ScheduleConflict.resolved,
+            ScheduleConflict.resolved.is_(False),
             # TODO: добавить фильтр по teacher_id через assignments
         )
     )

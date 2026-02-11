@@ -217,7 +217,7 @@ async def _find_lesson_for_grading(db: AsyncSession, lab: Lab, student: User) ->
             Lesson.group_id == student.group_id,
             Lesson.lesson_type == LessonType.LAB,
             Lesson.date <= today,
-            not Lesson.is_cancelled,
+            Lesson.is_cancelled.is_(False),
             or_(Lesson.subgroup == student.subgroup, Lesson.subgroup.is_(None)),
         )
         .order_by(Lesson.date.desc())

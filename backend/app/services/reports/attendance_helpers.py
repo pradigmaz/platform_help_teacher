@@ -181,7 +181,7 @@ async def get_attendance_trend(
     # Получаем все занятия из расписания с подгруппами
     lessons_query = (
         select(Lesson.date, Lesson.subgroup, Lesson.lesson_type)
-        .where(Lesson.group_id == group_id, not Lesson.is_cancelled)
+        .where(Lesson.group_id == group_id, Lesson.is_cancelled.is_(False))
         .order_by(Lesson.date.asc())
     )
     if semester_start_date:
@@ -290,7 +290,7 @@ async def get_today_lessons_attendance(
     # Получаем занятия на эту дату
     lessons_query = (
         select(Lesson)
-        .where(Lesson.group_id == group_id, Lesson.date == check_date, not Lesson.is_cancelled)
+        .where(Lesson.group_id == group_id, Lesson.date == check_date, Lesson.is_cancelled.is_(False))
         .order_by(Lesson.lesson_number)
     )
     lessons_result = await db.execute(lessons_query)
@@ -374,7 +374,7 @@ async def get_recent_lessons_history(
     # Получаем последние занятия (до сегодня включительно)
     lessons_query = (
         select(Lesson)
-        .where(Lesson.group_id == group_id, Lesson.date <= check_date, not Lesson.is_cancelled)
+        .where(Lesson.group_id == group_id, Lesson.date <= check_date, Lesson.is_cancelled.is_(False))
         .order_by(Lesson.date.desc(), Lesson.lesson_number.desc())
         .limit(limit * 2)  # Берём с запасом, потом отфильтруем
     )

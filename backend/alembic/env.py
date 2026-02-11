@@ -33,20 +33,22 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+
 def get_url():
     # Build URL from individual env vars (same as config.py)
     db_url = os.getenv("DATABASE_URL")
     if db_url:
         return db_url
-    
+
     # Build from components
     user = os.getenv("POSTGRES_USER", "admin")
     password = os.getenv("POSTGRES_PASSWORD", "")
     server = os.getenv("POSTGRES_SERVER", "db")
     port = os.getenv("POSTGRES_PORT", "5432")
     db = os.getenv("POSTGRES_DB", "edu_platform")
-    
+
     return f"postgresql+asyncpg://{user}:{password}@{server}:{port}/{db}"
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -88,7 +90,7 @@ async def run_migrations_online() -> None:
     """
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = get_url()
-    
+
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",

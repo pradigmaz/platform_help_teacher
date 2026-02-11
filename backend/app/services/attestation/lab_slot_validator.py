@@ -35,7 +35,9 @@ async def get_excused_lab_ids(db: AsyncSession, student_id: UUID, subject_id: UU
                 Attendance.status == AttendanceStatus.EXCUSED,
             ),
         )
-        .where(and_(Lesson.subject_id == subject_id, Lesson.lesson_type == LessonType.LAB, not Lesson.is_cancelled))
+        .where(
+            and_(Lesson.subject_id == subject_id, Lesson.lesson_type == LessonType.LAB, Lesson.is_cancelled.is_(False))
+        )
     )
     result = await db.execute(excused_lessons_query)
     excused_lesson_ids = {row[0] for row in result.fetchall()}

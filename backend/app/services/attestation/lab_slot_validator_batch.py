@@ -81,7 +81,7 @@ async def get_max_labs_per_lesson_batch(
                 Attendance.status == AttendanceStatus.EXCUSED,
                 Lesson.subject_id == subject_id,
                 Lesson.lesson_type == LessonType.LAB,
-                not Lesson.is_cancelled,
+                Lesson.is_cancelled.is_(False),
             )
         )
     )

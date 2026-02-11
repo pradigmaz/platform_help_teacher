@@ -66,7 +66,10 @@ class LessonImporter:
         """
         result = await self.db.execute(
             select(Lesson).where(
-                Lesson.group_id == group.id, Lesson.date >= start_date, Lesson.date <= end_date, not Lesson.is_cancelled
+                Lesson.group_id == group.id,
+                Lesson.date >= start_date,
+                Lesson.date <= end_date,
+                Lesson.is_cancelled.is_(False),
             )
         )
         existing_lessons = result.scalars().all()

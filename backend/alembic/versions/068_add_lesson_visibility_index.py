@@ -8,6 +8,7 @@ Create Date: 2026-01-12
 - get_batch_visibility_info
 - get_visible_lab_numbers_by_subject
 """
+
 from alembic import op
 
 
@@ -22,7 +23,7 @@ def upgrade() -> None:
         "idx_lessons_visibility",
         "lessons",
         ["group_id", "lesson_type", "subject_id", "work_number", "date"],
-        postgresql_where="is_cancelled = false AND work_number IS NOT NULL"
+        postgresql_where="is_cancelled = false AND work_number IS NOT NULL",
     )
 
 

@@ -90,7 +90,7 @@ class LabVisibilityService:
                 LabDeadlineExtension.lab_id.in_(lab_id_list),
                 LabDeadlineExtension.group_id == group_id,
                 LabDeadlineExtension.is_active,
-                (LabDeadlineExtension.expires_at is None) | (LabDeadlineExtension.expires_at > now),
+                (LabDeadlineExtension.expires_at.is_(None)) | (LabDeadlineExtension.expires_at > now),
             )
         )
         ext_result = await self.db.execute(ext_query)
@@ -129,8 +129,8 @@ class LabVisibilityService:
         base_filter = [
             Lesson.group_id == group_id,
             Lesson.lesson_type == LessonType.LAB,
-            not Lesson.is_cancelled,
-            Lesson.work_number is not None,
+            Lesson.is_cancelled.is_(False),
+            Lesson.work_number.isnot(None),
             Lesson.date <= today,
         ]
         base_filter.extend(_build_subgroup_filter(subgroup))
@@ -159,8 +159,8 @@ class LabVisibilityService:
         base_filter = [
             Lesson.group_id == group_id,
             Lesson.lesson_type == LessonType.LAB,
-            not Lesson.is_cancelled,
-            Lesson.work_number is not None,
+            Lesson.is_cancelled.is_(False),
+            Lesson.work_number.isnot(None),
             Lesson.date <= today,
         ]
         base_filter.extend(_build_subgroup_filter(subgroup))

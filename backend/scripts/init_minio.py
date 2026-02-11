@@ -6,6 +6,7 @@ Creates required buckets: edu-uploads, edu-backups
 SECURITY: This script requires environment variables to be set.
 Do not use default credentials in production!
 """
+
 import os
 import sys
 from minio import Minio
@@ -42,14 +43,14 @@ PUBLIC_POLICY = """{
 
 def main():
     print(f"Connecting to MinIO at {MINIO_ENDPOINT}...")
-    
+
     client = Minio(
         MINIO_ENDPOINT,
         access_key=MINIO_ROOT_USER,
         secret_key=MINIO_ROOT_PASSWORD,
         secure=MINIO_USE_SSL,
     )
-    
+
     for bucket in BUCKETS:
         name = bucket["name"]
         try:
@@ -58,15 +59,15 @@ def main():
                 print(f"✓ Created bucket: {name}")
             else:
                 print(f"• Bucket exists: {name}")
-            
+
             if bucket["public"]:
                 client.set_bucket_policy(name, PUBLIC_POLICY % name)
                 print(f"  → Set public read policy for {name}")
-                
+
         except S3Error as e:
             print(f"✗ Error with bucket {name}: {e}")
             sys.exit(1)
-    
+
     print("\n✓ MinIO initialization complete!")
 
 

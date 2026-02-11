@@ -5949,3 +5949,104 @@ aiogram.exceptions.TelegramNetworkError: HTTP Client says - ClientConnectorDNSEr
 2026-02-11 07:45:12,085 - app.bots.vk_bot - INFO - VK Long Poll loop started
 2026-02-11 07:45:12,088 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
 2026-02-11 07:45:12,309 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-11 07:45:37,240 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:46:02,265 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:46:27,291 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:46:52,317 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:47:17,342 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:47:42,367 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:48:07,393 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:48:32,418 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:48:57,443 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:49:22,468 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:49:47,517 - urllib3.connectionpool - DEBUG - https://lp.vk.com:443 "GET /whp/235203806?act=a_check&key=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIzNTIwMzgwNiIsInVudGlsIjoxNzcwNzk5NTEyMDU0ODQ4ODM2fQ.lxY99JTqx4zwVrDm5aR0FZAtAA__0-iyyj975MhO2eU6QBevnKEqy13VNCc5dqxZr1xIFmUxCGuywNTaIzxBAA&ts=56&wait=25 HTTP/1.1" 200 26
+2026-02-11 07:50:03,092 - app.main - INFO - 🛑 Application shutting down...
+2026-02-11 07:50:03,092 - app.bots.vk_bot - INFO - VK Long Poll stopped
+2026-02-11 07:50:11,157 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-11 07:50:11,157 - app.main - INFO - 🚀 Application starting...
+2026-02-11 07:50:11,754 - app.main - INFO - Webhook registered successfully.
+2026-02-11 07:50:11,758 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-11 07:50:11,909 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 260
+2026-02-11 07:50:11,911 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-11 07:50:11,912 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-11 07:50:11,915 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-11 07:50:11,918 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-11 07:50:12,172 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-11 07:50:21,515 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-11 07:50:21,515 - app.main - INFO - 🚀 Application starting...
+2026-02-11 07:50:22,096 - app.main - INFO - Webhook registered successfully.
+2026-02-11 07:50:22,099 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-11 07:50:22,227 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 259
+2026-02-11 07:50:22,229 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-11 07:50:22,229 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-11 07:50:22,232 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-11 07:50:22,236 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-11 07:50:22,446 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-11 07:50:34,391 - app.main - INFO - 🛑 Application shutting down...
+2026-02-11 07:50:34,391 - app.bots.vk_bot - INFO - VK Long Poll stopped
+2026-02-11 07:50:41,894 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-11 07:50:41,894 - app.main - INFO - 🚀 Application starting...
+2026-02-11 07:50:42,114 - app.main - INFO - Webhook registered successfully.
+2026-02-11 07:50:42,118 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-11 07:50:42,262 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 258
+2026-02-11 07:50:42,264 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-11 07:50:42,264 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-11 07:50:42,267 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-11 07:50:42,270 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-11 07:50:42,509 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-11 07:50:50,937 - app.main - INFO - 🛑 Application shutting down...
+2026-02-11 07:50:50,937 - app.bots.vk_bot - INFO - VK Long Poll stopped
+2026-02-11 07:50:58,840 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-11 07:50:58,840 - app.main - INFO - 🚀 Application starting...
+2026-02-11 07:50:59,419 - app.main - INFO - Webhook registered successfully.
+2026-02-11 07:50:59,422 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-11 07:50:59,602 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 258
+2026-02-11 07:50:59,604 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-11 07:50:59,604 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-11 07:50:59,607 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-11 07:50:59,610 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-11 07:50:59,828 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-11 07:51:07,175 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-11 07:51:07,175 - app.main - INFO - 🚀 Application starting...
+2026-02-11 07:51:07,739 - app.main - INFO - Webhook registered successfully.
+2026-02-11 07:51:07,742 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-11 07:51:07,874 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 257
+2026-02-11 07:51:07,876 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-11 07:51:07,876 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-11 07:51:07,880 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-11 07:51:07,883 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-11 07:51:08,098 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-11 07:51:08,705 - app.main - INFO - 🛑 Application shutting down...
+2026-02-11 07:51:08,706 - app.bots.vk_bot - INFO - VK Long Poll stopped
+2026-02-11 07:51:16,761 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-11 07:51:16,761 - app.main - INFO - 🚀 Application starting...
+2026-02-11 07:51:16,983 - app.main - INFO - Webhook registered successfully.
+2026-02-11 07:51:16,985 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-11 07:51:17,166 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 261
+2026-02-11 07:51:17,168 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-11 07:51:17,168 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-11 07:51:17,171 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-11 07:51:17,175 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-11 07:51:17,401 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-11 07:51:18,106 - app.main - INFO - 🛑 Application shutting down...
+2026-02-11 07:51:18,107 - app.bots.vk_bot - INFO - VK Long Poll stopped
+2026-02-11 07:51:26,437 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-11 07:51:26,438 - app.main - INFO - 🚀 Application starting...
+2026-02-11 07:51:26,751 - app.main - INFO - Webhook registered successfully.
+2026-02-11 07:51:26,753 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-11 07:51:26,888 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 257
+2026-02-11 07:51:26,890 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-11 07:51:26,890 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-11 07:51:26,894 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-11 07:51:26,896 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-11 07:51:27,134 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass
+2026-02-11 07:51:34,440 - app.core.prestart_check - INFO - ⚠️ Running in development mode. Security checks are relaxed.
+2026-02-11 07:51:34,440 - app.main - INFO - 🚀 Application starting...
+2026-02-11 07:51:34,781 - app.main - INFO - Webhook registered successfully.
+2026-02-11 07:51:34,783 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.vk.com:443
+2026-02-11 07:51:34,915 - urllib3.connectionpool - DEBUG - https://api.vk.com:443 "POST /method/groups.getLongPollServer HTTP/1.1" 200 260
+2026-02-11 07:51:34,917 - app.bots.vk_bot - INFO - VK bot initialized for group 235203806
+2026-02-11 07:51:34,918 - app.bots.vk_bot - INFO - VK Long Poll started in background
+2026-02-11 07:51:34,923 - app.bots.vk_bot - INFO - VK Long Poll loop started
+2026-02-11 07:51:34,926 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): lp.vk.com:443
+2026-02-11 07:51:35,115 - app.services.rate_limit.service - INFO - Loaded 1 admin IDs for rate limit bypass

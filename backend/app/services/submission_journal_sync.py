@@ -223,7 +223,7 @@ class SubmissionJournalSync:
                 Lesson.group_id == student.group_id,
                 Lesson.lesson_type == LessonType.LAB,
                 Lesson.date <= today,
-                not Lesson.is_cancelled,
+                Lesson.is_cancelled.is_(False),
                 # Подгруппа: либо совпадает, либо занятие для всех (NULL)
                 or_(Lesson.subgroup == student.subgroup, Lesson.subgroup.is_(None)),
             )

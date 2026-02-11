@@ -52,11 +52,11 @@ async def is_lab_session_now(
         Lesson.date == today,
         Lesson.lesson_number == current_lesson_number,
         Lesson.lesson_type == LessonType.LAB,
-        not Lesson.is_cancelled,
+        Lesson.is_cancelled.is_(False),
     ]
 
     if subgroup is not None:
-        filters.append((Lesson.subgroup is None) | (Lesson.subgroup == subgroup))
+        filters.append((Lesson.subgroup.is_(None)) | (Lesson.subgroup == subgroup))
 
     if subject_id:
         filters.append(Lesson.subject_id == subject_id)

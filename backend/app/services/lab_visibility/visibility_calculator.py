@@ -24,7 +24,7 @@ def _build_subgroup_filter(subgroup: int | None) -> list:
     - Студент без подгруппы видит ВСЕ занятия (и общие, и по подгруппам)
     """
     if subgroup is not None:
-        return [(Lesson.subgroup is None) | (Lesson.subgroup == subgroup)]
+        return [(Lesson.subgroup.is_(None)) | (Lesson.subgroup == subgroup)]
     return []
 
 
@@ -33,7 +33,7 @@ def _build_base_filter(group_id: UUID, subgroup: int | None, subject_id: UUID | 
     base_filter = [
         Lesson.group_id == group_id,
         Lesson.lesson_type == LessonType.LAB,
-        not Lesson.is_cancelled,
+        Lesson.is_cancelled.is_(False),
     ]
     base_filter.extend(_build_subgroup_filter(subgroup))
     if subject_id:
@@ -91,7 +91,7 @@ async def calculate_visibility_for_subject(
     # 2. Все уникальные work_number с датами для подсчёта дедлайнов
     all_labs_query = (
         select(Lesson.work_number, func.min(Lesson.date).label("first_date"))
-        .where(and_(*base_filter, Lesson.work_number is not None, Lesson.date <= today))
+        .where(and_(*base_filter, Lesson.work_number.isnot(None), Lesson.date <= today))
         .group_by(Lesson.work_number)
         .order_by(func.min(Lesson.date))
     )
