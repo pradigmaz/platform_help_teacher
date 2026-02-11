@@ -98,7 +98,9 @@ async def calculate_all_students_attestation(
     # Получаем все неархивированные группы с их студентами одним запросом (фикс N+1)
     from sqlalchemy.orm import selectinload
 
-    groups_result = await db.execute(select(Group).options(selectinload(Group.users)).where(Group.is_archived.is_(False)))
+    groups_result = await db.execute(
+        select(Group).options(selectinload(Group.users)).where(Group.is_archived.is_(False))
+    )
     groups = list(groups_result.scalars().all())
 
     if not groups:
