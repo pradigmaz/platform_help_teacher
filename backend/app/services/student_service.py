@@ -141,7 +141,7 @@ class StudentService:
 
         for lab in labs:
             sub = subs_map.get(lab.id)
-            journal_grade = grades_map.get(lab.number)  # Оценка из журнала
+            journal_grade = grades_map.get(lab.number)  # noqa: F841  # Оценка из журнала (зарезервировано)
 
             # TODO: is_overdue теперь зависит от количества пар, не от даты
             # Для корректного расчёта нужен доступ к расписанию

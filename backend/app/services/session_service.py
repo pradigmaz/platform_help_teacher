@@ -32,7 +32,7 @@ local valid_sessions = {}
 for _, sid in ipairs(session_ids) do
     local session_key = session_prefix .. sid
     local data = redis.call('GET', session_key)
-    
+
     if data then
         local parsed = cjson.decode(data)
         -- Skip impersonation sessions from count
@@ -61,12 +61,12 @@ if sessions_to_remove > 0 then
     for i = 1, sessions_to_remove do
         local sid = valid_sessions[i].id
         local session_key = session_prefix .. sid
-        
+
         -- Delete session data
         redis.call('DEL', session_key)
         -- Remove from user's session set
         redis.call('SREM', user_sessions_key, sid)
-        
+
         removed_count = removed_count + 1
     end
 end

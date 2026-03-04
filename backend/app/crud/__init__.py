@@ -2,6 +2,7 @@
 CRUD операции для моделей приложения.
 """
 
+from app.crud import crud_device
 from app.crud.attendance import (
     AttendanceValidationError,
     DuplicateAttendanceError,
@@ -31,7 +32,6 @@ from app.crud.crud_subject import (
     get_teacher_subjects,
 )
 from app.crud.crud_user import get_by_social_id, upsert_user
-from app.crud import crud_device
 from app.crud.report import crud_report
 
 __all__ = [

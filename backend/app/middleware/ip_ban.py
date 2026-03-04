@@ -83,7 +83,7 @@ class IPBanMiddleware(BaseHTTPMiddleware):
             # greenlet_spawn ошибки — известный edge case с SQLAlchemy async
             if "greenlet_spawn" not in str(e):
                 logger.error(f"IPBanMiddleware error: {e}")
-            
+
             # Если response уже получен — возвращаем его, иначе вызываем call_next
             if response_received:
                 return response
