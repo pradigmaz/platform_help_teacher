@@ -17,6 +17,63 @@ SESSION_PREFIX = "session:"
 USER_SESSIONS_PREFIX = "user_sessions:"
 SESSION_TTL = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
+# Lua script for atomic session cleanup
+# Prevents race condition when multiple logins happen simultaneously
+CLEANUP_OLD_SESSIONS_SCRIPT = """
+local user_sessions_key = KEYS[1]
+local session_prefix = ARGV[1]
+local max_sessions = tonumber(ARGV[2])
+
+-- Get all session IDs for user
+local session_ids = redis.call('SMEMBERS', user_sessions_key)
+
+-- Build list of valid sessions with their created_at timestamps
+local valid_sessions = {}
+for _, sid in ipairs(session_ids) do
+    local session_key = session_prefix .. sid
+    local data = redis.call('GET', session_key)
+    
+    if data then
+        local parsed = cjson.decode(data)
+        -- Skip impersonation sessions from count
+        if not parsed.is_impersonation then
+            table.insert(valid_sessions, {
+                id = sid,
+                created_at = parsed.created_at or ""
+            })
+        end
+    else
+        -- Expired session, remove from set
+        redis.call('SREM', user_sessions_key, sid)
+    end
+end
+
+-- Sort by created_at (oldest first)
+table.sort(valid_sessions, function(a, b)
+    return a.created_at < b.created_at
+end)
+
+-- Calculate how many to remove
+local sessions_to_remove = #valid_sessions - max_sessions + 1
+local removed_count = 0
+
+if sessions_to_remove > 0 then
+    for i = 1, sessions_to_remove do
+        local sid = valid_sessions[i].id
+        local session_key = session_prefix .. sid
+        
+        -- Delete session data
+        redis.call('DEL', session_key)
+        -- Remove from user's session set
+        redis.call('SREM', user_sessions_key, sid)
+        
+        removed_count = removed_count + 1
+    end
+end
+
+return removed_count
+"""
+
 
 async def create_session(
     user_id: UUID,
@@ -27,7 +84,7 @@ async def create_session(
 ) -> bool:
     """
     Create a new session for user.
-    Enforces MAX_ACTIVE_SESSIONS limit by removing oldest sessions.
+    Enforces MAX_ACTIVE_SESSIONS limit by removing oldest sessions atomically.
 
     Args:
         is_impersonation: If True, don't count against user's session limit
@@ -52,39 +109,33 @@ async def create_session(
     if is_impersonation:
         session_key = f"{SESSION_PREFIX}{session_id}"
         await redis.setex(session_key, SESSION_TTL, session_data)
-        logger.info(f"Created impersonation session {session_id[:8]}... for user {user_id_str}")
+        logger.info(
+            f"[SessionService:create_session] Created impersonation session {session_id[:8]}... for user {user_id_str}"
+        )
         return True
 
-    # Add session to user's session set
     user_sessions_key = f"{USER_SESSIONS_PREFIX}{user_id_str}"
 
-    # Get current sessions count (excluding impersonation sessions)
-    current_sessions = await redis.smembers(user_sessions_key)
-    real_sessions = []
+    # Use Lua script for atomic cleanup of old sessions
+    # This prevents race condition when multiple logins happen simultaneously
+    try:
+        removed_count = await redis.eval(
+            CLEANUP_OLD_SESSIONS_SCRIPT,
+            1,  # number of keys
+            user_sessions_key,  # KEYS[1]
+            SESSION_PREFIX,  # ARGV[1]
+            settings.MAX_ACTIVE_SESSIONS,  # ARGV[2]
+        )
 
-    for sid in current_sessions:
-        session_key = f"{SESSION_PREFIX}{sid}"
-        data = await redis.get(session_key)
-        if data:
-            try:
-                parsed = json.loads(data)
-                # Skip impersonation sessions from count
-                if not parsed.get("is_impersonation", False):
-                    real_sessions.append((sid, parsed.get("created_at", "")))
-            except json.JSONDecodeError:
-                real_sessions.append((sid, ""))
-        else:
-            # Expired session, remove from set
-            await redis.srem(user_sessions_key, sid)
-
-    # If at limit, remove oldest non-impersonation sessions
-    if len(real_sessions) >= settings.MAX_ACTIVE_SESSIONS:
-        real_sessions.sort(key=lambda x: x[1])
-        sessions_to_remove = len(real_sessions) - settings.MAX_ACTIVE_SESSIONS + 1
-
-        for sid, _ in real_sessions[:sessions_to_remove]:
-            await revoke_session(session_id=sid)
-            logger.info(f"Removed old session {sid[:8]}... for user {user_id_str}")
+        if removed_count > 0:
+            logger.info(
+                f"[SessionService:create_session] Atomically removed {removed_count} old session(s) for user {user_id_str}"
+            )
+    except Exception as e:
+        logger.error(
+            f"[SessionService:create_session] Error cleaning old sessions for user {user_id_str}: {e}"
+        )
+        # Continue with session creation even if cleanup fails
 
     # Create new session
     session_key = f"{SESSION_PREFIX}{session_id}"
@@ -92,7 +143,9 @@ async def create_session(
     await redis.sadd(user_sessions_key, session_id)
     await redis.expire(user_sessions_key, SESSION_TTL)
 
-    logger.info(f"Created session {session_id[:8]}... for user {user_id_str}")
+    logger.info(
+        f"[SessionService:create_session] Created session {session_id[:8]}... for user {user_id_str}"
+    )
     return True
 
 
@@ -106,11 +159,19 @@ async def validate_session(session_id: str) -> dict | None:
 
     data = await redis.get(session_key)
     if not data:
+        logger.debug(f"[SessionService:validate_session] Session {session_id[:8]}... not found")
         return None
 
     try:
-        return json.loads(data)
+        session_data = json.loads(data)
+        logger.debug(
+            f"[SessionService:validate_session] Session {session_id[:8]}... validated for user {session_data.get('user_id')}"
+        )
+        return session_data
     except json.JSONDecodeError:
+        logger.error(
+            f"[SessionService:validate_session] Failed to decode session data for {session_id[:8]}..."
+        )
         return None
 
 
@@ -128,8 +189,13 @@ async def revoke_session(session_id: str) -> bool:
             if user_id:
                 user_sessions_key = f"{USER_SESSIONS_PREFIX}{user_id}"
                 await redis.srem(user_sessions_key, session_id)
+                logger.info(
+                    f"[SessionService:revoke_session] Revoked session {session_id[:8]}... for user {user_id}"
+                )
         except json.JSONDecodeError:
-            pass
+            logger.error(
+                f"[SessionService:revoke_session] Failed to decode session data for {session_id[:8]}..."
+            )
 
     deleted = await redis.delete(session_key)
     return deleted > 0
@@ -144,6 +210,10 @@ async def revoke_all_user_sessions(user_id: UUID) -> int:
     sessions = await redis.smembers(user_sessions_key)
     count = 0
 
+    logger.info(
+        f"[SessionService:revoke_all_user_sessions] Revoking {len(sessions)} session(s) for user {user_id_str}"
+    )
+
     for session_id in sessions:
         session_key = f"{SESSION_PREFIX}{session_id}"
         if await redis.delete(session_key):
@@ -151,7 +221,9 @@ async def revoke_all_user_sessions(user_id: UUID) -> int:
 
     await redis.delete(user_sessions_key)
 
-    logger.info(f"Revoked {count} sessions for user {user_id_str}")
+    logger.info(
+        f"[SessionService:revoke_all_user_sessions] Revoked {count} session(s) for user {user_id_str}"
+    )
     return count
 
 
@@ -164,6 +236,10 @@ async def get_user_sessions(user_id: UUID) -> list[dict]:
     sessions = await redis.smembers(user_sessions_key)
     result = []
 
+    logger.debug(
+        f"[SessionService:get_user_sessions] Fetching {len(sessions)} session(s) for user {user_id_str}"
+    )
+
     for session_id in sessions:
         session_key = f"{SESSION_PREFIX}{session_id}"
         data = await redis.get(session_key)
@@ -173,10 +249,15 @@ async def get_user_sessions(user_id: UUID) -> list[dict]:
                 parsed["session_id"] = session_id
                 result.append(parsed)
             except json.JSONDecodeError:
-                pass
+                logger.error(
+                    f"[SessionService:get_user_sessions] Failed to decode session {session_id[:8]}..."
+                )
         else:
             # Clean up expired session from set
             await redis.srem(user_sessions_key, session_id)
+            logger.debug(
+                f"[SessionService:get_user_sessions] Cleaned up expired session {session_id[:8]}..."
+            )
 
     return result
 
@@ -190,6 +271,10 @@ async def revoke_all_except_current(user_id: UUID, current_session_id: str) -> i
     sessions = await redis.smembers(user_sessions_key)
     count = 0
 
+    logger.info(
+        f"[SessionService:revoke_all_except_current] Revoking sessions for user {user_id_str}, keeping {current_session_id[:8]}..."
+    )
+
     for session_id in sessions:
         if session_id == current_session_id:
             continue
@@ -198,7 +283,9 @@ async def revoke_all_except_current(user_id: UUID, current_session_id: str) -> i
             await redis.srem(user_sessions_key, session_id)
             count += 1
 
-    logger.info(f"Revoked {count} sessions for user {user_id_str} (kept current: {current_session_id[:8]}...)")
+    logger.info(
+        f"[SessionService:revoke_all_except_current] Revoked {count} session(s) for user {user_id_str}"
+    )
     return count
 
 
@@ -209,10 +296,20 @@ async def get_session_owner(session_id: str) -> str | None:
     data = await redis.get(session_key)
 
     if not data:
+        logger.debug(
+            f"[SessionService:get_session_owner] Session {session_id[:8]}... not found"
+        )
         return None
 
     try:
         parsed = json.loads(data)
-        return parsed.get("user_id")
+        user_id = parsed.get("user_id")
+        logger.debug(
+            f"[SessionService:get_session_owner] Session {session_id[:8]}... belongs to user {user_id}"
+        )
+        return user_id
     except json.JSONDecodeError:
+        logger.error(
+            f"[SessionService:get_session_owner] Failed to decode session data for {session_id[:8]}..."
+        )
         return None
