@@ -148,19 +148,16 @@ class BackupEncryption:
 
             with open(output_path, "wb") as out_f:
                 chunk_num = 0
-                remaining = in_f.read()
-                pos = 0
+                encrypted_chunk_size = CHUNK_SIZE + TAG_SIZE
 
-                while pos < len(remaining):
-                    # Each chunk is CHUNK_SIZE + TAG_SIZE (except possibly last)
-                    chunk_ciphertext_size = min(CHUNK_SIZE + TAG_SIZE, len(remaining) - pos)
-                    chunk_ciphertext = remaining[pos : pos + chunk_ciphertext_size]
+                while True:
+                    chunk_ciphertext = in_f.read(encrypted_chunk_size)
+                    if not chunk_ciphertext:
+                        break
 
                     chunk_nonce = base_nonce + struct.pack(">I", chunk_num)
                     plaintext = aesgcm.decrypt(chunk_nonce, chunk_ciphertext, None)
                     out_f.write(plaintext)
-
-                    pos += chunk_ciphertext_size
                     chunk_num += 1
 
         logger.info(f"Decrypted {input_path.name} -> {output_path.name}")
