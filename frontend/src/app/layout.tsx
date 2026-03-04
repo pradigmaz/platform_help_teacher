@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { FingerprintInitializer } from "@/components/FingerprintInitializer";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,8 +21,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="ru" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
+        <FingerprintInitializer />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

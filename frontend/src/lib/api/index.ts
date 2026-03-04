@@ -24,6 +24,8 @@ export { RateLimitAPI } from './rate-limit';
 export type { RateLimitWarning, WarningListResponse } from './rate-limit';
 export { SecurityAPI } from './security';
 export type { SecurityStrikesResponse, SecurityStatsResponse, StrikeDetail, ClearStrikesResponse, UserInfoResponse } from './security';
+export { DevicesAPI } from './devices';
+export type { Device, DeviceListResponse, ConfirmDeviceResponse, DeleteDeviceResponse } from './devices';
 export { BackupAPI } from './backup';
 export type { 
   BackupInfo, 
