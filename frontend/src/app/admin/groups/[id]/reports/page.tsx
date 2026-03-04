@@ -33,7 +33,7 @@ export default function GroupReportsPage() {
       const [groupData, reportsData] = await Promise.all([GroupsAPI.get(groupId), ReportsAPI.list()]);
       setGroup(groupData);
       setReports(reportsData.reports.filter(r => r.group_id === groupId));
-    } catch (e) {
+    } catch {
       toast.error('Ошибка загрузки данных');
     } finally {
       setIsLoading(false);

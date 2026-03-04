@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, FileText, Check, X, Plus, ClipboardPaste } from 'lucide-react';
+import { ArrowLeft, Upload, Check, X, Plus, ClipboardPaste } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { GroupsAPI, StudentImport } from '@/lib/api';
