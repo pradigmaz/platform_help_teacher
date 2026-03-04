@@ -9,7 +9,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   // Determine if it's an API error and if it's retryable
   const isApiError = error instanceof ApiError;
   const isRetryable = isApiError ? error.isRetryable : true; // Default to true for unknown errors
-  const message = error.message || 'Произошла непредвиденная ошибка';
+  const message = error instanceof Error ? error.message : 'Произошла непредвиденная ошибка';
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] p-6 text-center space-y-4 rounded-lg border bg-card text-card-foreground shadow-sm">
