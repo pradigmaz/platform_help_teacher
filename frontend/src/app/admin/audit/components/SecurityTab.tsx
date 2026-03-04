@@ -60,6 +60,7 @@ const ATTACK_TYPE_INFO: Record<string, { icon: typeof Bug; label: string; color:
   unknown: { icon: AlertTriangle, label: "Неизвестно", color: "text-gray-500" },
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const STRIKE_LEVEL_BADGES: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   warning: { label: "⚠️ Предупреждение", variant: "secondary" },
   recorded: { label: "📝 Записано", variant: "outline" },

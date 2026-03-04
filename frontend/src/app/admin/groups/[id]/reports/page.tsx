@@ -26,6 +26,7 @@ export default function GroupReportsPage() {
   const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadData(); }, [groupId]);
 
   const loadData = async () => {

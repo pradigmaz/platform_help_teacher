@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Globe, Monitor, User, FileCode, Fingerprint, Cpu, Wifi, Battery, Camera, HardDrive, Bot } from "lucide-react";
+import { Clock, Globe, Monitor, User, FileCode, Fingerprint, Cpu, Wifi, Camera, Bot } from "lucide-react";
 import {
   Dialog,
   DialogContent,

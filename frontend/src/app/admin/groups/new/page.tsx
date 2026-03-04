@@ -33,7 +33,7 @@ export default function CreateGroupPage() {
       }
       setStudents(prev => [...prev, ...parsedData]);
       toast.success('Файл успешно прочитан');
-    } catch (err) {
+    } catch {
       toast.error('Ошибка при чтении файла. Убедитесь, что это Excel, Word или TXT.');
     } finally {
       setIsUploading(false);
@@ -107,7 +107,7 @@ export default function CreateGroupPage() {
       });
       toast.success('Группа успешно создана');
       router.push('/admin/groups');
-    } catch (e) {
+    } catch {
       toast.error('Ошибка при создании группы. Возможно, код уже занят.');
     } finally {
       setIsSubmitting(false);

@@ -84,7 +84,7 @@ function Slot<T extends HTMLElement = HTMLElement>({
 
   if (!isValidChild) return null;
 
-  const { ref: childRef, ...childProps } = children.props as AnyProps;
+  const { ref: childRef, ...childProps } = (children as React.ReactElement<AnyProps & { ref?: React.Ref<unknown> }>).props;
 
   const mergedProps = mergeProps(childProps, props);
 

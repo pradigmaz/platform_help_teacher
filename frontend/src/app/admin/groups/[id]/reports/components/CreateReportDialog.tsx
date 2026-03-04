@@ -62,7 +62,7 @@ export function CreateReportDialog({ open, onOpenChange, groupId, onSuccess }: C
       toast.success('Отчёт создан');
       resetForm();
       onSuccess();
-    } catch (e) {
+    } catch {
       toast.error('Ошибка при создании отчёта');
     } finally {
       setIsLoading(false);

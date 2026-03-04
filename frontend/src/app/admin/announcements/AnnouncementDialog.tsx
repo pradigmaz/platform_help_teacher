@@ -30,6 +30,7 @@ export function AnnouncementDialog({ open, onOpenChange, announcementId, onSucce
 
   const isEdit = !!announcementId;
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (open && announcementId) {
       loadAnnouncement();
