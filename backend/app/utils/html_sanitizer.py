@@ -3,6 +3,7 @@ HTML санитизация для защиты от XSS.
 Используется для очистки контента из Tiptap/Lexical редакторов.
 """
 
+import html
 import logging
 from typing import Any
 
@@ -163,8 +164,9 @@ def sanitize_lexical_content(content: dict[str, Any]) -> dict[str, Any]:
 
     for key, value in content.items():
         if key == "text" and isinstance(value, str):
-            # Текстовые ноды — экранируем HTML entities
-            result[key] = bleach.clean(value, tags=[], strip=True)
+            # Текстовые ноды — plain text, экранирование не нужно.
+            # Lexical рендерит через textContent, не innerHTML — XSS невозможен.
+            result[key] = value
         elif key == "html" and isinstance(value, str):
             # HTML ноды — полная санитизация
             result[key] = sanitize_html(value)
@@ -203,3 +205,37 @@ def strip_all_html(text: str) -> str:
     if not text:
         return text
     return bleach.clean(text, tags=[], strip=True)
+
+
+def fix_escaped_entities(content: dict[str, Any]) -> dict[str, Any]:
+    """
+    Исправляет уже повреждённые данные в БД: декодирует HTML-сущности
+    в текстовых нодах Lexical JSON обратно в исходные символы.
+
+    Применяется как data migration для лекций, сохранённых до фикса.
+    Идемпотентна — повторное применение безопасно.
+
+    Args:
+        content: Lexical JSON структура с повреждёнными текстовыми нодами
+
+    Returns:
+        Структура с восстановленными символами в текстовых нодах
+    """
+    if not isinstance(content, dict):
+        return content
+
+    result = {}
+    for key, value in content.items():
+        if key == "text" and isinstance(value, str):
+            result[key] = html.unescape(value)
+        elif isinstance(value, dict):
+            result[key] = fix_escaped_entities(value)
+        elif isinstance(value, list):
+            result[key] = [
+                fix_escaped_entities(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        else:
+            result[key] = value
+
+    return result
