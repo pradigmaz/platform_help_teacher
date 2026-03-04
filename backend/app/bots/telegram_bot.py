@@ -31,7 +31,7 @@ async def command_start_handler(message: types.Message, command: CommandObject) 
     username = message.from_user.username
     args = command.args  # Диплинк аргументы
 
-    logger.info(f"Received /start from user {social_id} ({username}) with args: {args}")
+    logger.info(f"Received /start from user {social_id} ({username}), deeplink={'yes' if args else 'no'}")
 
     # Если есть аргументы (диплинк) — обрабатываем как /code
     if args:
@@ -67,7 +67,8 @@ async def command_code_handler(message: types.Message, command: CommandObject) -
     username = message.from_user.username
     code = command.args
 
-    logger.info(f"Received /code from user {social_id} ({username}) with code: {code}")
+    code_hint = f"{code[:2]}***{code[-2:]}" if code and len(code) > 4 else "***"
+    logger.info(f"Received /code from user {social_id} ({username}), code_hint={code_hint}")
 
     if not code:
         await message.answer("❌ Укажите код после команды.\n\nПример: /code ABC123")

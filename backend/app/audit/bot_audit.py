@@ -87,7 +87,7 @@ async def log_bot_start(
         social_id=social_id,
         platform=platform,
         username=username,
-        extra_data={"args": args} if args else None,
+        extra_data={"has_deeplink": True} if args else None,
     )
 
 
@@ -146,7 +146,7 @@ async def log_bot_message(
         platform=platform,
         username=username,
         extra_data={
-            "text_preview": text[:100] if len(text) > 100 else text,
             "context": context_type,
+            "text_length": len(text),
         },
     )
