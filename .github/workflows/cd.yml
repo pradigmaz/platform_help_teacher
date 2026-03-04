@@ -20,22 +20,25 @@ jobs:
       - name: Deploy to VPS
         id: deploy
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DEPLOY_BRANCH: ${{ github.event.workflow_run.head_branch }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           command_timeout: 30m
+          envs: DEPLOY_BRANCH
           script: |
             set -e
             cd ~/platform_help_teacher
             
             # Detect what changed
-            git fetch origin master
-            CHANGED_FILES=$(git diff --name-only HEAD origin/master)
+            git fetch origin $DEPLOY_BRANCH
+            CHANGED_FILES=$(git diff --name-only HEAD origin/$DEPLOY_BRANCH)
             echo "Changed files: $CHANGED_FILES"
             
-            git reset --hard origin/master
+            git reset --hard origin/$DEPLOY_BRANCH
             
             # Удаляем ненужные файлы (экономим место на VPS)
             rm -rf лабораторные "идеи ui" md .ai docs .kiro .vscode .husky .tmp node_modules 2>/dev/null || true

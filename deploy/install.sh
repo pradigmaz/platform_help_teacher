@@ -180,7 +180,7 @@ fi
 
 # Stop existing containers
 log_info "Остановка существующих контейнеров..."
-docker compose -f docker-compose.prod.yml down 2>/dev/null || true
+docker compose -f docker-compose.yml down 2>/dev/null || true
 docker compose down 2>/dev/null || true
 
 # ============================================
@@ -664,10 +664,10 @@ fi
 log_step "Шаг 8/9: Сборка и запуск"
 
 log_info "Сборка Docker образов..."
-docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.yml build
 
 log_info "Запуск контейнеров..."
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml up -d
 
 echo ""
 echo "⏳ Ожидание запуска сервисов (30 сек)..."
@@ -683,7 +683,7 @@ done
 
 if [ -n "$FAILED_CONTAINERS" ]; then
     log_error "Не запустились контейнеры:$FAILED_CONTAINERS"
-    echo "Проверьте логи: docker compose -f docker-compose.prod.yml logs"
+    echo "Проверьте логи: docker compose -f docker-compose.yml logs"
     exit 1
 fi
 
@@ -722,14 +722,14 @@ echo ""
 
 # Status check
 echo -e "${CYAN}Статус сервисов:${NC}"
-docker compose -f docker-compose.prod.yml ps --format "table {{.Name}}\t{{.Status}}"
+docker compose -f docker-compose.yml ps --format "table {{.Name}}\t{{.Status}}"
 echo ""
 
 # Useful commands
 echo -e "${CYAN}Полезные команды:${NC}"
-echo "  Логи:      docker compose -f docker-compose.prod.yml logs -f"
-echo "  Рестарт:   docker compose -f docker-compose.prod.yml restart"
-echo "  Остановка: docker compose -f docker-compose.prod.yml down"
+echo "  Логи:      docker compose -f docker-compose.yml logs -f"
+echo "  Рестарт:   docker compose -f docker-compose.yml restart"
+echo "  Остановка: docker compose -f docker-compose.yml down"
 echo ""
 
 log_info "Установка завершена!"
