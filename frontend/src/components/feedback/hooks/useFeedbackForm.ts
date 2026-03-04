@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import axios from 'axios';
 import api from '@/lib/api';
 import { feedbackDefaults, feedbackSchema, type FeedbackFormValues } from '../schema';
 import type { FeedbackSubmitResult, UploadResult } from '../types';
@@ -26,6 +27,7 @@ export function useFeedbackForm({ attachments, onSuccess, onError }: UseFeedback
   const [uploadFailed, setUploadFailed] = useState(false);
   const submittingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
 
   const form = useForm<FeedbackFormValues>({
     resolver: zodResolver(feedbackSchema),
@@ -63,6 +65,9 @@ export function useFeedbackForm({ attachments, onSuccess, onError }: UseFeedback
 
           // Show detailed success/error toast
           if (result.failed === 0) {
+            if (!mountedRef.current) {
+              return { feedbackCreated: true, failedUploads: 0 };
+            }
             toast.success('Фидбэк успешно отправлен', {
               description: result.total > 0
                 ? `Загружено ${result.total} вложений`
@@ -94,7 +99,7 @@ export function useFeedbackForm({ attachments, onSuccess, onError }: UseFeedback
         onSuccess?.(feedbackResult);
         return feedbackResult;
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (axios.isCancel(error)) {
           toast.info('Отправка отменена');
           return { feedbackCreated, failedUploads: 0 };
         }
@@ -184,8 +189,10 @@ export function useFeedbackForm({ attachments, onSuccess, onError }: UseFeedback
   }, [form.formState]);
 
   const resetForm = useCallback(() => {
-    // Cancel any ongoing requests
-    abortControllerRef.current?.abort();
+    // Cancel any ongoing requests only if not submitting
+    if (!submittingRef.current) {
+      abortControllerRef.current?.abort();
+    }
     
     setFeedbackCreated(false);
     setFeedbackId(null);
@@ -197,8 +204,12 @@ export function useFeedbackForm({ attachments, onSuccess, onError }: UseFeedback
 
   // Cleanup on unmount
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
-      abortControllerRef.current?.abort();
+      mountedRef.current = false;
+      if (!submittingRef.current) {
+        abortControllerRef.current?.abort();
+      }
     };
   }, []);
 

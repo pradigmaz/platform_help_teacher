@@ -1,5 +1,5 @@
 import { type FileRejection } from 'react-dropzone';
-
+import axios from 'axios';
 import api from '@/lib/api';
 import { FEEDBACK_ALLOWED_TYPES, FEEDBACK_MAX_SIZE } from '../types';
 
@@ -98,7 +98,7 @@ export async function uploadOrRetryAttachment({
 
     return { success: true, attachmentId };
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
+    if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
       throw error;
     }
     const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';

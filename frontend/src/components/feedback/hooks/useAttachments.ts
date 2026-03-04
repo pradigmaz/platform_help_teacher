@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import axios from 'axios';
 import { type FileRejection } from 'react-dropzone';
 import { FEEDBACK_ACCEPT, FEEDBACK_FILE_LIMIT, type PendingFile, type UploadResult, type UploadError } from '../types';
 import { getRejectionReason, uploadOrRetryAttachment, validateFile } from './attachmentUpload';
@@ -103,7 +104,7 @@ export function useAttachments(limit = FEEDBACK_FILE_LIMIT) {
           }
         }
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
           toast.info('Загрузка отменена');
           return { failed, total: files.length, errors };
         }
@@ -154,7 +155,7 @@ export function useAttachments(limit = FEEDBACK_FILE_LIMIT) {
           }
         }
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
           toast.info('Загрузка отменена');
           return { failed, total: failedFiles.length, errors };
         }
