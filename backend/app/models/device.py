@@ -23,12 +23,12 @@ class Device(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     fingerprint_hash = Column(String(64), nullable=False, index=True)
     device_info = Column(JSON, nullable=False, default=dict)
-    first_seen = Column(DateTime, nullable=False, default=_utcnow)
-    last_seen = Column(DateTime, nullable=False, default=_utcnow, index=True)
+    first_seen = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    last_seen = Column(DateTime(timezone=True), nullable=False, default=_utcnow, index=True)
     is_trusted = Column(Boolean, nullable=False, default=False)
-    confirmed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=_utcnow)
-    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+    confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow)
 
     # Relationships
     user = relationship("User", back_populates="devices")
