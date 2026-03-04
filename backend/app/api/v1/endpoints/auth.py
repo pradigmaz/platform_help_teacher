@@ -18,7 +18,7 @@ from app.core.redis import get_redis
 from app.db.session import get_db
 from app.models import User
 from app.models.user import UserRole
-from app.services import session_service
+from app.services import device_service, session_service
 
 router = APIRouter()
 
@@ -127,6 +127,13 @@ async def login_with_otp(
         ip_address=client_ip,
     )
 
+    # Register or update device in database
+    device_registered = await device_service.register_or_update_device(
+        db=db,
+        user_id=user.id,
+        device_fingerprint=device_fingerprint,
+    )
+
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=session_id,
@@ -136,7 +143,7 @@ async def login_with_otp(
         max_age=cookie_max_age,
     )
 
-    return {"message": "Logged in successfully", "user": {"full_name": user.full_name, "role": user.role}}
+    return {"message": "Logged in successfully", "user": {"full_name": user.full_name, "role": user.role}, "device_registered": device_registered}
 
 
 @router.post("/logout")

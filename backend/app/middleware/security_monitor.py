@@ -61,6 +61,8 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
             except Exception:
                 pass
 
+        response = None  # Отслеживаем, был ли вызван call_next
+
         try:
             # Проверяем ДО выполнения запроса
             result = await detector.check_and_record(
@@ -100,7 +102,9 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             if "greenlet_spawn" not in str(e):
                 logger.error(f"SecurityMonitorMiddleware error: {e}")
-            return await call_next(request)
+            if response is not None:
+                return response  # Возвращаем уже полученный ответ
+            return await call_next(request)  # Только если call_next ещё не вызывался
 
     def _banned_response(self, result) -> JSONResponse:
         """Формирует ответ для забаненного пользователя."""
@@ -161,4 +165,5 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
         try:
             return json.loads(fp_header)
         except (json.JSONDecodeError, TypeError):
-            return None
+            # Hash string (legacy) — сохраняем для security tracking
+            return {"hash": fp_header}
