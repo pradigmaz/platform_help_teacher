@@ -68,3 +68,6 @@ skills/
 .ai/vps-config.json
 # Logs
 backend/logs/
+
+# Logs
+backend/logs/
