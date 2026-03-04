@@ -1,7 +1,7 @@
 """User device management endpoints."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -119,7 +119,7 @@ async def confirm_device(
 
     device_update = DeviceUpdate(
         is_trusted=True,
-        confirmed_at=datetime.now(timezone.utc),
+        confirmed_at=datetime.now(UTC),
     )
     updated = await crud_device.update(db, device=device, device_in=device_update)
     await db.commit()

@@ -1,6 +1,6 @@
 """CRUD operations for Device model."""
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -22,7 +22,7 @@ async def create(
     """Create a new device."""
     logger.info(f"[CRUD:create_device] Creating device for user_id={user_id}")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     device = Device(
         user_id=user_id,
         fingerprint_hash=device_in.fingerprint_hash,
@@ -43,7 +43,7 @@ async def get_by_id(
     db: AsyncSession,
     *,
     device_id: UUID,
-) -> Optional[Device]:
+) -> Device | None:
     """Get device by ID."""
     result = await db.execute(
         select(Device).where(Device.id == device_id)
@@ -86,7 +86,7 @@ async def get_by_fingerprint(
     *,
     user_id: UUID,
     fingerprint_hash: str,
-) -> Optional[Device]:
+) -> Device | None:
     """Get device by user ID and fingerprint hash."""
     result = await db.execute(
         select(Device).where(
@@ -110,7 +110,7 @@ async def update(
     for field, value in update_data.items():
         setattr(device, field, value)
 
-    device.updated_at = datetime.now(timezone.utc)
+    device.updated_at = datetime.now(UTC)
 
     await db.flush()
     await db.refresh(device)

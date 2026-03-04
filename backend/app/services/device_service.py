@@ -3,7 +3,7 @@
 import hashlib
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -138,7 +138,7 @@ async def register_or_update_device(
         if existing_device:
             # Update last_seen
             device_update = DeviceUpdate(
-                last_seen=datetime.now(timezone.utc),
+                last_seen=datetime.now(UTC),
                 device_info=device_info,
             )
             await crud_device.update(db, device=existing_device, device_in=device_update)
