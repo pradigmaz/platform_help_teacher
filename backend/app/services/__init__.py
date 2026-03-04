@@ -7,6 +7,7 @@ from .reports import ReportService
 from .storage import StorageService
 from .student_lab_service import StudentLabService, student_lab_service
 from .user_service import UserService, user_service
+from . import device_service
 
 __all__ = [
     "SmartImportService",
@@ -21,4 +22,5 @@ __all__ = [
     "LabDeadlineService",
     "student_lab_service",
     "StudentLabService",
+    "device_service",
 ]

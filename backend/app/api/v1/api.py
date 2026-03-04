@@ -33,6 +33,7 @@ from app.api.v1.endpoints import (
     public_reports,
     public_semester,
     student,
+    user_devices,
     user_sessions,
     users,
     webhooks,
@@ -80,6 +81,7 @@ api_router.include_router(
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(user_sessions.router, prefix="/users", tags=["user_sessions"])
+api_router.include_router(user_devices.router, prefix="/users", tags=["user_devices"])
 api_router.include_router(groups.router, prefix="/groups", tags=["groups"])
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 

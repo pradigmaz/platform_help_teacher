@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
+    from .device import Device
     from .group import Group
     from .schedule_parser_config import ScheduleParserConfig
     from .submission import Submission
@@ -73,3 +74,4 @@ class User(Base, TimestampMixin):
     submissions: Mapped[list["Submission"]] = relationship(back_populates="user")
     work_submissions: Mapped[list["WorkSubmission"]] = relationship(back_populates="user")
     parser_config: Mapped[Optional["ScheduleParserConfig"]] = relationship(back_populates="teacher")
+    devices: Mapped[list["Device"]] = relationship(back_populates="user", cascade="all, delete-orphan")
