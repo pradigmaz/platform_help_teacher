@@ -28,6 +28,7 @@ interface NavigatorExtended {
 type NavigatorWithExtensions = Navigator & NavigatorExtended;
 
 let cachedFingerprint: string | null = null;
+let fingerprintPromise: Promise<string> | null = null;
 
 /**
  * Собирает fingerprint устройства (sync версия).
@@ -150,9 +151,13 @@ export async function collectFingerprintAsync(): Promise<DeviceFingerprint> {
 
 /**
  * Получает fingerprint как JSON строку (кэшируется).
+ * DEPRECATED: Используйте getInitializedFingerprint() из hooks/useFingerprint.ts
  */
 export function getFingerprint(): string {
   if (cachedFingerprint) return cachedFingerprint;
+  
+  console.warn('[Fingerprint] getFingerprint() called before initialization. Use getInitializedFingerprint() instead.');
+  
   try {
     const fp = collectFingerprint();
     // Проверяем что собрали хоть что-то
@@ -182,6 +187,49 @@ export function getFingerprint(): string {
       return '{}';
     }
   }
+}
+
+/**
+ * Инициализирует fingerprint асинхронно (вызывается при загрузке приложения).
+ */
+export async function initializeFingerprint(): Promise<string> {
+  if (cachedFingerprint) return cachedFingerprint;
+  
+  if (!fingerprintPromise) {
+    fingerprintPromise = collectFingerprintAsync()
+      .then((fp) => {
+        cachedFingerprint = JSON.stringify(fp);
+        console.log('[Fingerprint] Initialized successfully');
+        return cachedFingerprint;
+      })
+      .catch((error) => {
+        console.error('[Fingerprint] Initialization failed:', error);
+        // Fallback
+        const fallback = {
+          screen: {
+            width: window.screen?.width,
+            height: window.screen?.height,
+            colorDepth: window.screen?.colorDepth,
+          },
+          userAgent: navigator.userAgent,
+          language: navigator.language,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          platform: navigator.platform,
+        };
+        cachedFingerprint = JSON.stringify(fallback);
+        return cachedFingerprint;
+      });
+  }
+  
+  return fingerprintPromise;
+}
+
+/**
+ * Получает fingerprint с ожиданием инициализации.
+ */
+export async function getFingerprintAsync(): Promise<string> {
+  if (cachedFingerprint) return cachedFingerprint;
+  return initializeFingerprint();
 }
 
 /**

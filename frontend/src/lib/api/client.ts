@@ -43,9 +43,13 @@ api.interceptors.request.use(async (config) => {
   if (!isValidRelativeUrl(config.url)) {
     return Promise.reject(new ApiError(400, 'Invalid URL: absolute URLs are not allowed'));
   }
-  // Добавляем fingerprint в каждый запрос
+  // Добавляем полный JSON fingerprint в каждый запрос
   if (typeof window !== 'undefined') {
-    config.headers['X-Device-Fingerprint'] = getFingerprint();
+    try {
+      config.headers['X-Device-Fingerprint'] = getFingerprint();
+    } catch (error) {
+      console.error('[API] Failed to get fingerprint:', error);
+    }
   }
   // Автоматически добавляем CSRF токен для мутирующих запросов
   const method = config.method?.toUpperCase();
@@ -122,6 +126,9 @@ export function resetCsrfToken(): void {
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<{ detail: string }>) => {
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
     if (error.code === 'ERR_NETWORK' || !error.response) {
       return Promise.reject(new ApiError(0, 'Network error. Please check your connection.', true));
     }
@@ -178,13 +185,17 @@ export const publicApi = axios.create({
   },
 });
 
-publicApi.interceptors.request.use((config) => {
+publicApi.interceptors.request.use(async (config) => {
   if (!isValidRelativeUrl(config.url)) {
     return Promise.reject(new ApiError(400, 'Invalid URL: absolute URLs are not allowed'));
   }
-  // Добавляем fingerprint в каждый запрос
+  // Добавляем полный JSON fingerprint
   if (typeof window !== 'undefined') {
-    config.headers['X-Device-Fingerprint'] = getFingerprint();
+    try {
+      config.headers['X-Device-Fingerprint'] = getFingerprint();
+    } catch (error) {
+      console.error('[API] Failed to get fingerprint:', error);
+    }
   }
   return config;
 });

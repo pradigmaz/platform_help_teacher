@@ -87,6 +87,7 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
     
     if (code && code.length === 6) {
       setOtp(code);
+      setRememberDevice(true);
       loginAttemptedRef.current = true;
       // Clear fragment/query from URL for security
       if (typeof window !== 'undefined') {
