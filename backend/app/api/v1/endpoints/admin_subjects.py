@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.crud import crud_subject
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -57,14 +58,22 @@ class AssignTeacherRequest(BaseModel):
 
 
 @router.get("/", response_model=list[SubjectResponse])
-async def list_subjects(active_only: bool = Query(True), db: AsyncSession = Depends(deps.get_db)):
+async def list_subjects(
+    active_only: bool = Query(True),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_teacher),
+):
     """Получить список всех предметов"""
     subjects = await crud_subject.get_all_subjects(db, active_only)
     return subjects
 
 
 @router.post("/", response_model=SubjectResponse)
-async def create_subject(data: SubjectCreate, db: AsyncSession = Depends(deps.get_db)):
+async def create_subject(
+    data: SubjectCreate,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
     """Создать новый предмет"""
     existing = await crud_subject.get_subject_by_name(db, data.name)
     if existing:
@@ -76,7 +85,11 @@ async def create_subject(data: SubjectCreate, db: AsyncSession = Depends(deps.ge
 
 
 @router.get("/{subject_id}", response_model=SubjectResponse)
-async def get_subject(subject_id: UUID, db: AsyncSession = Depends(deps.get_db)):
+async def get_subject(
+    subject_id: UUID,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_teacher),
+):
     """Получить предмет по ID"""
     subject = await crud_subject.get_subject(db, subject_id)
     if not subject:
@@ -90,6 +103,7 @@ async def get_teacher_subjects(
     semester: str | None = Query(None),
     active_only: bool = Query(True),
     db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_teacher),
 ):
     """Получить все предметы преподавателя"""
     assignments = await crud_subject.get_teacher_subjects(db, teacher_id, semester, active_only)
@@ -111,7 +125,11 @@ async def get_teacher_subjects(
 
 
 @router.post("/assign", response_model=dict)
-async def assign_teacher_to_subject(data: AssignTeacherRequest, db: AsyncSession = Depends(deps.get_db)):
+async def assign_teacher_to_subject(
+    data: AssignTeacherRequest,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
     """Назначить преподавателя на предмет"""
     assignment = await crud_subject.assign_teacher_to_subject(
         db, data.teacher_id, data.subject_id, data.group_id, data.semester

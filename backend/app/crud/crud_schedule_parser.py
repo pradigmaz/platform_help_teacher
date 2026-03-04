@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.lesson import Lesson
 from app.models.schedule_conflict import ConflictType, ScheduleConflict
 from app.models.schedule_parser_config import ScheduleParserConfig
+from app.models.teacher_subject import TeacherSubjectAssignment
 from app.schemas.schedule_parser import ParserConfigCreate, ParserConfigUpdate
 
 
@@ -58,10 +59,15 @@ async def get_all_enabled_configs(db: AsyncSession) -> list[ScheduleParserConfig
 
 async def get_unresolved_conflicts(db: AsyncSession, teacher_id: UUID) -> list[ScheduleConflict]:
     """Получить неразрешённые конфликты для преподавателя"""
-    # Получаем конфликты через lessons -> groups -> teacher assignments
     result = await db.execute(
         select(ScheduleConflict)
-        .where(ScheduleConflict.resolved.is_(False))
+        .join(Lesson, ScheduleConflict.lesson_id == Lesson.id)
+        .join(TeacherSubjectAssignment, TeacherSubjectAssignment.group_id == Lesson.group_id)
+        .where(
+            ScheduleConflict.resolved.is_(False),
+            TeacherSubjectAssignment.teacher_id == teacher_id,
+            TeacherSubjectAssignment.is_active.is_(True),
+        )
         .order_by(ScheduleConflict.created_at.desc())
     )
     return list(result.scalars().all())
@@ -110,15 +116,14 @@ async def resolve_conflict(db: AsyncSession, conflict_id: UUID, action: str) -> 
 
 async def resolve_all_conflicts(db: AsyncSession, action: str, teacher_id: UUID) -> int:
     """Разрешить все конфликты преподавателя"""
-    from app.models.lesson import Lesson
-
-    # Получаем конфликты только для занятий групп этого преподавателя
     result = await db.execute(
         select(ScheduleConflict)
         .join(Lesson, ScheduleConflict.lesson_id == Lesson.id)
+        .join(TeacherSubjectAssignment, TeacherSubjectAssignment.group_id == Lesson.group_id)
         .where(
             ScheduleConflict.resolved.is_(False),
-            # TODO: добавить фильтр по teacher_id через assignments
+            TeacherSubjectAssignment.teacher_id == teacher_id,
+            TeacherSubjectAssignment.is_active.is_(True),
         )
     )
     conflicts = list(result.scalars().all())

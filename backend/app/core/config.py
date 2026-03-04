@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
 
     # CORS
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]  # Default safe
+    CORS_ORIGINS: list[str] | str = ["http://localhost:3000"]  # Default safe
 
     # Cookie domain (None = текущий домен, ".example.com" для поддоменов)
     COOKIE_DOMAIN: str | None = None

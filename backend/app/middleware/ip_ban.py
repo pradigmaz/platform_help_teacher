@@ -42,6 +42,9 @@ class IPBanMiddleware(BaseHTTPMiddleware):
 
         service = get_rate_limit_service()
 
+        response = None
+        response_received = False
+
         try:
             # Проверяем бан
             ban_info = await service.check_ban(ip, user_id)
@@ -62,6 +65,7 @@ class IPBanMiddleware(BaseHTTPMiddleware):
 
             # Выполняем запрос
             response = await call_next(request)
+            response_received = True
 
             # Обрабатываем 429
             if response.status_code == 429:
@@ -79,6 +83,10 @@ class IPBanMiddleware(BaseHTTPMiddleware):
             # greenlet_spawn ошибки — известный edge case с SQLAlchemy async
             if "greenlet_spawn" not in str(e):
                 logger.error(f"IPBanMiddleware error: {e}")
+            
+            # Если response уже получен — возвращаем его, иначе вызываем call_next
+            if response_received:
+                return response
             return await call_next(request)
 
     def _get_client_ip(self, request: Request) -> str | None:
