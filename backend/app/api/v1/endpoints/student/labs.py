@@ -90,15 +90,7 @@ async def get_my_labs(
         submission_data = None
         if sub:
             submission_data = _format_submission(sub)
-        elif journal_grade:
-            submission_data = {
-                "id": str(journal_grade.id),
-                "status": "ACCEPTED",
-                "grade": journal_grade.grade,
-                "feedback": None,
-                "ready_at": None,
-                "accepted_at": journal_grade.created_at.isoformat() if journal_grade.created_at else None,
-            }
+            # [StudentLabs:get_my_labs] Found submission for lab {lab.number}
 
         result.append(
             {

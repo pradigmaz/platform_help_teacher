@@ -158,11 +158,6 @@ class StudentService:
                 grade = sub.grade
                 submitted_at = sub.created_at
                 feedback = sub.feedback
-            elif journal_grade:
-                # Есть оценка в журнале, но нет submission
-                status = "ACCEPTED"  # Считаем сданной
-                grade = journal_grade.grade
-                submitted_at = journal_grade.created_at
 
             if status:
                 stats.labs_submitted += 1

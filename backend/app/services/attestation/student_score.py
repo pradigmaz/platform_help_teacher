@@ -114,6 +114,7 @@ class StudentScoreCalculator:
             select(LessonGrade)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
             .where(LessonGrade.student_id == student_id)
+            .where(LessonGrade.work_number.isnot(None))
         )
         if settings.period_start_date:
             query = query.where(Lesson.date >= settings.period_start_date)

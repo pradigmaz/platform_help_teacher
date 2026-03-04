@@ -203,6 +203,7 @@ class BatchScoreCalculator:
             select(LessonGrade)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
             .where(LessonGrade.student_id.in_(student_ids))
+            .where(LessonGrade.work_number.isnot(None))
         )
         if settings.period_start_date:
             query = query.where(Lesson.date >= settings.period_start_date)
