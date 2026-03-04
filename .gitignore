@@ -66,3 +66,5 @@ deploy/openapi_temp.json
 skills/
 
 .ai/vps-config.json
+# Logs
+backend/logs/
