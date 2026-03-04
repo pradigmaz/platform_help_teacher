@@ -124,16 +124,11 @@ async def register_or_update_device(
         device_info = parse_device_info(device_fingerprint)
 
         logger.info(
-            f"[device_service:register_or_update] Processing device for user {user_id}, "
-            f"hash={fingerprint_hash[:8]}..."
+            f"[device_service:register_or_update] Processing device for user {user_id}, hash={fingerprint_hash[:8]}..."
         )
 
         # Check if device exists
-        existing_device = await crud_device.get_by_fingerprint(
-            db,
-            user_id=user_id,
-            fingerprint_hash=fingerprint_hash
-        )
+        existing_device = await crud_device.get_by_fingerprint(db, user_id=user_id, fingerprint_hash=fingerprint_hash)
 
         if existing_device:
             # Update last_seen
@@ -142,29 +137,19 @@ async def register_or_update_device(
                 device_info=device_info,
             )
             await crud_device.update(db, device=existing_device, device_in=device_update)
-            logger.info(
-                f"[device_service:register_or_update] Updated device {existing_device.id} "
-                f"for user {user_id}"
-            )
+            logger.info(f"[device_service:register_or_update] Updated device {existing_device.id} for user {user_id}")
         else:
             # Create new device
-            device_create = DeviceCreate(
-                fingerprint_hash=fingerprint_hash,
-                device_info=device_info
-            )
+            device_create = DeviceCreate(fingerprint_hash=fingerprint_hash, device_info=device_info)
             new_device = await crud_device.create(db, user_id=user_id, device_in=device_create)
-            logger.info(
-                f"[device_service:register_or_update] Created device {new_device.id} "
-                f"for user {user_id}"
-            )
+            logger.info(f"[device_service:register_or_update] Created device {new_device.id} for user {user_id}")
 
         await db.commit()
         return True
 
     except Exception as e:
         logger.error(
-            f"[device_service:register_or_update] Error processing device for user {user_id}: {e}",
-            exc_info=True
+            f"[device_service:register_or_update] Error processing device for user {user_id}: {e}", exc_info=True
         )
         await db.rollback()
         return False

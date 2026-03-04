@@ -23,9 +23,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-async def _get_user_device(
-    db: AsyncSession, device_id: UUID, user_id: UUID
-):
+async def _get_user_device(db: AsyncSession, device_id: UUID, user_id: UUID):
     """Get device and verify ownership. Raises HTTPException if not found/forbidden."""
     device = await crud_device.get_by_id(db, device_id=device_id)
     if not device:
@@ -35,8 +33,7 @@ async def _get_user_device(
         )
     if device.user_id != user_id:
         logger.warning(
-            f"[user_devices] User {user_id} attempted to access device {device_id} "
-            f"owned by {device.user_id}"
+            f"[user_devices] User {user_id} attempted to access device {device_id} owned by {device.user_id}"
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

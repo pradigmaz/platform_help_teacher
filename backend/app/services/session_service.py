@@ -132,9 +132,7 @@ async def create_session(
                 f"[SessionService:create_session] Atomically removed {removed_count} old session(s) for user {user_id_str}"
             )
     except Exception as e:
-        logger.error(
-            f"[SessionService:create_session] Error cleaning old sessions for user {user_id_str}: {e}"
-        )
+        logger.error(f"[SessionService:create_session] Error cleaning old sessions for user {user_id_str}: {e}")
         # Continue with session creation even if cleanup fails
 
     # Create new session
@@ -143,9 +141,7 @@ async def create_session(
     await redis.sadd(user_sessions_key, session_id)
     await redis.expire(user_sessions_key, SESSION_TTL)
 
-    logger.info(
-        f"[SessionService:create_session] Created session {session_id[:8]}... for user {user_id_str}"
-    )
+    logger.info(f"[SessionService:create_session] Created session {session_id[:8]}... for user {user_id_str}")
     return True
 
 
@@ -169,9 +165,7 @@ async def validate_session(session_id: str) -> dict | None:
         )
         return session_data
     except json.JSONDecodeError:
-        logger.error(
-            f"[SessionService:validate_session] Failed to decode session data for {session_id[:8]}..."
-        )
+        logger.error(f"[SessionService:validate_session] Failed to decode session data for {session_id[:8]}...")
         return None
 
 
@@ -189,13 +183,9 @@ async def revoke_session(session_id: str) -> bool:
             if user_id:
                 user_sessions_key = f"{USER_SESSIONS_PREFIX}{user_id}"
                 await redis.srem(user_sessions_key, session_id)
-                logger.info(
-                    f"[SessionService:revoke_session] Revoked session {session_id[:8]}... for user {user_id}"
-                )
+                logger.info(f"[SessionService:revoke_session] Revoked session {session_id[:8]}... for user {user_id}")
         except json.JSONDecodeError:
-            logger.error(
-                f"[SessionService:revoke_session] Failed to decode session data for {session_id[:8]}..."
-            )
+            logger.error(f"[SessionService:revoke_session] Failed to decode session data for {session_id[:8]}...")
 
     deleted = await redis.delete(session_key)
     return deleted > 0
@@ -210,9 +200,7 @@ async def revoke_all_user_sessions(user_id: UUID) -> int:
     sessions = await redis.smembers(user_sessions_key)
     count = 0
 
-    logger.info(
-        f"[SessionService:revoke_all_user_sessions] Revoking {len(sessions)} session(s) for user {user_id_str}"
-    )
+    logger.info(f"[SessionService:revoke_all_user_sessions] Revoking {len(sessions)} session(s) for user {user_id_str}")
 
     for session_id in sessions:
         session_key = f"{SESSION_PREFIX}{session_id}"
@@ -221,9 +209,7 @@ async def revoke_all_user_sessions(user_id: UUID) -> int:
 
     await redis.delete(user_sessions_key)
 
-    logger.info(
-        f"[SessionService:revoke_all_user_sessions] Revoked {count} session(s) for user {user_id_str}"
-    )
+    logger.info(f"[SessionService:revoke_all_user_sessions] Revoked {count} session(s) for user {user_id_str}")
     return count
 
 
@@ -236,9 +222,7 @@ async def get_user_sessions(user_id: UUID) -> list[dict]:
     sessions = await redis.smembers(user_sessions_key)
     result = []
 
-    logger.debug(
-        f"[SessionService:get_user_sessions] Fetching {len(sessions)} session(s) for user {user_id_str}"
-    )
+    logger.debug(f"[SessionService:get_user_sessions] Fetching {len(sessions)} session(s) for user {user_id_str}")
 
     for session_id in sessions:
         session_key = f"{SESSION_PREFIX}{session_id}"
@@ -249,15 +233,11 @@ async def get_user_sessions(user_id: UUID) -> list[dict]:
                 parsed["session_id"] = session_id
                 result.append(parsed)
             except json.JSONDecodeError:
-                logger.error(
-                    f"[SessionService:get_user_sessions] Failed to decode session {session_id[:8]}..."
-                )
+                logger.error(f"[SessionService:get_user_sessions] Failed to decode session {session_id[:8]}...")
         else:
             # Clean up expired session from set
             await redis.srem(user_sessions_key, session_id)
-            logger.debug(
-                f"[SessionService:get_user_sessions] Cleaned up expired session {session_id[:8]}..."
-            )
+            logger.debug(f"[SessionService:get_user_sessions] Cleaned up expired session {session_id[:8]}...")
 
     return result
 
@@ -283,9 +263,7 @@ async def revoke_all_except_current(user_id: UUID, current_session_id: str) -> i
             await redis.srem(user_sessions_key, session_id)
             count += 1
 
-    logger.info(
-        f"[SessionService:revoke_all_except_current] Revoked {count} session(s) for user {user_id_str}"
-    )
+    logger.info(f"[SessionService:revoke_all_except_current] Revoked {count} session(s) for user {user_id_str}")
     return count
 
 
@@ -296,20 +274,14 @@ async def get_session_owner(session_id: str) -> str | None:
     data = await redis.get(session_key)
 
     if not data:
-        logger.debug(
-            f"[SessionService:get_session_owner] Session {session_id[:8]}... not found"
-        )
+        logger.debug(f"[SessionService:get_session_owner] Session {session_id[:8]}... not found")
         return None
 
     try:
         parsed = json.loads(data)
         user_id = parsed.get("user_id")
-        logger.debug(
-            f"[SessionService:get_session_owner] Session {session_id[:8]}... belongs to user {user_id}"
-        )
+        logger.debug(f"[SessionService:get_session_owner] Session {session_id[:8]}... belongs to user {user_id}")
         return user_id
     except json.JSONDecodeError:
-        logger.error(
-            f"[SessionService:get_session_owner] Failed to decode session data for {session_id[:8]}..."
-        )
+        logger.error(f"[SessionService:get_session_owner] Failed to decode session data for {session_id[:8]}...")
         return None

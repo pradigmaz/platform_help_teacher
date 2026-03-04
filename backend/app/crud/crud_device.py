@@ -1,4 +1,5 @@
 """CRUD operations for Device model."""
+
 import logging
 from datetime import UTC, datetime, timezone
 from typing import Optional
@@ -45,9 +46,7 @@ async def get_by_id(
     device_id: UUID,
 ) -> Device | None:
     """Get device by ID."""
-    result = await db.execute(
-        select(Device).where(Device.id == device_id)
-    )
+    result = await db.execute(select(Device).where(Device.id == device_id))
     return result.scalar_one_or_none()
 
 
@@ -60,11 +59,7 @@ async def get_by_user(
 ) -> list[Device]:
     """Get all devices for a user."""
     result = await db.execute(
-        select(Device)
-        .where(Device.user_id == user_id)
-        .order_by(Device.last_seen.desc())
-        .offset(skip)
-        .limit(limit)
+        select(Device).where(Device.user_id == user_id).order_by(Device.last_seen.desc()).offset(skip).limit(limit)
     )
     return list(result.scalars().all())
 
@@ -75,9 +70,7 @@ async def count_by_user(
     user_id: UUID,
 ) -> int:
     """Count devices for a user."""
-    result = await db.execute(
-        select(func.count()).select_from(Device).where(Device.user_id == user_id)
-    )
+    result = await db.execute(select(func.count()).select_from(Device).where(Device.user_id == user_id))
     return result.scalar_one()
 
 
@@ -143,9 +136,7 @@ async def bulk_delete_by_user(
     """Delete all devices for a user in a single query. Returns count deleted."""
     logger.info(f"[CRUD:bulk_delete] Deleting all devices for user_id={user_id}")
 
-    result = await db.execute(
-        delete(Device).where(Device.user_id == user_id)
-    )
+    result = await db.execute(delete(Device).where(Device.user_id == user_id))
     await db.flush()
 
     count = result.rowcount

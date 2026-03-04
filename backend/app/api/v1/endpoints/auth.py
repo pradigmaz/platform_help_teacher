@@ -143,7 +143,11 @@ async def login_with_otp(
         max_age=cookie_max_age,
     )
 
-    return {"message": "Logged in successfully", "user": {"full_name": user.full_name, "role": user.role}, "device_registered": device_registered}
+    return {
+        "message": "Logged in successfully",
+        "user": {"full_name": user.full_name, "role": user.role},
+        "device_registered": device_registered,
+    }
 
 
 @router.post("/logout")

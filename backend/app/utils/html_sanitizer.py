@@ -231,10 +231,7 @@ def fix_escaped_entities(content: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, dict):
             result[key] = fix_escaped_entities(value)
         elif isinstance(value, list):
-            result[key] = [
-                fix_escaped_entities(item) if isinstance(item, dict) else item
-                for item in value
-            ]
+            result[key] = [fix_escaped_entities(item) if isinstance(item, dict) else item for item in value]
         else:
             result[key] = value
 

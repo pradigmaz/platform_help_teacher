@@ -1,4 +1,5 @@
 """Device model for storing user device bindings."""
+
 import uuid
 from datetime import UTC, datetime, timezone
 

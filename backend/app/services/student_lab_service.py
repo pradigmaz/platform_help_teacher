@@ -53,10 +53,7 @@ class StudentLabService:
     async def get_user_journal_grades(self, db: AsyncSession, student_id: UUID) -> dict[int, LessonGrade]:
         """Получить лучшие оценки из журнала по work_number."""
         result = await db.execute(
-            select(LessonGrade).where(
-                LessonGrade.student_id == student_id,
-                LessonGrade.work_number.isnot(None)
-            )
+            select(LessonGrade).where(LessonGrade.student_id == student_id, LessonGrade.work_number.isnot(None))
         )
         journal_grades: dict[int, LessonGrade] = {}
         for g in result.scalars().all():
