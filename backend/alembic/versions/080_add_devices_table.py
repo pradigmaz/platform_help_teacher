@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers
 revision = "080_add_devices_table"
-down_revision = "079_max_labs_override"
+down_revision = "079_add_max_labs_override_to_lessons"
 branch_labels = None
 depends_on = None
 
