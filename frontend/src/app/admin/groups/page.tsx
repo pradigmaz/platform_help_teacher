@@ -33,9 +33,8 @@ export default function AdminGroupsPage() {
     try {
       const data = await GroupsAPI.list();
       setGroups(data);
-    } catch (e) {
+    } catch {
       toast.error('Ошибка загрузки списка групп');
-      console.error(e);
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +46,7 @@ export default function AdminGroupsPage() {
       await GroupsAPI.delete(deleteId);
       toast.success('Группа удалена');
       loadGroups();
-    } catch (e) {
+    } catch {
       toast.error('Ошибка при удалении');
     } finally {
       setDeleteId(null);
@@ -57,7 +56,7 @@ export default function AdminGroupsPage() {
   return (
     <div className="relative min-h-screen p-8 space-y-8 max-w-7xl mx-auto overflow-hidden">
       <DotPattern
-        className="[mask-image:radial-gradient(800px_circle_at_center,white,transparent)] opacity-40"
+        className="mask-[radial-gradient(800px_circle_at_center,white,transparent)] opacity-40"
       />
       
       <div className="relative flex items-center justify-between">
@@ -109,7 +108,7 @@ export default function AdminGroupsPage() {
               key={group.id}
               name={group.name}
               className="md:col-span-1"
-              background={<div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />}
+              background={<div className="absolute inset-0 bg-linear-to-br from-primary/5 to-transparent" />}
               Icon={Users}
               description={`Код: ${group.code} • Студентов: ${group.students_count || 0}`}
               href={`/admin/groups/${group.id}`}

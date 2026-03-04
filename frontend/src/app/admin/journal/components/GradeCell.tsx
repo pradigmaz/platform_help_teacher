@@ -1,7 +1,7 @@
 'use client';
 'use no memo';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -9,8 +9,6 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { GradeData, Lesson } from '../lib/journal-constants';
 import { gradeCellSchema, type GradeCellFormValues } from './schema';
-
-const DEBOUNCE_MS = 500;
 
 interface GradeCellProps {
   gradeData: GradeData | undefined;
@@ -49,8 +47,9 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
 
   // Cleanup debounce on unmount
   useEffect(() => {
+    const timer = debounceRef.current;
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
