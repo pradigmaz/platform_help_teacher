@@ -16,10 +16,7 @@ export function useInitializeFingerprint() {
   const [isReady, setIsReady] = useState(isInitialized);
 
   useEffect(() => {
-    if (isInitialized) {
-      setIsReady(true);
-      return;
-    }
+    if (isInitialized) return;
 
     initializeFingerprint()
       .then(() => {

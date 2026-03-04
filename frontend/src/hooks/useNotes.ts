@@ -44,7 +44,7 @@ export function useNotes(entityType: EntityType, entityId: string): UseNotesRetu
         params: { entity_type: entityType, entity_id: entityId }
       });
       setNotes(data.notes || []);
-    } catch (err) {
+    } catch {
       setError('Ошибка загрузки заметок');
       setNotes([]);
     } finally {
