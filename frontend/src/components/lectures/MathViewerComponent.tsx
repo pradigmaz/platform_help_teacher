@@ -19,7 +19,7 @@ export function MathViewerComponent({ latex, displayMode }: MathViewerComponentP
         displayMode,
         throwOnError: false,
         errorColor: '#ef4444',
-        trust: true,
+        trust: false,
         strict: false,
       });
       return { html: rendered, error: null };
