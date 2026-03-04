@@ -62,9 +62,9 @@ export default function GroupDetailPage() {
   const [isAssigningSubgroup, setIsAssigningSubgroup] = useState(false);
   const [assignResult, setAssignResult] = useState<{ matched: number; not_found: string[] } | null>(null);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadGroup();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
   const loadGroup = async () => {

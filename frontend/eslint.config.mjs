@@ -30,6 +30,7 @@ const eslintConfig = defineConfig([
       "src/app/admin/journal/hooks/useJournalFilters.ts",
       "src/app/admin/attestation/scores/page.tsx",
       "src/app/report/**/page.tsx",
+      "src/app/report/**/PublicReportClient.tsx",
     ],
     rules: {
       "react-hooks/set-state-in-effect": "off",

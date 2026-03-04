@@ -56,10 +56,10 @@ export default function FeedbackPage() {
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchFeedbacks();
     return () => abortRef.current?.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   const updateStatus = async (id: string, status: FeedbackStatus) => {

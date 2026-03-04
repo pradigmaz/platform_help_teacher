@@ -74,6 +74,7 @@ export function PublicReportClient({ code }: PublicReportClientProps) {
 
   useEffect(() => {
     loadReport();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, pinVerified]);
 
   const handleAttestationChange = (value: string) => {

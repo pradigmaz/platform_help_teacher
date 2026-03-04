@@ -120,6 +120,7 @@ export function useJournalFilters(): UseJournalFiltersReturn {
     } else if (currentWeek < semDates.start || currentWeek > semDates.end) {
       setCurrentWeek(semDates.start);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSemester, semesterStartDate, semesterLoading]);
 
   return {

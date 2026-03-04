@@ -86,6 +86,7 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
       gradesHook.setGrades({});
       statsHook.setStats(null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonsKey, filters.selectedGroupId, filters.attestationPeriod]);
 
   return {

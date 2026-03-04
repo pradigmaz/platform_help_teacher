@@ -67,6 +67,7 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
     if (lessonIdParam && !initialLoadDone) {
       loadLessonById(lessonIdParam);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonIdParam, initialLoadDone]);
 
   const loadLessonById = async (lessonId: string) => {
@@ -87,6 +88,7 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
   // Load groups on mount
   useEffect(() => {
     loadGroups();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadGroups = async () => {
@@ -139,6 +141,7 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
     };
     
     loadSemesterSubjects();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGroupId, semesterKey]);
 
   // Load lessons and students
@@ -146,6 +149,7 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
     if (selectedGroupId && (initialLoadDone || !lessonIdParam)) {
       loadLessonsData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGroupId, selectedSubjectId, selectedLessonType, weekKey, attestationPeriod, semesterKey, initialLoadDone]);
 
   const loadLessonsData = useCallback(async () => {
@@ -188,7 +192,7 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
 
       const { data: groupData } = await api.get(`/groups/${selectedGroupId}`);
       setStudents(groupData.students || []);
-    } catch (err) {
+    } catch {
       toast.error('Ошибка загрузки занятий');
     } finally {
       setIsLoading(false);
