@@ -14,7 +14,9 @@ from app.api.deps import get_current_teacher, get_db
 from app.core import error_messages as em
 from app.crud import crud_lesson_grade
 from app.models import Lesson, LessonGrade, User
+from app.models.lab import Lab as LabModel
 from app.models.schedule import LessonType
+from app.models.submission import Submission, SubmissionStatus
 from app.schemas.lesson_grade import LessonGradeCreate, LessonGradeResponse, LessonGradeUpdate
 from app.services import submission_journal_sync as journal_sync
 from app.services.attestation.deadline_validator import get_max_allowed_grade, validate_grade_for_max
@@ -193,11 +195,8 @@ async def delete_grade_by_lesson_student(
         lesson_result = await db.execute(select(Lesson).where(Lesson.id == lesson_id))
         lesson = lesson_result.scalar_one_or_none()
         if lesson and lesson.lesson_type == LessonType.LAB:
-            from app.models.submission import Submission, SubmissionStatus
-            from sqlalchemy import select as sa_select
-            from app.models.lab import Lab as LabModel
             sub_result = await db.execute(
-                sa_select(Submission)
+                select(Submission)
                 .join(LabModel, Submission.lab_id == LabModel.id)
                 .where(
                     Submission.user_id == student_id,

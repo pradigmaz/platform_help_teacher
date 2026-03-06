@@ -1,3 +1,5 @@
+import logging
+
 from redis import asyncio as aioredis
 
 from app.core.config import settings
@@ -7,8 +9,6 @@ from app.core.time_constants import (
     REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
     REDIS_SOCKET_TIMEOUT_SECONDS,
 )
-
-import logging
 
 logger = logging.getLogger(__name__)
 
