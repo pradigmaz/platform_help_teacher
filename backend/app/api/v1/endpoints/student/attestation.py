@@ -85,4 +85,5 @@ async def get_my_attestation(
             "total_score": 0,
             "grade": "-",
             "is_passing": False,
+            "calculation_status": "error",
         }
