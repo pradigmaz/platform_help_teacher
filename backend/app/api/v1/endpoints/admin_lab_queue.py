@@ -56,7 +56,7 @@ class LabQueueResponse(BaseModel):
 class AcceptSubmissionRequest(BaseModel):
     """Запрос на принятие работы."""
 
-    grade: int = Field(..., ge=0, le=100, description="Оценка 0-100")
+    grade: int = Field(..., ge=2, le=5, description="Оценка 2-5")
     comment: str | None = None
 
 
