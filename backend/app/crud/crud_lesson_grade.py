@@ -236,9 +236,7 @@ async def bulk_upsert_lesson_grades(
 
         if not existing and data.get("work_number") is not None:
             # BUG-4 fix: проверяем есть ли оценка за эту работу на ДРУГОМ занятии
-            existing_other = await get_student_grade_by_work(
-                db, data["student_id"], data["work_number"], group_id
-            )
+            existing_other = await get_student_grade_by_work(db, data["student_id"], data["work_number"], group_id)
             if existing_other and existing_other.lesson_id != lesson_id:
                 existing = existing_other
 

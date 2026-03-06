@@ -237,7 +237,9 @@ class ReportDataCollector:
             is_passing=is_passing if report.show_grades else None,
             is_early_semester=is_early,
             max_points=result.max_points if result else 100,
-            min_passing_points=result.min_passing_points if result else AttestationSettings.get_min_passing_points(att_type),
+            min_passing_points=result.min_passing_points
+            if result
+            else AttestationSettings.get_min_passing_points(att_type),
             group_average_score=group_average,
             rank_in_group=rank_in_group,
             total_in_group=total_in_group,

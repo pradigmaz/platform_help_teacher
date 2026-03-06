@@ -40,8 +40,7 @@ class LabService:
         lesson = await db.get(Lesson, lesson_id)
         if lesson and lesson.subject_id and lesson.subject_id != subject_id:
             raise ValueError(
-                f"Несоответствие предмета: lab.subject_id={subject_id}, "
-                f"lesson.subject_id={lesson.subject_id}"
+                f"Несоответствие предмета: lab.subject_id={subject_id}, lesson.subject_id={lesson.subject_id}"
             )
 
     async def get_by_id(
