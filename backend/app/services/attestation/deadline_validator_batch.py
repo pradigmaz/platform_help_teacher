@@ -89,7 +89,7 @@ async def get_max_allowed_grades_batch(
                 and_(
                     Lesson.group_id == lesson.group_id,
                     Lesson.subject_id == lesson.subject_id,
-                    Lesson.lesson_type == "LAB",
+                    Lesson.lesson_type == LessonType.LAB,
                     Lesson.is_cancelled.is_(False),
                     Lesson.date >= min_date,
                 )

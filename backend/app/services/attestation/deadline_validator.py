@@ -14,6 +14,7 @@ from app.models.attendance import Attendance, AttendanceStatus
 from app.models.lab import Lab
 from app.models.lab_deadline_extension import LabDeadlineExtension
 from app.models.lesson import Lesson
+from app.models.schedule import LessonType
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +124,7 @@ async def _get_lesson_index(db: AsyncSession, origin_lesson: Lesson, current_les
             and_(
                 Lesson.group_id == origin_lesson.group_id,
                 Lesson.subject_id == origin_lesson.subject_id,
-                Lesson.lesson_type == "LAB",
+                Lesson.lesson_type == LessonType.LAB,
                 Lesson.is_cancelled.is_(False),
                 Lesson.date >= origin_lesson.date,
             )
@@ -167,7 +168,7 @@ async def get_max_allowed_grade(
     Returns:
         Максимально допустимая оценка (2-5)
     """
-    if lesson.lesson_type != "LAB":
+    if lesson.lesson_type != LessonType.LAB:
         return 5
 
     lab_number = work_number or lesson.work_number

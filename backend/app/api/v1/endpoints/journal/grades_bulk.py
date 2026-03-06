@@ -13,6 +13,7 @@ from app.api.deps import get_current_teacher, get_db
 from app.core import error_messages as em
 from app.core.limiter import limiter
 from app.models import Lesson, User
+from app.models.schedule import LessonType
 from app.schemas.lesson_grade import BulkGradeCreate
 from app.services.attestation.deadline_validator import validate_grade_for_max
 from app.services.submission_journal_sync import journal_sync
@@ -43,7 +44,7 @@ async def bulk_update_grades(
         grades_by_student[grade_item.student_id].append(grade_item)
 
     # Валидируем слоты (batch)
-    if lesson.lesson_type == "LAB":
+    if lesson.lesson_type == LessonType.LAB:
         from app.services.attestation.lab_slot_validator_batch import (
             get_grades_count_on_lesson_batch,
             get_max_labs_per_lesson_batch,
@@ -85,11 +86,11 @@ async def bulk_update_grades(
         {"student_id": g.student_id, "grade": g.grade, "work_number": g.work_number, "comment": g.comment}
         for g in data.grades
     ]
-    updated = await bulk_upsert_lesson_grades(db, data.lesson_id, grades_data, created_by=current_user.id)
+    updated = await bulk_upsert_lesson_grades(db, data.lesson_id, grades_data, created_by=current_user.id, group_id=lesson.group_id)
 
     # Синхронизация с work_submission для лаб
     synced_count = 0
-    if lesson.lesson_type == "LAB":
+    if lesson.lesson_type == LessonType.LAB:
         for grade_item in data.grades:
             if grade_item.work_number:
                 await journal_sync.sync_from_journal(
@@ -105,5 +106,6 @@ async def bulk_update_grades(
 
         logger.info(f"[grades_bulk:bulk_update_grades] Synced {synced_count} submissions for lesson {data.lesson_id}")
 
+    await db.commit()
     logger.info(f"Bulk updated {len(updated)} grades for lesson {data.lesson_id}")
     return {"updated": len(updated)}
