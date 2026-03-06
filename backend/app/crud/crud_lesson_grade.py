@@ -161,17 +161,15 @@ async def upsert_lesson_grade(
     if work_number is not None:
         existing = await get_student_grade_by_work(db, student_id, work_number, group_id)
         if existing and existing.lesson_id != lesson_id:
-            # Перемещаем оценку на текущее занятие
             existing.grade = grade
             existing.lesson_id = lesson_id
             if comment is not None:
                 existing.comment = comment
-            await db.commit()
+            await db.flush()
             await db.refresh(existing)
             logger.info(f"Moved lesson grade: student={student_id}, work={work_number}, grade={grade}")
             return existing
 
-    # Атомарный upsert через ON CONFLICT
     stmt = pg_insert(LessonGrade).values(
         lesson_id=lesson_id,
         student_id=student_id,
@@ -181,8 +179,6 @@ async def upsert_lesson_grade(
         created_by=created_by,
     )
 
-    # ON CONFLICT — обновляем если запись уже есть
-    # Используем constraint name для точного матчинга
     stmt = stmt.on_conflict_do_update(
         constraint="uq_lesson_grade_student_lesson_work",
         set_={
@@ -192,16 +188,19 @@ async def upsert_lesson_grade(
     )
 
     await db.execute(stmt)
-    await db.commit()
+    await db.flush()
 
-    # Получаем созданную/обновлённую запись
     lesson_grade = await get_student_lesson_grade(db, lesson_id, student_id, work_number)
     logger.info(f"Upserted lesson grade: student={student_id}, work={work_number}, grade={grade}")
     return lesson_grade
 
 
 async def bulk_upsert_lesson_grades(
-    db: AsyncSession, lesson_id: UUID, grades_data: list[dict], created_by: UUID | None = None
+    db: AsyncSession,
+    lesson_id: UUID,
+    grades_data: list[dict],
+    created_by: UUID | None = None,
+    group_id: UUID | None = None,
 ) -> list[LessonGrade]:
     """
     Bulk upsert оценок за занятие.
@@ -209,6 +208,7 @@ async def bulk_upsert_lesson_grades(
 
     Args:
         grades_data: [{"student_id": UUID, "grade": int, "work_number": int|None, "comment": str|None}, ...]
+        group_id: для cross-lesson проверки дубликатов (BUG-4 fix)
     """
     if not grades_data:
         return []
@@ -234,8 +234,17 @@ async def bulk_upsert_lesson_grades(
         key = (data["student_id"], data.get("work_number"))
         existing = existing_map.get(key)
 
+        if not existing and data.get("work_number") is not None:
+            # BUG-4 fix: проверяем есть ли оценка за эту работу на ДРУГОМ занятии
+            existing_other = await get_student_grade_by_work(
+                db, data["student_id"], data["work_number"], group_id
+            )
+            if existing_other and existing_other.lesson_id != lesson_id:
+                existing = existing_other
+
         if existing:
             existing.grade = data["grade"]
+            existing.lesson_id = lesson_id  # перемещаем на текущее занятие если нужно
             if data.get("comment") is not None:
                 existing.comment = data["comment"]
             updated.append(existing)
@@ -251,7 +260,7 @@ async def bulk_upsert_lesson_grades(
             db.add(new_grade)
             updated.append(new_grade)
 
-    await db.commit()
+    await db.flush()
 
     # Refresh all
     for g in updated:
