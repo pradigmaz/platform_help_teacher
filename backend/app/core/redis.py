@@ -1,12 +1,18 @@
 from redis import asyncio as aioredis
 
 from app.core.config import settings
+from app.core.time_constants import (
+    REDIS_HEALTH_CHECK_INTERVAL_SECONDS,
+    REDIS_MAX_CONNECTIONS,
+    REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
+    REDIS_SOCKET_TIMEOUT_SECONDS,
+)
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 redis_pool = None
-
-# Connection timeouts (seconds)
-REDIS_SOCKET_TIMEOUT = 5.0
-REDIS_SOCKET_CONNECT_TIMEOUT = 5.0
 
 
 async def get_redis() -> aioredis.Redis:
@@ -21,10 +27,16 @@ async def get_redis() -> aioredis.Redis:
         redis_pool = aioredis.ConnectionPool.from_url(
             url,
             password=settings.REDIS_PASSWORD,
-            max_connections=20,
+            max_connections=REDIS_MAX_CONNECTIONS,
             decode_responses=True,
-            socket_timeout=REDIS_SOCKET_TIMEOUT,
-            socket_connect_timeout=REDIS_SOCKET_CONNECT_TIMEOUT,
+            socket_timeout=REDIS_SOCKET_TIMEOUT_SECONDS,
+            socket_connect_timeout=REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS,
+            retry_on_timeout=True,
+            health_check_interval=REDIS_HEALTH_CHECK_INTERVAL_SECONDS,
+        )
+        logger.info(
+            f"[Redis:init] Pool created with max_connections={REDIS_MAX_CONNECTIONS}, "
+            f"health_check_interval={REDIS_HEALTH_CHECK_INTERVAL_SECONDS}s"
         )
     return aioredis.Redis(connection_pool=redis_pool)
 

@@ -169,6 +169,12 @@ REDIS_SOCKET_TIMEOUT_SECONDS = 5.0
 REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS = 5.0
 """Таймаут подключения к Redis."""
 
+REDIS_MAX_CONNECTIONS = 50
+"""Максимальное количество соединений в пуле Redis."""
+
+REDIS_HEALTH_CHECK_INTERVAL_SECONDS = 30
+"""Интервал проверки здоровья соединений Redis."""
+
 REDIS_SCAN_COUNT = 100
 """Количество ключей для сканирования Redis за один раз."""
 
@@ -281,6 +287,8 @@ __all__ = [
     # Redis
     "REDIS_SOCKET_TIMEOUT_SECONDS",
     "REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS",
+    "REDIS_MAX_CONNECTIONS",
+    "REDIS_HEALTH_CHECK_INTERVAL_SECONDS",
     "REDIS_SCAN_COUNT",
     # External API
     "KIS_API_TIMEOUT_SECONDS",
