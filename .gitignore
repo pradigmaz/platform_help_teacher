@@ -71,3 +71,11 @@ backend/logs/
 
 # Logs
 backend/logs/
+
+.hypothesis/
+
+backend/.ai
+
+frontend/.ai
+
+backend/logs
