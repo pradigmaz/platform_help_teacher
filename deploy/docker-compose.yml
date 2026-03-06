@@ -17,6 +17,9 @@ services:
       -c work_mem=4MB
       -c maintenance_work_mem=64MB
       -c effective_cache_size=256MB
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.max=5000
+      -c pg_stat_statements.track=all
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
     healthcheck:
