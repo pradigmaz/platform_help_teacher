@@ -65,7 +65,7 @@ export default function LectureEditorPage() {
         setTitle(data.title);
         setPreviewContent(data.content as unknown as SerializedEditorState);
         setDebouncedPreviewContent(data.content as unknown as SerializedEditorState);
-      } catch (error) {
+      } catch {
         toast.error('Не удалось загрузить лекцию');
         router.push('/admin/lectures');
       } finally {

@@ -8,7 +8,6 @@ import { OnboardingDialog } from "@/components/admin/OnboardingDialog";
 import { DotPattern } from "@/components/ui/dot-pattern";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { cn } from "@/lib/utils";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { toast } from "@/components/ui/sonner";
 import { ApiErrorBoundary } from "@/components/ui/api-error-boundary";

@@ -1,4 +1,4 @@
-import { BookOpen, FlaskConical, GraduationCap, Check, X, Clock, FileQuestion } from 'lucide-react';
+import { Check, X, Clock, FileQuestion } from 'lucide-react';
 import { LESSON_TYPE_CONFIG } from '@/lib/schedule-constants';
 
 // Types

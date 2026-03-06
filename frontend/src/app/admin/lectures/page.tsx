@@ -3,8 +3,7 @@
 import { useRouter } from 'next/navigation';
 import type { SerializedEditorState } from 'lexical';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Plus, BookOpen } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { MagicCard } from '@/components/ui/magic-card';

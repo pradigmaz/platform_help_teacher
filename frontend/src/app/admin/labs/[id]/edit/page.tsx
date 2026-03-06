@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { LabsAPI, Lab } from '@/lib/api';
@@ -23,9 +23,9 @@ export default function EditLabPage() {
     if (!isNew) {
       loadLab();
     }
-  }, [labId, isNew]);
+  }, [labId, isNew, loadLab]);
 
-  const loadLab = async () => {
+  const loadLab = useCallback(async () => {
     try {
       const data = await LabsAPI.adminGet(labId);
       setLab(data);
@@ -35,7 +35,7 @@ export default function EditLabPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [labId, router]);
 
   const handleSave = async (data: LabData) => {
     try {

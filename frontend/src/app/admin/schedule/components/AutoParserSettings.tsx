@@ -53,7 +53,6 @@ export function AutoParserSettings({ open, onOpenChange, onParseNow, onParsingCh
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [parseResult, setParseResult] = useState<{
     lessons_created: number;
     lessons_updated: number;
@@ -69,7 +68,6 @@ export function AutoParserSettings({ open, onOpenChange, onParseNow, onParsingCh
   }, [open]);
 
   const loadConfig = async () => {
-    setIsLoading(true);
     try {
       const { data } = await api.get('/admin/schedule/parser-config');
       if (data) {
@@ -84,8 +82,6 @@ export function AutoParserSettings({ open, onOpenChange, onParseNow, onParsingCh
       }
     } catch {
       // Use defaults
-    } finally {
-      setIsLoading(false);
     }
   };
 
