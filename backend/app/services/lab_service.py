@@ -31,6 +31,19 @@ class LabService:
         lesson = await db.get(Lesson, lesson_id)
         return lesson.subject_id if lesson else None
 
+    async def _validate_subject_lesson_consistency(
+        self, db: AsyncSession, subject_id: UUID | None, lesson_id: UUID | None
+    ) -> None:
+        """BUG-9: Проверить что lesson.subject_id совпадает с lab.subject_id."""
+        if not subject_id or not lesson_id:
+            return
+        lesson = await db.get(Lesson, lesson_id)
+        if lesson and lesson.subject_id and lesson.subject_id != subject_id:
+            raise ValueError(
+                f"Несоответствие предмета: lab.subject_id={subject_id}, "
+                f"lesson.subject_id={lesson.subject_id}"
+            )
+
     async def get_by_id(
         self,
         db: AsyncSession,
@@ -58,6 +71,9 @@ class LabService:
         if data.get("lesson_id") and not data.get("subject_id"):
             data["subject_id"] = await self._sync_subject_from_lesson(db, data["lesson_id"])
 
+        # BUG-9: проверяем согласованность subject_id и lesson_id
+        await self._validate_subject_lesson_consistency(db, data.get("subject_id"), data.get("lesson_id"))
+
         lab = Lab(**data)
         db.add(lab)
         await db.commit()
@@ -76,6 +92,11 @@ class LabService:
                 subject_id = await self._sync_subject_from_lesson(db, new_lesson_id)
                 if subject_id:
                     update_data["subject_id"] = subject_id
+
+        # BUG-9: проверяем согласованность subject_id и lesson_id
+        final_subject_id = update_data.get("subject_id", lab.subject_id)
+        final_lesson_id = update_data.get("lesson_id", lab.lesson_id)
+        await self._validate_subject_lesson_consistency(db, final_subject_id, final_lesson_id)
 
         for field, value in update_data.items():
             setattr(lab, field, value)

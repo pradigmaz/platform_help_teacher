@@ -29,6 +29,8 @@ class Lab(Base, TimestampMixin):
         CheckConstraint("length(s3_key) <= 500", name="ck_labs_s3_key_len"),
         CheckConstraint("number > 0", name="ck_labs_number_positive"),
         Index("idx_labs_subject_number", "subject_id", "number"),
+        # uq_labs_subject_number — partial unique index, создаётся через миграцию 083
+        # (UniqueConstraint не поддерживает WHERE clause в SQLAlchemy)
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
