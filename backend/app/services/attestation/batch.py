@@ -184,11 +184,13 @@ class BatchScoreCalculator:
         )
 
     async def _get_lessons(self, group_id: UUID, settings: AttestationSettings) -> list[Lesson]:
-        query = select(Lesson).where(Lesson.group_id == group_id)
-        if settings.period_start_date:
-            query = query.where(Lesson.date >= settings.period_start_date)
-        if settings.period_end_date:
-            query = query.where(Lesson.date <= settings.period_end_date)
+        period_start, period_end = settings.get_effective_period()
+        query = (
+            select(Lesson)
+            .where(Lesson.group_id == group_id)
+            .where(Lesson.date >= period_start)
+            .where(Lesson.date <= period_end)
+        )
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
@@ -199,17 +201,15 @@ class BatchScoreCalculator:
         return grouped
 
     async def _get_lesson_grades_batch(self, student_ids: list[UUID], settings: AttestationSettings) -> dict:
+        period_start, period_end = settings.get_effective_period()
         query = (
             select(LessonGrade)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
             .where(LessonGrade.student_id.in_(student_ids))
             .where(LessonGrade.work_number.isnot(None))
+            .where(Lesson.date >= period_start)
+            .where(Lesson.date <= period_end)
         )
-        if settings.period_start_date:
-            query = query.where(Lesson.date >= settings.period_start_date)
-        if settings.period_end_date:
-            query = query.where(Lesson.date <= settings.period_end_date)
-
         result = await self.db.execute(query)
 
         grouped = defaultdict(list)
@@ -242,14 +242,14 @@ class BatchScoreCalculator:
         self, student_ids: list[UUID], attestation_type: AttestationType, settings: AttestationSettings
     ) -> dict:
         """Batch-загрузка переводов студентов в периоде."""
-        query = select(StudentTransfer).where(
-            StudentTransfer.student_id.in_(student_ids), StudentTransfer.attestation_type == attestation_type
+        period_start, period_end = settings.get_effective_period()
+        query = (
+            select(StudentTransfer)
+            .where(StudentTransfer.student_id.in_(student_ids))
+            .where(StudentTransfer.attestation_type == attestation_type)
+            .where(StudentTransfer.transfer_date >= period_start)
+            .where(StudentTransfer.transfer_date <= period_end)
         )
-        if settings.period_start_date:
-            query = query.where(StudentTransfer.transfer_date >= settings.period_start_date)
-        if settings.period_end_date:
-            query = query.where(StudentTransfer.transfer_date <= settings.period_end_date)
-
         result = await self.db.execute(query)
 
         grouped = defaultdict(list)

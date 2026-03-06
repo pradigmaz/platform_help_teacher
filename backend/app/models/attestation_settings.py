@@ -148,12 +148,31 @@ class AttestationSettings(Base, TimestampMixin):
         """Минимальные баллы для зачёта"""
         return 20 if attestation_type == AttestationType.FIRST else 40
 
+    def get_effective_period(self) -> tuple[date, date]:
+        """
+        Возвращает эффективный период аттестации.
+        Если period_start/end заданы явно — возвращает их.
+        Иначе вычисляет по semester_start_date и attestation_type.
+        """
+        if self.period_start_date and self.period_end_date:
+            return self.period_start_date, self.period_end_date
+        if self.semester_start_date:
+            return AttestationSettings.calculate_attestation_period(self.semester_start_date, self.attestation_type)
+        # Fallback: нет данных — возвращаем широкий диапазон
+        today = date.today()
+        if self.attestation_type == AttestationType.FIRST:
+            return today - timedelta(weeks=8), today
+        return today - timedelta(weeks=6), today
+
     @staticmethod
     def get_grade_scale(attestation_type: AttestationType) -> dict:
-        """Фиксированная шкала оценок университета"""
+        """
+        Непрерывная шкала оценок университета.
+        Интервалы: [lower, upper) для всех кроме последнего, последний [lower, upper].
+        """
         if attestation_type == AttestationType.FIRST:
-            return {"неуд": (0, 19.99), "уд": (20, 25), "хор": (26, 30), "отл": (31, 35)}
-        return {"неуд": (0, 39.99), "уд": (40, 50), "хор": (51, 60), "отл": (61, 70)}
+            return {"неуд": (0, 20), "уд": (20, 26), "хор": (26, 31), "отл": (31, 35)}
+        return {"неуд": (0, 40), "уд": (40, 51), "хор": (51, 61), "отл": (61, 70)}
 
     def validate_weights(self) -> bool:
         """Проверка суммы весов = 100%"""

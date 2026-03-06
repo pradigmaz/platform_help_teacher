@@ -100,12 +100,20 @@ class AttestationCalculator:
         return round(total, 2), grade, is_passing
 
     def _convert_to_grade(self, score: float, attestation_type: AttestationType) -> str:
-        """Перевод балла в оценку по шкале университета"""
+        """Перевод балла в оценку по шкале университета.
+        Логика: [lower, upper) для всех кроме последнего, последний [lower, upper].
+        """
         grade_scale = AttestationSettings.get_grade_scale(attestation_type)
+        sorted_grades = sorted(grade_scale.items(), key=lambda x: x[1][0])
 
-        for grade_name, (min_val, max_val) in grade_scale.items():
-            if min_val <= score <= max_val:
-                return grade_name
+        for i, (grade_name, (min_val, max_val)) in enumerate(sorted_grades):
+            is_last = i == len(sorted_grades) - 1
+            if is_last:
+                if min_val <= score <= max_val:
+                    return grade_name
+            else:
+                if min_val <= score < max_val:
+                    return grade_name
 
         if score > attestation_type.max_points:
             return "отл"

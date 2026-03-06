@@ -110,29 +110,28 @@ class StudentScoreCalculator:
         return result.scalar_one_or_none()
 
     async def _get_lesson_grades(self, student_id: UUID, settings: AttestationSettings) -> list[LessonGrade]:
+        period_start, period_end = settings.get_effective_period()
         query = (
             select(LessonGrade)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
             .where(LessonGrade.student_id == student_id)
             .where(LessonGrade.work_number.isnot(None))
+            .where(Lesson.date >= period_start)
+            .where(Lesson.date <= period_end)
         )
-        if settings.period_start_date:
-            query = query.where(Lesson.date >= settings.period_start_date)
-        if settings.period_end_date:
-            query = query.where(Lesson.date <= settings.period_end_date)
-
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
     async def _get_attendance(
         self, student_id: UUID, group_id: UUID, subgroup: int | None, settings: AttestationSettings
     ) -> list[Attendance]:
-        # Сначала получаем релевантные занятия
-        lessons_query = select(Lesson).where(Lesson.group_id == group_id)
-        if settings.period_start_date:
-            lessons_query = lessons_query.where(Lesson.date >= settings.period_start_date)
-        if settings.period_end_date:
-            lessons_query = lessons_query.where(Lesson.date <= settings.period_end_date)
+        period_start, period_end = settings.get_effective_period()
+        lessons_query = (
+            select(Lesson)
+            .where(Lesson.group_id == group_id)
+            .where(Lesson.date >= period_start)
+            .where(Lesson.date <= period_end)
+        )
         lessons_query = filter_lessons_by_subgroup(lessons_query, subgroup)
 
         lessons_result = await self.db.execute(lessons_query)
@@ -164,13 +163,14 @@ class StudentScoreCalculator:
         - Если меньше (праздники, начало семестра) — используем минимум из настроек
         """
         # Считаем занятия в БД (не отменённые)
-        query = select(func.count(Lesson.id)).where(Lesson.group_id == group_id, Lesson.is_cancelled.is_(False))
-
-        # Фильтр по периоду
-        if settings.period_start_date:
-            query = query.where(Lesson.date >= settings.period_start_date)
-        if settings.period_end_date:
-            query = query.where(Lesson.date <= settings.period_end_date)
+        period_start, period_end = settings.get_effective_period()
+        query = (
+            select(func.count(Lesson.id))
+            .where(Lesson.group_id == group_id)
+            .where(Lesson.is_cancelled.is_(False))
+            .where(Lesson.date >= period_start)
+            .where(Lesson.date <= period_end)
+        )
 
         # Фильтр по подгруппе: занятия для всей группы (subgroup IS NULL) или для конкретной подгруппы
         if subgroup:
@@ -188,14 +188,14 @@ class StudentScoreCalculator:
         self, student_id: UUID, attestation_type: AttestationType, settings: AttestationSettings
     ) -> list[StudentTransfer]:
         """Получить переводы студента в периоде аттестации."""
-        query = select(StudentTransfer).where(
-            StudentTransfer.student_id == student_id, StudentTransfer.attestation_type == attestation_type
+        period_start, period_end = settings.get_effective_period()
+        query = (
+            select(StudentTransfer)
+            .where(StudentTransfer.student_id == student_id)
+            .where(StudentTransfer.attestation_type == attestation_type)
+            .where(StudentTransfer.transfer_date >= period_start)
+            .where(StudentTransfer.transfer_date <= period_end)
         )
-        if settings.period_start_date:
-            query = query.where(StudentTransfer.transfer_date >= settings.period_start_date)
-        if settings.period_end_date:
-            query = query.where(StudentTransfer.transfer_date <= settings.period_end_date)
-
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
