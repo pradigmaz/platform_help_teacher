@@ -115,6 +115,7 @@ class PublicStudentData(BaseModel):
 
     # Флаги
     needs_attention: bool = Field(False, description="Требует внимания (не сдаёт)")
+    calculation_error: bool = Field(False, description="Ошибка расчёта аттестации")
 
     # Заметки (если show_notes)
     notes: list[str] | None = None

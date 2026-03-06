@@ -14,6 +14,7 @@ def build_student_data(
 ) -> PublicStudentData:
     """Построить данные студента."""
     is_passing = result.is_passing if result else False
+    calculation_error = result is None
 
     return PublicStudentData(
         id=student.id,
@@ -25,6 +26,7 @@ def build_student_data(
         activity_score=result.breakdown.activity_score if result and report.show_grades else None,
         grade=result.grade if result and report.show_grades else None,
         is_passing=is_passing if report.show_grades else None,
+        calculation_error=calculation_error,
         attendance_rate=att_stats.get("rate") if report.show_attendance else None,
         present_count=att_stats.get("present") if report.show_attendance else None,
         absent_count=att_stats.get("absent") if report.show_attendance else None,
