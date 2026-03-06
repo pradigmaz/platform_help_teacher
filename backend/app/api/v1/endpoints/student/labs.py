@@ -70,7 +70,7 @@ async def get_my_labs(
     )
 
     submissions = await student_lab_service.get_user_submissions(db, current_user.id)
-    journal_grades = await student_lab_service.get_user_journal_grades(db, current_user.id)
+    journal_grades_by_subject = await student_lab_service.get_user_journal_grades_by_subject(db, current_user.id)
     student_position = await student_lab_service.get_student_position(db, current_user)
 
     result = []
@@ -78,7 +78,9 @@ async def get_my_labs(
 
     for lab in visible_labs:
         sub = submissions.get(lab.id)
-        journal_grade = journal_grades.get(lab.number)
+        # BUG-7 fix: фильтруем оценки по subject_id лабы
+        subject_grades = journal_grades_by_subject.get(lab.subject_id, {}) if lab.subject_id else {}
+        journal_grade = subject_grades.get(lab.number)
         is_available = prev_accepted or not lab.is_sequential
 
         variant_number = None
