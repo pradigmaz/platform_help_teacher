@@ -19,12 +19,6 @@ export default function EditLabPage() {
   const [loading, setLoading] = useState(!isNew);
   const [lab, setLab] = useState<Lab | null>(null);
 
-  useEffect(() => {
-    if (!isNew) {
-      loadLab();
-    }
-  }, [labId, isNew, loadLab]);
-
   const loadLab = useCallback(async () => {
     try {
       const data = await LabsAPI.adminGet(labId);
@@ -36,6 +30,12 @@ export default function EditLabPage() {
       setLoading(false);
     }
   }, [labId, router]);
+
+  useEffect(() => {
+    if (!isNew) {
+      loadLab();
+    }
+  }, [isNew, loadLab]);
 
   const handleSave = async (data: LabData) => {
     try {

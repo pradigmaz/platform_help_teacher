@@ -15,10 +15,6 @@ export default function LabViewPage() {
   const [loading, setLoading] = useState(true);
   const [lab, setLab] = useState<Lab | null>(null);
 
-  useEffect(() => {
-    loadLab();
-  }, [labId, loadLab]);
-
   const loadLab = useCallback(async () => {
     try {
       const data = await LabsAPI.adminGet(labId);
@@ -30,6 +26,10 @@ export default function LabViewPage() {
       setLoading(false);
     }
   }, [labId, router]);
+
+  useEffect(() => {
+    loadLab();
+  }, [loadLab]);
 
   const handleDelete = () => {
     router.push('/admin/labs');
