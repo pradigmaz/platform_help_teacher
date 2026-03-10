@@ -43,7 +43,7 @@ class StudentScoreCalculator:
             raise ValueError(f"Студент {student_id} не найден")
 
         # Получаем данные из текущей группы
-        lesson_grades = await self._get_lesson_grades(student_id, settings)
+        lesson_grades = await self._get_lesson_grades(student_id, group_id, settings)
         attendance_records = await self._get_attendance(student_id, group_id, student.subgroup, settings)
         db_activity_points = await self._get_activity_points(student_id, attestation_type)
 
@@ -109,13 +109,14 @@ class StudentScoreCalculator:
         result = await self.db.execute(select(User).where(User.id == student_id))
         return result.scalar_one_or_none()
 
-    async def _get_lesson_grades(self, student_id: UUID, settings: AttestationSettings) -> list[LessonGrade]:
+    async def _get_lesson_grades(self, student_id: UUID, group_id: UUID, settings: AttestationSettings) -> list[LessonGrade]:
         period_start, period_end = settings.get_effective_period()
         query = (
             select(LessonGrade)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
             .where(LessonGrade.student_id == student_id)
             .where(LessonGrade.work_number.isnot(None))
+            .where(Lesson.group_id == group_id)
             .where(Lesson.date >= period_start)
             .where(Lesson.date <= period_end)
         )
@@ -129,6 +130,7 @@ class StudentScoreCalculator:
         lessons_query = (
             select(Lesson)
             .where(Lesson.group_id == group_id)
+            .where(Lesson.is_cancelled.is_(False))
             .where(Lesson.date >= period_start)
             .where(Lesson.date <= period_end)
         )

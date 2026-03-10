@@ -61,10 +61,10 @@ class BatchScoreCalculator:
         lessons_by_subgroup = self._group_lessons_by_subgroup(lessons)
 
         # Оценки за лабы
-        lesson_grades_map = await self._get_lesson_grades_batch(student_ids, settings)
+        lesson_grades_map = await self._get_lesson_grades_batch(student_ids, group_id, settings)
 
         # Посещаемость
-        attendance_map = await self._get_attendance_batch(group_id, student_ids)
+        attendance_map = await self._get_attendance_batch(group_id, student_ids, settings)
 
         # Активность
         activity_map = await self._get_activity_batch(student_ids, attestation_type)
@@ -200,13 +200,14 @@ class BatchScoreCalculator:
             grouped[lesson.subgroup].append(lesson)
         return grouped
 
-    async def _get_lesson_grades_batch(self, student_ids: list[UUID], settings: AttestationSettings) -> dict:
+    async def _get_lesson_grades_batch(self, student_ids: list[UUID], group_id: UUID, settings: AttestationSettings) -> dict:
         period_start, period_end = settings.get_effective_period()
         query = (
             select(LessonGrade)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
             .where(LessonGrade.student_id.in_(student_ids))
             .where(LessonGrade.work_number.isnot(None))
+            .where(Lesson.group_id == group_id)
             .where(Lesson.date >= period_start)
             .where(Lesson.date <= period_end)
         )
@@ -217,8 +218,14 @@ class BatchScoreCalculator:
             grouped[lg.student_id].append(lg)
         return grouped
 
-    async def _get_attendance_batch(self, group_id: UUID, student_ids: list[UUID]) -> dict:
-        query = select(Attendance).where(Attendance.group_id == group_id, Attendance.student_id.in_(student_ids))
+    async def _get_attendance_batch(self, group_id: UUID, student_ids: list[UUID], settings: AttestationSettings) -> dict:
+        period_start, period_end = settings.get_effective_period()
+        query = select(Attendance).where(
+            Attendance.group_id == group_id,
+            Attendance.student_id.in_(student_ids),
+            Attendance.date >= period_start,
+            Attendance.date <= period_end,
+        )
         result = await self.db.execute(query)
 
         grouped = defaultdict(list)
