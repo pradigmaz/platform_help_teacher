@@ -2,6 +2,14 @@
 Модуль сбора данных для публичных отчётов.
 
 Facade для агрегации данных из различных источников.
+
+Формула посещаемости в отчётах (этот модуль):
+    Использует сырые данные attendance без корректировки на EXCUSED.
+    EXCUSED включается в знаменатель (expected_lessons не уменьшается).
+
+Отличие от формулы аттестации (services/attestation/attendance_calculator.py):
+    В аттестации EXCUSED исключается из знаменателя (adjusted_expected = expected - excused).
+    TODO: унифицировать формулы отчётов и аттестации в будущем.
 """
 
 import logging
@@ -214,7 +222,9 @@ class ReportDataCollector:
         rank_in_group = None
         total_in_group = None
         if report.show_rating and result:
-            group_stats = await self._get_group_comparison_stats(report.group_id, student_id, result.total_score)
+            group_stats = await self._get_group_comparison_stats(
+                report.group_id, student_id, result.total_score, att_type
+            )
             group_average = group_stats.get("average")
             rank_in_group = group_stats.get("rank")
             total_in_group = group_stats.get("total")
@@ -260,13 +270,15 @@ class ReportDataCollector:
             needs_attention=not is_passing,
         )
 
-    async def _get_group_comparison_stats(self, group_id: UUID, student_id: UUID, student_score: float) -> dict:
+    async def _get_group_comparison_stats(
+        self, group_id: UUID, student_id: UUID, student_score: float, attestation_type: AttestationType
+    ) -> dict:
         """Получить статистику сравнения с группой."""
         students = await get_group_students(self.db, group_id)
 
         attestation_service = AttestationService(self.db)
         results, _ = await attestation_service.calculate_group_scores_batch(
-            group_id=group_id, attestation_type=AttestationType.FIRST, students=students
+            group_id=group_id, attestation_type=attestation_type, students=students
         )
 
         if not results:

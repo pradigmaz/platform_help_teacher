@@ -117,13 +117,15 @@ class AttestationSettingsManager:
 
         # Посещаемость
         att_max = att_settings.get_max_component_points(att_settings.attendance_weight)
+        expected_lessons = att_settings.get_min_expected_lessons()
+        att_per_lesson = round(att_max / expected_lessons, 2) if expected_lessons > 0 else 0.0
         previews.append(
             ScorePreview(
                 component="Посещаемость",
                 weight=att_settings.attendance_weight,
                 max_points=round(att_max, 2),
-                points_per_unit=100.0,
-                unit_label="% от посещённых",
+                points_per_unit=att_per_lesson,
+                unit_label="баллов за занятие",
             )
         )
 

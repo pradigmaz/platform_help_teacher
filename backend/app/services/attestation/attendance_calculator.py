@@ -1,6 +1,15 @@
 """
 Калькулятор баллов за посещаемость.
-Фиксированные баллы за занятие: points_per_lesson = max_attendance / expected_lessons
+
+Формула аттестации (этот модуль):
+    adjusted_expected = expected_lessons - excused_count
+    points_per_lesson = max_attendance / adjusted_expected
+    score = (present * 1.0 + late * late_coef + absent * absent_coef) * points_per_lesson
+
+Отличие от формулы отчётов (services/reports/):
+    В отчётах EXCUSED включается в знаменатель (expected не уменьшается).
+    Семантика "нет записи посещаемости" = 0 баллов, 0 штрафа (запись отсутствует → не считается).
+    TODO: унифицировать формулы аттестации и отчётов в будущем.
 """
 
 from dataclasses import dataclass
@@ -73,19 +82,27 @@ class AttendanceScoreCalculator:
         total_classes = present_count + late_count + excused_count + absent_count
 
         # Фиксированные баллы за занятие
+        # EXCUSED не учитывается ни в числителе, ни в знаменателе:
+        # adjusted_expected = expected_lessons - excused_count
+        # Формула аттестации: score = effective / adjusted_expected * max
+        # (отличие от отчётов: там EXCUSED включается в знаменатель)
+        # TODO: унифицировать формулы аттестации и отчётов
         if expected_lessons <= 0:
             points_per_lesson = 0.0
             ratio = 0.0
             score = 0.0
         else:
-            points_per_lesson = max_score / expected_lessons
-            # Эффективная посещаемость с коэффициентами
+            # Уменьшаем знаменатель на EXCUSED (уважительные пропуски не штрафуют)
+            adjusted_expected = expected_lessons - excused_count
+            if adjusted_expected <= 0:
+                adjusted_expected = expected_lessons  # защита от деления на 0
+            points_per_lesson = max_score / adjusted_expected
+            # Эффективная посещаемость с коэффициентами (EXCUSED не в числителе)
             effective_attendance = (
                 present_count * 1.0 + late_count * settings.late_coef + absent_count * settings.absent_coef
             )
             score = effective_attendance * points_per_lesson
-            # Ratio — реальный процент посещаемости с учётом коэффициентов
-            # Максимум = количество отмеченных занятий (если бы все были PRESENT)
+            # Ratio — процент посещаемости без EXCUSED
             counted = present_count + late_count + absent_count
             ratio = effective_attendance / counted if counted > 0 else 0.0
 
