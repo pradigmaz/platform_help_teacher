@@ -1,5 +1,6 @@
 """Student attestation endpoint."""
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -13,6 +14,7 @@ from app.models.user import User
 from app.services.attestation_service import AttestationService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/attestation/{attestation_type}")
@@ -78,12 +80,20 @@ async def get_my_attestation(
                 },
             },
         }
-    except Exception as e:
+    except ValueError as e:
+        # Бизнес-ошибка (напр. студент не найден, некорректные данные)
         return {
             "attestation_type": attestation_type,
-            "error": str(e) or "Настройки аттестации не найдены",
+            "error": str(e) or "Ошибка расчёта аттестации",
             "total_score": 0,
             "grade": "-",
             "is_passing": False,
             "calculation_status": "error",
         }
+    except Exception as e:
+        # Системная ошибка — логируем и возвращаем 500
+        logger.error(
+            f"Attestation calc error: student={current_user.id}, type={attestation_type}",
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при расчёте аттестации")
