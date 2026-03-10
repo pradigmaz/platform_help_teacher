@@ -153,16 +153,21 @@ class AttestationSettings(Base, TimestampMixin):
         Возвращает эффективный период аттестации.
         Если period_start/end заданы явно — возвращает их.
         Иначе вычисляет по semester_start_date и attestation_type.
+        Для SECOND без semester_start_date — бросает ValueError.
         """
         if self.period_start_date and self.period_end_date:
             return self.period_start_date, self.period_end_date
         if self.semester_start_date:
             return AttestationSettings.calculate_attestation_period(self.semester_start_date, self.attestation_type)
-        # Fallback: нет данных — возвращаем широкий диапазон
-        today = date.today()
+        # FIRST без дат — допустимый fallback (скользящий период)
         if self.attestation_type == AttestationType.FIRST:
+            today = date.today()
             return today - timedelta(weeks=8), today
-        return today - timedelta(weeks=6), today
+        # SECOND без semester_start_date — ошибка конфигурации
+        raise ValueError(
+            "semester_start_date обязателен для расчёта периода аттестации SECOND. "
+            "Укажите semester_start_date в настройках аттестации."
+        )
 
     @staticmethod
     def get_grade_scale(attestation_type: AttestationType) -> dict:
@@ -185,10 +190,14 @@ class AttestationSettings(Base, TimestampMixin):
 
     @staticmethod
     def calculate_attestation_period(semester_start: date, attestation_type: AttestationType) -> tuple[date, date]:
-        """Вычисляет период аттестации"""
+        """
+        Вычисляет период аттестации.
+
+        FIRST:  (semester_start, semester_start + 8 weeks)
+        SECOND: (semester_start, semester_start + 14 weeks)  — накопительно с начала семестра,
+                согласуется с get_labs_count() который суммирует labs_count_first + labs_count_second.
+        """
         if attestation_type == AttestationType.FIRST:
             return (semester_start, semester_start + timedelta(weeks=FIRST_ATTESTATION_WEEK))
-        return (
-            semester_start + timedelta(weeks=FIRST_ATTESTATION_WEEK),
-            semester_start + timedelta(weeks=SECOND_ATTESTATION_WEEK),
-        )
+        # SECOND — накопительный период с начала семестра (0..14 недель)
+        return (semester_start, semester_start + timedelta(weeks=SECOND_ATTESTATION_WEEK))
