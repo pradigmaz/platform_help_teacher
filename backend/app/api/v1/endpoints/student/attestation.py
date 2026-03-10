@@ -90,7 +90,7 @@ async def get_my_attestation(
             "is_passing": False,
             "calculation_status": "error",
         }
-    except Exception as e:
+    except Exception:
         # Системная ошибка — логируем и возвращаем 500
         logger.error(
             f"Attestation calc error: student={current_user.id}, type={attestation_type}",
