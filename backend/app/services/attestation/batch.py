@@ -200,7 +200,9 @@ class BatchScoreCalculator:
             grouped[lesson.subgroup].append(lesson)
         return grouped
 
-    async def _get_lesson_grades_batch(self, student_ids: list[UUID], group_id: UUID, settings: AttestationSettings) -> dict:
+    async def _get_lesson_grades_batch(
+        self, student_ids: list[UUID], group_id: UUID, settings: AttestationSettings
+    ) -> dict:
         period_start, period_end = settings.get_effective_period()
         query = (
             select(LessonGrade)
@@ -218,7 +220,9 @@ class BatchScoreCalculator:
             grouped[lg.student_id].append(lg)
         return grouped
 
-    async def _get_attendance_batch(self, group_id: UUID, student_ids: list[UUID], settings: AttestationSettings) -> dict:
+    async def _get_attendance_batch(
+        self, group_id: UUID, student_ids: list[UUID], settings: AttestationSettings
+    ) -> dict:
         period_start, period_end = settings.get_effective_period()
         query = select(Attendance).where(
             Attendance.group_id == group_id,

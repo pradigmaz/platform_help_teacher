@@ -109,7 +109,9 @@ class StudentScoreCalculator:
         result = await self.db.execute(select(User).where(User.id == student_id))
         return result.scalar_one_or_none()
 
-    async def _get_lesson_grades(self, student_id: UUID, group_id: UUID, settings: AttestationSettings) -> list[LessonGrade]:
+    async def _get_lesson_grades(
+        self, student_id: UUID, group_id: UUID, settings: AttestationSettings
+    ) -> list[LessonGrade]:
         period_start, period_end = settings.get_effective_period()
         query = (
             select(LessonGrade)
