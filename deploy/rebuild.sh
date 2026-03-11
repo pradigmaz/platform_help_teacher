@@ -28,15 +28,15 @@ log_step "Пересборка Edu Platform"
 
 # Stop containers
 log_info "Остановка контейнеров..."
-docker compose -f docker-compose.prod.yml down 2>/dev/null || true
+docker compose -f docker-compose.yml down 2>/dev/null || true
 
 # Build
 log_info "Сборка Docker образов..."
-docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.yml build
 
 # Start
 log_info "Запуск контейнеров..."
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml up -d
 
 echo ""
 echo "⏳ Ожидание запуска сервисов (30 сек)..."
@@ -52,7 +52,7 @@ done
 
 if [ -n "$FAILED" ]; then
     log_error "Не запустились:$FAILED"
-    echo "Логи: docker compose -f docker-compose.prod.yml logs"
+    echo "Логи: docker compose -f docker-compose.yml logs"
     exit 1
 fi
 
@@ -63,4 +63,4 @@ docker exec edu-backend-prod alembic upgrade head || log_warn "Migration warning
 log_info "Готово!"
 echo ""
 echo "Статус:"
-docker compose -f docker-compose.prod.yml ps --format "table {{.Name}}\t{{.Status}}"
+docker compose -f docker-compose.yml ps --format "table {{.Name}}\t{{.Status}}"

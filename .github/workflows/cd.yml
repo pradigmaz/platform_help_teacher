@@ -60,6 +60,7 @@ jobs:
             # Determine what needs rebuild
             REBUILD_BACKEND=false
             REBUILD_FRONTEND=false
+            COMPOSE_CHANGED=false
             NGINX_ONLY=false
             
             if echo "$CHANGED_FILES" | grep -qE "^backend/"; then
@@ -68,9 +69,12 @@ jobs:
             if echo "$CHANGED_FILES" | grep -qE "^frontend/"; then
               REBUILD_FRONTEND=true
             fi
+            if echo "$CHANGED_FILES" | grep -qE "^deploy/docker-compose\\.yml$"; then
+              COMPOSE_CHANGED=true
+            fi
             
             # Check if only nginx/deploy configs changed
-            if [ "$REBUILD_BACKEND" = "false" ] && [ "$REBUILD_FRONTEND" = "false" ]; then
+            if [ "$REBUILD_BACKEND" = "false" ] && [ "$REBUILD_FRONTEND" = "false" ] && [ "$COMPOSE_CHANGED" = "false" ]; then
               if echo "$CHANGED_FILES" | grep -qE "^deploy/nginx"; then
                 NGINX_ONLY=true
               fi
@@ -85,6 +89,11 @@ jobs:
               docker exec edu-proxy-prod nginx -t
               docker exec edu-proxy-prod nginx -s reload
               echo "=== Nginx reloaded ==="
+            # Compose config changed: recreate services so commands/logging apply
+            elif [ "$COMPOSE_CHANGED" = "true" ]; then
+              echo "=== Compose config changed, reconciling services ==="
+              docker compose up -d
+              sleep 10
             # No code changes: just restart
             elif [ "$REBUILD_BACKEND" = "false" ] && [ "$REBUILD_FRONTEND" = "false" ]; then
               echo "=== No code changes, restarting containers ==="
