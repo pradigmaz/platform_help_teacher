@@ -133,8 +133,8 @@ async def get_current_active_superuser(
 async def verify_telegram_ip(request: Request):
     """
     Проверка, что запрос пришел от Telegram.
-    При работе через прокси (Nginx) доверяем X-Forwarded-For,
-    если сам запрос пришел из локальной сети (Docker network).
+    При работе через Cloudflare/Nginx приоритет у CF-Connecting-IP,
+    затем используем X-Forwarded-For и только потом client.host.
     """
     # В dev-режиме пропускаем проверку IP (для ngrok и локальной разработки)
     if settings.ENVIRONMENT == "development":
@@ -142,9 +142,18 @@ async def verify_telegram_ip(request: Request):
 
     client_host = request.client.host if request.client else None
 
-    # 1. Попытка получить реальный IP из заголовка X-Forwarded-For
+    # 1. Приоритет у Cloudflare, который проксирует реальный IP клиента
+    cf_connecting_ip = request.headers.get("CF-Connecting-IP")
     forwarded_for = request.headers.get("X-Forwarded-For")
-    real_ip_str = forwarded_for.split(",")[0].strip() if forwarded_for else client_host
+    ip_source = "client.host"
+    real_ip_str = client_host
+
+    if cf_connecting_ip:
+        real_ip_str = cf_connecting_ip.strip()
+        ip_source = "CF-Connecting-IP"
+    elif forwarded_for:
+        real_ip_str = forwarded_for.split(",")[0].strip()
+        ip_source = "X-Forwarded-For"
 
     if not real_ip_str:
         logger.warning("Could not determine client IP")
@@ -156,11 +165,14 @@ async def verify_telegram_ip(request: Request):
         # Проверка подсетей Telegram
         is_allowed = any(real_ip in ipaddress.ip_network(subnet) for subnet in TELEGRAM_SUBNETS)
         if not is_allowed:
-            logger.warning(f"Unauthorized Webhook IP: {real_ip_str} (Client: {client_host})")
+            logger.warning(
+                f"Unauthorized Webhook IP: {real_ip_str} "
+                f"(source={ip_source}, client={client_host}, xff={forwarded_for}, cf={cf_connecting_ip})"
+            )
             raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN)
 
     except ValueError:
-        logger.warning(f"Invalid IP address format: {real_ip_str}")
+        logger.warning(f"Invalid IP address format: {real_ip_str} (source={ip_source})")
         raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN) from None
 
 
