@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit.middleware import SESSION_COOKIE_NAME
 from app.core import error_messages as em
+from app.core.client_ip import extract_client_ip
 from app.core.config import settings
 from app.core.constants import TELEGRAM_SUBNETS
 from app.db.session import get_db
@@ -133,46 +134,38 @@ async def get_current_active_superuser(
 async def verify_telegram_ip(request: Request):
     """
     Проверка, что запрос пришел от Telegram.
-    При работе через Cloudflare/Nginx приоритет у CF-Connecting-IP,
-    затем используем X-Forwarded-For и только потом client.host.
+    CF-Connecting-IP доверяем только если запрос реально пришел
+    через Cloudflare.
     """
     # В dev-режиме пропускаем проверку IP (для ngrok и локальной разработки)
     if settings.ENVIRONMENT == "development":
         return
 
     client_host = request.client.host if request.client else None
-
-    # 1. Приоритет у Cloudflare, который проксирует реальный IP клиента
     cf_connecting_ip = request.headers.get("CF-Connecting-IP")
     forwarded_for = request.headers.get("X-Forwarded-For")
-    ip_source = "client.host"
-    real_ip_str = client_host
+    x_real_ip = request.headers.get("X-Real-IP")
+    client_ip = extract_client_ip(request)
 
-    if cf_connecting_ip:
-        real_ip_str = cf_connecting_ip.strip()
-        ip_source = "CF-Connecting-IP"
-    elif forwarded_for:
-        real_ip_str = forwarded_for.split(",")[0].strip()
-        ip_source = "X-Forwarded-For"
-
-    if not real_ip_str:
+    if not client_ip.value:
         logger.warning("Could not determine client IP")
         raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN) from None
 
     try:
-        real_ip = ipaddress.ip_address(real_ip_str)
+        real_ip = ipaddress.ip_address(client_ip.value)
 
         # Проверка подсетей Telegram
         is_allowed = any(real_ip in ipaddress.ip_network(subnet) for subnet in TELEGRAM_SUBNETS)
         if not is_allowed:
             logger.warning(
-                f"Unauthorized Webhook IP: {real_ip_str} "
-                f"(source={ip_source}, client={client_host}, xff={forwarded_for}, cf={cf_connecting_ip})"
+                f"Unauthorized Webhook IP: {client_ip.value} "
+                f"(source={client_ip.source}, client={client_host}, x_real_ip={x_real_ip}, "
+                f"xff={forwarded_for}, cf={cf_connecting_ip})"
             )
             raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN)
 
     except ValueError:
-        logger.warning(f"Invalid IP address format: {real_ip_str} (source={ip_source})")
+        logger.warning(f"Invalid IP address format: {client_ip.value} (source={client_ip.source})")
         raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN) from None
 
 

@@ -13,6 +13,7 @@ from jwt.exceptions import InvalidTokenError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from app.core.client_ip import extract_client_ip
 from app.core.config import settings
 from app.services.security_monitor import StrikeLevel, get_security_detector
 from app.services.security_monitor.constants import MESSAGES_RU
@@ -127,18 +128,7 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
 
     def _get_client_ip(self, request: Request) -> str | None:
         """Получает реальный IP клиента."""
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip.strip()
-
-        if request.client:
-            return request.client.host
-
-        return None
+        return extract_client_ip(request).value
 
     def _get_user_id_from_token(self, request: Request) -> UUID | None:
         """Извлекает user_id из JWT."""
