@@ -5,6 +5,7 @@ Sends backup files to admin via Telegram/VK.
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 from aiogram import Bot
@@ -19,6 +20,19 @@ from app.core.time_constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class NotificationResult:
+    """Result of sending a backup-related notification."""
+
+    success: bool
+    error: str | None = None
+
+
+def _resolve_telegram_id(admin_telegram_id: int | None = None) -> int | None:
+    """Resolve Telegram admin ID from explicit value or environment."""
+    return admin_telegram_id or settings.FIRST_SUPERUSER_ID
 
 
 class BackupNotificationService:
@@ -63,7 +77,7 @@ class BackupNotificationService:
         backup_name: str,
         size: int,
         admin_telegram_id: int | None = None,
-    ) -> bool:
+    ) -> NotificationResult:
         """
         Send encrypted backup file to admin via Telegram.
 
@@ -76,11 +90,17 @@ class BackupNotificationService:
         Returns:
             True if sent successfully
         """
-        telegram_id = admin_telegram_id or settings.FIRST_SUPERUSER_ID
+        telegram_id = _resolve_telegram_id(admin_telegram_id)
 
         if not telegram_id:
-            logger.warning("No admin Telegram ID configured for backup notification")
-            return False
+            error = "No admin Telegram ID configured for backup notification"
+            logger.warning(error)
+            return NotificationResult(success=False, error=error)
+
+        if not settings.TELEGRAM_BOT_TOKEN:
+            error = "Telegram bot token is not configured"
+            logger.warning(error)
+            return NotificationResult(success=False, error=error)
 
         try:
             size_kb = size / 1024
@@ -99,11 +119,12 @@ class BackupNotificationService:
             )
 
             logger.info(f"Backup sent to admin {telegram_id}: {backup_name}")
-            return True
+            return NotificationResult(success=True)
 
         except Exception as e:
-            logger.error(f"Failed to send backup to admin: {e}")
-            return False
+            error = f"Failed to send backup to admin: {e}"
+            logger.error(error)
+            return NotificationResult(success=False, error=error)
 
     async def send_backup_to_vk(
         self,
@@ -171,35 +192,36 @@ class BackupNotificationService:
         backup_name: str,
         size: int,
         admin_telegram_id: int | None = None,
-    ) -> bool:
+    ) -> NotificationResult:
         """Send success notification without file."""
-        telegram_id = admin_telegram_id or settings.FIRST_SUPERUSER_ID
+        telegram_id = _resolve_telegram_id(admin_telegram_id)
 
         if not telegram_id:
-            return False
+            return NotificationResult(success=False, error="No admin Telegram ID configured for backup notification")
 
         try:
             size_kb = size / 1024
             text = f"✅ <b>Бэкап создан успешно</b>\n\n📦 <code>{backup_name}</code>\n📊 Размер: {size_kb:.1f} KB"
 
             await self.bot.send_message(chat_id=telegram_id, text=text)
-            return True
+            return NotificationResult(success=True)
 
         except Exception as e:
-            logger.error(f"Failed to send backup notification: {e}")
-            return False
+            error = f"Failed to send backup notification: {e}"
+            logger.error(error)
+            return NotificationResult(success=False, error=error)
 
     async def notify_backup_failure(
         self,
         error: str,
         admin_telegram_id: int | None = None,
         traceback_text: str | None = None,
-    ) -> bool:
+    ) -> NotificationResult:
         """Send failure notification with optional log file."""
-        telegram_id = admin_telegram_id or settings.FIRST_SUPERUSER_ID
+        telegram_id = _resolve_telegram_id(admin_telegram_id)
 
         if not telegram_id:
-            return False
+            return NotificationResult(success=False, error="No admin Telegram ID configured for backup notification")
 
         try:
             text = f"❌ <b>Ошибка создания бэкапа</b>\n\n<code>{error[:500]}</code>"
@@ -237,11 +259,12 @@ class BackupNotificationService:
             else:
                 await self.bot.send_message(chat_id=telegram_id, text=text)
 
-            return True
+            return NotificationResult(success=True)
 
         except Exception as e:
-            logger.error(f"Failed to send failure notification: {e}")
-            return False
+            notify_error = f"Failed to send failure notification: {e}"
+            logger.error(notify_error)
+            return NotificationResult(success=False, error=notify_error)
 
     async def close(self):
         """Close bot session."""
@@ -270,18 +293,19 @@ def send_backup_to_admin_sync(
     backup_name: str,
     size: int,
     admin_telegram_id: int | None = None,
-) -> bool:
+) -> NotificationResult:
     """
     Синхронная отправка бэкапа админу через Telegram.
     Использует requests вместо aiogram.
     """
     import requests
 
-    telegram_id = admin_telegram_id or settings.FIRST_SUPERUSER_ID
+    telegram_id = _resolve_telegram_id(admin_telegram_id)
 
     if not telegram_id or not settings.TELEGRAM_BOT_TOKEN:
-        logger.warning("No admin Telegram ID or bot token configured")
-        return False
+        error = "No admin Telegram ID or bot token configured"
+        logger.warning(error)
+        return NotificationResult(success=False, error=error)
 
     try:
         size_kb = size / 1024
@@ -301,28 +325,30 @@ def send_backup_to_admin_sync(
 
         if response.status_code == 200:
             logger.info(f"Backup sent to admin {telegram_id}: {backup_name}")
-            return True
-        else:
-            logger.error(f"Failed to send backup: {response.text}")
-            return False
+            return NotificationResult(success=True)
+
+        error = f"Failed to send backup: {response.text}"
+        logger.error(error)
+        return NotificationResult(success=False, error=error)
 
     except Exception as e:
-        logger.error(f"Failed to send backup to admin: {e}")
-        return False
+        error = f"Failed to send backup to admin: {e}"
+        logger.error(error)
+        return NotificationResult(success=False, error=error)
 
 
 def notify_backup_failure_sync(
     error: str,
     admin_telegram_id: int | None = None,
     traceback_text: str | None = None,
-) -> bool:
+) -> NotificationResult:
     """Синхронное уведомление об ошибке бэкапа."""
     import requests
 
-    telegram_id = admin_telegram_id or settings.FIRST_SUPERUSER_ID
+    telegram_id = _resolve_telegram_id(admin_telegram_id)
 
     if not telegram_id or not settings.TELEGRAM_BOT_TOKEN:
-        return False
+        return NotificationResult(success=False, error="No admin Telegram ID or bot token configured")
 
     try:
         text = f"❌ Ошибка создания бэкапа\n\n{error[:500]}"
@@ -338,8 +364,14 @@ def notify_backup_failure_sync(
             timeout=TELEGRAM_NOTIFICATION_TIMEOUT_SECONDS,
         )
 
-        return response.status_code == 200
+        if response.status_code == 200:
+            return NotificationResult(success=True)
+
+        notify_error = f"Failed to send failure notification: {response.text}"
+        logger.error(notify_error)
+        return NotificationResult(success=False, error=notify_error)
 
     except Exception as e:
-        logger.error(f"Failed to send failure notification: {e}")
-        return False
+        notify_error = f"Failed to send failure notification: {e}"
+        logger.error(notify_error)
+        return NotificationResult(success=False, error=notify_error)

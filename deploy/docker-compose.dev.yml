@@ -1,6 +1,12 @@
 # Использует .env.dev по умолчанию
 # Запуск: docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
 
+x-docker-logging: &docker-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   # === DATA LAYER ===
   db:
@@ -20,6 +26,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -41,6 +48,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -65,6 +73,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -114,6 +123,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -143,6 +153,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -170,6 +181,10 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
+      FIRST_SUPERUSER_ID: ${FIRST_SUPERUSER_ID}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
+      BACKUP_STORAGE_BUCKET: ${BACKUP_STORAGE_BUCKET:-edu-backups}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
     depends_on:
       db:
         condition: service_healthy
@@ -181,6 +196,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -206,6 +222,10 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
+      FIRST_SUPERUSER_ID: ${FIRST_SUPERUSER_ID}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
+      BACKUP_STORAGE_BUCKET: ${BACKUP_STORAGE_BUCKET:-edu-backups}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
     depends_on:
       - celery-worker
     volumes:
@@ -214,6 +234,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -234,6 +255,7 @@ services:
       - frontend
     networks:
       - backend-net
+    logging: *docker-logging
     deploy:
       resources:
         limits:

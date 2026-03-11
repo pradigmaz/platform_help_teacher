@@ -66,6 +66,9 @@ export function BackupTab() {
       const result = await BackupAPI.create();
       if (result.success) {
         toast.success(`Бэкап создан: ${result.backup_key}`);
+        if (result.notification_sent === false) {
+          toast.error(result.notification_error || 'Бэкап создан, но отправка в Telegram не удалась');
+        }
         await loadData();
       } else {
         toast.error(`Ошибка: ${result.error}`);

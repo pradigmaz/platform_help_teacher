@@ -57,6 +57,9 @@ class BackupCreateResponse(BaseModel):
     success: bool
     backup_key: str | None = None
     size: int | None = None
+    uploaded: bool = False
+    notification_sent: bool | None = None
+    notification_error: str | None = None
     error: str | None = None
 
 

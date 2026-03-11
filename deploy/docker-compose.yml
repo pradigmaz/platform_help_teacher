@@ -1,6 +1,12 @@
 # Использует .env.prod по умолчанию
 # Запуск: docker compose --env-file .env.prod up -d
 
+x-docker-logging: &docker-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   # === DATA LAYER ===
   db:
@@ -30,6 +36,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -51,6 +58,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -75,6 +83,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -122,6 +131,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -150,6 +160,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -178,6 +189,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
+      FIRST_SUPERUSER_ID: ${FIRST_SUPERUSER_ID}
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
       ENVIRONMENT: production
     depends_on:
@@ -185,12 +197,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A app.core.celery_app worker -B --loglevel=warning --max-tasks-per-child=50 --concurrency=2
+    command: celery -A app.core.celery_app worker -B --loglevel=INFO --max-tasks-per-child=50 --concurrency=2
     healthcheck:
       disable: true
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -215,6 +228,7 @@ services:
     networks:
       - backend-net
     restart: always
+    logging: *docker-logging
     deploy:
       resources:
         limits:
@@ -231,6 +245,7 @@ services:
       - certbot_www:/var/www/certbot
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'"
     restart: unless-stopped
+    logging: *docker-logging
     deploy:
       resources:
         limits:

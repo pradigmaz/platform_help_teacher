@@ -190,12 +190,32 @@ class BackupStorage:
             client.create_bucket(Bucket=self.bucket)
             logger.info(f"Created backup bucket: {self.bucket}")
 
-    def upload_sync(self, local_path: Path, remote_key: str) -> str:
+    def upload_sync(self, local_path: Path, remote_key: str, verify: bool = True) -> str:
         """Upload backup (sync version for Celery)."""
         self.ensure_bucket_sync()
         client = self._get_sync_client()
+        local_md5 = _compute_md5(local_path) if verify else None
         client.upload_file(str(local_path), self.bucket, remote_key)
         logger.info(f"Uploaded backup: {remote_key}")
+
+        if verify:
+            resp = client.head_object(Bucket=self.bucket, Key=remote_key)
+            remote_etag = resp.get("ETag", "").strip('"')
+            is_multipart = "-" in remote_etag
+
+            if is_multipart:
+                remote_size = resp.get("ContentLength", 0)
+                local_size = local_path.stat().st_size
+                if remote_size != local_size:
+                    client.delete_object(Bucket=self.bucket, Key=remote_key)
+                    raise RuntimeError(f"Upload size mismatch: local={local_size}, remote={remote_size}")
+                logger.info(f"Upload verified (multipart, size check): {remote_key}")
+            elif remote_etag != local_md5:
+                client.delete_object(Bucket=self.bucket, Key=remote_key)
+                raise RuntimeError(f"Upload verification failed: local={local_md5}, remote={remote_etag}")
+            else:
+                logger.info(f"Upload verified: {remote_key} (MD5: {local_md5})")
+
         return remote_key
 
     def list_backups_sync(self) -> list[BackupMetadata]:

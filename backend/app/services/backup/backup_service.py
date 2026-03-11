@@ -70,6 +70,9 @@ class BackupResult:
     success: bool
     backup_key: str | None = None
     size: int | None = None
+    uploaded: bool = False
+    notification_sent: bool | None = None
+    notification_error: str | None = None
     error: str | None = None
 
 
@@ -84,6 +87,7 @@ class BackupService:
         self,
         name: str | None = None,
         send_to_admin: bool = True,
+        notify_on_failure: bool = True,
     ) -> BackupResult:
         """
         Create encrypted backup of PostgreSQL database.
@@ -126,18 +130,27 @@ class BackupService:
                 logger.info(f"Backup completed: {remote_key} ({size} bytes)")
 
                 # Step 5: Send to admin via Telegram
+                notification_sent = None
+                notification_error = None
                 if send_to_admin:
                     notifier = get_notification_service()
-                    await notifier.send_backup_to_admin(
+                    notification_result = await notifier.send_backup_to_admin(
                         file_path=encrypted_file,
                         backup_name=remote_key,
                         size=size,
                     )
+                    notification_sent = notification_result.success
+                    notification_error = notification_result.error
+                    if not notification_result.success and notification_result.error:
+                        logger.warning(notification_result.error)
 
                 return BackupResult(
                     success=True,
                     backup_key=remote_key,
                     size=size,
+                    uploaded=True,
+                    notification_sent=notification_sent,
+                    notification_error=notification_error,
                 )
 
             except Exception as e:
@@ -146,8 +159,11 @@ class BackupService:
                 tb_text = traceback.format_exc()
                 logger.error(f"Backup failed: {e}\n{tb_text}")
                 # Notify admin about failure with full traceback
-                notifier = get_notification_service()
-                await notifier.notify_backup_failure(str(e), traceback_text=tb_text)
+                if notify_on_failure:
+                    notifier = get_notification_service()
+                    notify_result = await notifier.notify_backup_failure(str(e), traceback_text=tb_text)
+                    if not notify_result.success and notify_result.error:
+                        logger.warning(notify_result.error)
                 return BackupResult(success=False, error=str(e))
 
     async def _pg_dump(self, output_path: Path) -> None:
@@ -190,7 +206,12 @@ class BackupService:
                 stderr=asyncio.subprocess.PIPE,
             )
 
-            _, stderr = await proc.communicate()
+            try:
+                _, stderr = await asyncio.wait_for(proc.communicate(), timeout=BACKUP_DUMP_TIMEOUT_SECONDS)
+            except TimeoutError as exc:
+                proc.kill()
+                await proc.wait()
+                raise RuntimeError(f"pg_dump timed out after {BACKUP_DUMP_TIMEOUT_SECONDS} seconds") from exc
 
             if proc.returncode != 0:
                 raise RuntimeError(f"pg_dump failed: {stderr.decode()}")
@@ -247,6 +268,7 @@ class BackupService:
         self,
         name: str | None = None,
         send_to_admin: bool = True,
+        notify_on_failure: bool = True,
     ) -> BackupResult:
         """
         Синхронная версия create_backup для Celery tasks.
@@ -276,25 +298,34 @@ class BackupService:
 
                 # Step 4: Upload (sync)
                 remote_key = f"{backup_name}.enc"
-                self.storage.upload_sync(encrypted_file, remote_key)
+                self.storage.upload_sync(encrypted_file, remote_key, verify=True)
 
                 size = encrypted_file.stat().st_size
                 logger.info(f"Backup completed: {remote_key} ({size} bytes)")
 
                 # Step 5: Send to admin (sync)
+                notification_sent = None
+                notification_error = None
                 if send_to_admin:
                     from .notification import send_backup_to_admin_sync
 
-                    send_backup_to_admin_sync(
+                    notification_result = send_backup_to_admin_sync(
                         file_path=encrypted_file,
                         backup_name=remote_key,
                         size=size,
                     )
+                    notification_sent = notification_result.success
+                    notification_error = notification_result.error
+                    if not notification_result.success and notification_result.error:
+                        logger.warning(notification_result.error)
 
                 return BackupResult(
                     success=True,
                     backup_key=remote_key,
                     size=size,
+                    uploaded=True,
+                    notification_sent=notification_sent,
+                    notification_error=notification_error,
                 )
 
             except Exception as e:
@@ -304,7 +335,10 @@ class BackupService:
                 logger.error(f"Backup failed: {e}\n{tb_text}")
                 from .notification import notify_backup_failure_sync
 
-                notify_backup_failure_sync(str(e), traceback_text=tb_text)
+                if notify_on_failure:
+                    notify_result = notify_backup_failure_sync(str(e), traceback_text=tb_text)
+                    if not notify_result.success and notify_result.error:
+                        logger.warning(notify_result.error)
                 return BackupResult(success=False, error=str(e))
 
     def _pg_dump_sync(self, output_path: Path) -> None:

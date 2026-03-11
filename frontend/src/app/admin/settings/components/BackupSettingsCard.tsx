@@ -24,7 +24,7 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
     mode: 'onChange',
     defaultValues: {
       enabled: settings?.enabled ?? true,
-      schedule_hour: settings?.schedule_hour ?? 3,
+      schedule_hour: settings?.schedule_hour ?? 17,
       schedule_minute: settings?.schedule_minute ?? 0,
       retention_days: settings?.retention_days ?? 30,
       max_backups: settings?.max_backups ?? 10,

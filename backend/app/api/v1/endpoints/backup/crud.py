@@ -54,6 +54,9 @@ async def create_backup(
         success=result.success,
         backup_key=result.backup_key,
         size=result.size,
+        uploaded=result.uploaded,
+        notification_sent=result.notification_sent,
+        notification_error=result.notification_error,
         error=result.error,
     )
 
@@ -119,28 +122,10 @@ async def upload_backup(
     if len(content) == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.EMPTY_FILE)
 
-    # SECURITY: Validate encrypted file format (magic bytes check)
-    # Format v1: [version:1][salt:16][nonce:8]... minimum 25 bytes header
-    # Format v0 (legacy): [salt:16][nonce:12]... minimum 28 bytes
-    MIN_ENCRYPTED_SIZE = 25 + 16  # header + at least one tag
+    # Minimum size for v1: header(25) + tag(16)
+    MIN_ENCRYPTED_SIZE = 25 + 16
     if len(content) < MIN_ENCRYPTED_SIZE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.FILE_TOO_SMALL)
-
-    # Check format version byte
-    version_byte = content[0]
-    if version_byte == 1:
-        # v1 format: version(1) + salt(16) + base_nonce(8) = 25 bytes header
-        if len(content) < 25 + 16:  # header + minimum ciphertext with tag
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.INVALID_BACKUP_FORMAT)
-    elif version_byte <= 16:
-        # Likely legacy format (first byte is part of salt)
-        # Legacy: salt(16) + nonce(12) = 28 bytes header
-        if len(content) < 28 + 16:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.INVALID_BACKUP_FORMAT)
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown encryption format version: {version_byte}"
-        )
 
     try:
         safe_filename = validate_backup_key(file.filename)
@@ -150,16 +135,20 @@ async def upload_backup(
             tmp_path = Path(tmp.name)
 
         try:
+            if not service.encryption.verify_file(tmp_path):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.INVALID_BACKUP_FORMAT)
+
             await service.storage.upload(tmp_path, safe_filename)
-            logger.info(
-                f"Backup uploaded by {current_user.id}: {safe_filename} (v{version_byte if version_byte == 1 else 0})"
-            )
+            version = service.encryption.get_file_version(tmp_path)
+            logger.info(f"Backup uploaded by {current_user.id}: {safe_filename} (v{version})")
             return UploadBackupResponse(success=True, backup_key=safe_filename, size=len(content))
         finally:
             tmp_path.unlink(missing_ok=True)
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Upload failed: {e}")
         return UploadBackupResponse(success=False, error=str(e)[:200])

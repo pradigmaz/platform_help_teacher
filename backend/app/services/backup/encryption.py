@@ -133,12 +133,9 @@ class BackupEncryption:
             version = struct.unpack("B", in_f.read(VERSION_SIZE))[0]
 
             if version != FORMAT_VERSION:
-                # Try legacy format (no version byte)
-                if version in range(SALT_SIZE):  # Likely old format salt byte
-                    in_f.seek(0)
-                    self._decrypt_legacy(in_f, output_path)
-                    return
-                raise ValueError(f"Unsupported encryption format version: {version}")
+                in_f.seek(0)
+                self._decrypt_legacy(in_f, output_path)
+                return
 
             salt = in_f.read(SALT_SIZE)
             base_nonce = in_f.read(8)  # Only 8 bytes, rest is counter
@@ -201,7 +198,10 @@ class BackupEncryption:
                 # Check minimum size
                 f.seek(0, 2)
                 size = f.tell()
-                min_size = VERSION_SIZE + SALT_SIZE + 8 + TAG_SIZE
+                if version == FORMAT_VERSION:
+                    min_size = VERSION_SIZE + SALT_SIZE + 8 + TAG_SIZE
+                else:
+                    min_size = SALT_SIZE + NONCE_SIZE + TAG_SIZE
                 if size < min_size:
                     return False
 

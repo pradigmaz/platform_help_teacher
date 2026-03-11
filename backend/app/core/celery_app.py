@@ -44,7 +44,8 @@ celery_app.conf.beat_schedule = {
     },
     "create-daily-backup": {
         "task": "app.tasks.backup_tasks.create_scheduled_backup",
-        "schedule": crontab(hour=20, minute=0),  # 20:00 МСК (17:00 UTC)
+        # Backup task reads the actual hour/minute from DB and runs only when due.
+        "schedule": crontab(minute="*"),
     },
     "cleanup-old-audit-logs": {
         "task": "app.tasks.audit_tasks.cleanup_old_audit_logs",

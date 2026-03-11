@@ -16,6 +16,9 @@ export interface BackupCreateResponse {
   success: boolean;
   backup_key?: string;
   size?: number;
+  uploaded?: boolean;
+  notification_sent?: boolean | null;
+  notification_error?: string | null;
   error?: string;
 }
 

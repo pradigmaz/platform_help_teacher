@@ -4,6 +4,7 @@ Handles download, decryption, decompression, and pg_restore.
 """
 
 import asyncio
+import contextlib
 import gzip
 import logging
 import tempfile
@@ -11,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.core.config import settings
+from app.core.time_constants import BACKUP_DUMP_TIMEOUT_SECONDS
 
 from .encryption import BackupEncryption
 from .remote_storage import BackupStorage
@@ -91,6 +93,39 @@ class RestoreService:
 
         logger.info(f"Decompressed: {input_path.stat().st_size} -> {output_path.stat().st_size}")
 
+    async def _run_subprocess(
+        self,
+        cmd: list[str],
+        *,
+        env: dict[str, str] | None = None,
+        error_prefix: str,
+    ) -> tuple[str, str]:
+        """Run a subprocess with timeout and strict non-zero handling."""
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=BACKUP_DUMP_TIMEOUT_SECONDS)
+        except TimeoutError as exc:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            with contextlib.suppress(ProcessLookupError):
+                await proc.wait()
+            raise RuntimeError(f"{error_prefix} timed out after {BACKUP_DUMP_TIMEOUT_SECONDS} seconds") from exc
+
+        stdout_text = stdout.decode(errors="replace")
+        stderr_text = stderr.decode(errors="replace")
+
+        if proc.returncode != 0:
+            details = stderr_text.strip() or stdout_text.strip() or f"exit code {proc.returncode}"
+            raise RuntimeError(f"{error_prefix} failed: {details}")
+
+        return stdout_text, stderr_text
+
     async def _pg_restore(self, dump_path: Path, drop_existing: bool) -> None:
         """Execute pg_restore command."""
         cmd = [
@@ -105,40 +140,32 @@ class RestoreService:
         ]
 
         if drop_existing:
-            cmd.append("--clean")
+            cmd.extend(["--clean", "--if-exists"])
 
         cmd.append(str(dump_path))
 
         env = {"PGPASSWORD": settings.POSTGRES_PASSWORD}
-
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
+        await self._run_subprocess(
+            cmd,
             env={**dict(__import__("os").environ), **env},
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            error_prefix="pg_restore",
         )
-
-        _, stderr = await proc.communicate()
-
-        # pg_restore returns non-zero for warnings too, check stderr
-        if proc.returncode != 0:
-            stderr_text = stderr.decode()
-            # Ignore "already exists" warnings
-            if "ERROR" in stderr_text and "already exists" not in stderr_text:
-                raise RuntimeError(f"pg_restore failed: {stderr_text}")
-            logger.warning(f"pg_restore warnings: {stderr_text}")
-
         logger.info("pg_restore completed")
+
+    async def _verify_dump(self, dump_path: Path) -> None:
+        """Verify that the dump is structurally readable by pg_restore."""
+        await self._run_subprocess(["pg_restore", "--list", str(dump_path)], error_prefix="pg_restore --list")
 
     async def verify_backup(self, backup_key: str) -> bool:
         """
         Verify backup integrity without full restore.
-        Downloads and decrypts to verify, but doesn't restore.
+        Downloads, decrypts, fully decompresses, and validates dump structure.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             encrypted_file = tmp_path / "backup.enc"
             compressed_file = tmp_path / "backup.dump.gz"
+            dump_file = tmp_path / "backup.dump"
 
             try:
                 await self.storage.download(backup_key, encrypted_file)
@@ -146,13 +173,9 @@ class RestoreService:
                 if not self.encryption.verify_file(encrypted_file):
                     return False
 
-                # Try decryption
                 self.encryption.decrypt_file(encrypted_file, compressed_file)
-
-                # Verify gzip header
-                with gzip.open(compressed_file, "rb") as f:
-                    f.read(1)  # Just check it opens
-
+                self._decompress(compressed_file, dump_file)
+                await self._verify_dump(dump_file)
                 return True
 
             except Exception as e:
