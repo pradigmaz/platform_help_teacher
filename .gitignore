@@ -30,6 +30,8 @@ Thumbs.db
 
 # Testing
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 /tests/
@@ -66,16 +68,14 @@ deploy/openapi_temp.json
 skills/
 
 .ai/vps-config.json
-# Logs
-backend/logs/
 
-# Logs
-backend/logs/
+# Runtime artifacts
+backend/celerybeat-schedule
+backend/logs/*
+!backend/logs/.gitkeep
 
 .hypothesis/
 
 backend/.ai
 
 frontend/.ai
-
-backend/logs

@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { AuditLog } from "@/lib/api";
-import { ACTION_LABELS, formatAuditDate } from "../lib/audit-constants";
+import { ACTION_LABELS, formatAuditDate, getActorRoleMeta } from "../lib/audit-constants";
 
 const AUTH_ERROR_SHORT: Record<string, string> = {
   no_token: "Нет токена",
@@ -83,11 +83,23 @@ export function AuditLogsTable({ logs, loading, onLogClick }: AuditLogsTableProp
 
 function AuditLogRow({ log, onClick }: { log: AuditLog; onClick: () => void }) {
   const action = ACTION_LABELS[log.action_type] || { label: log.action_type, color: "bg-gray-500/10" };
+  const actorRole = getActorRoleMeta(log.actor_role);
+  const userLabel =
+    log.user_name || (log.actor_role === "anonymous" || log.user_id === null ? "Аноним" : "—");
   
   return (
     <TableRow className="cursor-pointer hover:bg-muted/50" onClick={onClick}>
       <TableCell className="font-mono text-sm">{formatAuditDate(log.created_at)}</TableCell>
-      <TableCell>{log.user_name || <span className="text-muted-foreground">—</span>}</TableCell>
+      <TableCell>
+        <div className="flex flex-col gap-1">
+          <span className={log.user_name ? undefined : "text-muted-foreground"}>{userLabel}</span>
+          {actorRole && (
+            <Badge variant="outline" className={`w-fit ${actorRole.color}`}>
+              {actorRole.label}
+            </Badge>
+          )}
+        </div>
+      </TableCell>
       <TableCell>
         <Badge variant="secondary" className={action.color}>{action.label}</Badge>
       </TableCell>

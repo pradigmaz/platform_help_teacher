@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { AuditLog } from "@/lib/api";
+import { getActorRoleMeta } from "../lib/audit-constants";
 
 const AUTH_ERROR_REASONS: Record<string, string> = {
   no_token: "Токен отсутствует — клиент не отправил cookie с access_token",
@@ -58,6 +59,9 @@ export function AuditDetailDialog({ log, onClose }: Props) {
 
   const formatDate = (dateStr: string) => new Date(dateStr).toLocaleString("ru-RU");
   const fp = log.fingerprint as FingerprintData | undefined;
+  const actorRole = getActorRoleMeta(log.actor_role);
+  const userLabel =
+    log.user_name || (log.actor_role === "anonymous" || log.user_id === null ? "Аноним" : "—");
 
   return (
     <Dialog open={!!log} onOpenChange={() => onClose()}>
@@ -83,7 +87,12 @@ export function AuditDetailDialog({ log, onClose }: Props) {
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                   <User className="h-4 w-4" /> Пользователь
                 </p>
-                <p>{log.user_name || "Аноним"}</p>
+                <p>{userLabel}</p>
+                {actorRole && (
+                  <Badge variant="outline" className={`w-fit ${actorRole.color}`}>
+                    {actorRole.label}
+                  </Badge>
+                )}
               </div>
             </div>
 

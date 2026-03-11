@@ -19,6 +19,8 @@ from app.core.time_constants import (
     REFRESH_TOKEN_EXPIRE_DAYS as DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS,
 )
 
+VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -26,8 +28,17 @@ class Settings(BaseSettings):
     )
 
     ENVIRONMENT: str = "development"
+    LOG_LEVEL: str = "INFO"
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Edu Platform API"
+
+    @field_validator("LOG_LEVEL", mode="before")
+    @classmethod
+    def normalize_log_level(cls, v: str | None) -> str:
+        if not v:
+            return "INFO"
+        normalized = str(v).strip().upper()
+        return normalized if normalized in VALID_LOG_LEVELS else "INFO"
 
     # URLS
     BACKEND_URL: str = "http://localhost:8000"

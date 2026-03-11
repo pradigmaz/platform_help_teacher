@@ -18,7 +18,7 @@ from app.core.config import settings
 from .constants import ActionType
 from .schemas import AuditContext
 from .service import get_audit_service
-from .utils import extract_fingerprint, extract_ip_info, should_audit
+from .utils import extract_body, extract_fingerprint, extract_ip_info, should_audit
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +82,9 @@ class AuditMiddleware(BaseHTTPMiddleware):
         # Извлекаем fingerprint
         fingerprint = extract_fingerprint(request)
 
+        # Сохраняем только whitelisted и sanitized request body
+        request_body = await extract_body(request)
+
         # Извлекаем user_id и role из токена
         user_id, role = extract_user_info_from_token(request)
 
@@ -112,6 +115,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             method=request.method,
             path=request.url.path,
             query_params=dict(request.query_params) if request.query_params else None,
+            request_body=request_body,
             ip_address=ip_info.real_ip,
             ip_forwarded=ip_info.forwarded_chain,
             user_agent=request.headers.get("user-agent"),
@@ -133,10 +137,6 @@ class AuditMiddleware(BaseHTTPMiddleware):
         duration_ms = int((time.perf_counter() - start_time) * 1000)
         audit_context.response_status = response.status_code
         audit_context.duration_ms = duration_ms
-
-        # Определяем action_type по статусу
-        if response.status_code >= 400:
-            audit_context.action_type = ActionType.ERROR.value
 
         # Добавляем причину auth ошибки если есть
         auth_error_reason = getattr(request.state, "auth_error_reason", None)

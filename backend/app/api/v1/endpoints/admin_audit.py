@@ -3,7 +3,7 @@ Admin Audit API — просмотр логов действий студент�
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -91,6 +91,7 @@ async def get_audit_logs(
             id=log.id,
             user_id=log.user_id,
             user_name=users_map.get(log.user_id) if log.user_id else None,
+            actor_role=log.actor_role,
             action_type=log.action_type,
             entity_type=log.entity_type,
             entity_id=log.entity_id,
@@ -137,6 +138,7 @@ async def get_audit_log_detail(
         id=log.id,
         user_id=log.user_id,
         user_name=user_name,
+        actor_role=log.actor_role,
         action_type=log.action_type,
         entity_type=log.entity_type,
         entity_id=log.entity_id,
@@ -190,7 +192,7 @@ async def get_audit_stats(
     days: int = Query(7, ge=1, le=30),
 ):
     """Статистика аудита за период."""
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now(UTC) - timedelta(days=days)
 
     # Общее количество
     total_result = await db.execute(select(func.count(StudentAuditLog.id)).where(StudentAuditLog.created_at >= since))

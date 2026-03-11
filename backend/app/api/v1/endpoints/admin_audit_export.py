@@ -2,7 +2,7 @@
 Admin Audit Export API — выгрузка логов для анализа ИИ.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -15,37 +15,16 @@ from app.audit.models import StudentAuditLog
 from app.models.user import User
 
 router = APIRouter()
+EXPORT_BATCH_SIZE = 500
 
 
-async def _stream_jsonl(db: AsyncSession, query, users_map: dict):
-    """Генератор JSONL строк."""
-    import json
+async def _load_users_map(db: AsyncSession, logs: list[StudentAuditLog]) -> dict:
+    user_ids = list({log.user_id for log in logs if log.user_id})
+    if not user_ids:
+        return {}
 
-    result = await db.execute(query)
-    logs = result.scalars().all()
-
-    for log in logs:
-        record = {
-            "id": str(log.id),
-            "timestamp": log.created_at.isoformat() if log.created_at else None,
-            "user_id": str(log.user_id) if log.user_id else None,
-            "user_name": users_map.get(log.user_id) if log.user_id else None,
-            "action": log.action_type,
-            "entity_type": log.entity_type,
-            "entity_id": str(log.entity_id) if log.entity_id else None,
-            "method": log.method,
-            "path": log.path,
-            "query_params": log.query_params,
-            "request_body": log.request_body,
-            "status": log.response_status,
-            "duration_ms": log.duration_ms,
-            "ip": log.ip_address,
-            "ip_chain": log.ip_forwarded,
-            "user_agent": log.user_agent,
-            "fingerprint": log.fingerprint,
-            "extra": log.extra_data,
-        }
-        yield json.dumps(record, ensure_ascii=False) + "\n"
+    users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+    return {user.id: user.full_name for user in users_result.scalars().all()}
 
 
 @router.get("/export")
@@ -66,7 +45,7 @@ async def export_audit_logs(
     Удобно для потоковой обработки и скармливания LLM.
     """
     # Базовый запрос
-    query = select(StudentAuditLog).order_by(desc(StudentAuditLog.created_at))
+    query = select(StudentAuditLog).order_by(desc(StudentAuditLog.created_at), desc(StudentAuditLog.id))
 
     # Фильтры
     if user_id:
@@ -78,51 +57,56 @@ async def export_audit_logs(
     if date_from:
         query = query.where(StudentAuditLog.created_at >= date_from)
     else:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(UTC) - timedelta(days=days)
         query = query.where(StudentAuditLog.created_at >= since)
 
     if date_to:
         query = query.where(StudentAuditLog.created_at <= date_to)
 
-    query = query.limit(limit)
-
-    # Предзагрузка пользователей
-    result = await db.execute(query)
-    logs = result.scalars().all()
-
-    user_ids = list({log.user_id for log in logs if log.user_id})
-    users_map = {}
-    if user_ids:
-        users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
-        users_map = {u.id: u.full_name for u in users_result.scalars().all()}
-
     # Генерируем JSONL
     import json
 
-    def generate():
-        for log in logs:
-            record = {
-                "id": str(log.id),
-                "ts": log.created_at.isoformat() if log.created_at else None,
-                "user_id": str(log.user_id) if log.user_id else None,
-                "user": users_map.get(log.user_id),
-                "action": log.action_type,
-                "entity": log.entity_type,
-                "entity_id": str(log.entity_id) if log.entity_id else None,
-                "method": log.method,
-                "path": log.path,
-                "params": log.query_params,
-                "body": log.request_body,
-                "status": log.response_status,
-                "ms": log.duration_ms,
-                "ip": log.ip_address,
-                "ua": log.user_agent,
-                "fp": log.fingerprint,
-                "extra": log.extra_data,
-            }
-            yield json.dumps(record, ensure_ascii=False) + "\n"
+    async def generate():
+        emitted = 0
 
-    filename = f"audit_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.jsonl"
+        while emitted < limit:
+            batch_limit = min(EXPORT_BATCH_SIZE, limit - emitted)
+            result = await db.execute(query.offset(emitted).limit(batch_limit))
+            logs = result.scalars().all()
+            if not logs:
+                break
+
+            users_map = await _load_users_map(db, logs)
+
+            for log in logs:
+                record = {
+                    "id": str(log.id),
+                    "ts": log.created_at.isoformat() if log.created_at else None,
+                    "user_id": str(log.user_id) if log.user_id else None,
+                    "user": users_map.get(log.user_id),
+                    "actor_role": log.actor_role,
+                    "action": log.action_type,
+                    "entity": log.entity_type,
+                    "entity_id": str(log.entity_id) if log.entity_id else None,
+                    "method": log.method,
+                    "path": log.path,
+                    "params": log.query_params,
+                    "body": log.request_body,
+                    "status": log.response_status,
+                    "ms": log.duration_ms,
+                    "ip": log.ip_address,
+                    "ip_chain": log.ip_forwarded,
+                    "ua": log.user_agent,
+                    "fp": log.fingerprint,
+                    "extra": log.extra_data,
+                }
+                yield json.dumps(record, ensure_ascii=False) + "\n"
+
+            emitted += len(logs)
+            if len(logs) < batch_limit:
+                break
+
+    filename = f"audit_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.jsonl"
 
     return StreamingResponse(
         generate(),

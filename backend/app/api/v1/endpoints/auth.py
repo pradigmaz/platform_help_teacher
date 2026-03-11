@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -21,6 +22,7 @@ from app.models.user import UserRole
 from app.services import device_service, session_service
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/csrf-token")
@@ -48,20 +50,16 @@ async def login_with_otp(
     Обмен OTP кода на HttpOnly Cookie.
     Поддерживает Telegram и VK.
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
     await csrf_protect.validate_csrf(request)
 
     # Логируем для отладки (маскируем код)
     otp_masked = otp[:2] + "****" if len(otp) >= 2 else "***"
-    logger.info(f"OTP login attempt: code={otp_masked}, len={len(otp)}, repr={repr(otp)}")
+    logger.info("OTP login attempt received | code=%s | len=%s", otp_masked, len(otp))
 
     auth_data = await redis.get(f"auth:{otp}")
 
     if not auth_data:
-        logger.warning(f"OTP not found in Redis: code={otp_masked}")
+        logger.warning("OTP not found in Redis | code=%s", otp_masked)
         raise HTTPException(status_code=400, detail=em.INVALID_OR_EXPIRED_CODE)
 
     # Парсим данные (JSON с social_id и platform)

@@ -82,6 +82,7 @@ EXCLUDED_PATHS: set[str] = {
     "/redoc",
     "/openapi.json",
     "/favicon.ico",
+    "/api/v1/auth/csrf-token",
 }
 
 # Префиксы путей для логирования (whitelist)

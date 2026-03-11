@@ -15,6 +15,31 @@ export const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   bot_message: { label: "Бот сообщение", color: "bg-slate-500/10 text-slate-500" },
 };
 
+const DEFAULT_ACTOR_ROLE = {
+  label: "Неизвестно",
+  color: "bg-muted text-muted-foreground border-border",
+};
+
+export const ACTOR_ROLE_LABELS: Record<string, { label: string; color: string }> = {
+  student: { label: "Студент", color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-400" },
+  teacher: { label: "Преподаватель", color: "bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-400" },
+  admin: { label: "Админ", color: "bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-400" },
+  anonymous: { label: "Аноним", color: "bg-muted text-muted-foreground border-border" },
+};
+
+export function getActorRoleMeta(actorRole?: string | null) {
+  if (!actorRole) {
+    return null;
+  }
+
+  const normalizedRole = actorRole.toLowerCase();
+
+  return ACTOR_ROLE_LABELS[normalizedRole] ?? {
+    label: actorRole,
+    color: DEFAULT_ACTOR_ROLE.color,
+  };
+}
+
 export function formatAuditDate(dateStr: string): string {
   return new Date(dateStr).toLocaleString("ru-RU", {
     day: "2-digit",

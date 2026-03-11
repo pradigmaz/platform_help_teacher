@@ -40,8 +40,8 @@ class StudentAuditLog(Base):
     # HTTP контекст
     method: Mapped[str] = mapped_column(String(10), nullable=False)
     path: Mapped[str] = mapped_column(String(500), nullable=False)
-    query_params: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    request_body: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    query_params: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    request_body: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     response_status: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
@@ -51,8 +51,8 @@ class StudentAuditLog(Base):
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     # Fingerprint и дополнительные данные
-    fingerprint: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    extra_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    fingerprint: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    extra_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
 
     # Timestamp
     created_at: Mapped[datetime] = mapped_column(

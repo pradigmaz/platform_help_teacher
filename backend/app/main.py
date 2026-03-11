@@ -1,7 +1,5 @@
 import logging
-import os
 from contextlib import asynccontextmanager, suppress
-from logging.handlers import RotatingFileHandler
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -14,12 +12,16 @@ from sqlalchemy import select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
+from app.core.config import settings
+from app.core.logging_config import configure_logging
+
+configure_logging(settings.LOG_LEVEL)
+
 from app.api.v1.api import api_router
 from app.audit.deps import set_audit_extra
 from app.audit.middleware import AuditMiddleware
 from app.bots import vk_bot
 from app.bots.telegram_bot import bot
-from app.core.config import settings
 from app.core.csrf import get_csrf_config  # noqa: F401 - loads config
 from app.core.csrf_middleware import CSRFMiddleware
 from app.core.limiter import limiter
@@ -29,28 +31,6 @@ from app.db.session import AsyncSessionLocal
 from app.models import User, UserRole
 from app.services.external_api import kis_client
 from app.services.pdf_service import pdf_service
-
-# Настройка логирования
-log_level = logging.DEBUG if os.getenv("ENVIRONMENT") == "development" else logging.INFO
-log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-# Базовая конфигурация
-logging.basicConfig(level=log_level, format=log_format)
-
-# Файловый handler с ротацией (5 файлов по 10MB)
-log_dir = "/app/logs"
-os.makedirs(log_dir, exist_ok=True)
-file_handler = RotatingFileHandler(
-    f"{log_dir}/app.log",
-    maxBytes=10 * 1024 * 1024,  # 10MB
-    backupCount=5,
-    encoding="utf-8",
-)
-file_handler.setFormatter(logging.Formatter(log_format))
-file_handler.setLevel(log_level)
-
-# Добавляем handler к root logger
-logging.getLogger().addHandler(file_handler)
 
 logger = logging.getLogger(__name__)
 
