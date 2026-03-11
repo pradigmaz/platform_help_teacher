@@ -79,8 +79,11 @@ jobs:
             # NGINX-only: hot reload without restart
             if [ "$NGINX_ONLY" = "true" ]; then
               echo "=== Nginx config changed, hot reload ==="
-              docker cp nginx.conf edu-proxy-prod:/etc/nginx/nginx.conf
-              docker exec edu-proxy-prod nginx -t && docker exec edu-proxy-prod nginx -s reload
+              # nginx.conf is bind-mounted from the host repo into the container,
+              # so after git reset the updated file is already visible in /etc/nginx/nginx.conf.
+              docker compose up -d --no-deps nginx
+              docker exec edu-proxy-prod nginx -t
+              docker exec edu-proxy-prod nginx -s reload
               echo "=== Nginx reloaded ==="
             # No code changes: just restart
             elif [ "$REBUILD_BACKEND" = "false" ] && [ "$REBUILD_FRONTEND" = "false" ]; then
