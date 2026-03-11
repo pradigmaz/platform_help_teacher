@@ -30,6 +30,7 @@ def _format_submission(sub: Submission) -> dict:
         "accepted_at": sub.accepted_at.isoformat() if sub.accepted_at else None,
     }
 
+
 @router.get("/labs")
 @audit_action(ActionType.VIEW, EntityType.LAB)
 async def get_my_labs(

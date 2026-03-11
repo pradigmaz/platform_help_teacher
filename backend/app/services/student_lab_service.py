@@ -30,7 +30,9 @@ class _GradeRow:
     created_at: datetime | None
 
 
-def _is_better_grade(candidate_grade: int, candidate_created_at: datetime | None, current: _GradeRow | LessonGrade) -> bool:
+def _is_better_grade(
+    candidate_grade: int, candidate_created_at: datetime | None, current: _GradeRow | LessonGrade
+) -> bool:
     current_created_at = getattr(current, "created_at", None)
     if candidate_grade != current.grade:
         return candidate_grade > current.grade
