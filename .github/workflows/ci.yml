@@ -117,7 +117,7 @@ jobs:
           echo "MINIO_BUCKET_NAME=test" >> .env
 
       - name: Run tests
-        run: pytest -v --tb=short || true
+        run: pytest -v --tb=short
 
   # ============================================
   # SECURITY

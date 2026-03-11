@@ -216,7 +216,7 @@ class PublicReportData(BaseModel):
 
     # Шкала оценок (диапазоны баллов)
     grade_scale: dict[str, list[float]] | None = Field(
-        None, description="Шкала оценок: {'неуд': [0, 19.99], 'уд': [20, 25], ...}"
+        None, description="Шкала оценок: {'неуд': [0, 20], 'уд': [20, 26], ...}; интервалы [lower, upper)"
     )
 
     # Тип аттестации
