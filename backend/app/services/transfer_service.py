@@ -28,6 +28,7 @@ from app.schemas.transfer import (
     TransferResponse,
     TransferSummary,
 )
+from app.services.attestation.lab_progress import dedupe_lesson_grade_rows
 from app.services.schedule_constants import today_msk
 
 logger = logging.getLogger(__name__)
@@ -204,9 +205,11 @@ class TransferService:
 
         # Получаем оценки
         grades_query = (
-            select(LessonGrade)
+            select(LessonGrade, Lesson.subject_id)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
             .where(LessonGrade.student_id == student_id)
+            .where(Lesson.group_id == group_id)
+            .where(LessonGrade.work_number.isnot(None))
         )
         if settings and settings.period_start_date:
             grades_query = grades_query.where(Lesson.date >= settings.period_start_date)
@@ -214,11 +217,16 @@ class TransferService:
             grades_query = grades_query.where(Lesson.date <= settings.period_end_date)
 
         grades_result = await self.db.execute(grades_query)
-        grades = list(grades_result.scalars().all())
+        rows = grades_result.all()
+        grades = dedupe_lesson_grade_rows(rows)
+        subject_by_grade_id = {grade.id: subject_id for grade, subject_id in rows}
 
         return [
             LabGradeSnapshot(
-                work_number=g.work_number or 0, grade=g.grade, lesson_id=str(g.lesson_id) if g.lesson_id else None
+                subject_id=str(subject_by_grade_id.get(g.id)) if subject_by_grade_id.get(g.id) else None,
+                work_number=g.work_number or 0,
+                grade=g.grade,
+                lesson_id=str(g.lesson_id) if g.lesson_id else None,
             )
             for g in grades
         ]

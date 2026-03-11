@@ -90,6 +90,7 @@ async def create_grade(
         comment=data.comment,
         created_by=current_user.id,
         group_id=lesson.group_id,
+        subject_id=lesson.subject_id,
     )
 
     # Синхронизация с work_submission для лаб
@@ -130,25 +131,40 @@ async def update_grade(
             raise HTTPException(status_code=400, detail=str(e))
 
     grade = await crud_lesson_grade.update_lesson_grade(
-        db, grade_id=grade_id, grade=data.grade, work_number=data.work_number, comment=data.comment
+        db,
+        grade_id=grade_id,
+        grade=data.grade,
+        work_number=data.work_number,
+        comment=data.comment,
     )
     if not grade:
         raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
 
+    updated_result = await db.execute(
+        select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(LessonGrade.id == grade.id)
+    )
+    updated_grade = updated_result.scalar_one_or_none()
+    if not updated_grade:
+        raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
+
     # Синхронизация с work_submission для лаб
-    work_number = data.work_number if data.work_number is not None else existing.work_number
-    if work_number and existing.lesson and existing.lesson.lesson_type == LessonType.LAB:
-        final_grade = data.grade if data.grade is not None else existing.grade
-        final_comment = data.comment if data.comment is not None else existing.comment
+    work_number = updated_grade.work_number
+    if work_number and updated_grade.lesson and updated_grade.lesson.lesson_type == LessonType.LAB:
         logger.info(
-            f"[grades_endpoints:update_grade] Syncing to work_submission: student={existing.student_id}, work={work_number}, grade={final_grade}"
+            f"[grades_endpoints:update_grade] Syncing to work_submission: student={updated_grade.student_id}, work={work_number}, grade={updated_grade.grade}"
         )
         await journal_sync.sync_from_journal(
-            db, existing.student_id, existing.lesson, work_number, final_grade, final_comment, current_user.id
+            db,
+            updated_grade.student_id,
+            updated_grade.lesson,
+            work_number,
+            updated_grade.grade,
+            updated_grade.comment,
+            current_user.id,
         )
 
     await db.commit()
-    return grade
+    return updated_grade
 
 
 @router.delete("/grades/{grade_id}")

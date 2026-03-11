@@ -87,7 +87,12 @@ async def bulk_update_grades(
         for g in data.grades
     ]
     updated = await bulk_upsert_lesson_grades(
-        db, data.lesson_id, grades_data, created_by=current_user.id, group_id=lesson.group_id
+        db,
+        data.lesson_id,
+        grades_data,
+        created_by=current_user.id,
+        group_id=lesson.group_id,
+        subject_id=lesson.subject_id,
     )
 
     # Синхронизация с work_submission для лаб

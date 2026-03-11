@@ -79,7 +79,12 @@ async def get_student_lesson_grade(
 
 
 async def get_student_grade_by_work(
-    db: AsyncSession, student_id: UUID, work_number: int, group_id: UUID | None = None
+    db: AsyncSession,
+    student_id: UUID,
+    work_number: int,
+    group_id: UUID | None = None,
+    subject_id: UUID | None = None,
+    exclude_grade_id: UUID | None = None,
 ) -> LessonGrade | None:
     """
     Получить оценку студента за работу (независимо от занятия).
@@ -94,9 +99,15 @@ async def get_student_grade_by_work(
     )
     if group_id:
         query = query.where(Lesson.group_id == group_id)
+    if subject_id is not None:
+        query = query.where(Lesson.subject_id == subject_id)
+    if exclude_grade_id is not None:
+        query = query.where(LessonGrade.id != exclude_grade_id)
+
+    query = query.order_by(LessonGrade.grade.desc(), LessonGrade.updated_at.desc(), LessonGrade.created_at.desc())
 
     result = await db.execute(query)
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def update_lesson_grade(
@@ -107,9 +118,34 @@ async def update_lesson_grade(
     comment: str | None = None,
 ) -> LessonGrade | None:
     """Обновить оценку."""
-    lesson_grade = await get_lesson_grade(db, grade_id)
+    result = await db.execute(
+        select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(LessonGrade.id == grade_id)
+    )
+    lesson_grade = result.scalar_one_or_none()
     if not lesson_grade:
         return None
+
+    if work_number is not None and lesson_grade.lesson:
+        existing_for_work = await get_student_grade_by_work(
+            db,
+            lesson_grade.student_id,
+            work_number,
+            group_id=lesson_grade.lesson.group_id,
+            subject_id=lesson_grade.lesson.subject_id,
+            exclude_grade_id=lesson_grade.id,
+        )
+        if existing_for_work and existing_for_work.id != lesson_grade.id:
+            existing_for_work.lesson_id = lesson_grade.lesson_id
+            existing_for_work.work_number = work_number
+            existing_for_work.grade = grade if grade is not None else lesson_grade.grade
+            existing_for_work.comment = comment if comment is not None else lesson_grade.comment
+            await db.delete(lesson_grade)
+            await db.commit()
+            await db.refresh(existing_for_work)
+            logger.info(
+                f"Merged lesson grade on update: source={grade_id}, target={existing_for_work.id}, work={work_number}"
+            )
+            return existing_for_work
 
     if grade is not None:
         lesson_grade.grade = grade
@@ -145,6 +181,7 @@ async def upsert_lesson_grade(
     comment: str | None = None,
     created_by: UUID | None = None,
     group_id: UUID | None = None,
+    subject_id: UUID | None = None,
 ) -> LessonGrade:
     """
     Создать или обновить оценку (атомарно через ON CONFLICT).
@@ -159,7 +196,13 @@ async def upsert_lesson_grade(
     # Если work_number указан, сначала проверяем есть ли оценка за эту работу
     # на ДРУГОМ занятии (чтобы переместить её)
     if work_number is not None:
-        existing = await get_student_grade_by_work(db, student_id, work_number, group_id)
+        existing = await get_student_grade_by_work(
+            db,
+            student_id,
+            work_number,
+            group_id=group_id,
+            subject_id=subject_id,
+        )
         if existing and existing.lesson_id != lesson_id:
             existing.grade = grade
             existing.lesson_id = lesson_id
@@ -201,6 +244,7 @@ async def bulk_upsert_lesson_grades(
     grades_data: list[dict],
     created_by: UUID | None = None,
     group_id: UUID | None = None,
+    subject_id: UUID | None = None,
 ) -> list[LessonGrade]:
     """
     Bulk upsert оценок за занятие.
@@ -236,7 +280,13 @@ async def bulk_upsert_lesson_grades(
 
         if not existing and data.get("work_number") is not None:
             # BUG-4 fix: проверяем есть ли оценка за эту работу на ДРУГОМ занятии
-            existing_other = await get_student_grade_by_work(db, data["student_id"], data["work_number"], group_id)
+            existing_other = await get_student_grade_by_work(
+                db,
+                data["student_id"],
+                data["work_number"],
+                group_id=group_id,
+                subject_id=subject_id,
+            )
             if existing_other and existing_other.lesson_id != lesson_id:
                 existing = existing_other
 

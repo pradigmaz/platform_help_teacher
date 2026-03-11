@@ -23,6 +23,7 @@ class AttendanceSnapshot(BaseModel):
 
 # Оценка за лабу в снапшоте
 class LabGradeSnapshot(BaseModel):
+    subject_id: str | None = None
     work_number: int
     grade: int
     lesson_id: str | None = None

@@ -24,6 +24,7 @@ from app.schemas.attestation import (
 )
 
 from .calculator import AttestationCalculator
+from .lab_progress import dedupe_lesson_grade_rows, dedupe_transfer_lab_grades
 from .settings import AttestationSettingsManager
 
 logger = logging.getLogger(__name__)
@@ -205,7 +206,7 @@ class BatchScoreCalculator:
     ) -> dict:
         period_start, period_end = settings.get_effective_period()
         query = (
-            select(LessonGrade)
+            select(LessonGrade, Lesson.subject_id)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
             .where(LessonGrade.student_id.in_(student_ids))
             .where(LessonGrade.work_number.isnot(None))
@@ -216,8 +217,12 @@ class BatchScoreCalculator:
         result = await self.db.execute(query)
 
         grouped = defaultdict(list)
-        for lg in result.scalars().all():
-            grouped[lg.student_id].append(lg)
+        rows_by_student = defaultdict(list)
+        for grade, subject_id in result.all():
+            rows_by_student[grade.student_id].append((grade, subject_id))
+
+        for student_id, rows in rows_by_student.items():
+            grouped[student_id] = dedupe_lesson_grade_rows(rows)
         return grouped
 
     async def _get_attendance_batch(
@@ -289,7 +294,7 @@ class BatchScoreCalculator:
         all_grades = []
         for t in transfers:
             all_grades.extend(t.lab_grades_data or [])
-        return all_grades
+        return dedupe_transfer_lab_grades(all_grades)
 
     def _sum_transfer_activity(self, transfers: list[StudentTransfer]) -> float:
         """Суммировать баллы активности из снапшотов переводов."""

@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from app.models.attestation_settings import AttestationSettings
 from app.models.lesson_grade import LessonGrade
 
+from .lab_progress import get_lesson_grade_subject_key, is_completed_lab_grade
+
 
 @dataclass
 class LabScoreResult:
@@ -47,59 +49,79 @@ class LabScoreCalculator:
         points_per_work = settings.get_points_per_work(settings.labs_weight, labs_count)
 
         total_score = 0.0
+        completed_labs = 0
         needs_rework = 0
         details = []
+        normalized_current: dict[tuple[str, int], LessonGrade] = {}
+        normalized_transfer: dict[tuple[str, int], dict] = {}
 
         # Обрабатываем текущие оценки
         for grade in lesson_grades:
-            coef = settings.get_grade_coef(grade.grade)
-            points = points_per_work * coef
-            total_score += points
-
-            if grade.grade == 2:
-                needs_rework += 1
-
-            details.append(
-                {
-                    "lesson_id": str(grade.lesson_id),
-                    "work_number": grade.work_number,
-                    "grade": grade.grade,
-                    "coef": coef,
-                    "points": round(points, 2),
-                    "needs_rework": grade.grade == 2,
-                    "from_transfer": False,
-                }
-            )
+            if grade.work_number is None:
+                continue
+            normalized_current[(get_lesson_grade_subject_key(grade), grade.work_number)] = grade
 
         # Добавляем оценки из снапшотов переводов
         if transfer_grades:
             for tg in transfer_grades:
-                grade_val = tg.get("grade", 0)
-                coef = settings.get_grade_coef(grade_val)
-                points = points_per_work * coef
-                total_score += points
+                work_number = tg.get("work_number")
+                if work_number is None:
+                    continue
+                subject_key = str(tg.get("subject_id") or "__legacy__")
+                normalized_transfer[(subject_key, int(work_number))] = tg
 
-                if grade_val == 2:
-                    needs_rework += 1
+        all_keys = set(normalized_current) | set(normalized_transfer)
 
-                details.append(
-                    {
-                        "lesson_id": tg.get("lesson_id"),
-                        "work_number": tg.get("work_number", 0),
-                        "grade": grade_val,
-                        "coef": coef,
-                        "points": round(points, 2),
-                        "needs_rework": grade_val == 2,
-                        "from_transfer": True,
-                    }
-                )
+        for key in sorted(all_keys):
+            current_grade = normalized_current.get(key)
+            transfer_grade = normalized_transfer.get(key)
 
-        total_labs = len(lesson_grades) + (len(transfer_grades) if transfer_grades else 0)
+            use_transfer = False
+            if current_grade is not None and transfer_grade is not None:
+                transfer_value = int(transfer_grade.get("grade", 0))
+                use_transfer = transfer_value > current_grade.grade
+            elif current_grade is None and transfer_grade is not None:
+                use_transfer = True
+
+            if current_grade is not None and not use_transfer:
+                grade_value = current_grade.grade
+                lesson_id = str(current_grade.lesson_id)
+                from_transfer = False
+                subject_id = getattr(current_grade, "lab_subject_id", None)
+            elif transfer_grade is not None:
+                grade_value = int(transfer_grade.get("grade", 0))
+                lesson_id = transfer_grade.get("lesson_id")
+                from_transfer = True
+                subject_id = transfer_grade.get("subject_id")
+            else:
+                continue
+
+            coef = settings.get_grade_coef(grade_value)
+            points = points_per_work * coef
+            total_score += points
+
+            if grade_value == 2:
+                needs_rework += 1
+            elif is_completed_lab_grade(grade_value):
+                completed_labs += 1
+
+            details.append(
+                {
+                    "lesson_id": lesson_id,
+                    "subject_id": str(subject_id) if subject_id else None,
+                    "work_number": key[1],
+                    "grade": grade_value,
+                    "coef": coef,
+                    "points": round(points, 2),
+                    "needs_rework": grade_value == 2,
+                    "from_transfer": from_transfer,
+                }
+            )
 
         return LabScoreResult(
             score=min(total_score, max_score),  # Не больше максимума
             max_score=max_score,
-            labs_count=total_labs,
+            labs_count=completed_labs,
             labs_required=labs_count,
             needs_rework=needs_rework,
             details=details,

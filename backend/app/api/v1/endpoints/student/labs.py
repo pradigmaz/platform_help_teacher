@@ -15,7 +15,7 @@ from app.models.lab import Lab
 from app.models.submission import Submission
 from app.models.user import User
 from app.services.lab_visibility import LabVisibilityService
-from app.services.student_lab_service import student_lab_service
+from app.services.student_lab_service import resolve_lab_acceptance, student_lab_service
 
 router = APIRouter()
 
@@ -29,7 +29,6 @@ def _format_submission(sub: Submission) -> dict:
         "ready_at": sub.ready_at.isoformat() if sub.ready_at else None,
         "accepted_at": sub.accepted_at.isoformat() if sub.accepted_at else None,
     }
-
 
 @router.get("/labs")
 @audit_action(ActionType.VIEW, EntityType.LAB)
@@ -82,6 +81,7 @@ async def get_my_labs(
         subject_grades = journal_grades_by_subject.get(lab.subject_id, {}) if lab.subject_id else {}
         journal_grade = subject_grades.get(lab.number)
         is_available = prev_accepted or not lab.is_sequential
+        is_accepted, journal_grade_value, acceptance_source = resolve_lab_acceptance(sub, journal_grade)
 
         variant_number = None
         if lab.variants and student_position:
@@ -106,6 +106,9 @@ async def get_my_labs(
                 "max_grade": lab.max_grade,
                 "current_max_grade": visibility_info.current_max_grade if visibility_info else lab.max_grade,
                 "is_available": is_available,
+                "is_accepted": is_accepted,
+                "journal_grade": journal_grade_value,
+                "acceptance_source": acceptance_source,
                 "variant_number": variant_number,
                 "submission": submission_data,
                 "visible_from": visibility_info.visible_from.isoformat()
@@ -123,7 +126,6 @@ async def get_my_labs(
             }
         )
 
-        is_accepted = (sub and sub.status.value == "ACCEPTED") or journal_grade is not None
         if is_accepted:
             prev_accepted = True
         elif lab.is_sequential:
@@ -174,6 +176,10 @@ async def get_lab_detail(
                 break
 
     sub = await student_lab_service.get_user_submission_for_lab(db, current_user.id, lab_id)
+    journal_grades_by_subject = await student_lab_service.get_user_journal_grades_by_subject(db, current_user.id)
+    subject_grades = journal_grades_by_subject.get(lab.subject_id, {}) if lab.subject_id else {}
+    journal_grade = subject_grades.get(lab.number)
+    is_accepted, journal_grade_value, acceptance_source = resolve_lab_acceptance(sub, journal_grade)
 
     response = {
         "id": str(lab.id),
@@ -189,6 +195,9 @@ async def get_lab_detail(
         "deadline_4_lessons": lab.deadline_4_lessons,
         "max_grade": lab.max_grade,
         "is_available": is_available,
+        "is_accepted": is_accepted,
+        "journal_grade": journal_grade_value,
+        "acceptance_source": acceptance_source,
         "variant_number": variant_number,
         "variant_data": variant_data,
         "submission": _format_submission(sub) if sub else None,

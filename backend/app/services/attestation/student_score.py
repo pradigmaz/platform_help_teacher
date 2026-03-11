@@ -19,6 +19,7 @@ from app.schemas.attestation import AttestationResult, ComponentBreakdown
 
 from .calculator import AttestationCalculator
 from .helpers import filter_lessons_by_subgroup
+from .lab_progress import dedupe_lesson_grade_rows, dedupe_transfer_lab_grades
 from .settings import AttestationSettingsManager
 
 logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ class StudentScoreCalculator:
     ) -> list[LessonGrade]:
         period_start, period_end = settings.get_effective_period()
         query = (
-            select(LessonGrade)
+            select(LessonGrade, Lesson.subject_id)
             .join(Lesson, LessonGrade.lesson_id == Lesson.id)
             .where(LessonGrade.student_id == student_id)
             .where(LessonGrade.work_number.isnot(None))
@@ -123,7 +124,7 @@ class StudentScoreCalculator:
             .where(Lesson.date <= period_end)
         )
         result = await self.db.execute(query)
-        return list(result.scalars().all())
+        return dedupe_lesson_grade_rows(result.all())
 
     async def _get_attendance(
         self, student_id: UUID, group_id: UUID, subgroup: int | None, settings: AttestationSettings
@@ -225,7 +226,7 @@ class StudentScoreCalculator:
         for t in transfers:
             grades = t.lab_grades_data or []
             all_grades.extend(grades)
-        return all_grades
+        return dedupe_transfer_lab_grades(all_grades)
 
     def _sum_transfer_activity(self, transfers: list[StudentTransfer]) -> float:
         """Суммировать баллы активности из снапшотов переводов."""
