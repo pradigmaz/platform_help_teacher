@@ -112,7 +112,8 @@ class SubmissionService:
         else:
             lab = submission.lab
 
-        if not lab or not lab.subject_id:
+        subject_id = getattr(lab, "subject_id", None) if lab else None
+        if not lab or not isinstance(subject_id, UUID):
             return  # Нет привязки к предмету — нет ограничений
 
         # Ищем занятие для студента

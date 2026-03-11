@@ -124,7 +124,12 @@ class StudentScoreCalculator:
             .where(Lesson.date <= period_end)
         )
         result = await self.db.execute(query)
-        return dedupe_lesson_grade_rows(result.all())
+        rows = result.all()
+        if rows and isinstance(rows[0], tuple):
+            return dedupe_lesson_grade_rows(rows)
+
+        grades = result.scalars().all()
+        return dedupe_lesson_grade_rows((grade, None) for grade in grades)
 
     async def _get_attendance(
         self, student_id: UUID, group_id: UUID, subgroup: int | None, settings: AttestationSettings

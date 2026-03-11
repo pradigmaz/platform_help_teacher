@@ -108,7 +108,9 @@ class AttestationSettings(Base, TimestampMixin):
 
     def get_grade_coef(self, grade: int) -> float:
         """Коэффициент для оценки (5=1.0, 4=настр., 3=настр., 2=0.0)"""
-        return {5: GRADE_5_COEF, 4: self.grade_4_coef, 3: self.grade_3_coef, 2: GRADE_2_COEF}.get(grade, 0.0)
+        grade_4_coef = self.grade_4_coef if self.grade_4_coef is not None else 0.7
+        grade_3_coef = self.grade_3_coef if self.grade_3_coef is not None else 0.4
+        return {5: GRADE_5_COEF, 4: grade_4_coef, 3: grade_3_coef, 2: GRADE_2_COEF}.get(grade, 0.0)
 
     def get_labs_count(self) -> int:
         """Количество лаб для текущего типа аттестации"""

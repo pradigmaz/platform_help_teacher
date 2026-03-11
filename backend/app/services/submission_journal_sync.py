@@ -209,7 +209,8 @@ class SubmissionJournalSync:
             return None
 
         # Если у лабы нет предмета — не можем найти занятие
-        if not lab.subject_id:
+        subject_id = getattr(lab, "subject_id", None)
+        if not isinstance(subject_id, UUID):
             return None
 
         today = today_msk()
@@ -219,7 +220,7 @@ class SubmissionJournalSync:
         query = (
             select(Lesson)
             .where(
-                Lesson.subject_id == lab.subject_id,
+                Lesson.subject_id == subject_id,
                 Lesson.group_id == student.group_id,
                 Lesson.lesson_type == LessonType.LAB,
                 Lesson.date <= today,
