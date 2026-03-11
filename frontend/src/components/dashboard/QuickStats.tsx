@@ -7,23 +7,22 @@ import { SlidingNumber } from '@/components/animate-ui/primitives/texts/sliding-
 import { Effects } from '@/components/animate-ui/primitives/effects/effect';
 import { IconFlask, IconCalendar, IconClock } from '@tabler/icons-react';
 import type { QuickStatsProps } from './types';
+import { isLabAccepted } from '@/lib/labs/progress';
 
 /** Calculate lab statistics */
 function getLabStats(labs: QuickStatsProps['labs'], attestation?: QuickStatsProps['attestation']) {
-  // visible = labs available to student (attached to lessons)
   const visible = labs.length;
-  const accepted = labs.filter(l => l.submission?.status === 'ACCEPTED').length;
-  const pending = labs.filter(l => l.submission?.status === 'IN_REVIEW' || l.submission?.status === 'READY').length;
-  // required = total labs needed for attestation
+  const accepted = labs.filter(isLabAccepted).length;
+  const pending = labs.filter(l => !isLabAccepted(l) && (l.submission?.status === 'IN_REVIEW' || l.submission?.status === 'READY')).length;
   const required = attestation?.breakdown?.labs?.required ?? visible;
-  const percent = required > 0 ? Math.round((visible / required) * 100) : 0;
+  const percent = required > 0 ? Math.round((accepted / required) * 100) : 0;
   return { visible, accepted, pending, required, percent };
 }
 
 /** Get nearest deadline (by lessons count) */
 function getNearestDeadline(labs: QuickStatsProps['labs']): { title: string; lessonsLeft: number } | null {
   const upcoming = labs
-    .filter(l => l.deadline_5_lessons && l.submission?.status !== 'ACCEPTED')
+    .filter(l => l.deadline_5_lessons && !isLabAccepted(l))
     .sort((a, b) => (a.deadline_5_lessons ?? Infinity) - (b.deadline_5_lessons ?? Infinity));
   
   if (upcoming.length === 0) return null;
@@ -63,18 +62,16 @@ export function QuickStats({ labs, attendance, attestation, isLoading }: QuickSt
             
             <div className="flex items-baseline gap-1 mb-2">
               <span className="text-3xl font-bold text-purple-500">
-                <SlidingNumber number={labStats.visible} />
+                <SlidingNumber number={labStats.accepted} />
               </span>
               <span className="text-lg text-muted-foreground">/{labStats.required}</span>
             </div>
             
             <Progress value={labStats.percent} className="h-1.5 [&>div]:bg-purple-500" />
             
-            {labStats.accepted > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Сдано: {labStats.accepted}
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              {labStats.pending > 0 ? `На проверке: ${labStats.pending}` : `Всего работ: ${labStats.visible}`}
+            </p>
           </div>
         </MagicCard>
       </Link>

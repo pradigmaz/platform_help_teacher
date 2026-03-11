@@ -7,17 +7,11 @@ import { Effect } from '@/components/animate-ui/primitives/effects/effect';
 import { IconArrowRight, IconFlask } from '@tabler/icons-react';
 import type { DeadlinesListProps, LabStatus } from './types';
 import { EmptyState } from './EmptyState';
+import { getResolvedLabGrade, getResolvedLabStatus, getResolvedLabStatusLabel } from '@/lib/labs/progress';
 
 /** Get lab status */
 function getLabStatus(lab: DeadlinesListProps['labs'][0]): LabStatus {
-  if (!lab.submission) return 'not_submitted';
-  switch (lab.submission.status) {
-    case 'ACCEPTED': return 'accepted';
-    case 'REJECTED': return 'rejected';
-    case 'IN_REVIEW':
-    case 'READY': return 'pending';
-    default: return 'not_submitted';
-  }
+  return getResolvedLabStatus(lab);
 }
 
 /** Status badge config */
@@ -64,7 +58,7 @@ function isDeadlineUrgent(lab: DeadlinesListProps['labs'][0]): boolean {
 export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
   // Filter out accepted, sort by urgency (lessons_until_deadline_5 or deadline_5_lessons)
   const sortedLabs = [...labs]
-    .filter(l => l.submission?.status !== 'ACCEPTED')
+    .filter(l => !l.is_accepted)
     .sort((a, b) => {
       // Приоритет: lessons_until_deadline_5 (новая система), затем deadline_5_lessons
       const aDeadline = a.lessons_until_deadline_5 ?? a.deadline_5_lessons ?? Infinity;
@@ -99,6 +93,7 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
             const badge = STATUS_BADGE[status];
             const isSoon = isDeadlineUrgent(lab);
             const isExpired = lab.deadline_5_status === 'expired';
+            const resolvedGrade = getResolvedLabGrade(lab);
 
             return (
               <Link
@@ -137,11 +132,11 @@ export function DeadlinesList({ labs, maxItems = 5 }: DeadlinesListProps) {
 
                 <div className="flex items-center gap-2">
                   <Badge variant={badge.variant} className={cn("text-xs", badge.className)}>
-                    {badge.label}
+                    {getResolvedLabStatusLabel(lab)}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {lab.submission?.grade !== undefined 
-                      ? `${lab.submission.grade}/${lab.max_grade}`
+                    {resolvedGrade !== undefined
+                      ? `${resolvedGrade}/${lab.max_grade}`
                       : `—/${lab.max_grade}`
                     }
                   </span>

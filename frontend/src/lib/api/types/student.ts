@@ -53,6 +53,9 @@ export interface StudentLab {
   max_grade: number;
   current_max_grade?: number;  // Текущий максимальный балл с учётом дедлайна
   is_available: boolean;
+  is_accepted?: boolean;
+  journal_grade?: number | null;
+  acceptance_source?: 'journal' | 'submission' | null;
   variant_number?: number;
   submission?: StudentLabSubmission;
   // Поля видимости и дедлайнов по расписанию
@@ -81,6 +84,9 @@ export interface StudentLabDetail {
   deadline_4_lessons?: number | null;
   max_grade: number;
   is_available: boolean;
+  is_accepted?: boolean;
+  journal_grade?: number | null;
+  acceptance_source?: 'journal' | 'submission' | null;
   variant_number?: number;
   variant_data?: {
     number: number;

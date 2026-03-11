@@ -14,6 +14,13 @@ import Link from 'next/link';
 import { LectureViewer } from '@/components/lectures';
 import { SerializedEditorState } from 'lexical';
 import { getQuestionText } from '@/lib/utils/question-utils';
+import {
+  getResolvedAcceptanceLabel,
+  getResolvedLabGrade,
+  getResolvedLabStatus,
+  getResolvedLabStatusLabel,
+  isLabAccepted,
+} from '@/lib/labs/progress';
 
 export default function LabDetailPage() {
   const params = useParams();
@@ -37,8 +44,20 @@ export default function LabDetailPage() {
   };
 
   useEffect(() => {
-    loadLab();
-  }, [labId]);
+    const fetchInitialLab = async () => {
+      try {
+        const data = await StudentAPI.getLabDetail(labId);
+        setLab(data);
+      } catch {
+        toast.error('Ошибка загрузки лабораторной');
+        router.push('/dashboard/labs');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchInitialLab();
+  }, [labId, router]);
 
   const handleMarkReady = async () => {
     if (!lab) return;
@@ -73,17 +92,19 @@ export default function LabDetailPage() {
   if (!lab) return null;
 
   const getStatusConfig = () => {
-    const status = lab.submission?.status;
+    const status = getResolvedLabStatus(lab);
     switch (status) {
-      case 'ACCEPTED': return { icon: IconCheck, color: 'text-green-500', bg: 'bg-green-500/10', label: 'Принято' };
-      case 'READY': return { icon: IconClock, color: 'text-yellow-500', bg: 'bg-yellow-500/10', label: 'В очереди на сдачу' };
-      case 'REJECTED': return { icon: IconX, color: 'text-red-500', bg: 'bg-red-500/10', label: 'Отклонено' };
+      case 'accepted': return { icon: IconCheck, color: 'text-green-500', bg: 'bg-green-500/10', label: getResolvedAcceptanceLabel(lab) };
+      case 'pending': return { icon: IconClock, color: 'text-yellow-500', bg: 'bg-yellow-500/10', label: 'В очереди на сдачу' };
+      case 'rejected': return { icon: IconX, color: 'text-red-500', bg: 'bg-red-500/10', label: getResolvedLabStatusLabel(lab) };
       default: return { icon: IconCode, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'Не сдано' };
     }
   };
 
   const status = getStatusConfig();
   const StatusIcon = status.icon;
+  const resolvedGrade = getResolvedLabGrade(lab);
+  const resolvedStatus = getResolvedLabStatus(lab);
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -109,8 +130,8 @@ export default function LabDetailPage() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Badge className={cn(status.bg, status.color)}>{status.label}</Badge>
-              {lab.submission?.grade !== undefined && (
-                <span className="text-xl font-bold text-foreground">{lab.submission.grade}/{lab.max_grade}</span>
+              {resolvedGrade !== undefined && (
+                <span className="text-xl font-bold text-foreground">{resolvedGrade}/{lab.max_grade}</span>
               )}
             </div>
           </div>
@@ -229,7 +250,7 @@ export default function LabDetailPage() {
 
       {/* Action Button */}
       <div className="flex flex-col items-center gap-2 pt-4">
-        {(!lab.submission || lab.submission.status === 'NEW') && (
+        {!isLabAccepted(lab) && resolvedStatus === 'not_submitted' && (
           <>
             <Button size="lg" onClick={handleMarkReady} disabled={actionLoading || !lab.can_submit_now}>
               {actionLoading ? '...' : <><IconPlayerPlay className="h-5 w-5 mr-2" />Готов сдать</>}
@@ -239,12 +260,12 @@ export default function LabDetailPage() {
             )}
           </>
         )}
-        {lab.submission?.status === 'READY' && (
+        {!isLabAccepted(lab) && lab.submission?.status === 'READY' && (
           <Button size="lg" variant="destructive" onClick={handleCancelReady} disabled={actionLoading}>
             {actionLoading ? '...' : <><IconHandStop className="h-5 w-5 mr-2" />Выйти из очереди</>}
           </Button>
         )}
-        {lab.submission?.status === 'REJECTED' && (
+        {!isLabAccepted(lab) && resolvedStatus === 'rejected' && (
           <>
             <Button size="lg" onClick={handleMarkReady} disabled={actionLoading || !lab.can_submit_now}>
               {actionLoading ? '...' : <><IconPlayerPlay className="h-5 w-5 mr-2" />Исправил, сдать снова</>}

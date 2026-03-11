@@ -11,6 +11,13 @@ import { IconCheck, IconClock, IconX, IconLock, IconFlask, IconCalendar, IconHan
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import {
+  getResolvedAcceptanceLabel,
+  getResolvedLabGrade,
+  getResolvedLabStatus,
+  getResolvedLabStatusLabel,
+  isLabAccepted,
+} from '@/lib/labs/progress';
 
 type FilterStatus = 'all' | 'not_submitted' | 'in_queue' | 'accepted' | 'rejected';
 
@@ -65,20 +72,22 @@ export default function LabsPage() {
 
   // Counts for filters
   const counts = useMemo(() => {
-    const accepted = labs.filter((l) => l.submission?.status === 'ACCEPTED').length;
-    const inQueue = labs.filter((l) => l.submission?.status === 'READY').length;
-    const rejected = labs.filter((l) => l.submission?.status === 'REJECTED').length;
-    const notSubmitted = labs.filter((l) => l.is_available && !l.submission).length;
+    const getStatus = (lab: StudentLab) => getResolvedLabStatus(lab);
+    const accepted = labs.filter(isLabAccepted).length;
+    const inQueue = labs.filter((l) => getStatus(l) === 'pending').length;
+    const rejected = labs.filter((l) => getStatus(l) === 'rejected').length;
+    const notSubmitted = labs.filter((l) => l.is_available && getStatus(l) === 'not_submitted').length;
     return { all: labs.length, accepted, in_queue: inQueue, rejected, not_submitted: notSubmitted };
   }, [labs]);
 
   // Filtered labs
   const filteredLabs = useMemo(() => {
+    const getStatus = (lab: StudentLab) => getResolvedLabStatus(lab);
     if (filter === 'all') return labs;
-    if (filter === 'accepted') return labs.filter((l) => l.submission?.status === 'ACCEPTED');
-    if (filter === 'in_queue') return labs.filter((l) => l.submission?.status === 'READY');
-    if (filter === 'rejected') return labs.filter((l) => l.submission?.status === 'REJECTED');
-    if (filter === 'not_submitted') return labs.filter((l) => l.is_available && !l.submission);
+    if (filter === 'accepted') return labs.filter(isLabAccepted);
+    if (filter === 'in_queue') return labs.filter((l) => getStatus(l) === 'pending');
+    if (filter === 'rejected') return labs.filter((l) => getStatus(l) === 'rejected');
+    if (filter === 'not_submitted') return labs.filter((l) => l.is_available && getStatus(l) === 'not_submitted');
     return labs;
   }, [labs, filter]);
 
@@ -88,11 +97,11 @@ export default function LabsPage() {
 
   const getStatusConfig = (lab: StudentLab) => {
     if (!lab.is_available) return { icon: IconLock, color: 'text-neutral-400', bg: 'bg-neutral-400/10', label: 'Заблокировано', border: 'border-neutral-500/20' };
-    const status = lab.submission?.status;
+    const status = getResolvedLabStatus(lab);
     switch (status) {
-      case 'ACCEPTED': return { icon: IconCheck, color: 'text-green-500', bg: 'bg-green-500/10', label: 'Принято', border: 'border-green-500/30' };
-      case 'READY': return { icon: IconClock, color: 'text-yellow-500', bg: 'bg-yellow-500/10', label: 'В очереди', border: 'border-yellow-500/30' };
-      case 'REJECTED': return { icon: IconX, color: 'text-red-500', bg: 'bg-red-500/10', label: 'Отклонено', border: 'border-red-500/30' };
+      case 'accepted': return { icon: IconCheck, color: 'text-green-500', bg: 'bg-green-500/10', label: getResolvedAcceptanceLabel(lab), border: 'border-green-500/30' };
+      case 'pending': return { icon: IconClock, color: 'text-yellow-500', bg: 'bg-yellow-500/10', label: 'В очереди', border: 'border-yellow-500/30' };
+      case 'rejected': return { icon: IconX, color: 'text-red-500', bg: 'bg-red-500/10', label: getResolvedLabStatusLabel(lab), border: 'border-red-500/30' };
       default: return { icon: IconFlask, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'Доступно', border: 'border-blue-500/20' };
     }
   };
@@ -158,6 +167,8 @@ export default function LabsPage() {
             const status = getStatusConfig(lab);
             const StatusIcon = status.icon;
             const isLoading = actionLoading === lab.id;
+            const resolvedGrade = getResolvedLabGrade(lab);
+            const resolvedStatus = getResolvedLabStatus(lab);
 
             
             return (
@@ -177,12 +188,12 @@ export default function LabsPage() {
                       <div className={cn("p-2 rounded-lg", status.bg)}><StatusIcon className={cn("h-5 w-5", status.color)} /></div>
                       <span className="text-sm font-medium text-muted-foreground">№{lab.number}</span>
                     </div>
-                    <Badge variant={lab.submission?.status === 'ACCEPTED' ? 'default' : lab.submission?.status === 'REJECTED' ? 'destructive' : 'secondary'}
+                    <Badge variant={lab.is_accepted ? 'default' : resolvedStatus === 'rejected' ? 'destructive' : 'secondary'}
                       className={cn(
-                        lab.current_max_grade && lab.current_max_grade < lab.max_grade && !lab.submission?.grade && "bg-orange-500/10 text-orange-500 border-orange-500/30"
+                        lab.current_max_grade && lab.current_max_grade < lab.max_grade && resolvedGrade === undefined && "bg-orange-500/10 text-orange-500 border-orange-500/30"
                       )}>
-                      {lab.submission?.grade !== undefined 
-                        ? `${lab.submission.grade}/${lab.max_grade}` 
+                      {resolvedGrade !== undefined
+                        ? `${resolvedGrade}/${lab.max_grade}` 
                         : lab.current_max_grade && lab.current_max_grade < lab.max_grade
                           ? `макс. ${lab.current_max_grade}`
                           : `—/${lab.max_grade}`}
@@ -231,17 +242,17 @@ export default function LabsPage() {
                         <Link href={`/dashboard/labs/${lab.id}`} className="flex-1">
                           <Button variant="outline" size="sm" className="w-full">Открыть</Button>
                         </Link>
-                        {(!lab.submission || lab.submission.status === 'NEW') && (
+                        {!lab.is_accepted && (resolvedStatus === 'not_submitted') && (
                           <Button size="sm" onClick={() => handleMarkReady(lab.id)} disabled={isLoading}>
                             {isLoading ? '...' : <><IconPlayerPlay className="h-4 w-4 mr-1" />Сдать</>}
                           </Button>
                         )}
-                        {lab.submission?.status === 'READY' && (
+                        {!lab.is_accepted && lab.submission?.status === 'READY' && (
                           <Button size="sm" variant="destructive" onClick={() => handleCancelReady(lab.id)} disabled={isLoading}>
                             {isLoading ? '...' : <><IconHandStop className="h-4 w-4 mr-1" />Отмена</>}
                           </Button>
                         )}
-                        {lab.submission?.status === 'REJECTED' && (
+                        {!lab.is_accepted && resolvedStatus === 'rejected' && (
                           <Button size="sm" onClick={() => handleMarkReady(lab.id)} disabled={isLoading}>
                             {isLoading ? '...' : 'Пересдать'}
                           </Button>
