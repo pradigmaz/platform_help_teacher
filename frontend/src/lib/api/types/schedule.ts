@@ -83,16 +83,36 @@ export interface GenerateLessonsResponse {
   lessons: LessonResponse[];
 }
 
+export interface ScheduleParserConfig {
+  enabled: boolean;
+  teacher_name: string;
+  days_of_week: number[];
+  run_time: string;
+  parse_days_ahead: number;
+}
+
+export interface ScheduleParserConfigResponse extends ScheduleParserConfig {
+  id: string;
+  teacher_id: string;
+  last_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ParseScheduleResponse {
   total_parsed: number;
   groups_created: number;
   lessons_created: number;
+  lessons_updated: number;
   lessons_skipped: number;
-  subjects_created?: number;
-  assignments_created?: number;
+  conflicts_created: number;
+  subjects_created: number;
+  assignments_created: number;
   groups: string[];
-  subjects?: string[];
-  semester_end_detected?: boolean;
-  last_lesson_date?: string;
-  empty_weeks_count?: number;
+  subjects: string[];
+  semester_end_detected: boolean;
+  last_lesson_date: string | null;
+  empty_weeks_count: number;
 }
+
+export type ScheduleAutoParseResponse = ParseScheduleResponse;

@@ -265,8 +265,16 @@ class ParseScheduleResponse(BaseModel):
     total_parsed: int
     groups_created: int
     lessons_created: int
+    lessons_updated: int = 0
     lessons_skipped: int
+    conflicts_created: int = 0
+    subjects_created: int = 0
+    assignments_created: int = 0
     groups: list[str]
+    subjects: list[str] = []
+    semester_end_detected: bool = False
+    last_lesson_date: str | None = None
+    empty_weeks_count: int = 0
 
 
 @router.post("/schedule/parse", response_model=ParseScheduleResponse)

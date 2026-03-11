@@ -31,6 +31,7 @@ async def complete_history(
     history.finished_at = datetime.utcnow()
     history.status = "failed" if error else "success"
     history.lessons_created = stats.get("lessons_created", 0)
+    history.lessons_updated = stats.get("lessons_updated", 0)
     history.lessons_skipped = stats.get("lessons_skipped", 0)
     history.conflicts_created = stats.get("conflicts_created", 0)
     history.error_message = error

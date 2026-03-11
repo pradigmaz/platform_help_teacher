@@ -22,7 +22,7 @@ from app.schemas.schedule_parser import (
     ParserConfigUpdate,
     ScheduleConflictResponse,
 )
-from app.services.schedule_constants import today_msk
+from app.services.schedule_constants import now_msk, today_msk
 from app.services.schedule_import_service import ScheduleImportService
 
 logger = logging.getLogger(__name__)
@@ -91,13 +91,20 @@ async def parse_now(db: AsyncSession = Depends(get_db), current_user: User = Dep
     service = ScheduleImportService(db)
     start_date = today_msk()
     end_date = start_date + timedelta(days=config.parse_days_ahead)
+    history = await crud_parse_history.create_history(db, current_user.id, config.id)
+    await db.commit()
 
     try:
         stats = await service.import_from_parser(
             teacher_name=config.teacher_name, start_date=start_date, end_date=end_date
         )
+        await crud_parse_history.complete_history(db, history.id, stats)
+        config.last_run_at = now_msk().replace(tzinfo=None)
+        await db.commit()
         return stats
     except Exception as e:
+        await crud_parse_history.complete_history(db, history.id, {}, str(e))
+        await db.commit()
         logger.exception("Parse error")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -124,6 +131,7 @@ async def get_parse_status(db: AsyncSession = Depends(get_db), current_user: Use
         "started_at": last.started_at.isoformat() if last.started_at else None,
         "finished_at": last.finished_at.isoformat() if last.finished_at else None,
         "lessons_created": last.lessons_created,
+        "lessons_updated": last.lessons_updated,
         "lessons_skipped": last.lessons_skipped,
         "conflicts_created": last.conflicts_created,
         "error_message": last.error_message,

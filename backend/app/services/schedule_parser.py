@@ -173,13 +173,14 @@ class SyncScheduleParser:
         from app.models.group import Group
         from app.models.lesson import Lesson
         from app.models.schedule import LessonType
-        from app.services.schedule_constants import LESSON_TIMES
 
         parsed_lessons = self.parse_range(teacher_name, start_date, end_date)
 
         stats = {
             "total_parsed": len(parsed_lessons),
+            "groups_created": 0,
             "lessons_created": 0,
+            "lessons_updated": 0,
             "lessons_skipped": 0,
             "conflicts_created": 0,
             "groups": set(),
@@ -198,6 +199,7 @@ class SyncScheduleParser:
                     group = Group(name=group_name, code=code)
                     db.add(group)
                     db.flush()
+                    stats["groups_created"] += 1
 
                 # Проверяем существование занятия
                 existing = db.execute(
@@ -213,9 +215,6 @@ class SyncScheduleParser:
                     stats["lessons_skipped"] += 1
                     continue
 
-                # Создаём занятие
-                start_time, end_time = LESSON_TIMES.get(parsed.lesson_number, ("09:00", "10:30"))
-
                 lesson = Lesson(
                     group_id=group.id,
                     date=parsed.date,
@@ -223,9 +222,6 @@ class SyncScheduleParser:
                     subgroup=parsed.subgroup,
                     topic=parsed.subject or "",
                     lesson_type=LessonType(parsed.lesson_type) if parsed.lesson_type else LessonType.LECTURE,
-                    room=parsed.room,
-                    start_time=start_time,
-                    end_time=end_time,
                 )
                 db.add(lesson)
                 stats["lessons_created"] += 1

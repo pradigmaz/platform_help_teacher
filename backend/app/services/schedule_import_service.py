@@ -91,6 +91,7 @@ class ScheduleImportService:
             "total_parsed": total_parsed,
             "groups_created": 0,
             "lessons_created": 0,
+            "lessons_updated": 0,
             "lessons_skipped": 0,
             "conflicts_created": 0,
             "subjects_created": 0,

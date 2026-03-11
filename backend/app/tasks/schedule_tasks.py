@@ -56,9 +56,26 @@ def _complete_history_sync(db, history_id: UUID, stats: dict, error: str | None 
     history.finished_at = datetime.utcnow()
     history.status = "failed" if error else "success"
     history.lessons_created = stats.get("lessons_created", 0)
+    history.lessons_updated = stats.get("lessons_updated", 0)
     history.lessons_skipped = stats.get("lessons_skipped", 0)
     history.conflicts_created = stats.get("conflicts_created", 0)
     history.error_message = error
+
+
+def _has_running_history_sync(db, config_id: UUID) -> bool:
+    """Проверить, есть ли уже выполняющийся парсинг для конфига."""
+    result = db.execute(
+        select(ParseHistory).where(ParseHistory.config_id == config_id, ParseHistory.status == "running").limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+def _mark_config_run_success_sync(db, config_id: UUID):
+    """Обновить время последнего успешного запуска конфига."""
+    result = db.execute(select(ScheduleParserConfig).where(ScheduleParserConfig.id == config_id))
+    config = result.scalar_one_or_none()
+    if config:
+        config.last_run_at = datetime.now(MSK_TZ).replace(tzinfo=None)
 
 
 def _send_notification_sync(user: User, message: str):
@@ -150,6 +167,8 @@ def parse_schedule_task(
 
                 if history:
                     _complete_history_sync(db, history.id, stats)
+                    if config_id:
+                        _mark_config_run_success_sync(db, UUID(config_id))
                     db.commit()
 
                 if notify and teacher_id:
@@ -196,14 +215,14 @@ def check_all_schedules():
         current_day = now.weekday()
 
         for config in configs:
+            if _has_running_history_sync(db, config.id):
+                logger.info(f"Skipping parse for {config.teacher_name}: previous run is still in progress")
+                continue
             if _should_run(config, now, current_day):
                 logger.info(f"Triggering parse for {config.teacher_name}")
                 parse_schedule_task.delay(
                     config.teacher_name, config.parse_days_ahead, str(config.teacher_id), True, str(config.id)
                 )
-                # Обновляем last_run_at
-                config.last_run_at = now
-                db.commit()
 
     return {"checked": len(configs) if "configs" in dir() else 0}
 

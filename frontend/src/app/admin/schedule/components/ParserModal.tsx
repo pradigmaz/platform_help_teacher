@@ -13,7 +13,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { ScheduleAPI, ParseScheduleResponse } from '@/lib/api';
+import { api, type ParseScheduleResponse } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
 
 interface ParserModalProps {
@@ -22,16 +22,20 @@ interface ParserModalProps {
   onSuccess?: () => void;
 }
 
+function getTodayIso() {
+  return new Date().toISOString().split('T')[0];
+}
+
 export function ParserModal({ open, onOpenChange, onSuccess }: ParserModalProps) {
   const [teacher, setTeacher] = useState('Миронов Г.Д.');
-  const [startDate, setStartDate] = useState('2025-09-01');
-  const [endDate, setEndDate] = useState('2025-12-31');
+  const [startDate, setStartDate] = useState(getTodayIso);
+  const [endDate, setEndDate] = useState('');
   const [isParsing, setIsParsing] = useState(false);
   const [result, setResult] = useState<ParseScheduleResponse | null>(null);
 
   const handleParse = async () => {
-    if (!teacher || !startDate || !endDate) {
-      toast.error('Заполните все поля');
+    if (!teacher.trim() || !startDate) {
+      toast.error('Укажите преподавателя и дату начала');
       return;
     }
     
@@ -39,7 +43,11 @@ export function ParserModal({ open, onOpenChange, onSuccess }: ParserModalProps)
     setResult(null);
     
     try {
-      const data = await ScheduleAPI.parseSchedule(teacher, startDate, endDate);
+      const { data } = await api.post<ParseScheduleResponse>('/admin/schedule/parse', {
+        teacher_name: teacher.trim(),
+        start_date: startDate,
+        ...(endDate ? { end_date: endDate } : {}),
+      });
       setResult(data);
       toast.success(`Спарсено ${data.lessons_created} занятий`);
       onSuccess?.();
@@ -90,6 +98,9 @@ export function ParserModal({ open, onOpenChange, onSuccess }: ParserModalProps)
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Необязательно. Если пусто, backend использует текущую дату.
+              </p>
             </div>
           </div>
           
@@ -99,22 +110,25 @@ export function ParserModal({ open, onOpenChange, onSuccess }: ParserModalProps)
                 <div>Спарсено: <strong>{result.total_parsed}</strong></div>
                 <div>Создано занятий: <strong>{result.lessons_created}</strong></div>
                 <div>Пропущено: <strong>{result.lessons_skipped}</strong></div>
+                {result.conflicts_created > 0 && (
+                  <div>Конфликтов: <strong>{result.conflicts_created}</strong></div>
+                )}
                 <div>Группы: <strong>{result.groups.join(', ')}</strong></div>
                 {result.subjects && result.subjects.length > 0 && (
                   <div>Предметы: <strong>{result.subjects.join(', ')}</strong></div>
                 )}
               </div>
-              
+
               {result.semester_end_detected && (
                 <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm">
                   <div className="font-medium text-yellow-600 dark:text-yellow-400 mb-1">
-                    ⚠️ Похоже, семестр закончился
+                    Похоже, семестр закончился
                   </div>
                   <div className="text-muted-foreground">
                     Последние пары были <strong>{result.last_lesson_date}</strong>.
-                    {result.empty_weeks_count && (
+                    {result.empty_weeks_count ? (
                       <> После них <strong>{result.empty_weeks_count}</strong> пустых недель.</>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               )}
