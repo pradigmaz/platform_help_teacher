@@ -51,6 +51,15 @@ def has_escaped_entities(content: Any) -> bool:
 
 def upgrade() -> None:
     conn = op.get_bind()
+    inspector = sa.inspect(conn)
+
+    lecture_columns = {column["name"] for column in inspector.get_columns("lectures")}
+    if "deleted_at" not in lecture_columns:
+        op.add_column("lectures", sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
+
+    lecture_indexes = {index["name"] for index in inspector.get_indexes("lectures")}
+    if "idx_lectures_deleted_at" not in lecture_indexes:
+        op.create_index("idx_lectures_deleted_at", "lectures", ["deleted_at"], unique=False)
 
     offset = 0
     fixed_count = 0

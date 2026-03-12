@@ -1,13 +1,13 @@
 """Add partial unique constraint on labs(subject_id, number) where deleted_at IS NULL
 
-Revision ID: 083_add_labs_unique_subject_number
+Revision ID: 083_labs_subject_number_uq
 Revises: 082_fix_device_datetime_tz
 Create Date: 2026-03-06
 """
 
 from alembic import op
 
-revision = "083_add_labs_unique_subject_number"
+revision = "083_labs_subject_number_uq"
 down_revision = "082_fix_device_datetime_tz"
 branch_labels = None
 depends_on = None

@@ -4,7 +4,7 @@ Fixes race condition where multiple grades with work_number=NULL
 could be created for the same (lesson_id, student_id) because
 PostgreSQL treats NULL != NULL in unique constraints.
 
-Revision ID: 078_fix_lesson_grade_null_constraint
+Revision ID: 078_fix_lesson_grade_null
 Revises: 077_add_uploaded_fields_to_attachments
 Create Date: 2026-01-30
 """
@@ -12,7 +12,7 @@ Create Date: 2026-01-30
 from alembic import op
 
 # revision identifiers
-revision = "078_fix_lesson_grade_null_constraint"
+revision = "078_fix_lesson_grade_null"
 down_revision = "077_uploaded_fields"
 branch_labels = None
 depends_on = None

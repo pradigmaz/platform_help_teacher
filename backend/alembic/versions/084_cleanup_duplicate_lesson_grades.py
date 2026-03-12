@@ -1,14 +1,14 @@
 """Cleanup duplicate lesson_grades for the same student/subject/work_number.
 
-Revision ID: 084_cleanup_duplicate_lesson_grades
-Revises: 083_add_labs_unique_subject_number
+Revision ID: 084_cleanup_lesson_grades
+Revises: 083_labs_subject_number_uq
 Create Date: 2026-03-11
 """
 
 from alembic import op
 
-revision = "084_cleanup_duplicate_lesson_grades"
-down_revision = "083_add_labs_unique_subject_number"
+revision = "084_cleanup_lesson_grades"
+down_revision = "083_labs_subject_number_uq"
 branch_labels = None
 depends_on = None
 

@@ -5,7 +5,7 @@ defended during a single lesson. NULL means standard logic applies
 (1 lab normally, 2 for EXCUSED attendance).
 
 Revision ID: 079_add_max_labs_override_to_lessons
-Revises: 078_fix_lesson_grade_null_constraint
+Revises: 078_fix_lesson_grade_null
 Create Date: 2026-01-30
 """
 
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = "079_max_labs_override"
-down_revision = "078_fix_lesson_grade_null_constraint"
+down_revision = "078_fix_lesson_grade_null"
 branch_labels = None
 depends_on = None
 
