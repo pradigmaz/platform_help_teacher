@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { useAutoLogin } from '@/hooks/useAutoLogin'
 
 function LoginForm() {
-  const { otp, setOtp, rememberDevice, setRememberDevice, loading, checkingAuth, login } = useAutoLogin()
+  const { otp, setOtp, rememberDevice, setRememberDevice, loading, checkingAuth, login, devLogin, canUseDevLogin } = useAutoLogin()
 
   if (checkingAuth) {
     return (
@@ -54,10 +54,20 @@ function LoginForm() {
           {loading && <Loader2 className="animate-spin" size={20} />}
           {loading ? 'Проверка...' : 'Войти'}
         </button>
+
+        {canUseDevLogin && (
+          <button
+            onClick={() => devLogin()}
+            disabled={loading}
+            className="w-full py-3 px-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 font-semibold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Войти как dev admin
+          </button>
+        )}
       </div>
 
       <div className="text-center text-sm text-gray-500">
-        Нет кода? Напишите <span className="font-mono text-blue-400">/start</span> боту
+        {canUseDevLogin ? 'Или используйте dev-вход выше.' : <>Нет кода? Напишите <span className="font-mono text-blue-400">/start</span> боту</>}
       </div>
     </div>
   )

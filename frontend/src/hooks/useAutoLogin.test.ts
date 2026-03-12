@@ -1,0 +1,133 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+
+const mocks = vi.hoisted(() => ({
+  authApi: {
+    login: vi.fn(),
+    devLogin: vi.fn(),
+    me: vi.fn(),
+  },
+  router: {
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+  },
+  setUser: vi.fn(),
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => mocks.router,
+}));
+
+vi.mock('sonner', () => ({
+  toast: mocks.toast,
+}));
+
+vi.mock('@/stores', () => ({
+  useAuthStore: {
+    getState: () => ({
+      setUser: mocks.setUser,
+    }),
+  },
+}));
+
+vi.mock('@/lib/api', () => ({
+  AuthAPI: mocks.authApi,
+  ApiError: class ApiError extends Error {},
+}));
+
+import { useAutoLogin } from './useAutoLogin';
+
+describe('useAutoLogin', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.authApi.me.mockRejectedValue(new Error('Not authenticated'));
+    mocks.authApi.login.mockResolvedValue({
+      user: {
+        full_name: 'Test User',
+        role: 'student',
+      },
+    });
+    window.history.replaceState({}, '', '/auth/login#code=123456');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    window.history.replaceState({}, '', '/');
+  });
+
+  it('uses remember_device=false for auto-login codes and preserves returnUrl', async () => {
+    window.history.replaceState({}, '', '/auth/login?returnUrl=%2Freports#code=123456');
+
+    const { result } = renderHook(() => useAutoLogin());
+
+    await waitFor(() => expect(result.current.checkingAuth).toBe(false));
+    expect(result.current.rememberDevice).toBe(false);
+
+    await waitFor(() => {
+      expect(mocks.authApi.login).toHaveBeenCalledWith('123456', false, true);
+    });
+
+    expect(mocks.authApi.login).toHaveBeenCalledTimes(1);
+    expect(result.current.rememberDevice).toBe(false);
+    expect(mocks.router.push).toHaveBeenCalledWith('/reports');
+    expect(window.location.search).toBe('?returnUrl=%2Freports');
+  });
+
+  it('redirects already authenticated users via AuthAPI.me', async () => {
+    mocks.authApi.me.mockResolvedValue({
+      full_name: 'Admin User',
+      role: 'admin',
+    });
+
+    renderHook(() => useAutoLogin());
+
+    await waitFor(() => {
+      expect(mocks.authApi.me).toHaveBeenCalledTimes(1);
+      expect(mocks.router.replace).toHaveBeenCalledWith('/admin');
+    });
+
+    expect(mocks.authApi.login).not.toHaveBeenCalled();
+  });
+
+  it('ignores non-numeric legacy query codes', async () => {
+    window.history.replaceState({}, '', '/auth/login?code=ABC123');
+
+    const { result } = renderHook(() => useAutoLogin());
+
+    await waitFor(() => expect(result.current.checkingAuth).toBe(false));
+
+    expect(mocks.authApi.login).not.toHaveBeenCalled();
+    expect(mocks.router.push).not.toHaveBeenCalled();
+  });
+
+  it('enables dev login in development and redirects admins', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    mocks.authApi.devLogin.mockResolvedValue({
+      user: {
+        full_name: 'Dev Admin',
+        role: 'admin',
+      },
+    });
+
+    const { result } = renderHook(() => useAutoLogin());
+
+    await waitFor(() => expect(result.current.checkingAuth).toBe(false));
+    expect(result.current.canUseDevLogin).toBe(true);
+
+    await act(async () => {
+      await result.current.devLogin();
+    });
+
+    expect(mocks.authApi.devLogin).toHaveBeenCalledWith(true);
+    expect(mocks.setUser).toHaveBeenCalledWith({
+      full_name: 'Dev Admin',
+      role: 'admin',
+    });
+    expect(mocks.router.push).toHaveBeenCalledWith('/admin');
+  });
+});

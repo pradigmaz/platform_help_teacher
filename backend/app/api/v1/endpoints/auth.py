@@ -13,6 +13,7 @@ from app.audit.deps import set_audit_extra
 from app.audit.middleware import SESSION_COOKIE_NAME
 from app.core import error_messages as em
 from app.core import security
+from app.core.client_ip import extract_client_ip
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.redis import get_redis
@@ -23,6 +24,70 @@ from app.services import device_service, session_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+DEV_LOGIN_USERNAME = "dev-local-admin"
+DEV_LOGIN_FULL_NAME = "Dev Local Admin"
+
+
+async def _complete_login(
+    *,
+    request: Request,
+    response: Response,
+    user: User,
+    remember_device: bool,
+    force_session_cookie: bool = False,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    access_token = security.create_access_token(user.id, role=user.role.value)
+
+    is_production = settings.ENVIRONMENT == "production"
+
+    # Для студентов: session cookie по умолчанию (умирает при закрытии браузера)
+    # Для admin/teacher: всегда persistent cookie
+    # remember_device=True: persistent cookie для всех
+    use_persistent_cookie = (
+        False if force_session_cookie else user.role in (UserRole.ADMIN, UserRole.TEACHER) or remember_device
+    )
+    cookie_max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60 if use_persistent_cookie else None
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=cookie_max_age,
+    )
+
+    session_id = str(uuid4())
+    device_fingerprint = request.headers.get("X-Device-Fingerprint")
+    client_ip = extract_client_ip(request).value
+    await session_service.create_session(
+        user_id=user.id,
+        session_id=session_id,
+        device_fingerprint=device_fingerprint,
+        ip_address=client_ip,
+    )
+
+    device_registered = await device_service.register_or_update_device(
+        db=db,
+        user_id=user.id,
+        device_fingerprint=device_fingerprint,
+    )
+
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=session_id,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=cookie_max_age,
+    )
+
+    return {
+        "message": "Logged in successfully",
+        "user": {"id": str(user.id), "full_name": user.full_name, "username": user.username, "role": user.role},
+        "device_registered": device_registered,
+    }
 
 
 @router.get("/csrf-token")
@@ -42,6 +107,7 @@ async def login_with_otp(
     response: Response,
     otp: str = Body(...),
     remember_device: bool = Body(False),
+    force_session_cookie: bool = Body(False),
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
     csrf_protect: CsrfProtect = Depends(),
@@ -93,59 +159,75 @@ async def login_with_otp(
     if not user.is_active:
         raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN)
 
-    access_token = security.create_access_token(user.id, role=user.role.value)
-
-    is_production = settings.ENVIRONMENT == "production"
-
-    # Для студентов: session cookie по умолчанию (умирает при закрытии браузера)
-    # Для admin/teacher: всегда persistent cookie
-    # remember_device=True: persistent cookie для всех
-    use_persistent_cookie = user.role in (UserRole.ADMIN, UserRole.TEACHER) or remember_device
-    cookie_max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60 if use_persistent_cookie else None
-
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=is_production,
-        samesite="lax",
-        max_age=cookie_max_age,
-    )
-
-    # Generate session_id for audit tracking and session management
-    session_id = str(uuid4())
-
-    # Create session in Redis with limit enforcement
-    device_fingerprint = request.headers.get("X-Device-Fingerprint")
-    client_ip = request.client.host if request.client else None
-    await session_service.create_session(
-        user_id=user.id,
-        session_id=session_id,
-        device_fingerprint=device_fingerprint,
-        ip_address=client_ip,
-    )
-
-    # Register or update device in database
-    device_registered = await device_service.register_or_update_device(
+    return await _complete_login(
+        request=request,
+        response=response,
+        user=user,
+        remember_device=remember_device,
+        force_session_cookie=force_session_cookie,
         db=db,
-        user_id=user.id,
-        device_fingerprint=device_fingerprint,
     )
 
-    response.set_cookie(
-        key=SESSION_COOKIE_NAME,
-        value=session_id,
-        httponly=True,
-        secure=is_production,
-        samesite="lax",
-        max_age=cookie_max_age,
-    )
 
-    return {
-        "message": "Logged in successfully",
-        "user": {"full_name": user.full_name, "role": user.role},
-        "device_registered": device_registered,
-    }
+@router.post("/dev-login")
+@limiter.limit("10/minute")
+@audit_action(ActionType.AUTH_LOGIN, EntityType.AUTH)
+async def login_with_dev_account(
+    request: Request,
+    response: Response,
+    remember_device: bool = Body(True, embed=True),
+    db: AsyncSession = Depends(get_db),
+    csrf_protect: CsrfProtect = Depends(),
+) -> Any:
+    """
+    Development-only shortcut login.
+    WARNING: Must remain unavailable outside local development.
+    """
+    if settings.ENVIRONMENT != "development":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    await csrf_protect.validate_csrf(request)
+
+    set_audit_extra(request, "auth_method", "dev_login")
+
+    result = await db.execute(select(User).where(User.username == DEV_LOGIN_USERNAME))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        user = User(
+            full_name=DEV_LOGIN_FULL_NAME,
+            username=DEV_LOGIN_USERNAME,
+            role=UserRole.ADMIN,
+            is_active=True,
+            onboarding_completed=True,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        logger.info("Created development login user %s", DEV_LOGIN_USERNAME)
+    else:
+        changed = False
+        if user.role != UserRole.ADMIN:
+            user.role = UserRole.ADMIN
+            changed = True
+        if not user.is_active:
+            user.is_active = True
+            changed = True
+        if not user.onboarding_completed:
+            user.onboarding_completed = True
+            changed = True
+        if changed:
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+
+    return await _complete_login(
+        request=request,
+        response=response,
+        user=user,
+        remember_device=remember_device,
+        db=db,
+    )
 
 
 @router.post("/logout")

@@ -31,7 +31,11 @@ interface UseAutoLoginResult {
   /** Whether initial auth check is in progress */
   checkingAuth: boolean;
   /** Trigger login manually */
-  login: (code?: string) => Promise<void>;
+  login: (code?: string, rememberDeviceOverride?: boolean, forceSessionCookieOverride?: boolean) => Promise<void>;
+  /** Trigger development-only test login */
+  devLogin: () => Promise<void>;
+  /** Whether dev login shortcut should be shown */
+  canUseDevLogin: boolean;
 }
 
 /**
@@ -46,21 +50,19 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
   const [checkingAuth, setCheckingAuth] = useState(true);
   const router = useRouter();
   const loginAttemptedRef = useRef(false);
+  const canUseDevLogin = process.env.NODE_ENV === 'development';
 
   // Check if already authenticated
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/v1/users/me', { credentials: 'include' });
-        if (res.ok) {
-          const user = await res.json();
-          if (user.role === 'admin' || user.role === 'teacher') {
-            router.replace('/admin');
-            return;
-          } else if (user.role === 'student') {
-            router.replace('/dashboard');
-            return;
-          }
+        const user = await AuthAPI.me();
+        if (user.role === 'admin' || user.role === 'teacher') {
+          router.replace('/admin');
+          return;
+        } else if (user.role === 'student') {
+          router.replace('/dashboard');
+          return;
         }
       } catch {
         // Not logged in - show form
@@ -81,58 +83,67 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
     
     // Fallback to query params for backwards compatibility
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const codeFromQuery = params?.get('code');
+    const queryCode = params?.get('code');
+    const codeFromQuery = queryCode && /^\d{6}$/.test(queryCode) ? queryCode : null;
     
     const code = codeFromFragment || codeFromQuery;
     
     if (code && code.length === 6) {
+      const autoLoginRememberDevice = false;
       setOtp(code);
-      setRememberDevice(true);
+      setRememberDevice(autoLoginRememberDevice);
       loginAttemptedRef.current = true;
+      console.log('[Hook:useAutoLogin] Auto-login detected, forcing session-only cookies');
       // Clear fragment/query from URL for security
       if (typeof window !== 'undefined') {
-        window.history.replaceState({}, '', window.location.pathname);
+        const nextParams = new URLSearchParams(window.location.search);
+        nextParams.delete('code');
+        const nextSearch = nextParams.toString();
+        const nextUrl = nextSearch ? `${window.location.pathname}?${nextSearch}` : window.location.pathname;
+        window.history.replaceState({}, '', nextUrl);
       }
-      const timer = setTimeout(() => login(code), 100);
+      const timer = setTimeout(() => login(code, autoLoginRememberDevice, true), 100);
       return () => clearTimeout(timer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkingAuth]);
 
-  const login = async (code?: string) => {
+  const handleSuccessfulLogin = async (data: Awaited<ReturnType<typeof AuthAPI.login>>) => {
+    console.log('[Hook:useAutoLogin] Login successful, updating store', { user: data.user });
+    useAuthStore.getState().setUser(data.user);
+
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const returnUrl = params?.get('returnUrl');
+
+    let targetPath = '/';
+    if (redirectTo) {
+      targetPath = redirectTo;
+    } else if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
+      targetPath = returnUrl;
+    } else if (data.user?.role === 'admin' || data.user?.role === 'teacher') {
+      targetPath = '/admin';
+    } else if (data.user?.role === 'student') {
+      targetPath = '/dashboard';
+    }
+
+    toast.success('Вход выполнен успешно');
+    onSuccess?.(data.user);
+
+    router.push(targetPath);
+    router.refresh();
+  };
+
+  const login = async (code?: string, rememberDeviceOverride?: boolean, forceSessionCookieOverride?: boolean) => {
     const otpCode = code || otp;
+    const effectiveRememberDevice = rememberDeviceOverride ?? rememberDevice;
+    const effectiveForceSessionCookie = forceSessionCookieOverride ?? false;
     if (otpCode.length !== 6) return;
 
     setLoading(true);
 
     try {
-      const data = await AuthAPI.login(otpCode, rememberDevice);
-
-      // Сохраняем пользователя в store
-      console.log('[Hook:useAutoLogin] Login successful, updating store', { user: data.user });
-      useAuthStore.getState().setUser(data.user);
-
-      // Проверяем returnUrl из query params (после 401 редиректа)
-      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-      const returnUrl = params?.get('returnUrl');
-
-      let targetPath = '/';
-      if (redirectTo) {
-        targetPath = redirectTo;
-      } else if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
-        // Безопасный returnUrl (только относительные пути)
-        targetPath = returnUrl;
-      } else if (data.user?.role === 'admin' || data.user?.role === 'teacher') {
-        targetPath = '/admin';
-      } else if (data.user?.role === 'student') {
-        targetPath = '/dashboard';
-      }
-
-      toast.success('Вход выполнен успешно');
-      onSuccess?.(data.user);
-      
-      router.push(targetPath);
-      router.refresh();
+      const data = await AuthAPI.login(otpCode, effectiveRememberDevice, effectiveForceSessionCookie);
+      await handleSuccessfulLogin(data);
     } catch (err: unknown) {
       let message = 'Ошибка входа';
 
@@ -161,6 +172,33 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
     }
   };
 
+  const devLogin = async () => {
+    if (!canUseDevLogin) return;
+
+    setLoading(true);
+
+    try {
+      const data = await AuthAPI.devLogin(true);
+      await handleSuccessfulLogin(data);
+    } catch (err: unknown) {
+      let message = 'Ошибка dev-входа';
+
+      if (err instanceof ApiError) {
+        message = err.message;
+      } else if (err instanceof ZodError) {
+        message = 'Ошибка валидации данных';
+      } else if (err instanceof AxiosError) {
+        message = err.response?.data?.detail || err.message;
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+
+      toast.error(message);
+      onError?.(message);
+      setLoading(false);
+    }
+  };
+
   return {
     otp,
     setOtp: (value: string) => setOtp(value.replace(/\D/g, '')),
@@ -169,5 +207,7 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
     loading,
     checkingAuth,
     login,
+    devLogin,
+    canUseDevLogin,
   };
 }

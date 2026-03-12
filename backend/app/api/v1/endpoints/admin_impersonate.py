@@ -11,6 +11,7 @@ from app.api.deps import get_current_active_superuser, get_db, get_token_from_co
 from app.audit.middleware import SESSION_COOKIE_NAME
 from app.core import error_messages as em
 from app.core import security
+from app.core.client_ip import extract_client_ip
 from app.core.config import settings
 from app.models import User, UserRole
 from app.services import session_service
@@ -21,6 +22,7 @@ router = APIRouter()
 # Impersonation token TTL (shorter than regular for security)
 IMPERSONATE_TOKEN_TTL_MINUTES = 15
 ADMIN_TOKEN_COOKIE = "admin_original_token"
+ADMIN_SESSION_COOKIE = "admin_original_session_id"
 
 
 @router.post("/impersonate/exit")
@@ -37,6 +39,8 @@ async def exit_impersonation(
     from jwt.exceptions import InvalidTokenError
 
     original_token = request.cookies.get(ADMIN_TOKEN_COOKIE)
+    original_session_id = request.cookies.get(ADMIN_SESSION_COOKIE)
+    current_session_id = request.cookies.get(SESSION_COOKIE_NAME)
 
     if not original_token:
         raise HTTPException(status_code=400, detail=em.INVALID_ADMIN_TOKEN)
@@ -58,10 +62,39 @@ async def exit_impersonation(
             raise HTTPException(status_code=403, detail=em.ACCESS_FORBIDDEN)
 
     except InvalidTokenError:
-        response.delete_cookie(key=ADMIN_TOKEN_COOKIE)
+        response.delete_cookie(key=ADMIN_TOKEN_COOKIE, path="/")
+        response.delete_cookie(key=ADMIN_SESSION_COOKIE, path="/")
         raise HTTPException(status_code=401, detail=em.INVALID_ADMIN_TOKEN)
 
     is_production = settings.ENVIRONMENT == "production"
+
+    if current_session_id and current_session_id != original_session_id:
+        await session_service.revoke_session(current_session_id)
+
+    restored_session_id = None
+    if original_session_id:
+        restored_session = await session_service.validate_session(
+            original_session_id,
+            expected_user_id=str(admin_user.id),
+        )
+        if restored_session:
+            restored_session_id = original_session_id
+        else:
+            logger.warning(
+                "Admin exit impersonation could not restore original session | admin_id=%s | session_id=%s",
+                admin_user.id,
+                original_session_id[:8],
+            )
+
+    if restored_session_id is None:
+        restored_session_id = str(uuid4())
+        client_ip = extract_client_ip(request).value
+        await session_service.create_session(
+            user_id=admin_user.id,
+            session_id=restored_session_id,
+            device_fingerprint=request.headers.get("X-Device-Fingerprint"),
+            ip_address=client_ip,
+        )
 
     # Restore admin's original token
     response.set_cookie(
@@ -71,15 +104,26 @@ async def exit_impersonation(
         secure=is_production,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=restored_session_id,
+        httponly=True,
+        secure=is_production,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
     )
 
     # Clear the backup cookie
-    response.delete_cookie(key=ADMIN_TOKEN_COOKIE)
+    response.delete_cookie(key=ADMIN_TOKEN_COOKIE, path="/")
+    response.delete_cookie(key=ADMIN_SESSION_COOKIE, path="/")
 
     logger.info("Admin exited impersonation mode")
 
     # Clear impersonation flag
-    response.delete_cookie(key="impersonating")
+    response.delete_cookie(key="impersonating", path="/")
 
     return {"message": "Returned to admin session"}
 
@@ -124,6 +168,17 @@ async def impersonate_user(
             max_age=IMPERSONATE_TOKEN_TTL_MINUTES * 60,
             path="/",
         )
+    original_session_id = request.cookies.get(SESSION_COOKIE_NAME)
+    if original_session_id:
+        response.set_cookie(
+            key=ADMIN_SESSION_COOKIE,
+            value=original_session_id,
+            httponly=True,
+            secure=is_production,
+            samesite="lax",
+            max_age=IMPERSONATE_TOKEN_TTL_MINUTES * 60,
+            path="/",
+        )
 
     # Set flag cookie for frontend to detect impersonation (non-sensitive)
     response.set_cookie(
@@ -159,7 +214,7 @@ async def impersonate_user(
         user_id=target_user.id,
         session_id=session_id,
         device_fingerprint=request.headers.get("X-Device-Fingerprint"),
-        ip_address=request.client.host if request.client else None,
+        ip_address=extract_client_ip(request).value,
         is_impersonation=True,
     )
 

@@ -8,7 +8,7 @@ const TG_BOT_URL = process.env.NEXT_PUBLIC_TG_BOT_URL || process.env.NEXT_PUBLIC
 const VK_BOT_URL = process.env.NEXT_PUBLIC_VK_BOT_URL || ''
 
 function LoginForm() {
-  const { otp, setOtp, rememberDevice, setRememberDevice, loading, checkingAuth, login } = useAutoLogin()
+  const { otp, setOtp, rememberDevice, setRememberDevice, loading, checkingAuth, login, devLogin, canUseDevLogin } = useAutoLogin()
 
   if (checkingAuth) {
     return (
@@ -57,11 +57,23 @@ function LoginForm() {
           {loading && <Loader2 className="animate-spin" size={20} />}
           {loading ? 'Проверка...' : 'Войти'}
         </button>
+
+        {canUseDevLogin && (
+          <button
+            onClick={() => devLogin()}
+            disabled={loading}
+            className="w-full py-3 px-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 font-semibold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Войти как dev admin
+          </button>
+        )}
       </div>
 
       {/* Выбор соц.сети */}
       <div className="space-y-3">
-        <p className="text-center text-sm text-gray-500">Нет кода? Получите в боте:</p>
+        <p className="text-center text-sm text-gray-500">
+          {canUseDevLogin ? 'Быстрый dev-вход доступен только локально.' : 'Нет кода? Получите в боте:'}
+        </p>
         <div className="flex gap-3">
           <a
             href={TG_BOT_URL || '#'}

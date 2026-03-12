@@ -18,7 +18,6 @@ USER_SESSIONS_PREFIX = "user_sessions:"
 SESSION_TTL = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
 # Lua script for atomic session cleanup
-# Prevents race condition when multiple logins happen simultaneously
 CLEANUP_OLD_SESSIONS_SCRIPT = """
 local user_sessions_key = KEYS[1]
 local session_prefix = ARGV[1]
@@ -75,6 +74,46 @@ return removed_count
 """
 
 
+def _build_device_summary(device_fingerprint: str | None) -> dict[str, object] | None:
+    if not device_fingerprint:
+        return None
+    try:
+        fingerprint = json.loads(device_fingerprint)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    ua = fingerprint.get("userAgent", "")
+    screen = fingerprint.get("screen") or {}
+    browser = (
+        "Chrome"
+        if "Chrome" in ua and "Edg" not in ua
+        else "Firefox"
+        if "Firefox" in ua
+        else "Safari"
+        if "Safari" in ua and "Chrome" not in ua
+        else "Edge"
+        if "Edg" in ua
+        else "Opera"
+        if "Opera" in ua or "OPR" in ua
+        else ""
+    )
+    return {
+        "platform": fingerprint.get("platform") or "",
+        "userAgent": browser,
+        "screen": {"width": screen.get("width"), "height": screen.get("height")}
+        if screen.get("width") and screen.get("height")
+        else {},
+    }
+
+
+def _mask_ip_for_storage(ip_address: str | None) -> str | None:
+    if not ip_address:
+        return None
+    parts = ip_address.split(".")
+    if len(parts) == 4:
+        return f"{parts[0]}.{parts[1]}.x.x"
+    return ip_address[:8] + "..."
+
+
 async def create_session(
     user_id: UUID,
     session_id: str,
@@ -94,30 +133,30 @@ async def create_session(
     """
     redis = await get_redis()
     user_id_str = str(user_id)
+    device_summary = _build_device_summary(device_fingerprint)
 
     session_data = json.dumps(
         {
             "user_id": user_id_str,
             "created_at": datetime.now(UTC).isoformat(),
-            "device_fingerprint": device_fingerprint,
-            "ip_address": ip_address,
+            "device_summary": device_summary,
+            "ip_address": _mask_ip_for_storage(ip_address),
             "is_impersonation": is_impersonation,
         }
     )
 
-    # Impersonation sessions don't count against limit
+    user_sessions_key = f"{USER_SESSIONS_PREFIX}{user_id_str}"
+
     if is_impersonation:
         session_key = f"{SESSION_PREFIX}{session_id}"
         await redis.setex(session_key, SESSION_TTL, session_data)
+        await redis.sadd(user_sessions_key, session_id)
+        await redis.expire(user_sessions_key, SESSION_TTL)
         logger.info(
             f"[SessionService:create_session] Created impersonation session {session_id[:8]}... for user {user_id_str}"
         )
         return True
 
-    user_sessions_key = f"{USER_SESSIONS_PREFIX}{user_id_str}"
-
-    # Use Lua script for atomic cleanup of old sessions
-    # This prevents race condition when multiple logins happen simultaneously
     try:
         removed_count = await redis.eval(
             CLEANUP_OLD_SESSIONS_SCRIPT,
@@ -135,7 +174,6 @@ async def create_session(
         logger.error(f"[SessionService:create_session] Error cleaning old sessions for user {user_id_str}: {e}")
         # Continue with session creation even if cleanup fails
 
-    # Create new session
     session_key = f"{SESSION_PREFIX}{session_id}"
     await redis.setex(session_key, SESSION_TTL, session_data)
     await redis.sadd(user_sessions_key, session_id)
@@ -145,7 +183,7 @@ async def create_session(
     return True
 
 
-async def validate_session(session_id: str) -> dict | None:
+async def validate_session(session_id: str, expected_user_id: str | UUID | None = None) -> dict | None:
     """
     Validate session exists and is not revoked.
     Returns session data if valid, None otherwise.
@@ -160,6 +198,22 @@ async def validate_session(session_id: str) -> dict | None:
 
     try:
         session_data = json.loads(data)
+        if not isinstance(session_data, dict):
+            logger.error(f"[SessionService:validate_session] Session {session_id[:8]}... payload is not an object")
+            return None
+
+        if expected_user_id is not None:
+            actual_user_id = session_data.get("user_id")
+            expected_user_id_str = str(expected_user_id)
+            if actual_user_id != expected_user_id_str:
+                logger.warning(
+                    "[SessionService:validate_session] Session %s... owner mismatch: expected=%s actual=%s",
+                    session_id[:8],
+                    expected_user_id_str,
+                    actual_user_id,
+                )
+                return None
+
         logger.debug(
             f"[SessionService:validate_session] Session {session_id[:8]}... validated for user {session_data.get('user_id')}"
         )

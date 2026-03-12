@@ -19,15 +19,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _parse_device_info(fingerprint_str: str | None) -> DeviceInfo:
-    """Parse device info from fingerprint JSON string."""
-    if not fingerprint_str:
+def _parse_device_info(device_payload: dict | str | None) -> DeviceInfo:
+    """Parse device info from stored device summary or legacy fingerprint JSON."""
+    if not device_payload:
         return DeviceInfo()
 
-    try:
-        fp = json.loads(fingerprint_str)
-    except (json.JSONDecodeError, TypeError):
-        return DeviceInfo()
+    if isinstance(device_payload, dict):
+        fp = device_payload
+    else:
+        try:
+            fp = json.loads(device_payload)
+        except (json.JSONDecodeError, TypeError):
+            return DeviceInfo()
 
     # Platform
     platform = fp.get("platform", "")
@@ -53,7 +56,7 @@ def _parse_device_info(fingerprint_str: str | None) -> DeviceInfo:
         browser = "Firefox"
     elif "Safari" in ua and "Chrome" not in ua:
         browser = "Safari"
-    elif "Edg" in ua:
+    elif "Edg" in ua or ua == "Edge":
         browser = "Edge"
     elif "Opera" in ua or "OPR" in ua:
         browser = "Opera"
@@ -109,13 +112,13 @@ async def get_my_sessions(
                 session_id=session_id,
                 created_at=created_at,
                 ip_address=_mask_ip(s.get("ip_address")),
-                device=_parse_device_info(s.get("device_fingerprint")),
+                device=_parse_device_info(s.get("device_summary") or s.get("device_fingerprint")),
                 is_current=(session_id == current_session_id),
             )
         )
 
     # Sort: current first, then by created_at desc
-    sessions.sort(key=lambda x: (not x.is_current, x.created_at), reverse=True)
+    sessions.sort(key=lambda x: (x.is_current, x.created_at), reverse=True)
 
     return SessionListResponse(
         sessions=sessions,

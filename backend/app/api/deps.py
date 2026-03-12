@@ -77,26 +77,44 @@ async def get_current_user(request: Request, db: Annotated[AsyncSession, Depends
 
     # Validate session in Redis
     session_id = request.cookies.get(SESSION_COOKIE_NAME)
-    if session_id:
-        session_data = await session_service.validate_session(session_id)
-        if not session_data:
-            logger.warning(
-                f"[deps:get_current_user] Auth failed: session revoked | "
-                f"user_id={user_id} | session_id={session_id[:8]}... | path={path} | ip={client_ip}"
-            )
-            request.state.auth_error_reason = "session_revoked"
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Session revoked",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        logger.debug(f"[deps:get_current_user] Session validated | session_id={session_id[:8]}... | user_id={user_id}")
-    else:
-        # No session cookie - this might be an old token or API access
-        # For now, we'll allow it but log a warning
+    if not session_id:
         logger.warning(
             f"[deps:get_current_user] No session cookie found | user_id={user_id} | path={path} | ip={client_ip}"
         )
+        request.state.auth_error_reason = "session_missing"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    session_data = await session_service.validate_session(session_id, expected_user_id=user_id)
+    if not session_data:
+        logger.warning(
+            f"[deps:get_current_user] Auth failed: session revoked | "
+            f"user_id={user_id} | session_id={session_id[:8]}... | path={path} | ip={client_ip}"
+        )
+        request.state.auth_error_reason = "session_revoked"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if session_data.get("user_id") != user_id:
+        logger.warning(
+            f"[deps:get_current_user] Auth failed: session owner mismatch | "
+            f"token_user_id={user_id} | session_user_id={session_data.get('user_id')} | "
+            f"session_id={session_id[:8]}... | path={path} | ip={client_ip}"
+        )
+        request.state.auth_error_reason = "session_owner_mismatch"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    logger.debug(f"[deps:get_current_user] Session validated | session_id={session_id[:8]}... | user_id={user_id}")
 
     result = await db.execute(select(User).where(User.id == UUID(user_id)))
     user = result.scalar_one_or_none()
