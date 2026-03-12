@@ -7,11 +7,16 @@ x-docker-logging: &docker-logging
     max-size: "10m"
     max-file: "5"
 
+x-security: &security
+  security_opt:
+    - no-new-privileges:true
+
 services:
   # === DATA LAYER ===
   db:
     image: postgres:16-alpine
     container_name: edu-db-prod
+    <<: *security
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -47,6 +52,10 @@ services:
   redis:
     image: redis:7.2.10-alpine
     container_name: edu-redis-prod
+    <<: *security
+    read_only: true
+    tmpfs:
+      - /tmp:size=32M
     command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy volatile-lru
     volumes:
       - redis_data_prod:/data
@@ -69,6 +78,7 @@ services:
   minio:
     image: minio/minio:RELEASE.2024-11-07T00-52-20Z
     container_name: edu-minio-prod
+    <<: *security
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -98,6 +108,7 @@ services:
       dockerfile: Dockerfile.prod
     image: edu-backend:prod
     container_name: edu-backend-prod
+    <<: *security
     environment:
       POSTGRES_SERVER: db
       POSTGRES_USER: ${POSTGRES_USER}
@@ -150,6 +161,7 @@ services:
         NEXT_PUBLIC_VK_BOT_URL: ${NEXT_PUBLIC_VK_BOT_URL}
     image: edu-frontend:prod
     container_name: edu-frontend-prod
+    <<: *security
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_BOT_URL: ${NEXT_PUBLIC_BOT_URL}
@@ -176,6 +188,7 @@ services:
       dockerfile: Dockerfile.prod
     image: edu-backend:prod
     container_name: edu-celery-prod
+    <<: *security
     environment:
       POSTGRES_SERVER: db
       POSTGRES_USER: ${POSTGRES_USER}
@@ -215,6 +228,12 @@ services:
   nginx:
     image: nginx:alpine
     container_name: edu-proxy-prod
+    <<: *security
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M
+      - /var/cache/nginx:size=32M
+      - /run:size=8M
     ports:
       - "80:80"
       - "443:443"
@@ -240,6 +259,7 @@ services:
   certbot:
     image: certbot/certbot
     container_name: edu-certbot
+    <<: *security
     volumes:
       - certbot_data:/etc/letsencrypt
       - certbot_www:/var/www/certbot
