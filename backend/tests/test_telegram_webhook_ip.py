@@ -5,6 +5,7 @@ from fastapi import HTTPException, Request
 
 from app.api.deps import verify_telegram_ip
 from app.core.client_ip import extract_client_ip
+from app.core.config import settings
 from app.core.limiter import get_rate_limit_ip
 from app.middleware.ip_ban import IPBanMiddleware
 from app.middleware.security_monitor import SecurityMonitorMiddleware
@@ -57,12 +58,45 @@ async def test_verify_telegram_ip_allows_cloudflare_tunnel_loopback_proxy():
 
 
 @pytest.mark.asyncio
+async def test_verify_telegram_ip_allows_valid_secret_token_even_with_tunnel_bridge_proxy():
+    request = create_mock_webhook_request(
+        client_ip="172.19.0.3",
+        headers={
+            "CF-Connecting-IP": "91.108.5.53",
+            "X-Real-IP": "172.19.0.1",
+            "X-Forwarded-For": "172.19.0.1",
+            "X-Telegram-Bot-Api-Secret-Token": settings.TELEGRAM_WEBHOOK_SECRET,
+        },
+    )
+
+    await verify_telegram_ip(request)
+
+
+@pytest.mark.asyncio
 async def test_verify_telegram_ip_rejects_non_telegram_source():
     request = create_mock_webhook_request(
         client_ip="104.21.87.138",
         headers={
             "CF-Connecting-IP": "203.0.113.10",
             "X-Forwarded-For": "104.21.87.138",
+        },
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await verify_telegram_ip(request)
+
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_verify_telegram_ip_rejects_tunnel_bridge_proxy_with_invalid_secret():
+    request = create_mock_webhook_request(
+        client_ip="172.19.0.3",
+        headers={
+            "CF-Connecting-IP": "91.108.5.53",
+            "X-Real-IP": "172.19.0.1",
+            "X-Forwarded-For": "172.19.0.1",
+            "X-Telegram-Bot-Api-Secret-Token": "wrong-secret",
         },
     )
 

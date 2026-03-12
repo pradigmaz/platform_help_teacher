@@ -1,5 +1,6 @@
 import ipaddress
 import logging
+import secrets
 from typing import Annotated
 from uuid import UUID
 
@@ -152,11 +153,17 @@ async def get_current_active_superuser(
 async def verify_telegram_ip(request: Request):
     """
     Проверка, что запрос пришел от Telegram.
-    CF-Connecting-IP доверяем только если запрос реально пришел
-    через Cloudflare.
+    При Cloudflare Tunnel локальная proxy-цепочка может переписать исходный IP,
+    поэтому валидный Telegram secret token считаем достаточным доказательством
+    происхождения запроса. IP allowlist остается как дополнительная защита
+    для запросов без корректного secret token.
     """
     # В dev-режиме пропускаем проверку IP (для ngrok и локальной разработки)
     if settings.ENVIRONMENT == "development":
+        return
+
+    provided_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+    if provided_secret and secrets.compare_digest(provided_secret, settings.TELEGRAM_WEBHOOK_SECRET):
         return
 
     client_host = request.client.host if request.client else None
