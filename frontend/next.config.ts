@@ -1,4 +1,19 @@
+import os from 'node:os';
 import type { NextConfig } from "next";
+
+const localDevOrigins = Array.from(
+  new Set(
+    [
+      'localhost',
+      '127.0.0.1',
+      '0.0.0.0',
+      ...Object.values(os.networkInterfaces())
+        .flatMap((network) => network ?? [])
+        .filter((network): network is os.NetworkInterfaceInfo => Boolean(network) && network.family === 'IPv4' && !network.internal)
+        .map((network) => network.address),
+    ]
+  )
+);
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -13,6 +28,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_BOT_URL: process.env.NEXT_PUBLIC_BOT_URL,
   },
   allowedDevOrigins: [
+    ...localDevOrigins,
     "*.ngrok-free.app",
     "*.ngrok.io",
   ],
