@@ -48,8 +48,10 @@ def extract_client_ip(request: Request) -> ClientIPInfo:
     """
     Возвращает реальный IP клиента.
 
-    CF-Connecting-IP доверяем только если ближайший upstream IP относится к Cloudflare.
-    Это не дает внешнему клиенту подделать заголовок на DNS-only поддомене.
+    CF-Connecting-IP доверяем только если ближайший upstream IP относится к Cloudflare
+    или если запрос пришел через локальный cloudflared tunnel.
+    Это не дает внешнему клиенту подделать заголовок на DNS-only поддомене,
+    но позволяет принимать Telegram webhook через Cloudflare Tunnel.
     """
     client_host = request.client.host if request.client else None
     x_real_ip = request.headers.get("X-Real-IP")
@@ -62,7 +64,7 @@ def extract_client_ip(request: Request) -> ClientIPInfo:
         or _first_valid_ip(client_host)
     )
 
-    if cf_connecting_ip and proxy_ip and _is_cloudflare_ip(proxy_ip):
+    if cf_connecting_ip and proxy_ip and _is_trusted_cf_proxy(proxy_ip):
         trusted_cf_ip = _first_valid_ip(cf_connecting_ip)
         if trusted_cf_ip:
             return ClientIPInfo(value=trusted_cf_ip, source="CF-Connecting-IP")
@@ -103,3 +105,14 @@ def _is_cloudflare_ip(value: str) -> bool:
     except ValueError:
         return False
     return any(ip in network for network in _CLOUDFLARE_NETWORKS)
+
+
+def _is_loopback_ip(value: str) -> bool:
+    try:
+        return ipaddress.ip_address(value).is_loopback
+    except ValueError:
+        return False
+
+
+def _is_trusted_cf_proxy(value: str) -> bool:
+    return _is_cloudflare_ip(value) or _is_loopback_ip(value)

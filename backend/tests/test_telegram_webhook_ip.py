@@ -43,6 +43,20 @@ async def test_verify_telegram_ip_allows_cloudflare_proxied_telegram_source():
 
 
 @pytest.mark.asyncio
+async def test_verify_telegram_ip_allows_cloudflare_tunnel_loopback_proxy():
+    request = create_mock_webhook_request(
+        client_ip="172.19.0.3",
+        headers={
+            "CF-Connecting-IP": "91.108.5.53",
+            "X-Real-IP": "127.0.0.1",
+            "X-Forwarded-For": "127.0.0.1",
+        },
+    )
+
+    await verify_telegram_ip(request)
+
+
+@pytest.mark.asyncio
 async def test_verify_telegram_ip_rejects_non_telegram_source():
     request = create_mock_webhook_request(
         client_ip="104.21.87.138",
@@ -105,6 +119,22 @@ def test_extract_client_ip_ignores_spoofed_cf_header_on_dns_only_subdomain():
 
     assert result.value == "203.0.113.10"
     assert result.source == "X-Real-IP"
+
+
+def test_extract_client_ip_prefers_cf_connecting_ip_for_cloudflare_tunnel_loopback():
+    request = create_mock_webhook_request(
+        client_ip="172.19.0.3",
+        headers={
+            "X-Real-IP": "127.0.0.1",
+            "X-Forwarded-For": "127.0.0.1",
+            "CF-Connecting-IP": "91.108.5.53",
+        },
+    )
+
+    result = extract_client_ip(request)
+
+    assert result.value == "91.108.5.53"
+    assert result.source == "CF-Connecting-IP"
 
 
 def test_ip_middlewares_use_same_safe_real_ip_extraction():
