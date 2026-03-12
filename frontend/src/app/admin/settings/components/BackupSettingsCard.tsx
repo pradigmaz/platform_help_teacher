@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Save, Loader2, Clock, Database, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,21 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
       notify_on_failure: settings?.notify_on_failure ?? true,
     },
   });
+  const enabled = useWatch({ control: form.control, name: 'enabled' });
+  const notifyOnSuccess = useWatch({ control: form.control, name: 'notify_on_success' });
+  const notifyOnFailure = useWatch({ control: form.control, name: 'notify_on_failure' });
+
+  useEffect(() => {
+    form.reset({
+      enabled: settings?.enabled ?? true,
+      schedule_hour: settings?.schedule_hour ?? 17,
+      schedule_minute: settings?.schedule_minute ?? 0,
+      retention_days: settings?.retention_days ?? 30,
+      max_backups: settings?.max_backups ?? 10,
+      notify_on_success: settings?.notify_on_success ?? false,
+      notify_on_failure: settings?.notify_on_failure ?? true,
+    });
+  }, [form, settings]);
 
   useEffect(() => {
     console.log('[BackupSettingsCard] Form errors:', form.formState.errors);
@@ -46,7 +61,7 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
     <Card className="border-border/50">
       <CardHeader className="pb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-green-500/10">
+          <div className="rounded-lg bg-green-500/10 p-2">
             <Database className="h-5 w-5 text-green-500" />
           </div>
           <div>
@@ -57,19 +72,14 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Enable/Disable */}
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <Label>Автобэкап включён</Label>
             <p className="text-xs text-muted-foreground">Бэкапы создаются автоматически по расписанию</p>
           </div>
-          <Switch
-            checked={form.watch('enabled')}
-            onCheckedChange={(checked) => form.setValue('enabled', checked)}
-          />
+          <Switch checked={enabled} onCheckedChange={(checked) => form.setValue('enabled', checked)} />
         </div>
 
-        {/* Schedule */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -91,7 +101,7 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
               {...form.register('schedule_minute', { valueAsNumber: true })}
               className="w-20"
             />
-            <span className="text-sm text-muted-foreground ml-2">(по МСК)</span>
+            <span className="ml-2 text-sm text-muted-foreground">(по МСК)</span>
           </div>
           {(form.formState.errors.schedule_hour || form.formState.errors.schedule_minute) && (
             <p className="text-xs text-destructive">
@@ -100,35 +110,23 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
           )}
         </div>
 
-        {/* Retention */}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>Хранить дней</Label>
-            <Input
-              type="number"
-              min={1}
-              max={365}
-              {...form.register('retention_days', { valueAsNumber: true })}
-            />
+            <Input type="number" min={1} max={365} {...form.register('retention_days', { valueAsNumber: true })} />
             {form.formState.errors.retention_days && (
               <p className="text-xs text-destructive">{form.formState.errors.retention_days.message}</p>
             )}
           </div>
           <div className="space-y-2">
             <Label>Макс. бэкапов</Label>
-            <Input
-              type="number"
-              min={1}
-              max={100}
-              {...form.register('max_backups', { valueAsNumber: true })}
-            />
+            <Input type="number" min={1} max={100} {...form.register('max_backups', { valueAsNumber: true })} />
             {form.formState.errors.max_backups && (
               <p className="text-xs text-destructive">{form.formState.errors.max_backups.message}</p>
             )}
           </div>
         </div>
 
-        {/* Notifications */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-muted-foreground" />
@@ -136,28 +134,28 @@ export function BackupSettingsCard({ settings, isSaving, onSave }: BackupSetting
           </div>
           <div className="space-y-3 pl-6">
             <div className="flex items-center justify-between">
-              <Label className="font-normal">При успешном бэкапе (+ файл)</Label>
-              <Switch
-                checked={form.watch('notify_on_success')}
-                onCheckedChange={(checked) => form.setValue('notify_on_success', checked)}
-              />
+              <Label className="font-normal">При успешном бэкапе (+ зашифрованный файл)</Label>
+              <Switch checked={notifyOnSuccess} onCheckedChange={(checked) => form.setValue('notify_on_success', checked)} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="font-normal">При ошибке бэкапа</Label>
-              <Switch
-                checked={form.watch('notify_on_failure')}
-                onCheckedChange={(checked) => form.setValue('notify_on_failure', checked)}
-              />
+              <Switch checked={notifyOnFailure} onCheckedChange={(checked) => form.setValue('notify_on_failure', checked)} />
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end pt-4 border-t">
+        <div className="flex justify-end border-t pt-4">
           <Button onClick={handleSave} disabled={isSaving || !form.formState.isValid}>
             {isSaving ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Сохранение...</>
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Сохранение...
+              </>
             ) : (
-              <><Save className="mr-2 h-4 w-4" />Сохранить</>
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Сохранить
+              </>
             )}
           </Button>
         </div>

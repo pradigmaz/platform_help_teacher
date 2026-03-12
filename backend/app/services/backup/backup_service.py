@@ -17,7 +17,7 @@ from app.core.time_constants import BACKUP_DUMP_TIMEOUT_SECONDS
 
 from .encryption import BackupEncryption
 from .notification import get_notification_service
-from .remote_storage import BackupMetadata, BackupStorage
+from .remote_storage import BackupMetadata, BackupStorage, get_offsite_storage
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +69,28 @@ class BackupResult:
 
     success: bool
     backup_key: str | None = None
+    recovery_code: str | None = None
+    format_version: int | None = None
+    portable: bool | None = None
+    key_fingerprint: str | None = None
+    created_with_current_key: bool | None = None
     size: int | None = None
     uploaded: bool = False
+    mirrored_offsite: bool | None = None
+    offsite_error: str | None = None
     notification_sent: bool | None = None
     notification_error: str | None = None
     error: str | None = None
+
+
+def _build_backup_object_metadata(
+    encryption: BackupEncryption, *, format_version: int, portable: bool
+) -> dict[str, str]:
+    return {
+        "backup-format-version": str(format_version),
+        "backup-portable": str(portable).lower(),
+        "backup-key-fingerprint": encryption.key_fingerprint,
+    }
 
 
 class BackupService:
@@ -82,6 +99,19 @@ class BackupService:
     def __init__(self):
         self.encryption = BackupEncryption(settings.BACKUP_ENCRYPTION_KEY)
         self.storage = BackupStorage()
+        self.offsite_storage = get_offsite_storage()
+
+    async def _annotate_offsite_presence(self, backups: list[BackupMetadata]) -> list[BackupMetadata]:
+        if not backups or not self.offsite_storage:
+            return backups
+
+        statuses = await asyncio.gather(
+            *(self.offsite_storage.exists(backup.key) for backup in backups),
+            return_exceptions=True,
+        )
+        for backup, status in zip(backups, statuses, strict=False):
+            backup.offsite_present = False if isinstance(status, Exception) else status
+        return backups
 
     async def create_backup(
         self,
@@ -100,8 +130,11 @@ class BackupService:
         5. Send to admin via Telegram (optional)
         6. Cleanup temp files
         """
-        datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = name or _generate_backup_name()
+        remote_key = f"{backup_name}.enc"
+
+        if await self.storage.exists(remote_key):
+            return BackupResult(success=False, backup_key=remote_key, error="Backup with this name already exists")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
@@ -119,12 +152,28 @@ class BackupService:
                 _secure_delete(dump_file)  # Secure cleanup uncompressed
 
                 # Step 3: Encrypt
-                self.encryption.encrypt_file(compressed_file, encrypted_file)
+                recovery_code = self.encryption.encrypt_file(compressed_file, encrypted_file)
                 _secure_delete(compressed_file)  # Secure cleanup compressed
+                format_version = self.encryption.current_format_version
+                portable = True
+                object_metadata = _build_backup_object_metadata(
+                    self.encryption,
+                    format_version=format_version,
+                    portable=portable,
+                )
 
                 # Step 4: Upload
-                remote_key = f"{backup_name}.enc"
-                await self.storage.upload(encrypted_file, remote_key)
+                await self.storage.upload(encrypted_file, remote_key, object_metadata=object_metadata)
+                mirrored_offsite = None
+                offsite_error = None
+                if self.offsite_storage:
+                    try:
+                        await self.offsite_storage.upload(encrypted_file, remote_key, object_metadata=object_metadata)
+                        mirrored_offsite = True
+                    except Exception as exc:
+                        mirrored_offsite = False
+                        offsite_error = str(exc).strip() or "Offsite mirror failed"
+                        logger.error("Offsite mirror failed for %s: %s", remote_key, offsite_error)
 
                 size = encrypted_file.stat().st_size
                 logger.info(f"Backup completed: {remote_key} ({size} bytes)")
@@ -147,8 +196,15 @@ class BackupService:
                 return BackupResult(
                     success=True,
                     backup_key=remote_key,
+                    recovery_code=recovery_code,
+                    format_version=format_version,
+                    portable=portable,
+                    key_fingerprint=self.encryption.key_fingerprint,
+                    created_with_current_key=True,
                     size=size,
                     uploaded=True,
+                    mirrored_offsite=mirrored_offsite,
+                    offsite_error=offsite_error,
                     notification_sent=notification_sent,
                     notification_error=notification_error,
                 )
@@ -233,12 +289,18 @@ class BackupService:
 
     async def list_backups(self) -> list[BackupMetadata]:
         """List all available backups."""
-        return await self.storage.list_backups()
+        backups = await self.storage.list_backups()
+        return await self._annotate_offsite_presence(backups)
 
     async def delete_backup(self, backup_key: str) -> bool:
         """Delete a backup by key."""
         try:
             await self.storage.delete(backup_key)
+            if self.offsite_storage:
+                try:
+                    await self.offsite_storage.delete(backup_key)
+                except Exception as exc:
+                    logger.warning("Failed to delete offsite backup %s: %s", backup_key, exc)
             return True
         except Exception as e:
             logger.error(f"Delete failed: {e}")
@@ -256,7 +318,7 @@ class BackupService:
 
         for backup in backups:
             if backup.created_at.timestamp() < cutoff:
-                await self.storage.delete(backup.key)
+                await self.delete_backup(backup.key)
                 deleted += 1
                 logger.info(f"Deleted old backup: {backup.key}")
 
@@ -276,6 +338,10 @@ class BackupService:
         """
 
         backup_name = name or _generate_backup_name()
+        remote_key = f"{backup_name}.enc"
+
+        if self.storage.exists_sync(remote_key):
+            return BackupResult(success=False, backup_key=remote_key, error="Backup with this name already exists")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
@@ -293,12 +359,30 @@ class BackupService:
                 _secure_delete(dump_file)
 
                 # Step 3: Encrypt
-                self.encryption.encrypt_file(compressed_file, encrypted_file)
+                recovery_code = self.encryption.encrypt_file(compressed_file, encrypted_file)
                 _secure_delete(compressed_file)
+                format_version = self.encryption.current_format_version
+                portable = True
+                object_metadata = _build_backup_object_metadata(
+                    self.encryption,
+                    format_version=format_version,
+                    portable=portable,
+                )
 
                 # Step 4: Upload (sync)
-                remote_key = f"{backup_name}.enc"
-                self.storage.upload_sync(encrypted_file, remote_key, verify=True)
+                self.storage.upload_sync(encrypted_file, remote_key, verify=True, object_metadata=object_metadata)
+                mirrored_offsite = None
+                offsite_error = None
+                if self.offsite_storage:
+                    try:
+                        self.offsite_storage.upload_sync(
+                            encrypted_file, remote_key, verify=True, object_metadata=object_metadata
+                        )
+                        mirrored_offsite = True
+                    except Exception as exc:
+                        mirrored_offsite = False
+                        offsite_error = str(exc).strip() or "Offsite mirror failed"
+                        logger.error("Offsite mirror failed for %s: %s", remote_key, offsite_error)
 
                 size = encrypted_file.stat().st_size
                 logger.info(f"Backup completed: {remote_key} ({size} bytes)")
@@ -322,8 +406,15 @@ class BackupService:
                 return BackupResult(
                     success=True,
                     backup_key=remote_key,
+                    recovery_code=recovery_code,
+                    format_version=format_version,
+                    portable=portable,
+                    key_fingerprint=self.encryption.key_fingerprint,
+                    created_with_current_key=True,
                     size=size,
                     uploaded=True,
+                    mirrored_offsite=mirrored_offsite,
+                    offsite_error=offsite_error,
                     notification_sent=notification_sent,
                     notification_error=notification_error,
                 )
@@ -387,6 +478,20 @@ class BackupService:
         """Синхронный list_backups для Celery."""
         return self.storage.list_backups_sync()
 
+    def delete_backup_sync(self, backup_key: str) -> bool:
+        """Синхронное удаление бэкапа для Celery."""
+        try:
+            self.storage.delete_sync(backup_key)
+            if self.offsite_storage:
+                try:
+                    self.offsite_storage.delete_sync(backup_key)
+                except Exception as exc:
+                    logger.warning("Failed to delete offsite backup %s: %s", backup_key, exc)
+            return True
+        except Exception as exc:
+            logger.error("Delete failed: %s", exc)
+            return False
+
     def cleanup_old_backups_sync(self, retention_days: int = None) -> int:
         """Синхронный cleanup для Celery."""
         from app.core.time_constants import BACKUP_RETENTION_DAYS
@@ -399,8 +504,8 @@ class BackupService:
 
         for backup in backups:
             if backup.created_at.timestamp() < cutoff:
-                self.storage.delete_sync(backup.key)
-                deleted += 1
-                logger.info(f"Deleted old backup: {backup.key}")
+                if self.delete_backup_sync(backup.key):
+                    deleted += 1
+                    logger.info(f"Deleted old backup: {backup.key}")
 
         return deleted

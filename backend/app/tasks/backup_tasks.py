@@ -12,6 +12,7 @@ import traceback
 from sqlalchemy import select
 
 from app.core.celery_app import celery_app
+from app.core.time_constants import BACKUP_DUMP_TIMEOUT_SECONDS, BACKUP_UPLOAD_TIMEOUT_SECONDS
 from app.db.session import SyncSessionLocal
 from app.services.schedule_constants import now_msk
 
@@ -73,9 +74,9 @@ def _cleanup_with_limits_sync(service, retention_days: int, max_backups: int) ->
         excess = backups[max_backups:]
         for backup in excess:
             try:
-                service.storage.delete_sync(backup.key)
-                deleted += 1
-                logger.info(f"Deleted excess backup (max_backups limit): {backup.key}")
+                if service.delete_backup_sync(backup.key):
+                    deleted += 1
+                    logger.info(f"Deleted excess backup (max_backups limit): {backup.key}")
             except Exception as e:
                 logger.error(f"Failed to delete excess backup {backup.key}: {e}")
 
@@ -83,7 +84,11 @@ def _cleanup_with_limits_sync(service, retention_days: int, max_backups: int) ->
 
 
 @celery_app.task(
-    name="app.tasks.backup_tasks.create_scheduled_backup", bind=True, max_retries=3, acks_late=True, soft_time_limit=300
+    name="app.tasks.backup_tasks.create_scheduled_backup",
+    bind=True,
+    max_retries=3,
+    acks_late=True,
+    soft_time_limit=BACKUP_DUMP_TIMEOUT_SECONDS + BACKUP_UPLOAD_TIMEOUT_SECONDS,
 )
 def create_scheduled_backup(self):
     """
@@ -129,11 +134,14 @@ def create_scheduled_backup(self):
             logger.info(f"Scheduled backup completed: {result.backup_key}")
             if result.notification_error:
                 logger.warning(result.notification_error)
+            if result.offsite_error:
+                logger.warning(result.offsite_error)
             deleted = _cleanup_with_limits_sync(service, db_settings["retention_days"], db_settings["max_backups"])
             if deleted:
                 logger.info(f"Cleaned up {deleted} old backups")
         else:
             logger.error(f"Scheduled backup failed: {result.error}")
+            raise RuntimeError(result.error or "Scheduled backup failed")
 
         return {
             "success": result.success,

@@ -11,13 +11,29 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from cryptography.exceptions import InvalidTag
+
 from app.core.config import settings
 from app.core.time_constants import BACKUP_DUMP_TIMEOUT_SECONDS
 
-from .encryption import BackupEncryption
-from .remote_storage import BackupStorage
+from .encryption import (
+    BackupEncryption,
+    BackupFileInfo,
+    InvalidRecoveryCodeError,
+    RecoveryCodeRequiredError,
+)
+from .remote_storage import BackupStorage, get_offsite_storage
 
 logger = logging.getLogger(__name__)
+
+VERIFY_STATUS_VALID = "valid"
+VERIFY_STATUS_DOWNLOAD_FAILED = "download_failed"
+VERIFY_STATUS_FILE_CORRUPTED = "file_corrupted"
+VERIFY_STATUS_RECOVERY_CODE_REQUIRED = "recovery_code_required"
+VERIFY_STATUS_INVALID_RECOVERY_CODE = "invalid_recovery_code"
+VERIFY_STATUS_DECRYPTION_FAILED = "decryption_failed"
+VERIFY_STATUS_ARCHIVE_CORRUPTED = "archive_corrupted"
+VERIFY_STATUS_DUMP_INVALID = "dump_invalid"
 
 
 @dataclass
@@ -26,6 +42,24 @@ class RestoreResult:
 
     success: bool
     error: str | None = None
+    status: str | None = None
+    format_version: int | None = None
+    portable: bool | None = None
+    created_with_current_key: bool | None = None
+    offsite_used: bool | None = None
+
+
+@dataclass
+class VerifyResult:
+    """Detailed backup verification result."""
+
+    valid: bool
+    status: str
+    error: str | None = None
+    format_version: int | None = None
+    portable: bool | None = None
+    created_with_current_key: bool | None = None
+    offsite_used: bool | None = None
 
 
 class RestoreService:
@@ -34,8 +68,77 @@ class RestoreService:
     def __init__(self):
         self.encryption = BackupEncryption(settings.BACKUP_ENCRYPTION_KEY)
         self.storage = BackupStorage()
+        self.offsite_storage = get_offsite_storage()
 
-    async def restore_backup(self, backup_key: str, drop_existing: bool = False) -> RestoreResult:
+    def _created_with_current_key(self, file_info: BackupFileInfo | None) -> bool | None:
+        if not file_info or not file_info.key_fingerprint:
+            return None
+        return file_info.key_fingerprint == self.encryption.key_fingerprint
+
+    def _build_verify_result(
+        self,
+        *,
+        valid: bool,
+        status: str,
+        error: str | None = None,
+        file_info: BackupFileInfo | None = None,
+        offsite_used: bool | None = None,
+    ) -> VerifyResult:
+        return VerifyResult(
+            valid=valid,
+            status=status,
+            error=error,
+            format_version=file_info.format_version if file_info else None,
+            portable=file_info.portable if file_info else None,
+            created_with_current_key=self._created_with_current_key(file_info),
+            offsite_used=offsite_used,
+        )
+
+    def _build_restore_result(
+        self,
+        *,
+        success: bool,
+        status: str,
+        error: str | None = None,
+        file_info: BackupFileInfo | None = None,
+        offsite_used: bool | None = None,
+    ) -> RestoreResult:
+        return RestoreResult(
+            success=success,
+            error=error,
+            status=status,
+            format_version=file_info.format_version if file_info else None,
+            portable=file_info.portable if file_info else None,
+            created_with_current_key=self._created_with_current_key(file_info),
+            offsite_used=offsite_used,
+        )
+
+    def _inspect_file_safely(self, encrypted_file: Path) -> BackupFileInfo | None:
+        try:
+            return self.encryption.inspect_file(encrypted_file)
+        except Exception as exc:
+            logger.error("Backup inspection failed: %s", exc)
+            return None
+
+    async def _download_from_available_storage(self, backup_key: str, local_path: Path) -> bool:
+        """Download backup from primary storage, then offsite mirror if available."""
+        try:
+            await self.storage.download(backup_key, local_path)
+            return False
+        except Exception as primary_exc:
+            if not self.offsite_storage:
+                raise primary_exc
+
+            logger.warning("Primary storage download failed for %s: %s", backup_key, primary_exc)
+            await self.offsite_storage.download(backup_key, local_path)
+            return True
+
+    async def restore_backup(
+        self,
+        backup_key: str,
+        drop_existing: bool = False,
+        recovery_code: str | None = None,
+    ) -> RestoreResult:
         """
         Restore encrypted backup to PostgreSQL database.
 
@@ -55,43 +158,121 @@ class RestoreService:
             compressed_file = tmp_path / "backup.dump.gz"
             dump_file = tmp_path / "backup.dump"
 
+            file_info: BackupFileInfo | None = None
+            offsite_used = False
+
             try:
-                # Step 1: Download
-                logger.info(f"Downloading backup: {backup_key}")
-                await self.storage.download(backup_key, encrypted_file)
+                logger.info("Downloading backup: %s", backup_key)
+                try:
+                    offsite_used = await self._download_from_available_storage(backup_key, encrypted_file)
+                except Exception as exc:
+                    message = str(exc).strip() or "Failed to download backup"
+                    logger.error("Restore failed: %s", message)
+                    return self._build_restore_result(
+                        success=False,
+                        status=VERIFY_STATUS_DOWNLOAD_FAILED,
+                        error=message,
+                        file_info=None,
+                        offsite_used=None,
+                    )
+                file_info = self._inspect_file_safely(encrypted_file)
 
-                # Step 2: Verify
                 if not self.encryption.verify_file(encrypted_file):
-                    return RestoreResult(success=False, error="Backup file corrupted")
+                    return self._build_restore_result(
+                        success=False,
+                        status=VERIFY_STATUS_FILE_CORRUPTED,
+                        error="Backup file corrupted",
+                        file_info=file_info,
+                        offsite_used=offsite_used,
+                    )
 
-                # Step 3: Decrypt
                 logger.info("Decrypting backup...")
-                self.encryption.decrypt_file(encrypted_file, compressed_file)
+                self.encryption.decrypt_file(encrypted_file, compressed_file, recovery_code)
                 encrypted_file.unlink()
 
-                # Step 4: Decompress
                 logger.info("Decompressing backup...")
                 self._decompress(compressed_file, dump_file)
                 compressed_file.unlink()
 
-                # Step 5: pg_restore
                 logger.info("Restoring database...")
                 await self._pg_restore(dump_file, drop_existing)
 
-                logger.info(f"Restore completed: {backup_key}")
-                return RestoreResult(success=True)
+                logger.info("Restore completed: %s", backup_key)
+                return self._build_restore_result(
+                    success=True,
+                    status="restored",
+                    file_info=file_info,
+                    offsite_used=offsite_used,
+                )
 
-            except Exception as e:
-                logger.error(f"Restore failed: {e}")
-                return RestoreResult(success=False, error=str(e))
+            except RecoveryCodeRequiredError as exc:
+                message = str(exc)
+                logger.error(message)
+                return self._build_restore_result(
+                    success=False,
+                    status=VERIFY_STATUS_RECOVERY_CODE_REQUIRED,
+                    error=message,
+                    file_info=file_info,
+                    offsite_used=offsite_used,
+                )
+            except InvalidRecoveryCodeError as exc:
+                message = str(exc)
+                logger.error(message)
+                return self._build_restore_result(
+                    success=False,
+                    status=VERIFY_STATUS_INVALID_RECOVERY_CODE,
+                    error=message,
+                    file_info=file_info,
+                    offsite_used=offsite_used,
+                )
+            except InvalidTag:
+                message = "Backup cannot be decrypted: wrong BACKUP_ENCRYPTION_KEY or corrupted file"
+                logger.error(message)
+                return self._build_restore_result(
+                    success=False,
+                    status=VERIFY_STATUS_DECRYPTION_FAILED,
+                    error=message,
+                    file_info=file_info,
+                    offsite_used=offsite_used,
+                )
+            except (gzip.BadGzipFile, EOFError, OSError) as exc:
+                message = str(exc).strip() or "Backup archive is corrupted"
+                logger.error("Restore failed: %s", message)
+                return self._build_restore_result(
+                    success=False,
+                    status=VERIFY_STATUS_ARCHIVE_CORRUPTED,
+                    error=message,
+                    file_info=file_info,
+                    offsite_used=offsite_used,
+                )
+            except RuntimeError as exc:
+                message = str(exc).strip() or "Restore failed"
+                logger.error("Restore failed: %s", message)
+                return self._build_restore_result(
+                    success=False,
+                    status=VERIFY_STATUS_DUMP_INVALID,
+                    error=message,
+                    file_info=file_info,
+                    offsite_used=offsite_used,
+                )
+            except Exception as exc:
+                message = str(exc).strip() or f"{type(exc).__name__}: restore failed without details"
+                logger.error("Restore failed: %s", message)
+                return self._build_restore_result(
+                    success=False,
+                    status=VERIFY_STATUS_DECRYPTION_FAILED,
+                    error=message,
+                    file_info=file_info,
+                    offsite_used=offsite_used,
+                )
 
     def _decompress(self, input_path: Path, output_path: Path) -> None:
         """Decompress gzip file."""
-        with gzip.open(input_path, "rb") as f_in, open(output_path, "wb") as f_out:
-            while chunk := f_in.read(64 * 1024):
-                f_out.write(chunk)
+        with gzip.open(input_path, "rb") as file_in, open(output_path, "wb") as file_out:
+            while chunk := file_in.read(64 * 1024):
+                file_out.write(chunk)
 
-        logger.info(f"Decompressed: {input_path.stat().st_size} -> {output_path.stat().st_size}")
+        logger.info("Decompressed: %s -> %s", input_path.stat().st_size, output_path.stat().st_size)
 
     async def _run_subprocess(
         self,
@@ -156,7 +337,87 @@ class RestoreService:
         """Verify that the dump is structurally readable by pg_restore."""
         await self._run_subprocess(["pg_restore", "--list", str(dump_path)], error_prefix="pg_restore --list")
 
-    async def verify_backup(self, backup_key: str) -> bool:
+    async def verify_local_backup(self, encrypted_file: Path, recovery_code: str | None = None) -> VerifyResult:
+        """Verify an already downloaded local backup file."""
+        file_info = self._inspect_file_safely(encrypted_file)
+        if not self.encryption.verify_file(encrypted_file):
+            return self._build_verify_result(
+                valid=False,
+                status=VERIFY_STATUS_FILE_CORRUPTED,
+                error="Backup file corrupted",
+                file_info=file_info,
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            compressed_file = tmp_path / "backup.dump.gz"
+            dump_file = tmp_path / "backup.dump"
+
+            try:
+                self.encryption.decrypt_file(encrypted_file, compressed_file, recovery_code)
+                self._decompress(compressed_file, dump_file)
+                await self._verify_dump(dump_file)
+                return self._build_verify_result(
+                    valid=True,
+                    status=VERIFY_STATUS_VALID,
+                    file_info=file_info,
+                )
+            except RecoveryCodeRequiredError as exc:
+                message = str(exc)
+                logger.error(message)
+                return self._build_verify_result(
+                    valid=False,
+                    status=VERIFY_STATUS_RECOVERY_CODE_REQUIRED,
+                    error=message,
+                    file_info=file_info,
+                )
+            except InvalidRecoveryCodeError as exc:
+                message = str(exc)
+                logger.error(message)
+                return self._build_verify_result(
+                    valid=False,
+                    status=VERIFY_STATUS_INVALID_RECOVERY_CODE,
+                    error=message,
+                    file_info=file_info,
+                )
+            except InvalidTag:
+                message = "Backup cannot be decrypted: wrong BACKUP_ENCRYPTION_KEY or corrupted file"
+                logger.error(message)
+                return self._build_verify_result(
+                    valid=False,
+                    status=VERIFY_STATUS_DECRYPTION_FAILED,
+                    error=message,
+                    file_info=file_info,
+                )
+            except (gzip.BadGzipFile, EOFError, OSError) as exc:
+                message = str(exc).strip() or "Backup archive is corrupted"
+                logger.error("Verification failed: %s", message)
+                return self._build_verify_result(
+                    valid=False,
+                    status=VERIFY_STATUS_ARCHIVE_CORRUPTED,
+                    error=message,
+                    file_info=file_info,
+                )
+            except RuntimeError as exc:
+                message = str(exc).strip() or "Backup dump verification failed"
+                logger.error("Verification failed: %s", message)
+                return self._build_verify_result(
+                    valid=False,
+                    status=VERIFY_STATUS_DUMP_INVALID,
+                    error=message,
+                    file_info=file_info,
+                )
+            except Exception as exc:
+                message = str(exc).strip() or "Backup verification failed"
+                logger.error("Verification failed: %s", message)
+                return self._build_verify_result(
+                    valid=False,
+                    status=VERIFY_STATUS_DECRYPTION_FAILED,
+                    error=message,
+                    file_info=file_info,
+                )
+
+    async def verify_backup(self, backup_key: str, recovery_code: str | None = None) -> VerifyResult:
         """
         Verify backup integrity without full restore.
         Downloads, decrypts, fully decompresses, and validates dump structure.
@@ -164,20 +425,19 @@ class RestoreService:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             encrypted_file = tmp_path / "backup.enc"
-            compressed_file = tmp_path / "backup.dump.gz"
-            dump_file = tmp_path / "backup.dump"
 
             try:
-                await self.storage.download(backup_key, encrypted_file)
+                offsite_used = await self._download_from_available_storage(backup_key, encrypted_file)
+            except Exception as exc:
+                message = str(exc).strip() or "Failed to download backup"
+                logger.error("Verification failed: %s", message)
+                return self._build_verify_result(
+                    valid=False,
+                    status=VERIFY_STATUS_DOWNLOAD_FAILED,
+                    error=message,
+                    offsite_used=None,
+                )
 
-                if not self.encryption.verify_file(encrypted_file):
-                    return False
-
-                self.encryption.decrypt_file(encrypted_file, compressed_file)
-                self._decompress(compressed_file, dump_file)
-                await self._verify_dump(dump_file)
-                return True
-
-            except Exception as e:
-                logger.error(f"Verification failed: {e}")
-                return False
+            result = await self.verify_local_backup(encrypted_file, recovery_code)
+            result.offsite_used = offsite_used
+            return result

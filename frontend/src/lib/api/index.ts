@@ -27,12 +27,15 @@ export type { SecurityStrikesResponse, SecurityStatsResponse, StrikeDetail, Clea
 export { DevicesAPI } from './devices';
 export type { Device, DeviceListResponse } from './devices';
 export { BackupAPI } from './backup';
-export type { 
-  BackupInfo, 
-  BackupListResponse, 
-  BackupCreateResponse, 
-  BackupSettings, 
+export type {
+  BackupInfo,
+  BackupListResponse,
+  BackupCreateResponse,
+  UploadBackupResponse,
+  BackupSettings,
   BackupSettingsUpdate,
   RestoreResponse,
   VerifyResponse,
+  BackupVerificationStatus,
+  BackupHealthResponse,
 } from './backup';

@@ -6,7 +6,7 @@ import logging
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 
 from app.api.deps import get_current_active_superuser
 from app.audit.constants import ActionType, EntityType
@@ -24,9 +24,10 @@ from app.schemas.backup import (
     UploadBackupResponse,
     validate_backup_key,
 )
-from app.services.backup import BackupService
+from app.services.backup import BackupService, RestoreService
+from app.services.backup.restore_service import VERIFY_STATUS_RECOVERY_CODE_REQUIRED, VERIFY_STATUS_VALID
 
-from .deps import get_backup_service
+from .deps import get_backup_service, get_restore_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -53,8 +54,15 @@ async def create_backup(
     return BackupCreateResponse(
         success=result.success,
         backup_key=result.backup_key,
+        recovery_code=result.recovery_code,
+        portable=bool(result.portable),
+        format_version=result.format_version,
+        key_fingerprint=result.key_fingerprint,
+        created_with_current_key=result.created_with_current_key,
         size=result.size,
         uploaded=result.uploaded,
+        mirrored_offsite=result.mirrored_offsite,
+        offsite_error=result.offsite_error,
         notification_sent=result.notification_sent,
         notification_error=result.notification_error,
         error=result.error,
@@ -105,8 +113,10 @@ async def delete_backup(
 async def upload_backup(
     request: Request,
     file: UploadFile = File(...),
+    recovery_code: str | None = Form(None),
     current_user: User = Depends(get_current_active_superuser),
     service: BackupService = Depends(get_backup_service),
+    restore_service: RestoreService = Depends(get_restore_service),
 ):
     """Upload encrypted backup file to storage. Max size: 50MB."""
     if not file.filename or not file.filename.endswith(".enc"):
@@ -129,19 +139,60 @@ async def upload_backup(
 
     try:
         safe_filename = validate_backup_key(file.filename)
+        if await service.storage.exists(safe_filename):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Backup with this name already exists",
+            )
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".enc") as tmp:
             tmp.write(content)
             tmp_path = Path(tmp.name)
 
         try:
-            if not service.encryption.verify_file(tmp_path):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=em.INVALID_BACKUP_FORMAT)
+            file_info = restore_service.encryption.inspect_file(tmp_path)
+            verification = await restore_service.verify_local_backup(tmp_path, recovery_code)
+            if verification.status not in {VERIFY_STATUS_VALID, VERIFY_STATUS_RECOVERY_CODE_REQUIRED}:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=verification.error or em.INVALID_BACKUP_FORMAT,
+                )
 
-            await service.storage.upload(tmp_path, safe_filename)
-            version = service.encryption.get_file_version(tmp_path)
-            logger.info(f"Backup uploaded by {current_user.id}: {safe_filename} (v{version})")
-            return UploadBackupResponse(success=True, backup_key=safe_filename, size=len(content))
+            object_metadata = {
+                "backup-format-version": str(verification.format_version or file_info.format_version),
+                "backup-portable": str(
+                    bool(verification.portable if verification.portable is not None else file_info.portable)
+                ).lower(),
+            }
+            if file_info.key_fingerprint:
+                object_metadata["backup-key-fingerprint"] = file_info.key_fingerprint
+
+            await service.storage.upload(tmp_path, safe_filename, object_metadata=object_metadata)
+            mirrored_offsite = None
+            offsite_error = None
+            if service.offsite_storage:
+                try:
+                    await service.offsite_storage.upload(tmp_path, safe_filename, object_metadata=object_metadata)
+                    mirrored_offsite = True
+                except Exception as exc:
+                    mirrored_offsite = False
+                    offsite_error = str(exc).strip() or "Offsite mirror failed"
+                    logger.error("Offsite mirror failed for uploaded backup %s: %s", safe_filename, offsite_error)
+
+            version = verification.format_version or file_info.format_version
+            logger.info("Backup uploaded by %s: %s (v%s)", current_user.id, safe_filename, version)
+            return UploadBackupResponse(
+                success=True,
+                backup_key=safe_filename,
+                size=len(content),
+                verified=verification.valid,
+                verification_status=verification.status,
+                format_version=version,
+                portable=verification.portable if verification.portable is not None else file_info.portable,
+                created_with_current_key=verification.created_with_current_key,
+                mirrored_offsite=mirrored_offsite,
+                offsite_error=offsite_error,
+            )
         finally:
             tmp_path.unlink(missing_ok=True)
 

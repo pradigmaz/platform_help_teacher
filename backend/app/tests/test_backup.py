@@ -6,10 +6,13 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from app.services.backup.encryption import BackupEncryption
+from app.services.backup.encryption import (
+    BackupEncryption,
+    InvalidRecoveryCodeError,
+    RecoveryCodeRequiredError,
+)
 
 
 class TestBackupEncryption:
@@ -45,6 +48,12 @@ class TestBackupEncryption:
         encryption.decrypt_file(encrypted_file, decrypted_file)
         assert decrypted_file.exists()
         assert decrypted_file.read_bytes() == original_data
+        file_info = encryption.inspect_file(encrypted_file)
+        assert encryption.get_file_version(encrypted_file) == 3
+        assert file_info.format_version == 3
+        assert file_info.portable is True
+        assert file_info.key_fingerprint == encryption.key_fingerprint
+        assert file_info.trusted_header is True
 
     def test_encrypted_file_is_different(self, encryption, temp_dir):
         """Test that encrypted content differs from original."""
@@ -58,8 +67,8 @@ class TestBackupEncryption:
         encrypted_data = encrypted_file.read_bytes()
         assert original_data not in encrypted_data
 
-    def test_wrong_key_fails_decryption(self, temp_dir):
-        """Test that wrong key raises InvalidTag."""
+    def test_different_machine_requires_recovery_code_for_portable_backup(self, temp_dir):
+        """Portable backups require recovery code when master key changes."""
         original_data = b"Data encrypted with one key"
         input_file = temp_dir / "original.txt"
         encrypted_file = temp_dir / "encrypted.enc"
@@ -71,10 +80,43 @@ class TestBackupEncryption:
         enc1 = BackupEncryption("first_key_32_characters_minimum!")
         enc1.encrypt_file(input_file, encrypted_file)
 
-        # Try decrypt with key 2
+        # Try decrypt with a different machine key and no recovery code
         enc2 = BackupEncryption("second_key_32_characters_minimum")
-        with pytest.raises(InvalidTag):
+        with pytest.raises(RecoveryCodeRequiredError):
             enc2.decrypt_file(encrypted_file, decrypted_file)
+
+    def test_recovery_code_restores_portable_backup_on_different_machine(self, temp_dir):
+        """Portable backups can be restored on another machine with recovery code."""
+        original_data = b"Portable restore payload"
+        input_file = temp_dir / "original.txt"
+        encrypted_file = temp_dir / "encrypted.enc"
+        decrypted_file = temp_dir / "decrypted.txt"
+
+        input_file.write_bytes(original_data)
+
+        enc1 = BackupEncryption("first_key_32_characters_minimum!")
+        recovery_code = enc1.encrypt_file(input_file, encrypted_file)
+
+        enc2 = BackupEncryption("second_key_32_characters_minimum")
+        enc2.decrypt_file(encrypted_file, decrypted_file, recovery_code)
+
+        assert decrypted_file.read_bytes() == original_data
+
+    def test_wrong_recovery_code_fails_portable_decryption(self, temp_dir):
+        """Portable backups reject an incorrect recovery code."""
+        original_data = b"Portable restore payload"
+        input_file = temp_dir / "original.txt"
+        encrypted_file = temp_dir / "encrypted.enc"
+        decrypted_file = temp_dir / "decrypted.txt"
+
+        input_file.write_bytes(original_data)
+
+        enc1 = BackupEncryption("first_key_32_characters_minimum!")
+        enc1.encrypt_file(input_file, encrypted_file)
+
+        enc2 = BackupEncryption("second_key_32_characters_minimum")
+        with pytest.raises(InvalidRecoveryCodeError):
+            enc2.decrypt_file(encrypted_file, decrypted_file, "dead-beef-dead-beef")
 
     def test_verify_valid_file(self, encryption, temp_dir):
         """Test verification of valid encrypted file."""
@@ -113,6 +155,24 @@ class TestBackupEncryption:
         encryption.decrypt_file(legacy_file, decrypted_file)
 
         assert encryption.get_file_version(legacy_file) == 0
+        assert encryption.verify_file(legacy_file) is True
+        assert decrypted_file.read_bytes() == original_data
+
+    @pytest.mark.parametrize("leading_byte", [1, 2])
+    def test_decrypt_legacy_format_with_v1_v2_collision(self, encryption, temp_dir, leading_byte):
+        """Legacy backups remain decryptable even when the first byte collides with v1/v2 markers."""
+        original_data = b"legacy backup payload with colliding first byte"
+        legacy_file = temp_dir / f"legacy_{leading_byte}.enc"
+        decrypted_file = temp_dir / f"legacy_{leading_byte}.txt"
+
+        salt = bytes([leading_byte]) + b"1234567890abcde"
+        nonce = b"legacy_nonce"
+        key = encryption._derive_key(salt)
+        ciphertext = AESGCM(key).encrypt(nonce, original_data, None)
+        legacy_file.write_bytes(salt + nonce + ciphertext)
+
+        encryption.decrypt_file(legacy_file, decrypted_file)
+
         assert encryption.verify_file(legacy_file) is True
         assert decrypted_file.read_bytes() == original_data
 
