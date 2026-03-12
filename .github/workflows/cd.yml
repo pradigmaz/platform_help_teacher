@@ -13,142 +13,136 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, deploy-vps]
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 30
     
     steps:
-      - name: Deploy to VPS
-        id: deploy
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy on VPS runner
         env:
           DEPLOY_BRANCH: ${{ github.event.workflow_run.head_branch }}
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          command_timeout: 30m
-          envs: DEPLOY_BRANCH
-          script: |
-            set -e
-            cd ~/platform_help_teacher
-            
-            # Detect what changed
-            git fetch origin $DEPLOY_BRANCH
-            CHANGED_FILES=$(git diff --name-only HEAD origin/$DEPLOY_BRANCH)
-            echo "Changed files: $CHANGED_FILES"
-            
-            git reset --hard origin/$DEPLOY_BRANCH
-            
-            # Удаляем ненужные файлы (экономим место на VPS)
-            rm -rf лабораторные "идеи ui" md .ai docs .kiro .vscode .husky .tmp node_modules 2>/dev/null || true
-            
-            cd deploy
-            
-            # Используем .env.prod если есть, иначе .env
-            if [ -f ".env.prod" ]; then
-              ENV_FILE=".env.prod"
-            elif [ -f ".env" ]; then
-              ENV_FILE=".env"
-            else
-              echo "ERROR: .env.prod or .env not found!"
-              exit 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /root/platform_help_teacher
+
+          # Detect what changed
+          git fetch origin "$DEPLOY_BRANCH"
+          CHANGED_FILES=$(git diff --name-only HEAD "origin/$DEPLOY_BRANCH")
+          echo "Changed files:"
+          printf '%s\n' "$CHANGED_FILES"
+
+          git reset --hard "origin/$DEPLOY_BRANCH"
+
+          # Удаляем ненужные файлы (экономим место на VPS)
+          rm -rf лабораторные "идеи ui" md .ai docs .kiro .vscode .husky .tmp node_modules 2>/dev/null || true
+
+          cd deploy
+
+          # Используем .env.prod если есть, иначе .env
+          if [[ -f ".env.prod" ]]; then
+            ENV_FILE=".env.prod"
+          elif [[ -f ".env" ]]; then
+            ENV_FILE=".env"
+          else
+            echo "ERROR: .env.prod or .env not found!"
+            exit 1
+          fi
+          echo "Using env file: $ENV_FILE"
+          set -a
+          . "$ENV_FILE"
+          set +a
+
+          # Determine what needs rebuild
+          REBUILD_BACKEND=false
+          REBUILD_FRONTEND=false
+          COMPOSE_CHANGED=false
+          NGINX_ONLY=false
+
+          if grep -qE "^backend/" <<<"$CHANGED_FILES"; then
+            REBUILD_BACKEND=true
+          fi
+          if grep -qE "^frontend/" <<<"$CHANGED_FILES"; then
+            REBUILD_FRONTEND=true
+          fi
+          if grep -qE "^deploy/docker-compose\\.yml$" <<<"$CHANGED_FILES"; then
+            COMPOSE_CHANGED=true
+          fi
+
+          # Check if only nginx/deploy configs changed
+          if [[ "$REBUILD_BACKEND" == "false" && "$REBUILD_FRONTEND" == "false" && "$COMPOSE_CHANGED" == "false" ]]; then
+            if grep -qE "^deploy/nginx" <<<"$CHANGED_FILES"; then
+              NGINX_ONLY=true
             fi
-            echo "Using env file: $ENV_FILE"
-            export $(grep -v '^#' $ENV_FILE | xargs)
-            
-            # Determine what needs rebuild
-            REBUILD_BACKEND=false
-            REBUILD_FRONTEND=false
-            COMPOSE_CHANGED=false
-            NGINX_ONLY=false
-            
-            if echo "$CHANGED_FILES" | grep -qE "^backend/"; then
-              REBUILD_BACKEND=true
+          fi
+
+          # NGINX-only: hot reload without restart
+          if [[ "$NGINX_ONLY" == "true" ]]; then
+            echo "=== Nginx config changed, hot reload ==="
+            docker compose up -d --no-deps nginx
+            docker exec edu-proxy-prod nginx -t
+            docker exec edu-proxy-prod nginx -s reload
+            echo "=== Nginx reloaded ==="
+          # Compose config changed: recreate services so commands/logging apply
+          elif [[ "$COMPOSE_CHANGED" == "true" ]]; then
+            echo "=== Compose config changed, reconciling services ==="
+            docker compose up -d
+            sleep 10
+          # No code changes: just restart
+          elif [[ "$REBUILD_BACKEND" == "false" && "$REBUILD_FRONTEND" == "false" ]]; then
+            echo "=== No code changes, restarting containers ==="
+            docker compose restart
+            sleep 10
+          # Code changed: rebuild
+          else
+            echo "=== Code changed, rebuilding ==="
+
+            if [[ "$REBUILD_BACKEND" == "true" ]]; then
+              echo "Rebuilding backend..."
+              docker compose build backend celery
             fi
-            if echo "$CHANGED_FILES" | grep -qE "^frontend/"; then
-              REBUILD_FRONTEND=true
+            if [[ "$REBUILD_FRONTEND" == "true" ]]; then
+              echo "Rebuilding frontend..."
+              docker compose build frontend
             fi
-            if echo "$CHANGED_FILES" | grep -qE "^deploy/docker-compose\\.yml$"; then
-              COMPOSE_CHANGED=true
+
+            docker compose up -d
+            sleep 20
+
+            echo "=== Reloading nginx DNS cache ==="
+            docker exec edu-proxy-prod nginx -s reload
+          fi
+
+          # Run migrations if backend changed
+          if [[ "$REBUILD_BACKEND" == "true" ]]; then
+            echo "=== Running migrations ==="
+            docker exec edu-backend-prod alembic upgrade head || echo "Migration warning"
+          fi
+
+          # Health check
+          echo "=== Health Check ==="
+          sleep 5
+
+          BACKEND_OK=false
+          for i in 1 2 3 4 5; do
+            if docker exec edu-backend-prod curl -sf http://localhost:8000/api/v1/health > /dev/null 2>&1 || \
+               docker exec edu-backend-prod python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')" > /dev/null 2>&1; then
+              BACKEND_OK=true
+              break
             fi
-            
-            # Check if only nginx/deploy configs changed
-            if [ "$REBUILD_BACKEND" = "false" ] && [ "$REBUILD_FRONTEND" = "false" ] && [ "$COMPOSE_CHANGED" = "false" ]; then
-              if echo "$CHANGED_FILES" | grep -qE "^deploy/nginx"; then
-                NGINX_ONLY=true
-              fi
-            fi
-            
-            # NGINX-only: hot reload without restart
-            if [ "$NGINX_ONLY" = "true" ]; then
-              echo "=== Nginx config changed, hot reload ==="
-              # nginx.conf is bind-mounted from the host repo into the container,
-              # so after git reset the updated file is already visible in /etc/nginx/nginx.conf.
-              docker compose up -d --no-deps nginx
-              docker exec edu-proxy-prod nginx -t
-              docker exec edu-proxy-prod nginx -s reload
-              echo "=== Nginx reloaded ==="
-            # Compose config changed: recreate services so commands/logging apply
-            elif [ "$COMPOSE_CHANGED" = "true" ]; then
-              echo "=== Compose config changed, reconciling services ==="
-              docker compose up -d
-              sleep 10
-            # No code changes: just restart
-            elif [ "$REBUILD_BACKEND" = "false" ] && [ "$REBUILD_FRONTEND" = "false" ]; then
-              echo "=== No code changes, restarting containers ==="
-              docker compose restart
-              sleep 10
-            # Code changed: rebuild
-            else
-              echo "=== Code changed, rebuilding ==="
-              
-              if [ "$REBUILD_BACKEND" = "true" ]; then
-                echo "Rebuilding backend..."
-                docker compose build backend celery
-              fi
-              if [ "$REBUILD_FRONTEND" = "true" ]; then
-                echo "Rebuilding frontend..."
-                docker compose build frontend
-              fi
-              
-              docker compose up -d
-              sleep 20
-              
-              echo "=== Reloading nginx DNS cache ==="
-              docker exec edu-proxy-prod nginx -s reload
-            fi
-            
-            # Run migrations if backend changed
-            if [ "$REBUILD_BACKEND" = "true" ]; then
-              echo "=== Running migrations ==="
-              docker exec edu-backend-prod alembic upgrade head || echo "Migration warning"
-            fi
-            
-            # Health check
-            echo "=== Health Check ==="
+            echo "Attempt $i: backend not ready, waiting..."
             sleep 5
-            
-            BACKEND_OK=false
-            for i in 1 2 3 4 5; do
-              if docker exec edu-backend-prod curl -sf http://localhost:8000/api/v1/health > /dev/null 2>&1 || \
-                 docker exec edu-backend-prod python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')" > /dev/null 2>&1; then
-                BACKEND_OK=true
-                break
-              fi
-              echo "Attempt $i: backend not ready, waiting..."
-              sleep 5
-            done
-            
-            if [ "$BACKEND_OK" = "false" ]; then
-              echo "⚠️ Backend health check failed, checking logs..."
-              docker logs --tail 30 edu-backend-prod
-              # Не фейлим деплой — может быть долгий старт
-            fi
-            
-            echo "=== Status ==="
-            docker compose ps
-            echo "=== Deploy complete ==="
+          done
+
+          if [[ "$BACKEND_OK" == "false" ]]; then
+            echo "⚠️ Backend health check failed, checking logs..."
+            docker logs --tail 30 edu-backend-prod
+            # Не фейлим деплой — может быть долгий старт
+          fi
+
+          echo "=== Status ==="
+          docker compose ps
+          echo "=== Deploy complete ==="
 
       - name: Notify Telegram (success)
         if: success()
