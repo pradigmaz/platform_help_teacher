@@ -178,7 +178,7 @@ async def is_excused_lab(db: AsyncSession, student_id: UUID, lab: Lab) -> bool:
         select(Attendance)
         .join(Lesson, Attendance.lesson_id == Lesson.id)
         .where(
-        and_(
+            and_(
                 Attendance.student_id == student_id,
                 Attendance.status == AttendanceStatus.EXCUSED,
                 Lesson.subject_id == lab.subject_id,
