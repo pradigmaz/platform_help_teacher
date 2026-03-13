@@ -1,5 +1,6 @@
 """Student labs endpoints."""
 
+from collections import defaultdict
 from typing import Any
 from uuid import UUID
 
@@ -49,25 +50,29 @@ async def get_my_labs(
 
     labs = await student_lab_service.get_published_labs(db)
 
-    def is_lab_visible(lab: Lab) -> bool:
+    def is_lab_relevant(lab: Lab) -> bool:
         if lab.subject_id:
             return lab.subject_id in visible_by_subject
         return any(lab.number in work_numbers for work_numbers in visible_by_subject.values())
 
-    visible_labs = [lab for lab in labs if is_lab_visible(lab)]
+    relevant_labs = [lab for lab in labs if is_lab_relevant(lab)]
 
     # Batch-загрузка дедлайнов
-    labs_deadlines = {l.number: (l.deadline_5_lessons, l.deadline_4_lessons) for l in visible_labs}
-    labs_subjects = {l.number: l.subject_id for l in visible_labs}
-    labs_ids = {l.number: l.id for l in visible_labs}
-    visibility_map = await visibility_service.get_batch_visibility_info(
-        lab_numbers=[l.number for l in visible_labs],
-        group_id=current_user.group_id,
-        subgroup=current_user.subgroup,
-        labs_deadlines=labs_deadlines,
-        labs_subjects=labs_subjects,
-        labs_ids=labs_ids,
-    )
+    labs_by_subject: dict[UUID | None, list[Lab]] = defaultdict(list)
+    for lab in relevant_labs:
+        labs_by_subject[lab.subject_id].append(lab)
+
+    visibility_map = {}
+    for subject_id, subject_labs in labs_by_subject.items():
+        subject_visibility = await visibility_service.get_batch_visibility_info(
+            lab_numbers=[lab.number for lab in subject_labs],
+            group_id=current_user.group_id,
+            subgroup=current_user.subgroup,
+            labs_deadlines={lab.number: (lab.deadline_5_lessons, lab.deadline_4_lessons) for lab in subject_labs},
+            labs_subjects={lab.number: subject_id for lab in subject_labs},
+            labs_ids={lab.number: lab.id for lab in subject_labs},
+        )
+        visibility_map.update(subject_visibility)
 
     submissions = await student_lab_service.get_user_submissions(db, current_user.id)
     journal_grades_by_subject = await student_lab_service.get_user_journal_grades_by_subject(db, current_user.id)
@@ -76,7 +81,7 @@ async def get_my_labs(
     result = []
     prev_accepted = True
 
-    for lab in visible_labs:
+    for lab in relevant_labs:
         sub = submissions.get(lab.id)
         # BUG-7 fix: фильтруем оценки по subject_id лабы
         subject_grades = journal_grades_by_subject.get(lab.subject_id, {}) if lab.subject_id else {}

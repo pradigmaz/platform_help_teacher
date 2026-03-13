@@ -163,3 +163,66 @@ class TestStudentLabsVisibility:
         result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
 
         assert [(lab["number"], lab["title"]) for lab in result] == [(1, "Lab 1")]
+
+    @pytest.mark.asyncio
+    async def test_keeps_visibility_for_subjects_with_same_lab_numbers(self, mock_db, monkeypatch):
+        first_subject_id = uuid4()
+        second_subject_id = uuid4()
+        group_id = uuid4()
+        student = _build_student(group_id)
+        labs = [
+            _build_lab(1, first_subject_id, sequential=False),
+            _build_lab(2, first_subject_id, sequential=False),
+            _build_lab(1, second_subject_id, sequential=False),
+        ]
+
+        async def fake_visible_numbers(*args, **kwargs):
+            return {first_subject_id: [1, 2], second_subject_id: [1]}
+
+        async def fake_batch_visibility(*args, **kwargs):
+            labs_subjects = kwargs["labs_subjects"]
+            return {
+                (subject_id, lab_number): LabVisibilityInfo(lab_number=lab_number, is_visible=True)
+                for lab_number, subject_id in labs_subjects.items()
+            }
+
+        async def fake_published_labs(db):
+            return labs
+
+        async def fake_submissions(db, user_id):
+            return {}
+
+        async def fake_journal_grades(db, user_id):
+            return {}
+
+        async def fake_position(db, current_user):
+            return 1
+
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_visible_lab_numbers_by_subject",
+            fake_visible_numbers,
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_batch_visibility_info",
+            fake_batch_visibility,
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.student_lab_service.get_published_labs",
+            fake_published_labs,
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_submissions",
+            fake_submissions,
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_journal_grades_by_subject",
+            fake_journal_grades,
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.student_lab_service.get_student_position",
+            fake_position,
+        )
+
+        result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
+
+        assert [(lab["number"], lab["is_available"]) for lab in result] == [(1, True), (2, True), (1, True)]
