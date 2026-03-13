@@ -48,10 +48,10 @@ class TestStudentLabsVisibility:
 
         async def fake_batch_visibility(*args, **kwargs):
             return {
-                (subject_id, 1): LabVisibilityInfo(lab_number=1, is_visible=True),
-                (subject_id, 2): LabVisibilityInfo(lab_number=2, is_visible=True),
-                (subject_id, 3): LabVisibilityInfo(lab_number=3, is_visible=True),
-                (subject_id, 4): LabVisibilityInfo(
+                1: LabVisibilityInfo(lab_number=1, is_visible=True),
+                2: LabVisibilityInfo(lab_number=2, is_visible=True),
+                3: LabVisibilityInfo(lab_number=3, is_visible=True),
+                4: LabVisibilityInfo(
                     lab_number=4,
                     is_visible=False,
                     visible_from=date(2026, 3, 20),
@@ -120,7 +120,7 @@ class TestStudentLabsVisibility:
 
         async def fake_batch_visibility(*args, **kwargs):
             return {
-                (visible_subject_id, 1): LabVisibilityInfo(lab_number=1, is_visible=True),
+                1: LabVisibilityInfo(lab_number=1, is_visible=True),
             }
 
         async def fake_published_labs(db):
@@ -180,10 +180,13 @@ class TestStudentLabsVisibility:
             return {first_subject_id: [1, 2], second_subject_id: [1]}
 
         async def fake_batch_visibility(*args, **kwargs):
-            labs_subjects = kwargs["labs_subjects"]
+            subject_id = next(iter(kwargs["labs_subjects"].values()))
             return {
-                (subject_id, lab_number): LabVisibilityInfo(lab_number=lab_number, is_visible=True)
-                for lab_number, subject_id in labs_subjects.items()
+                lab_number: LabVisibilityInfo(
+                    lab_number=lab_number,
+                    is_visible=subject_id == first_subject_id or lab_number != 1,
+                )
+                for lab_number in kwargs["lab_numbers"]
             }
 
         async def fake_published_labs(db):
@@ -225,4 +228,4 @@ class TestStudentLabsVisibility:
 
         result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
 
-        assert [(lab["number"], lab["is_available"]) for lab in result] == [(1, True), (2, True), (1, True)]
+        assert [(lab["number"], lab["is_available"]) for lab in result] == [(1, True), (2, True), (1, False)]

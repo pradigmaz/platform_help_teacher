@@ -16,6 +16,7 @@ from app.models.lab import Lab
 from app.models.submission import Submission
 from app.models.user import User
 from app.services.lab_visibility import LabVisibilityService
+from app.services.lab_visibility.models import LabVisibilityInfo
 from app.services.student_lab_service import resolve_lab_acceptance, student_lab_service
 
 router = APIRouter()
@@ -62,7 +63,7 @@ async def get_my_labs(
     for lab in relevant_labs:
         labs_by_subject[lab.subject_id].append(lab)
 
-    visibility_map = {}
+    visibility_by_subject: dict[UUID | None, dict[int, LabVisibilityInfo]] = {}
     for subject_id, subject_labs in labs_by_subject.items():
         subject_visibility = await visibility_service.get_batch_visibility_info(
             lab_numbers=[lab.number for lab in subject_labs],
@@ -72,7 +73,7 @@ async def get_my_labs(
             labs_subjects={lab.number: subject_id for lab in subject_labs},
             labs_ids={lab.number: lab.id for lab in subject_labs},
         )
-        visibility_map.update(subject_visibility)
+        visibility_by_subject[subject_id] = subject_visibility
 
     submissions = await student_lab_service.get_user_submissions(db, current_user.id)
     journal_grades_by_subject = await student_lab_service.get_user_journal_grades_by_subject(db, current_user.id)
@@ -92,7 +93,7 @@ async def get_my_labs(
         if lab.variants and student_position:
             variant_number = ((student_position - 1) % len(lab.variants)) + 1
 
-        visibility_info = visibility_map.get((lab.subject_id, lab.number))
+        visibility_info = visibility_by_subject.get(lab.subject_id, {}).get(lab.number)
         is_available = (prev_accepted or not lab.is_sequential) and bool(visibility_info and visibility_info.is_visible)
 
         submission_data = None
