@@ -73,7 +73,4 @@ async def get_submission_grade_fallbacks_batch(
     for submission, subject_id, work_number in result.all():
         rows_by_student[submission.user_id].append((submission, subject_id, work_number))
 
-    return {
-        student_id: dedupe_submission_lab_grades(rows)
-        for student_id, rows in rows_by_student.items()
-    }
+    return {student_id: dedupe_submission_lab_grades(rows) for student_id, rows in rows_by_student.items()}
