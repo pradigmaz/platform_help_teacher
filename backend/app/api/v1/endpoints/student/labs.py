@@ -51,7 +51,7 @@ async def get_my_labs(
 
     def is_lab_visible(lab: Lab) -> bool:
         if lab.subject_id:
-            return lab.number in visible_by_subject.get(lab.subject_id, [])
+            return lab.subject_id in visible_by_subject
         return any(lab.number in work_numbers for work_numbers in visible_by_subject.values())
 
     visible_labs = [lab for lab in labs if is_lab_visible(lab)]
@@ -81,14 +81,14 @@ async def get_my_labs(
         # BUG-7 fix: фильтруем оценки по subject_id лабы
         subject_grades = journal_grades_by_subject.get(lab.subject_id, {}) if lab.subject_id else {}
         journal_grade = subject_grades.get(lab.number)
-        is_available = prev_accepted or not lab.is_sequential
         is_accepted, journal_grade_value, acceptance_source = resolve_lab_acceptance(sub, journal_grade)
 
         variant_number = None
         if lab.variants and student_position:
             variant_number = ((student_position - 1) % len(lab.variants)) + 1
 
-        visibility_info = visibility_map.get(lab.number)
+        visibility_info = visibility_map.get((lab.subject_id, lab.number))
+        is_available = (prev_accepted or not lab.is_sequential) and bool(visibility_info and visibility_info.is_visible)
 
         submission_data = None
         if sub:
