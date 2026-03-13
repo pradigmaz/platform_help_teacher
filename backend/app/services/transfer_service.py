@@ -1,5 +1,4 @@
 """Сервис перевода студентов между группами/подгруппами"""
-
 import logging
 from datetime import date
 from uuid import UUID
@@ -20,6 +19,7 @@ from app.models import (
     User,
 )
 from app.models.attestation_settings import AttestationType
+from app.models.schedule import LessonType
 from app.schemas.transfer import (
     AttendanceSnapshot,
     LabGradeSnapshot,
@@ -28,12 +28,11 @@ from app.schemas.transfer import (
     TransferResponse,
     TransferSummary,
 )
-from app.services.attendance_slots import build_attendance_slot_filter
+from app.services.attendance_slots import build_attendance_slot_filter, get_lesson_slot_sets, matches_attendance_slot
 from app.services.attestation.lab_progress import dedupe_lesson_grade_rows
 from app.services.schedule_constants import today_msk
 
 logger = logging.getLogger(__name__)
-
 
 class TransferService:
     def __init__(self, db: AsyncSession):
@@ -186,8 +185,53 @@ class TransferService:
         excused = sum(1 for r in records if r.status == AttendanceStatus.EXCUSED)
         absent = sum(1 for r in records if r.status == AttendanceStatus.ABSENT)
 
+        subject_snapshots: dict[str, dict[str, int | float]] = {}
+        lessons_by_subject: dict[str, list[Lesson]] = {}
+        for lesson in relevant_lessons:
+            if lesson.subject_id is None:
+                continue
+            lessons_by_subject.setdefault(str(lesson.subject_id), []).append(lesson)
+
+        for subject_id, subject_lessons in lessons_by_subject.items():
+            lesson_ids, legacy_slots = get_lesson_slot_sets(subject_lessons)
+            subject_records = [
+                record
+                for record in records
+                if matches_attendance_slot(record, lesson_ids=lesson_ids, legacy_slots=legacy_slots)
+            ]
+            subject_snapshots[subject_id] = {
+                "total_lessons": len(subject_lessons),
+                "present": sum(1 for r in subject_records if r.status == AttendanceStatus.PRESENT),
+                "late": sum(1 for r in subject_records if r.status == AttendanceStatus.LATE),
+                "excused": sum(1 for r in subject_records if r.status == AttendanceStatus.EXCUSED),
+                "absent": sum(1 for r in subject_records if r.status == AttendanceStatus.ABSENT),
+                "activity_points": 0.0,
+            }
+
+        if subject_snapshots:
+            activity_query = (
+                select(Activity.subject_id, func.sum(Activity.points))
+                .where(
+                    Activity.student_id == student_id,
+                    Activity.attestation_type == attestation_type.value,
+                    Activity.is_active,
+                )
+                .group_by(Activity.subject_id)
+            )
+            activity_result = await self.db.execute(activity_query)
+            single_subject_key = next(iter(subject_snapshots)) if len(subject_snapshots) == 1 else None
+            for activity_subject_id, points in activity_result.all():
+                target_subject_key = str(activity_subject_id) if activity_subject_id else single_subject_key
+                if target_subject_key and target_subject_key in subject_snapshots:
+                    subject_snapshots[target_subject_key]["activity_points"] = float(points or 0.0)
+
         return AttendanceSnapshot(
-            total_lessons=len(relevant_lessons), present=present, late=late, excused=excused, absent=absent
+            total_lessons=len(relevant_lessons),
+            present=present,
+            late=late,
+            excused=excused,
+            absent=absent,
+            subjects=subject_snapshots,
         )
 
     async def _create_lab_grades_snapshot(
@@ -214,6 +258,7 @@ class TransferService:
             .where(Lesson.group_id == group_id)
             .where(LessonGrade.work_number.isnot(None))
             .where(Lesson.is_cancelled.is_(False))
+            .where(Lesson.lesson_type.in_((LessonType.LAB, LessonType.PRACTICE)))
         )
         if settings and settings.period_start_date:
             grades_query = grades_query.where(Lesson.date >= settings.period_start_date)

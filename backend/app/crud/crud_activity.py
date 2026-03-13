@@ -12,6 +12,7 @@ class CRUDActivity:
     async def create(self, db: AsyncSession, *, obj_in: ActivityCreate, created_by_id: UUID) -> Activity:
         db_obj = Activity(
             student_id=obj_in.student_id,
+            subject_id=obj_in.subject_id,
             points=obj_in.points,
             description=obj_in.description,
             attestation_type=obj_in.attestation_type,
@@ -31,6 +32,7 @@ class CRUDActivity:
         points: float,
         description: str,
         attestation_type: AttestationType,
+        subject_id: UUID | None,
         batch_id: UUID,
         created_by_id: UUID,
     ) -> list[Activity]:
@@ -38,6 +40,7 @@ class CRUDActivity:
         for student_id in student_ids:
             activity = Activity(
                 student_id=student_id,
+                subject_id=subject_id,
                 points=points,
                 description=description,
                 attestation_type=attestation_type,

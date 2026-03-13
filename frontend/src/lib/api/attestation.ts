@@ -4,6 +4,7 @@ import {
   type AttestationSettings,
   type AttestationSettingsUpdate,
   type AttestationResult,
+  type AttestationSubjectOption,
   type GroupAttestationResult,
   type GradeScale,
   type BackendGradeScale,
@@ -40,24 +41,38 @@ export const AttestationAPI = {
     return convertGradeScale(data, type);
   },
 
-  calculateStudent: async (studentId: string, type: AttestationType, activityPoints = 0) => {
+  calculateStudent: async (
+    studentId: string,
+    type: AttestationType,
+    activityPoints = 0,
+    subjectId?: string
+  ) => {
     const { data } = await api.get<AttestationResult>(
       `/admin/attestation/calculate/${studentId}/${type}`,
-      { params: { activity_points: activityPoints } }
+      { params: { activity_points: activityPoints, subject_id: subjectId } }
     );
     return data;
   },
 
-  calculateGroup: async (groupId: string, type: AttestationType) => {
+  calculateGroup: async (groupId: string, type: AttestationType, subjectId?: string) => {
     const { data } = await api.get<GroupAttestationResult>(
-      `/admin/attestation/calculate/group/${groupId}/${type}`
+      `/admin/attestation/calculate/group/${groupId}/${type}`,
+      { params: { subject_id: subjectId } }
     );
     return data;
   },
 
-  calculateAllStudents: async (type: AttestationType) => {
+  listGroupSubjects: async (groupId: string, type: AttestationType) => {
+    const { data } = await api.get<AttestationSubjectOption[]>(
+      `/admin/attestation/subjects/${groupId}/${type}`
+    );
+    return data;
+  },
+
+  calculateAllStudents: async (type: AttestationType, subjectId?: string) => {
     const { data } = await api.get<GroupAttestationResult>(
-      `/admin/attestation/scores/all/${type}`
+      `/admin/attestation/scores/all/${type}`,
+      { params: { subject_id: subjectId } }
     );
     return data;
   },

@@ -48,6 +48,7 @@ export default function JournalPage() {
     setAttestationPeriod,
     selectedSemester,
     setSelectedSemester,
+    isCurrentSemesterSelected,
     lessons,
     students,
     attendance,
@@ -74,6 +75,10 @@ export default function JournalPage() {
     `${sem.semester} сем. ${sem.academicYear}-${sem.academicYear + 1}`;
 
   const semesterKey = (sem: SemesterInfo) => `${sem.academicYear}-${sem.semester}`;
+  const showAttestationColumn =
+    attestationPeriod !== 'all' &&
+    selectedSubjectId !== 'all' &&
+    isCurrentSemesterSelected;
 
   return (
     <div className="space-y-6">
@@ -178,8 +183,8 @@ export default function JournalPage() {
               )}
               attendance={attendance}
               grades={grades}
-              attestationScores={attestationPeriod !== 'all' ? attestationScores : undefined}
-              attestationPeriod={attestationPeriod !== 'all' ? attestationPeriod : undefined}
+              attestationScores={showAttestationColumn ? attestationScores : undefined}
+              attestationPeriod={showAttestationColumn ? attestationPeriod : undefined}
               onAttendanceChange={updateAttendance}
               onGradeChange={updateGrade}
               onLessonClick={setSelectedLesson}

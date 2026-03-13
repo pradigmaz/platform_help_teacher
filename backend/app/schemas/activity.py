@@ -11,6 +11,7 @@ class ActivityBase(BaseModel):
     points: float = Field(..., description="Количество баллов (положительное - бонус, отрицательное - штраф)")
     description: str = Field(..., max_length=500, description="Описание активности/причины")
     attestation_type: AttestationType = Field(..., description="Тип аттестации")
+    subject_id: UUID | None = Field(None, description="ID предмета для предметной аттестации")
     is_active: bool = Field(True, description="Активна ли запись")
 
 

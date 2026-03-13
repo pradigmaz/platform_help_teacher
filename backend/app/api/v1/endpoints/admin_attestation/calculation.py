@@ -13,14 +13,41 @@ from app.db.session import get_db
 from app.models import Group, User, UserRole
 from app.schemas.attestation import (
     AttestationResultResponse,
+    AttestationSubjectOption,
+    CalculationErrorInfo,
     GroupAttestationResponse,
 )
 from app.schemas.attestation import (
     AttestationType as AttestationTypeSchema,
 )
+from app.services.attestation.subject_scope import list_group_subject_options_in_period
 from app.services.attestation_service import AttestationService
 
 router = APIRouter()
+
+
+@router.get(
+    "/attestation/subjects/{group_id}/{attestation_type}",
+    response_model=list[AttestationSubjectOption],
+)
+@limiter.limit("30/minute")
+async def list_group_attestation_subjects(
+    request: Request,
+    group_id: UUID,
+    attestation_type: AttestationTypeSchema,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """Вернуть предметы группы, попадающие в период аттестации."""
+    group_result = await db.execute(select(Group).where(Group.id == group_id))
+    group = group_result.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Группа не найдена")
+
+    service = AttestationService(db)
+    settings = await service.get_or_create_settings(attestation_type)
+    subjects = await list_group_subject_options_in_period(db, group_id, settings)
+    return [AttestationSubjectOption(id=subject.id, name=subject.name, code=subject.code) for subject in subjects]
 
 
 @router.get("/attestation/calculate/{student_id}/{attestation_type}", response_model=AttestationResultResponse)
@@ -30,6 +57,7 @@ async def calculate_student_attestation(
     student_id: UUID,
     attestation_type: AttestationTypeSchema,
     activity_points: float = Query(default=0.0, ge=0),
+    subject_id: UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
@@ -49,6 +77,7 @@ async def calculate_student_attestation(
             group_id=student.group_id,
             attestation_type=attestation_type,
             activity_points=activity_points,
+            subject_id=subject_id,
         )
         return AttestationResultResponse(**result.model_dump())
     except ValueError as e:
@@ -61,6 +90,7 @@ async def calculate_group_attestation(
     request: Request,
     group_id: UUID,
     attestation_type: AttestationTypeSchema,
+    subject_id: UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
@@ -79,9 +109,15 @@ async def calculate_group_attestation(
         raise HTTPException(status_code=404, detail="В группе нет активных студентов")
 
     service = AttestationService(db)
-    results, errors = await service.calculate_group_scores_batch(
-        group_id=group_id, attestation_type=attestation_type, students=students
-    )
+    try:
+        results, errors = await service.calculate_group_scores_batch(
+            group_id=group_id,
+            attestation_type=attestation_type,
+            students=students,
+            subject_id=subject_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return _build_group_response(group_id, group.code, attestation_type, results, errors)
 
@@ -91,10 +127,14 @@ async def calculate_group_attestation(
 async def calculate_all_students_attestation(
     request: Request,
     attestation_type: AttestationTypeSchema,
+    subject_id: UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Рассчитать баллы аттестации для всех студентов."""
+    if subject_id is None:
+        raise HTTPException(status_code=400, detail="Для режима 'Все студенты' нужно выбрать предмет")
+
     # Получаем все неархивированные группы с их студентами одним запросом (фикс N+1)
     from sqlalchemy.orm import selectinload
 
@@ -117,9 +157,27 @@ async def calculate_all_students_attestation(
         if not students:
             continue
 
-        results, errors = await service.calculate_group_scores_batch(
-            group_id=group.id, attestation_type=attestation_type, students=students
-        )
+        try:
+            results, errors = await service.calculate_group_scores_batch(
+                group_id=group.id,
+                attestation_type=attestation_type,
+                students=students,
+                subject_id=subject_id,
+            )
+        except ValueError as e:
+            if "Предмет не найден" not in str(e):
+                all_errors.extend(
+                    [
+                        CalculationErrorInfo(
+                            student_id=student.id,
+                            student_name=student.full_name or str(student.id),
+                            error=str(e),
+                        )
+                        for student in students
+                    ]
+                )
+            continue
+
         all_results.extend(results)
         all_errors.extend(errors)
 

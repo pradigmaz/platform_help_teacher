@@ -46,6 +46,7 @@ export interface StudentLab {
   id: string;
   number: number;
   title: string;
+  subject_id?: string | null;
   topic?: string;
   description?: string;
   deadline_5_lessons?: number | null;
@@ -74,6 +75,7 @@ export interface StudentLabDetail {
   id: string;
   number: number;
   title: string;
+  subject_id?: string | null;
   topic?: string;
   goal?: string;
   formatting_guide?: string;
@@ -108,19 +110,17 @@ export interface StudentLabDetail {
 
 export interface StudentAttestation {
   attestation_type: string;
+  subject_id?: string | null;
   total_score: number;
-  lab_score?: number;
-  attendance_score?: number;
-  activity_score?: number;
   grade: string;
   is_passing: boolean;
   max_points?: number;
   min_passing_points?: number;
   error?: string;
   breakdown?: {
-    labs: { raw: number; weighted: number; count: number; required: number };
-    attendance: { raw: number; weighted: number; total_classes: number; present: number; late: number };
-    activity: { raw: number; weighted: number };
+    labs: { score: number; max: number; count: number; required: number };
+    attendance: { score: number; max: number; ratio: number; total_classes: number; present: number; late: number };
+    activity: { score: number; max: number; bonus_blocked?: boolean };
   };
 }
 
@@ -133,6 +133,7 @@ export interface StudentActivity {
 
 export interface StudentActivities {
   attestation_type: string;
+  subject_id?: string | null;
   stats: {
     total_bonus: number;
     total_penalty: number;

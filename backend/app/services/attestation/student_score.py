@@ -5,7 +5,7 @@
 import logging
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.activity import Activity
@@ -13,6 +13,7 @@ from app.models.attendance import Attendance
 from app.models.attestation_settings import AttestationSettings, AttestationType
 from app.models.lesson import Lesson
 from app.models.lesson_grade import LessonGrade
+from app.models.schedule import LessonType
 from app.models.student_transfer import StudentTransfer
 from app.models.user import User
 from app.schemas.attestation import AttestationResult, ComponentBreakdown
@@ -22,6 +23,13 @@ from .calculator import AttestationCalculator
 from .helpers import filter_lessons_by_subgroup
 from .lab_progress import dedupe_lesson_grade_rows, dedupe_transfer_lab_grades
 from .settings import AttestationSettingsManager
+from .subject_scope import (
+    AttestationSubjectScope,
+    merge_transfer_attendance,
+    merge_transfer_lab_grades,
+    resolve_attestation_subject_scope,
+    sum_transfer_activity_points,
+)
 from .submission_fallbacks import get_student_submission_grade_fallbacks
 
 logger = logging.getLogger(__name__)
@@ -36,31 +44,55 @@ class StudentScoreCalculator:
         self.settings_manager = AttestationSettingsManager(db)
 
     async def calculate(
-        self, student_id: UUID, group_id: UUID, attestation_type: AttestationType, extra_activity_points: float = 0.0
+        self,
+        student_id: UUID,
+        group_id: UUID,
+        attestation_type: AttestationType,
+        extra_activity_points: float = 0.0,
+        subject_id: UUID | None = None,
     ) -> AttestationResult:
         """Расчёт баллов аттестации для студента."""
         settings = await self.settings_manager.get_or_create_settings(attestation_type)
+        subject_scope = await resolve_attestation_subject_scope(
+            self.db,
+            group_id=group_id,
+            settings=settings,
+            requested_subject_id=subject_id,
+        )
 
         student = await self._get_student(student_id)
         if not student:
             raise ValueError(f"Студент {student_id} не найден")
 
-        # Получаем данные из текущей группы
-        lesson_grades = await self._get_lesson_grades(student_id, group_id, settings)
-        submission_grades = await get_student_submission_grade_fallbacks(self.db, student_id, group_id, settings)
-        attendance_records = await self._get_attendance(student_id, group_id, student.subgroup, settings)
-        db_activity_points = await self._get_activity_points(student_id, attestation_type)
+        lesson_grades = await self._get_lesson_grades(student_id, group_id, settings, subject_scope.subject_id)
+        submission_grades = await get_student_submission_grade_fallbacks(
+            self.db,
+            student_id,
+            group_id,
+            settings,
+            subject_id=subject_scope.subject_id,
+        )
+        attendance_records = await self._get_attendance(
+            student_id,
+            group_id,
+            student.subgroup,
+            settings,
+            subject_scope.subject_id,
+        )
+        db_activity_points = await self._get_activity_points(student_id, attestation_type, subject_scope)
 
-        # Получаем снапшоты переводов и объединяем данные
         transfers = await self._get_transfers_in_period(student_id, attestation_type, settings)
-        transfer_attendance = self._merge_transfer_attendance(transfers)
-        transfer_lab_grades = self._merge_transfer_lab_grades(transfers)
-        transfer_activity = self._sum_transfer_activity(transfers)
+        transfer_attendance = merge_transfer_attendance(transfers, subject_scope)
+        transfer_lab_grades = dedupe_transfer_lab_grades(merge_transfer_lab_grades(transfers, subject_scope))
+        transfer_activity = sum_transfer_activity_points(transfers, subject_scope)
 
-        # Считаем ожидаемое количество занятий
-        expected_lessons = await self._get_expected_lessons(group_id, student.subgroup, settings)
+        expected_lessons = await self._get_expected_lessons(
+            group_id,
+            student.subgroup,
+            settings,
+            subject_scope.subject_id,
+        )
 
-        # Расчёт компонентов с учётом переводов
         lab_result = self.calculator.calculate_labs(
             lesson_grades,
             settings,
@@ -68,19 +100,21 @@ class StudentScoreCalculator:
             submission_grades,
         )
         attendance_result = self.calculator.calculate_attendance(
-            attendance_records, settings, expected_lessons, transfer_attendance
+            attendance_records,
+            settings,
+            expected_lessons,
+            transfer_attendance,
         )
 
-        # Текущий балл (без активности)
         current_score = lab_result.score + attendance_result.score
-
-        # Активность с учётом лимита (включая снапшоты переводов)
         total_activity = db_activity_points + extra_activity_points + transfer_activity
         activity_score, bonus_blocked = self.calculator.calculate_activity(total_activity, current_score, settings)
 
-        # Итог
         total_score, grade, is_passing = self.calculator.calculate_total(
-            lab_result, attendance_result, activity_score, settings
+            lab_result,
+            attendance_result,
+            activity_score,
+            settings,
         )
 
         breakdown = ComponentBreakdown(
@@ -106,6 +140,7 @@ class StudentScoreCalculator:
             student_id=student.id,
             student_name=student.full_name or str(student.id),
             attestation_type=attestation_type,
+            subject_id=subject_scope.subject_id,
             total_score=total_score,
             grade=grade,
             is_passing=is_passing,
@@ -119,7 +154,11 @@ class StudentScoreCalculator:
         return result.scalar_one_or_none()
 
     async def _get_lesson_grades(
-        self, student_id: UUID, group_id: UUID, settings: AttestationSettings
+        self,
+        student_id: UUID,
+        group_id: UUID,
+        settings: AttestationSettings,
+        subject_id: UUID | None = None,
     ) -> list[LessonGrade]:
         period_start, period_end = settings.get_effective_period()
         query = (
@@ -128,16 +167,23 @@ class StudentScoreCalculator:
             .where(LessonGrade.student_id == student_id)
             .where(LessonGrade.work_number.isnot(None))
             .where(Lesson.group_id == group_id)
+            .where(Lesson.lesson_type.in_((LessonType.LAB, LessonType.PRACTICE)))
             .where(Lesson.is_cancelled.is_(False))
             .where(Lesson.date >= period_start)
             .where(Lesson.date <= period_end)
         )
+        if subject_id:
+            query = query.where(Lesson.subject_id == subject_id)
         result = await self.db.execute(query)
-        rows = result.all()
-        return dedupe_lesson_grade_rows(rows)
+        return dedupe_lesson_grade_rows(result.all())
 
     async def _get_attendance(
-        self, student_id: UUID, group_id: UUID, subgroup: int | None, settings: AttestationSettings
+        self,
+        student_id: UUID,
+        group_id: UUID,
+        subgroup: int | None,
+        settings: AttestationSettings,
+        subject_id: UUID | None = None,
     ) -> list[Attendance]:
         period_start, period_end = settings.get_effective_period()
         lessons_query = (
@@ -147,11 +193,12 @@ class StudentScoreCalculator:
             .where(Lesson.date >= period_start)
             .where(Lesson.date <= period_end)
         )
+        if subject_id:
+            lessons_query = lessons_query.where(Lesson.subject_id == subject_id)
         lessons_query = filter_lessons_by_subgroup(lessons_query, subgroup)
 
         lessons_result = await self.db.execute(lessons_query)
         relevant_lessons = list(lessons_result.scalars().all())
-
         if not relevant_lessons:
             return []
 
@@ -164,22 +211,39 @@ class StudentScoreCalculator:
         result = await self.db.execute(att_query)
         return list(result.scalars().all())
 
-    async def _get_activity_points(self, student_id: UUID, attestation_type: AttestationType) -> float:
+    async def _get_activity_points(
+        self,
+        student_id: UUID,
+        attestation_type: AttestationType,
+        subject_scope: AttestationSubjectScope,
+    ) -> float:
         query = select(func.sum(Activity.points)).where(
-            Activity.student_id == student_id, Activity.attestation_type == attestation_type, Activity.is_active
+            Activity.student_id == student_id,
+            Activity.attestation_type == attestation_type,
+            Activity.is_active,
         )
+        if subject_scope.subject_id is not None:
+            if subject_scope.can_use_legacy_activity_points:
+                query = query.where(
+                    or_(
+                        Activity.subject_id == subject_scope.subject_id,
+                        Activity.subject_id.is_(None),
+                    )
+                )
+            else:
+                query = query.where(Activity.subject_id == subject_scope.subject_id)
+
         result = await self.db.execute(query)
         return result.scalar() or 0.0
 
-    async def _get_expected_lessons(self, group_id: UUID, subgroup: int | None, settings: AttestationSettings) -> int:
-        """
-        Получить ожидаемое количество занятий.
-
-        Логика: max(lessons_in_db, min_expected_from_settings)
-        - Если занятий в БД больше (доп. пары) — используем их
-        - Если меньше (праздники, начало семестра) — используем минимум из настроек
-        """
-        # Считаем занятия в БД (не отменённые)
+    async def _get_expected_lessons(
+        self,
+        group_id: UUID,
+        subgroup: int | None,
+        settings: AttestationSettings,
+        subject_id: UUID | None = None,
+    ) -> int:
+        """Получить ожидаемое количество занятий."""
         period_start, period_end = settings.get_effective_period()
         query = (
             select(func.count(Lesson.id))
@@ -188,21 +252,20 @@ class StudentScoreCalculator:
             .where(Lesson.date >= period_start)
             .where(Lesson.date <= period_end)
         )
-
-        # Фильтр по подгруппе: занятия для всей группы (subgroup IS NULL) или для конкретной подгруппы
+        if subject_id:
+            query = query.where(Lesson.subject_id == subject_id)
         if subgroup:
             query = query.where((Lesson.subgroup.is_(None)) | (Lesson.subgroup == subgroup))
 
         result = await self.db.execute(query)
         lessons_in_db = result.scalar() or 0
-
-        # Минимум из настроек
-        min_expected = settings.get_min_expected_lessons()
-
-        return max(lessons_in_db, min_expected)
+        return max(lessons_in_db, settings.get_min_expected_lessons())
 
     async def _get_transfers_in_period(
-        self, student_id: UUID, attestation_type: AttestationType, settings: AttestationSettings
+        self,
+        student_id: UUID,
+        attestation_type: AttestationType,
+        settings: AttestationSettings,
     ) -> list[StudentTransfer]:
         """Получить переводы студента в периоде аттестации."""
         period_start, period_end = settings.get_effective_period()
@@ -215,31 +278,3 @@ class StudentScoreCalculator:
         )
         result = await self.db.execute(query)
         return list(result.scalars().all())
-
-    def _merge_transfer_attendance(self, transfers: list[StudentTransfer]) -> dict | None:
-        """Объединить снапшоты посещаемости из переводов."""
-        if not transfers:
-            return None
-
-        merged = {"total_lessons": 0, "present": 0, "late": 0, "excused": 0, "absent": 0}
-        for t in transfers:
-            data = t.attendance_data or {}
-            merged["total_lessons"] += data.get("total_lessons", 0)
-            merged["present"] += data.get("present", 0)
-            merged["late"] += data.get("late", 0)
-            merged["excused"] += data.get("excused", 0)
-            merged["absent"] += data.get("absent", 0)
-
-        return merged if merged["total_lessons"] > 0 else None
-
-    def _merge_transfer_lab_grades(self, transfers: list[StudentTransfer]) -> list[dict]:
-        """Объединить снапшоты оценок за лабы из переводов."""
-        all_grades = []
-        for t in transfers:
-            grades = t.lab_grades_data or []
-            all_grades.extend(grades)
-        return dedupe_transfer_lab_grades(all_grades)
-
-    def _sum_transfer_activity(self, transfers: list[StudentTransfer]) -> float:
-        """Суммировать баллы активности из снапшотов переводов."""
-        return sum(t.activity_points or 0.0 for t in transfers)

@@ -71,9 +71,6 @@ class ReportDataCollector:
         # Преобразуем tuple в list для JSON сериализации
         grade_scale_json = {k: list(v) for k, v in grade_scale.items()}
 
-        # Получаем subject_id преподавателя для этой группы
-        subject_id = await self._get_teacher_subject_id(report.created_by, report.group_id)
-
         if not students:
             return build_empty_report(
                 report, group, teacher, attestation_type, max_points, min_passing, is_second_available
@@ -81,9 +78,15 @@ class ReportDataCollector:
 
         # Получаем баллы аттестации
         attestation_service = AttestationService(self.db)
-        attestation_results, _ = await attestation_service.calculate_group_scores_batch(
-            group_id=report.group_id, attestation_type=att_type, students=students
-        )
+        try:
+            attestation_results, _ = await attestation_service.calculate_group_scores_batch(
+                group_id=report.group_id,
+                attestation_type=att_type,
+                students=students,
+            )
+        except ValueError as exc:
+            logger.warning("Report attestation skipped for group %s: %s", report.group_id, exc)
+            attestation_results = []
 
         results_map = {r.student_id: r for r in attestation_results}
         attendance_data = await get_group_attendance_stats(self.db, report.group_id, students)
@@ -116,7 +119,7 @@ class ReportDataCollector:
                 self.db, report.group_id, students, semester_start
             )
             attendance_stats = await get_full_attendance_stats(
-                self.db, report.group_id, students, has_subgroups, semester_start, subject_id
+                self.db, report.group_id, students, has_subgroups, semester_start
             )
             today_lessons = await get_today_lessons_attendance(
                 self.db, report.group_id, students, show_names=report.show_names
@@ -182,7 +185,9 @@ class ReportDataCollector:
         attestation_service = AttestationService(self.db)
         try:
             result = await attestation_service.calculate_student_score(
-                student_id=student_id, group_id=report.group_id, attestation_type=att_type
+                student_id=student_id,
+                group_id=report.group_id,
+                attestation_type=att_type,
             )
         except Exception as e:
             logger.error(f"Error calculating score for student {student_id}: {e}")
@@ -223,7 +228,10 @@ class ReportDataCollector:
         total_in_group = None
         if report.show_rating and result:
             group_stats = await self._get_group_comparison_stats(
-                report.group_id, student_id, result.total_score, att_type
+                report.group_id,
+                student_id,
+                result.total_score,
+                att_type,
             )
             group_average = group_stats.get("average")
             rank_in_group = group_stats.get("rank")
@@ -271,14 +279,20 @@ class ReportDataCollector:
         )
 
     async def _get_group_comparison_stats(
-        self, group_id: UUID, student_id: UUID, student_score: float, attestation_type: AttestationType
+        self,
+        group_id: UUID,
+        student_id: UUID,
+        student_score: float,
+        attestation_type: AttestationType,
     ) -> dict:
         """Получить статистику сравнения с группой."""
         students = await get_group_students(self.db, group_id)
 
         attestation_service = AttestationService(self.db)
         results, _ = await attestation_service.calculate_group_scores_batch(
-            group_id=group_id, attestation_type=attestation_type, students=students
+            group_id=group_id,
+            attestation_type=attestation_type,
+            students=students,
         )
 
         if not results:
@@ -323,18 +337,3 @@ class ReportDataCollector:
 
         return filtered
 
-    async def _get_teacher_subject_id(self, teacher_id: UUID, group_id: UUID) -> UUID | None:
-        """Получить subject_id для группы из занятий текущего семестра."""
-        from app.models.lesson import Lesson
-
-        # Получаем semester_start_date для фильтрации
-        semester_start = await get_semester_start_date(self.db)
-
-        # Берём subject_id из занятий группы текущего семестра
-        query = select(Lesson.subject_id).where(Lesson.group_id == group_id, Lesson.subject_id.isnot(None))
-        if semester_start:
-            query = query.where(Lesson.date >= semester_start)
-        query = query.order_by(Lesson.date.desc()).limit(1)
-
-        result = await self.db.execute(query)
-        return result.scalar_one_or_none()

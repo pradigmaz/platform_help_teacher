@@ -159,6 +159,7 @@ class AttestationResult(BaseModel):
     student_name: str
     attestation_type: AttestationType
     group_code: str | None = None
+    subject_id: UUID | None = None
 
     total_score: float = Field(description="Итоговый балл")
     grade: str = Field(description="Оценка (неуд/уд/хор/отл)")
@@ -168,6 +169,14 @@ class AttestationResult(BaseModel):
     min_passing_points: int
 
     breakdown: ComponentBreakdown
+
+
+class AttestationSubjectOption(BaseModel):
+    """Доступный предмет для предметной аттестации."""
+
+    id: UUID
+    name: str
+    code: str | None = None
 
 
 class CalculationErrorInfo(BaseModel):

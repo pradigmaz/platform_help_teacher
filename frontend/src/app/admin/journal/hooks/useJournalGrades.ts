@@ -10,9 +10,10 @@ export interface UseJournalGradesReturn {
   grades: Record<string, Record<string, GradeData>>;
   setGrades: React.Dispatch<React.SetStateAction<Record<string, Record<string, GradeData>>>>;
   attestationScores: Record<string, AttestationResult>;
+  setAttestationScores: React.Dispatch<React.SetStateAction<Record<string, AttestationResult>>>;
   updateGrade: (lessonId: string, studentId: string, grade: number | null, workNumber?: number | null) => Promise<void>;
   loadGrades: (lessonIds: string[]) => Promise<void>;
-  loadAttestationScores: (groupId: string, period: AttestationPeriod) => Promise<void>;
+  loadAttestationScores: (groupId: string, period: AttestationPeriod, subjectId?: string) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -62,14 +63,22 @@ export function useJournalGrades({ onStatsRefetch }: UseJournalGradesProps): Use
     }
   }, []);
 
-  const loadAttestationScores = useCallback(async (groupId: string, period: AttestationPeriod) => {
+  const loadAttestationScores = useCallback(async (
+    groupId: string,
+    period: AttestationPeriod,
+    subjectId?: string
+  ) => {
     if (period === 'all') {
       setAttestationScores({});
       return;
     }
     
     try {
-      const attestationData = await AttestationAPI.calculateGroup(groupId, period as AttestationType);
+      const attestationData = await AttestationAPI.calculateGroup(
+        groupId,
+        period as AttestationType,
+        subjectId && subjectId !== 'all' ? subjectId : undefined
+      );
       const scoresMap: Record<string, AttestationResult> = {};
       for (const student of attestationData.students) {
         scoresMap[student.student_id] = student;
@@ -140,5 +149,14 @@ export function useJournalGrades({ onStatsRefetch }: UseJournalGradesProps): Use
     }
   }, [grades, debouncedStatsRefetch]);
 
-  return { grades, setGrades, attestationScores, updateGrade, loadGrades, loadAttestationScores, isSaving };
+  return {
+    grades,
+    setGrades,
+    attestationScores,
+    setAttestationScores,
+    updateGrade,
+    loadGrades,
+    loadAttestationScores,
+    isSaving,
+  };
 }

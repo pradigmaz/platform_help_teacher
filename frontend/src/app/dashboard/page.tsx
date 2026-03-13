@@ -9,12 +9,21 @@ import {
   StudentLab,
   StudentAttestation,
 } from '@/lib/api';
+import { getCurrentAttestationType } from '@/lib/attestation-period';
 import { formatGroupCode } from '@/lib/utils';
+import { useSemesterInfo } from '@/hooks/useSemesterInfo';
 import { Effect } from '@/components/animate-ui/primitives/effects/effect';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusHero, QuickStats, DeadlinesList } from '@/components/dashboard';
 
 export default function DashboardOverview() {
+  const semesterInfo = useSemesterInfo();
+  const {
+    loading: semesterInfoLoading,
+    academicYear,
+    semester,
+    semesterStartDate,
+  } = semesterInfo;
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [attendance, setAttendance] = useState<StudentAttendance | null>(null);
@@ -22,20 +31,59 @@ export default function DashboardOverview() {
   const [attestation, setAttestation] = useState<StudentAttestation | null>(null);
 
   useEffect(() => {
+    if (semesterInfoLoading) {
+      return;
+    }
+
     const loadData = async () => {
       try {
-        const [profileData, attendanceData, labsData, att1, att2] = await Promise.all([
+        const [profileData, attendanceData, labsData] = await Promise.all([
           StudentAPI.getProfile(),
           StudentAPI.getAttendance(),
           StudentAPI.getLabs(),
-          StudentAPI.getAttestation('first'),
-          StudentAPI.getAttestation('second'),
         ]);
         setProfile(profileData);
         setAttendance(attendanceData);
         setLabs(labsData);
-        // Use current attestation (first if available, else second)
-        setAttestation(att1?.error ? att2 : att1);
+        const preferredType = getCurrentAttestationType({
+          academicYear,
+          semester,
+          semesterStartDate,
+        });
+
+        const labSubjectIds = [
+          ...new Set(
+            labsData
+              .map((lab) => lab.subject_id)
+              .filter((subjectId): subjectId is string => typeof subjectId === 'string' && subjectId.length > 0)
+          ),
+        ];
+        let resolvedSubjectId = labSubjectIds.length === 1 ? labSubjectIds[0] : undefined;
+
+        if (!resolvedSubjectId) {
+          const attestationSubjects = await StudentAPI.getAttestationSubjects(preferredType);
+          if (attestationSubjects.length === 1) {
+            resolvedSubjectId = attestationSubjects[0].id;
+          } else if (attestationSubjects.length > 1) {
+            setAttestation({
+              attestation_type: preferredType,
+              subject_id: null,
+              total_score: 0,
+              grade: '-',
+              is_passing: false,
+              error: 'Для расчёта аттестации нужно выбрать предмет',
+            });
+            return;
+          }
+        }
+
+        const [att1, att2] = await Promise.all([
+          StudentAPI.getAttestation('first', resolvedSubjectId),
+          StudentAPI.getAttestation('second', resolvedSubjectId),
+        ]);
+        const preferred = preferredType === 'first' ? att1 : att2;
+        const fallback = preferredType === 'first' ? att2 : att1;
+        setAttestation(preferred?.error ? fallback : preferred);
       } catch {
         toast.error('Ошибка загрузки данных');
       } finally {
@@ -43,7 +91,7 @@ export default function DashboardOverview() {
       }
     };
     loadData();
-  }, []);
+  }, [semesterInfoLoading, academicYear, semester, semesterStartDate]);
 
   if (loading) return <DashboardSkeleton />;
 

@@ -59,6 +59,10 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
   const lessonsKey = lessonsHook.lessons.length > 0 
     ? `${lessonsHook.lessons.length}-${lessonsHook.lessons[0]?.id}-${lessonsHook.lessons[lessonsHook.lessons.length - 1]?.id}`
     : '';
+  const canLoadAttestationScores =
+    filters.attestationPeriod !== 'all' &&
+    filters.selectedSubjectId !== 'all' &&
+    filters.isCurrentSemesterSelected;
   
   useEffect(() => {
     if (lessonsHook.lessons.length > 0 && filters.selectedGroupId) {
@@ -76,16 +80,23 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
       ]);
       
       // Load attestation scores if period selected
-      if (filters.attestationPeriod !== 'all') {
-        gradesHook.loadAttestationScores(filters.selectedGroupId, filters.attestationPeriod);
+      if (canLoadAttestationScores) {
+        gradesHook.loadAttestationScores(
+          filters.selectedGroupId,
+          filters.attestationPeriod,
+          filters.selectedSubjectId
+        );
+      } else {
+        gradesHook.setAttestationScores({});
       }
     } else {
       attendanceHook.setAttendance({});
       gradesHook.setGrades({});
+      gradesHook.setAttestationScores({});
       statsHook.setStats(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonsKey, filters.selectedGroupId, filters.attestationPeriod]);
+  }, [canLoadAttestationScores, lessonsKey, filters.selectedGroupId, filters.selectedSubjectId, filters.attestationPeriod]);
 
   const refreshJournalData = async () => {
     if (!filters.selectedGroupId) {
@@ -100,6 +111,7 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
     if (nextLessons.length === 0) {
       attendanceHook.setAttendance({});
       gradesHook.setGrades({});
+      gradesHook.setAttestationScores({});
       statsHook.setStats(null);
       return;
     }
@@ -114,9 +126,13 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
         nextEndDate,
         filters.selectedSubjectId
       ),
-      filters.attestationPeriod !== 'all'
-        ? gradesHook.loadAttestationScores(filters.selectedGroupId, filters.attestationPeriod)
-        : Promise.resolve(),
+      canLoadAttestationScores
+        ? gradesHook.loadAttestationScores(
+            filters.selectedGroupId,
+            filters.attestationPeriod,
+            filters.selectedSubjectId
+          )
+        : Promise.resolve(gradesHook.setAttestationScores({})),
     ]);
   };
 
@@ -134,6 +150,7 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
     setAttestationPeriod: filters.setAttestationPeriod,
     selectedSemester: filters.selectedSemester,
     setSelectedSemester: filters.setSelectedSemester,
+    isCurrentSemesterSelected: filters.isCurrentSemesterSelected,
     
     // Lessons data
     groups: lessonsHook.groups,

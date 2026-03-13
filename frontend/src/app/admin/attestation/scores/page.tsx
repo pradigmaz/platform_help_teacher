@@ -4,116 +4,28 @@
 import { useReducer, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import { 
+  api,
   AttestationAPI, 
   GroupsAPI, 
-  AttestationType, 
-  GroupAttestationResult, 
   AttestationResult,
-  GroupResponse 
+  AttestationSubjectOption,
 } from '@/lib/api';
+import type { AttestationType } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Users, UserCheck } from 'lucide-react';
 import { AttestationSummaryCards } from './components/SummaryCards';
 import { AttestationTable } from './components/AttestationTable';
 import { StudentDetailSheet } from './components/StudentDetailSheet';
-
-// Types
-type ViewMode = 'by-group' | 'all-students';
-type SortKey = 'name' | 'group' | 'total' | 'labs' | 'attendance' | 'activity';
-type SortOrder = 'asc' | 'desc';
-
-interface State {
-  // Filters
-  viewMode: ViewMode;
-  attestationType: AttestationType;
-  selectedGroupId: string;
-  searchQuery: string;
-  // Sort
-  sortKey: SortKey;
-  sortOrder: SortOrder;
-  // Data
-  groups: GroupResponse[];
-  data: GroupAttestationResult | null;
-  // Loading
-  loading: boolean;
-  groupsLoading: boolean;
-  // Detail sheet
-  selectedStudent: AttestationResult | null;
-  detailSheetOpen: boolean;
-}
-
-type Action =
-  | { type: 'SET_VIEW_MODE'; payload: ViewMode }
-  | { type: 'SET_ATTESTATION_TYPE'; payload: AttestationType }
-  | { type: 'SET_GROUP_ID'; payload: string }
-  | { type: 'SET_SEARCH'; payload: string }
-  | { type: 'TOGGLE_SORT'; payload: SortKey }
-  | { type: 'SET_GROUPS'; payload: GroupResponse[] }
-  | { type: 'SET_DATA'; payload: GroupAttestationResult | null }
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_GROUPS_LOADING'; payload: boolean }
-  | { type: 'OPEN_DETAIL'; payload: AttestationResult }
-  | { type: 'CLOSE_DETAIL' };
-
-const initialState: State = {
-  viewMode: 'by-group',
-  attestationType: 'first',
-  selectedGroupId: '',
-  searchQuery: '',
-  sortKey: 'name',
-  sortOrder: 'asc',
-  groups: [],
-  data: null,
-  loading: false,
-  groupsLoading: true,
-  selectedStudent: null,
-  detailSheetOpen: false,
-};
-
-function reducer(state: State, action: Action): State {
-  switch (action.type) {
-    case 'SET_VIEW_MODE':
-      return { ...state, viewMode: action.payload, searchQuery: '', data: null };
-    case 'SET_ATTESTATION_TYPE':
-      return { ...state, attestationType: action.payload };
-    case 'SET_GROUP_ID':
-      return { ...state, selectedGroupId: action.payload };
-    case 'SET_SEARCH':
-      return { ...state, searchQuery: action.payload };
-    case 'TOGGLE_SORT':
-      return state.sortKey === action.payload
-        ? { ...state, sortOrder: state.sortOrder === 'asc' ? 'desc' : 'asc' }
-        : { ...state, sortKey: action.payload, sortOrder: 'asc' };
-    case 'SET_GROUPS':
-      return { 
-        ...state, 
-        groups: action.payload,
-        selectedGroupId: action.payload[0]?.id || '',
-        groupsLoading: false 
-      };
-    case 'SET_DATA':
-      return { ...state, data: action.payload, loading: false };
-    case 'SET_LOADING':
-      return { ...state, loading: action.payload };
-    case 'SET_GROUPS_LOADING':
-      return { ...state, groupsLoading: action.payload };
-    case 'OPEN_DETAIL':
-      return { ...state, selectedStudent: action.payload, detailSheetOpen: true };
-    case 'CLOSE_DETAIL':
-      return { ...state, detailSheetOpen: false };
-    default:
-      return state;
-  }
-}
+import { AttestationContentSkeleton, AttestationPageSkeleton } from './components/PageSkeleton';
+import { initialState, reducer, type SortKey, type ViewMode } from './state';
 
 export default function AttestationScoresPage() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const {
-    viewMode, attestationType, selectedGroupId, searchQuery,
-    sortKey, sortOrder, groups, data, loading, groupsLoading,
+    viewMode, attestationType, selectedGroupId, selectedSubjectId, searchQuery,
+    sortKey, sortOrder, groups, availableSubjects, data, loading, groupsLoading,
     selectedStudent, detailSheetOpen
   } = state;
 
@@ -131,16 +43,55 @@ export default function AttestationScoresPage() {
     loadGroups();
   }, []);
 
+  useEffect(() => {
+    const loadSubjects = async () => {
+      if (viewMode === 'by-group' && !selectedGroupId) {
+        dispatch({ type: 'SET_AVAILABLE_SUBJECTS', payload: [] });
+        return;
+      }
+
+      try {
+        const subjects = viewMode === 'all-students'
+          ? (await api.get<AttestationSubjectOption[]>('/admin/subjects/')).data
+          : await AttestationAPI.listGroupSubjects(selectedGroupId, attestationType);
+
+        dispatch({ type: 'SET_AVAILABLE_SUBJECTS', payload: subjects });
+
+        if (subjects.length === 1 && selectedSubjectId !== subjects[0].id) {
+          dispatch({ type: 'SET_SUBJECT_ID', payload: subjects[0].id });
+          return;
+        }
+
+        if (subjects.every(subject => subject.id !== selectedSubjectId) && selectedSubjectId) {
+          dispatch({ type: 'SET_SUBJECT_ID', payload: '' });
+        }
+      } catch {
+        dispatch({ type: 'SET_AVAILABLE_SUBJECTS', payload: [] });
+      }
+    };
+
+    loadSubjects();
+  }, [viewMode, selectedGroupId, selectedSubjectId, attestationType]);
+
+  const requiresExplicitSubject =
+    viewMode === 'all-students' || availableSubjects.length > 1;
+  const canLoadData =
+    (viewMode === 'by-group' ? !!selectedGroupId : true) &&
+    (!requiresExplicitSubject || !!selectedSubjectId);
+
   // Load attestation data
   useEffect(() => {
     const loadData = async () => {
-      if (viewMode === 'by-group' && !selectedGroupId) return;
+      if (!canLoadData) {
+        dispatch({ type: 'SET_DATA', payload: null });
+        return;
+      }
       
       dispatch({ type: 'SET_LOADING', payload: true });
       try {
         const result = viewMode === 'all-students'
-          ? await AttestationAPI.calculateAllStudents(attestationType)
-          : await AttestationAPI.calculateGroup(selectedGroupId, attestationType);
+          ? await AttestationAPI.calculateAllStudents(attestationType, selectedSubjectId)
+          : await AttestationAPI.calculateGroup(selectedGroupId, attestationType, selectedSubjectId || undefined);
         dispatch({ type: 'SET_DATA', payload: result });
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Ошибка загрузки';
@@ -152,7 +103,7 @@ export default function AttestationScoresPage() {
       }
     };
     loadData();
-  }, [viewMode, selectedGroupId, attestationType]);
+  }, [attestationType, canLoadData, selectedGroupId, selectedSubjectId, viewMode]);
 
   // Filter and sort students
   const filteredStudents = useMemo(() => {
@@ -214,7 +165,7 @@ export default function AttestationScoresPage() {
   }, [data]);
 
   if (groupsLoading) {
-    return <PageSkeleton />;
+    return <AttestationPageSkeleton />;
   }
 
   return (
@@ -259,6 +210,23 @@ export default function AttestationScoresPage() {
           </Select>
         )}
 
+        <Select
+          value={selectedSubjectId}
+          onValueChange={(v) => dispatch({ type: 'SET_SUBJECT_ID', payload: v })}
+          disabled={availableSubjects.length === 0}
+        >
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="Выберите предмет" />
+          </SelectTrigger>
+          <SelectContent>
+            {availableSubjects.map(subject => (
+              <SelectItem key={subject.id} value={subject.id}>
+                {subject.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Attestation Period Selector */}
         <Tabs value={attestationType} onValueChange={(v) => dispatch({ type: 'SET_ATTESTATION_TYPE', payload: v as AttestationType })}>
           <TabsList>
@@ -281,7 +249,7 @@ export default function AttestationScoresPage() {
 
       {/* Content */}
       {loading ? (
-        <ContentSkeleton />
+        <AttestationContentSkeleton />
       ) : data && summary ? (
         <>
           <AttestationSummaryCards summary={summary} />
@@ -298,12 +266,20 @@ export default function AttestationScoresPage() {
         <div className="text-center py-12 text-muted-foreground">
           <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p className="text-lg font-medium">
-            {viewMode === 'by-group' && !selectedGroupId 
+            {viewMode === 'by-group' && !selectedGroupId
               ? 'Выберите группу для просмотра баллов'
-              : 'В группе нет активных студентов'}
+              : requiresExplicitSubject && !selectedSubjectId
+                ? 'Выберите предмет для расчёта аттестации'
+                : 'В группе нет активных студентов'}
           </p>
           <p className="text-sm mt-1">
-            {viewMode === 'by-group' && selectedGroupId && 'Добавьте студентов в группу для расчёта аттестации'}
+            {viewMode === 'by-group' && selectedGroupId && !selectedSubjectId && availableSubjects.length > 1
+              ? 'Аттестация теперь считается по предмету, без выбора предмета расчёт не выполняется'
+              : viewMode === 'all-students' && !selectedSubjectId
+                ? 'Для режима "Все студенты" нужен явный предмет'
+                : viewMode === 'by-group' && selectedGroupId
+                  ? 'Добавьте студентов в группу для расчёта аттестации'
+                  : undefined}
           </p>
         </div>
       )}
@@ -315,37 +291,6 @@ export default function AttestationScoresPage() {
         onOpenChange={handleDetailSheetChange}
         attestationType={attestationType}
       />
-    </div>
-  );
-}
-
-function PageSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-64" />
-        </div>
-        <Skeleton className="h-10 w-64" />
-      </div>
-      <div className="flex gap-4">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-10 w-64" />
-      </div>
-      <ContentSkeleton />
-    </div>
-  );
-}
-
-function ContentSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
-      </div>
-      <Skeleton className="h-96 rounded-xl" />
     </div>
   );
 }

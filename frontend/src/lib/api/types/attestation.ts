@@ -110,11 +110,18 @@ export interface ComponentBreakdown {
   colloquium_score?: number;
 }
 
+export interface AttestationSubjectOption {
+  id: string;
+  name: string;
+  code?: string | null;
+}
+
 export interface AttestationResult {
   student_id: string;
   student_name: string;
   attestation_type: AttestationType;
   group_code?: string;
+  subject_id?: string | null;
   total_score: number;
   grade: string;
   is_passing: boolean;
@@ -125,7 +132,7 @@ export interface AttestationResult {
 }
 
 export interface GroupAttestationResult {
-  group_id: string;
+  group_id: string | null;
   group_code: string;
   attestation_type: AttestationType;
   calculated_at: string;

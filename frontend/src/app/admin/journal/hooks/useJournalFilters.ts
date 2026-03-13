@@ -38,6 +38,7 @@ export interface UseJournalFiltersReturn {
   weekEnd: Date;
   getSemesterDates: (sem: SemesterInfo) => { start: Date; end: Date };
   getSemesterStart: () => Date;
+  isCurrentSemesterSelected: boolean;
   semesterLoading: boolean;
 }
 
@@ -47,10 +48,15 @@ export interface UseJournalFiltersReturn {
  */
 export function getSemesterDates(
   sem: SemesterInfo, 
-  semesterStartDate?: string | null
+  semesterStartDate?: string | null,
+  currentSemester?: SemesterInfo,
 ): { start: Date; end: Date } {
-  // Если есть semester_start_date из API - используем его
-  if (semesterStartDate) {
+  const isCurrentSemester =
+    currentSemester?.academicYear === sem.academicYear &&
+    currentSemester?.semester === sem.semester;
+
+  // Если есть semester_start_date из API - используем его только для текущего семестра
+  if (semesterStartDate && isCurrentSemester) {
     return getSemesterDatesFromHook(sem.academicYear, sem.semester, semesterStartDate);
   }
   
@@ -92,10 +98,13 @@ export function useJournalFilters(): UseJournalFiltersReturn {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   // Суббота = Пн + 5 дней (как в расписании, без воскресенья)
   const weekEnd = addDays(weekStart, 5);
+  const currentSemesterInfo = { academicYear, semester };
+  const isCurrentSemesterSelected =
+    selectedSemester.academicYear === academicYear && selectedSemester.semester === semester;
 
   // Обёртка для getSemesterDates с учётом semesterStartDate
   const getSemesterDatesWithApi = (sem: SemesterInfo) => {
-    return getSemesterDates(sem, semesterStartDate);
+    return getSemesterDates(sem, semesterStartDate, currentSemesterInfo);
   };
 
   // Semester start for attestation periods
@@ -140,6 +149,7 @@ export function useJournalFilters(): UseJournalFiltersReturn {
     weekEnd,
     getSemesterDates: getSemesterDatesWithApi,
     getSemesterStart,
+    isCurrentSemesterSelected,
     semesterLoading,
   };
 }

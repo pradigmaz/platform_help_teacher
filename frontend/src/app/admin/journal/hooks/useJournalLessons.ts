@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { format, parseISO, addWeeks } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import api from '@/lib/api';
-import { ATTESTATION_WEEKS } from '@/lib/academic-constants';
+import { getAttestationPeriodDates as getBackendAttestationPeriodDates } from '@/lib/attestation-period';
 import type { Group, Subject, Lesson, Student } from '../lib/journal-constants';
 import { type AttestationPeriod, type SemesterInfo, getSemesterDates } from './useJournalFilters';
 
@@ -43,12 +43,7 @@ export interface UseJournalLessonsReturn {
 // Helper to get attestation period date range
 function getAttestationPeriodDates(period: AttestationPeriod, semesterStart: Date): { start: Date; end: Date } | null {
   if (period === 'all') return null;
-  
-  if (period === 'first') {
-    return { start: semesterStart, end: addWeeks(semesterStart, ATTESTATION_WEEKS.first) };
-  } else {
-    return { start: addWeeks(semesterStart, ATTESTATION_WEEKS.first), end: addWeeks(semesterStart, ATTESTATION_WEEKS.second) };
-  }
+  return getBackendAttestationPeriodDates(period, semesterStart);
 }
 
 export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLessonsReturn {

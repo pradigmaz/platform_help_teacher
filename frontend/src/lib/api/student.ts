@@ -8,6 +8,7 @@ import type {
   StudentTeacherContacts,
   RelinkTelegramResponse,
   StudentActivities,
+  AttestationSubjectOption,
 } from './types';
 
 export const StudentAPI = {
@@ -41,8 +42,15 @@ export const StudentAPI = {
     return data;
   },
 
-  getAttestation: async (type: 'first' | 'second') => {
-    const { data } = await api.get<StudentAttestation>(`/student/attestation/${type}`);
+  getAttestation: async (type: 'first' | 'second', subjectId?: string) => {
+    const { data } = await api.get<StudentAttestation>(`/student/attestation/${type}`, {
+      params: { subject_id: subjectId },
+    });
+    return data;
+  },
+
+  getAttestationSubjects: async (type: 'first' | 'second') => {
+    const { data } = await api.get<AttestationSubjectOption[]>(`/student/attestation/subjects/${type}`);
     return data;
   },
 
@@ -61,8 +69,10 @@ export const StudentAPI = {
     return data;
   },
 
-  getActivities: async (attestationType: 'first' | 'second' = 'first') => {
-    const { data } = await api.get<StudentActivities>(`/student/activities?attestation_type=${attestationType}`);
+  getActivities: async (attestationType: 'first' | 'second' = 'first', subjectId?: string) => {
+    const params = new URLSearchParams({ attestation_type: attestationType });
+    if (subjectId) params.append('subject_id', subjectId);
+    const { data } = await api.get<StudentActivities>(`/student/activities?${params}`);
     return data;
   },
 };

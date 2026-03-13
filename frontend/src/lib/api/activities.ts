@@ -13,9 +13,10 @@ export const ActivitiesAPI = {
     return data;
   },
 
-  getAll: async (attestationType?: AttestationType, limit = 100) => {
+  getAll: async (attestationType?: AttestationType, limit = 100, subjectId?: string) => {
     const params = new URLSearchParams();
     if (attestationType) params.append('attestation_type', attestationType);
+    if (subjectId) params.append('subject_id', subjectId);
     params.append('limit', limit.toString());
     const { data } = await api.get<ActivityWithStudentResponse[]>(`/admin/activities?${params}`);
     return data;

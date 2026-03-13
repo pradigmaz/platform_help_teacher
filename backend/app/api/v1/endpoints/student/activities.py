@@ -1,8 +1,9 @@
 """Student activities endpoint — история начислений/штрафов."""
 
 from typing import Any
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +18,7 @@ router = APIRouter()
 async def get_my_activities(
     request: Request,
     attestation_type: str = "first",
+    subject_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
@@ -28,7 +30,7 @@ async def get_my_activities(
     if attestation_type not in ("first", "second"):
         attestation_type = "first"
 
-    result = await db.execute(
+    query = (
         select(Activity)
         .where(
             Activity.student_id == current_user.id,
@@ -37,6 +39,10 @@ async def get_my_activities(
         )
         .order_by(Activity.created_at.desc())
     )
+    if subject_id is not None:
+        query = query.where(Activity.subject_id == subject_id)
+
+    result = await db.execute(query)
     activities = result.scalars().all()
 
     # Статистика
@@ -45,6 +51,7 @@ async def get_my_activities(
 
     return {
         "attestation_type": attestation_type,
+        "subject_id": str(subject_id) if subject_id else None,
         "stats": {
             "total_bonus": round(total_bonus, 2),
             "total_penalty": round(total_penalty, 2),

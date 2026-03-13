@@ -1,5 +1,5 @@
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -20,6 +20,7 @@ router = APIRouter()
 @router.get("/activities", response_model=list[ActivityWithStudentResponse])
 async def list_all_activities(
     attestation_type: AttestationType | None = Query(None),
+    subject_id: UUID | None = Query(None),
     limit: int = Query(100, le=500),
     offset: int = Query(0),
     db: AsyncSession = Depends(deps.get_db),
@@ -35,6 +36,8 @@ async def list_all_activities(
     query = select(Activity).where(Activity.is_active)
     if attestation_type:
         query = query.where(Activity.attestation_type == attestation_type)
+    if subject_id:
+        query = query.where(Activity.subject_id == subject_id)
 
     query = (
         query.options(selectinload(Activity.student).selectinload(User.group))
@@ -56,6 +59,7 @@ async def list_all_activities(
                 points=act.points,
                 description=act.description,
                 attestation_type=act.attestation_type,
+                subject_id=act.subject_id,
                 is_active=act.is_active,
                 batch_id=act.batch_id,
                 created_by_id=act.created_by_id,
@@ -102,6 +106,7 @@ async def create_activity(
             points=activity_in.points,
             description=activity_in.description,
             attestation_type=activity_in.attestation_type,
+            subject_id=activity_in.subject_id,
             batch_id=batch_id,
             created_by_id=current_user.id,
         )

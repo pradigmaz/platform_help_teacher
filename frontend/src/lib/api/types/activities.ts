@@ -3,6 +3,7 @@ import type { AttestationType } from './attestation';
 export interface ActivityCreate {
   student_id?: string;
   group_id?: string;
+  subject_id?: string;
   points: number;
   description: string;
   attestation_type: AttestationType;
@@ -18,6 +19,7 @@ export interface ActivityUpdate {
 export interface ActivityResponse {
   id: string;
   student_id: string;
+  subject_id?: string | null;
   points: number;
   description: string;
   attestation_type: AttestationType;

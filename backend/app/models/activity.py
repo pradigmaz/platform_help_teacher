@@ -9,6 +9,7 @@ from app.models.attestation_settings import AttestationType
 from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
+    from app.models.subject import Subject
     from app.models.user import User
 
 
@@ -22,6 +23,7 @@ class Activity(Base, TimestampMixin):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     student_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    subject_id: Mapped[UUID | None] = mapped_column(ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True)
     points: Mapped[float] = mapped_column(Float, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
 
@@ -38,3 +40,4 @@ class Activity(Base, TimestampMixin):
     # Relationships
     student: Mapped["User"] = relationship("User", foreign_keys=[student_id], backref="activities")
     created_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[created_by_id])
+    subject: Mapped[Optional["Subject"]] = relationship("Subject")

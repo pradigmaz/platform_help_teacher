@@ -4,7 +4,7 @@ from datetime import date
 from enum import Enum
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AttestationType(str, Enum):
@@ -19,6 +19,7 @@ class AttendanceSnapshot(BaseModel):
     late: int = 0
     excused: int = 0
     absent: int = 0
+    subjects: dict[str, dict[str, int | float]] = Field(default_factory=dict)
 
 
 # Оценка за лабу в снапшоте
