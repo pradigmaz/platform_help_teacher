@@ -33,6 +33,8 @@ from .subject_scope import (
 from .submission_fallbacks import get_submission_grade_fallbacks_batch
 
 logger = logging.getLogger(__name__)
+
+
 class BatchScoreCalculator:
     """Калькулятор пакетных операций."""
 
@@ -69,7 +71,9 @@ class BatchScoreCalculator:
         student_ids = [student.id for student in students]
         lessons = await self._get_lessons(group_id, settings, subject_scope.subject_id)
         lessons_by_subgroup = self._group_lessons_by_subgroup(lessons)
-        lesson_grades_map = await self._get_lesson_grades_batch(student_ids, group_id, settings, subject_scope.subject_id)
+        lesson_grades_map = await self._get_lesson_grades_batch(
+            student_ids, group_id, settings, subject_scope.subject_id
+        )
         submission_grades_map = await get_submission_grade_fallbacks_batch(
             self.db,
             student_ids,
@@ -109,6 +113,7 @@ class BatchScoreCalculator:
                 )
 
         return results, errors
+
     def _calculate_student(
         self,
         student: User,
@@ -207,6 +212,7 @@ class BatchScoreCalculator:
         query = apply_lesson_subject_scope(query, subject_id)
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
     def _group_lessons_by_subgroup(self, lessons: list[Lesson]) -> dict[int | None, list[Lesson]]:
         grouped: dict[int | None, list[Lesson]] = defaultdict(list)
         for lesson in lessons:
@@ -243,8 +249,12 @@ class BatchScoreCalculator:
         group_id: UUID,
         student_ids: list[UUID],
         settings: AttestationSettings,
-        lessons: list[Lesson],
+        lessons: list[Lesson] | None = None,
     ) -> dict[UUID, list[Attendance]]:
+        if lessons is None:
+            # Keep the private helper backward-compatible for tests and any legacy callers
+            # that still rely on the method to fetch the period-scoped lesson set itself.
+            lessons = await self._get_lessons(group_id, settings, subject_id=None)
         if not lessons:
             return {}
         slot_filter = build_attendance_slot_filter(lessons)
@@ -276,9 +286,7 @@ class BatchScoreCalculator:
         )
         if subject_scope.subject_id is not None:
             if subject_scope.can_use_legacy_activity_points:
-                query = query.where(
-                    or_(Activity.subject_id == subject_scope.subject_id, Activity.subject_id.is_(None))
-                )
+                query = query.where(or_(Activity.subject_id == subject_scope.subject_id, Activity.subject_id.is_(None)))
             else:
                 query = query.where(Activity.subject_id == subject_scope.subject_id)
         result = await self.db.execute(query)

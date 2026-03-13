@@ -23,7 +23,9 @@ class Activity(Base, TimestampMixin):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     student_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    subject_id: Mapped[UUID | None] = mapped_column(ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True)
+    subject_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     points: Mapped[float] = mapped_column(Float, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
 

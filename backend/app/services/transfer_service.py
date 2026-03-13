@@ -1,4 +1,5 @@
 """Сервис перевода студентов между группами/подгруппами"""
+
 import logging
 from datetime import date
 from uuid import UUID
@@ -33,6 +34,7 @@ from app.services.attestation.lab_progress import dedupe_lesson_grade_rows
 from app.services.schedule_constants import today_msk
 
 logger = logging.getLogger(__name__)
+
 
 class TransferService:
     def __init__(self, db: AsyncSession):

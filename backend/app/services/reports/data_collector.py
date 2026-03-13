@@ -336,4 +336,3 @@ class ReportDataCollector:
             filtered.pop("group_average_score", None)
 
         return filtered
-
