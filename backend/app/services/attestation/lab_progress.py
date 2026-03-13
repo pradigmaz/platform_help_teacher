@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from app.models.lesson_grade import LessonGrade
+from app.models.submission import Submission
 
 
 def is_completed_lab_grade(grade: int | None) -> bool:
@@ -21,6 +22,12 @@ def _lesson_grade_rank(grade: LessonGrade) -> tuple[int, str, str]:
 def _transfer_grade_rank(grade_data: dict[str, Any], index: int) -> tuple[int, str, int]:
     created_at = str(grade_data.get("updated_at") or grade_data.get("created_at") or "")
     return (int(grade_data.get("grade") or 0), created_at, index)
+
+
+def _submission_grade_rank(submission: Submission) -> tuple[int, str, str]:
+    accepted_at = getattr(submission, "accepted_at", None) or getattr(submission, "updated_at", None)
+    accepted_at_str = accepted_at.isoformat() if accepted_at else ""
+    return (int(submission.grade or 0), accepted_at_str, str(submission.id))
 
 
 def get_lesson_grade_subject_key(grade: LessonGrade) -> str:
@@ -72,3 +79,32 @@ def dedupe_transfer_lab_grades(transfer_grades: list[dict[str, Any]] | None) -> 
             best_by_work[key] = (grade_data, index)
 
     return [item[0] for item in best_by_work.values()]
+
+
+def dedupe_submission_lab_grades(rows: Iterable[tuple[Submission, UUID | None, int | None]]) -> list[dict[str, Any]]:
+    """Keep the best accepted submission per (subject_id, work_number)."""
+    best_by_key: dict[tuple[str, int], Submission] = {}
+
+    for submission, subject_id, work_number in rows:
+        if work_number is None or submission.grade is None:
+            continue
+
+        key = (str(subject_id or "__legacy__"), int(work_number))
+        current = best_by_key.get(key)
+        if current is None or _submission_grade_rank(submission) > _submission_grade_rank(current):
+            best_by_key[key] = submission
+
+    result: list[dict[str, Any]] = []
+    for (subject_key, work_number), submission in best_by_key.items():
+        result.append(
+            {
+                "submission_id": str(submission.id),
+                "lesson_id": str(submission.lesson_id) if submission.lesson_id else None,
+                "subject_id": subject_key,
+                "work_number": work_number,
+                "grade": int(submission.grade),
+                "accepted_at": submission.accepted_at.isoformat() if submission.accepted_at else None,
+                "created_at": submission.created_at.isoformat() if submission.created_at else None,
+            }
+        )
+    return result

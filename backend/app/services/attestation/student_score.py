@@ -16,11 +16,13 @@ from app.models.lesson_grade import LessonGrade
 from app.models.student_transfer import StudentTransfer
 from app.models.user import User
 from app.schemas.attestation import AttestationResult, ComponentBreakdown
+from app.services.attendance_slots import build_attendance_slot_filter
 
 from .calculator import AttestationCalculator
 from .helpers import filter_lessons_by_subgroup
 from .lab_progress import dedupe_lesson_grade_rows, dedupe_transfer_lab_grades
 from .settings import AttestationSettingsManager
+from .submission_fallbacks import get_student_submission_grade_fallbacks
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,7 @@ class StudentScoreCalculator:
 
         # Получаем данные из текущей группы
         lesson_grades = await self._get_lesson_grades(student_id, group_id, settings)
+        submission_grades = await get_student_submission_grade_fallbacks(self.db, student_id, group_id, settings)
         attendance_records = await self._get_attendance(student_id, group_id, student.subgroup, settings)
         db_activity_points = await self._get_activity_points(student_id, attestation_type)
 
@@ -58,7 +61,12 @@ class StudentScoreCalculator:
         expected_lessons = await self._get_expected_lessons(group_id, student.subgroup, settings)
 
         # Расчёт компонентов с учётом переводов
-        lab_result = self.calculator.calculate_labs(lesson_grades, settings, transfer_lab_grades)
+        lab_result = self.calculator.calculate_labs(
+            lesson_grades,
+            settings,
+            transfer_lab_grades,
+            submission_grades,
+        )
         attendance_result = self.calculator.calculate_attendance(
             attendance_records, settings, expected_lessons, transfer_attendance
         )
@@ -120,16 +128,13 @@ class StudentScoreCalculator:
             .where(LessonGrade.student_id == student_id)
             .where(LessonGrade.work_number.isnot(None))
             .where(Lesson.group_id == group_id)
+            .where(Lesson.is_cancelled.is_(False))
             .where(Lesson.date >= period_start)
             .where(Lesson.date <= period_end)
         )
         result = await self.db.execute(query)
         rows = result.all()
-        if rows and isinstance(rows[0], tuple):
-            return dedupe_lesson_grade_rows(rows)
-
-        grades = result.scalars().all()
-        return dedupe_lesson_grade_rows((grade, None) for grade in grades)
+        return dedupe_lesson_grade_rows(rows)
 
     async def _get_attendance(
         self, student_id: UUID, group_id: UUID, subgroup: int | None, settings: AttestationSettings
@@ -145,14 +150,16 @@ class StudentScoreCalculator:
         lessons_query = filter_lessons_by_subgroup(lessons_query, subgroup)
 
         lessons_result = await self.db.execute(lessons_query)
-        relevant_dates = {l.date for l in lessons_result.scalars().all()}
+        relevant_lessons = list(lessons_result.scalars().all())
 
-        if not relevant_dates:
+        if not relevant_lessons:
             return []
 
-        # Посещаемость по этим датам
+        slot_filter = build_attendance_slot_filter(relevant_lessons)
         att_query = select(Attendance).where(
-            Attendance.student_id == student_id, Attendance.group_id == group_id, Attendance.date.in_(relevant_dates)
+            Attendance.student_id == student_id,
+            Attendance.group_id == group_id,
+            slot_filter,
         )
         result = await self.db.execute(att_query)
         return list(result.scalars().all())

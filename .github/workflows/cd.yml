@@ -116,7 +116,7 @@ jobs:
           # Run migrations if backend changed
           if [[ "$REBUILD_BACKEND" == "true" ]]; then
             echo "=== Running migrations ==="
-            docker exec edu-backend-prod alembic upgrade head || echo "Migration warning"
+            docker exec edu-backend-prod python -m alembic upgrade head
           fi
 
           # Health check

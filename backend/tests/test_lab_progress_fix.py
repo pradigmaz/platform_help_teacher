@@ -9,7 +9,11 @@ from app.models.attestation_settings import AttestationSettings, AttestationType
 from app.models.lesson_grade import LessonGrade
 from app.models.submission import Submission, SubmissionStatus
 from app.services.attestation.lab_calculator import LabScoreCalculator
-from app.services.attestation.lab_progress import dedupe_lesson_grade_rows, dedupe_transfer_lab_grades
+from app.services.attestation.lab_progress import (
+    dedupe_lesson_grade_rows,
+    dedupe_submission_lab_grades,
+    dedupe_transfer_lab_grades,
+)
 from app.services.student_lab_service import _GradeRow, resolve_lab_acceptance
 
 
@@ -115,6 +119,87 @@ class TestLabProgressNormalization:
             and detail["grade"] == 5
             for detail in result.details
         )
+
+    def test_lab_calculator_uses_submission_when_journal_grade_missing(self):
+        now = datetime.now(UTC)
+        calculator = LabScoreCalculator()
+        settings = AttestationSettings(
+            attestation_type=AttestationType.FIRST,
+            labs_weight=70.0,
+            attendance_weight=20.0,
+            activity_reserve=10.0,
+            labs_count_first=4,
+            grade_4_coef=0.7,
+            grade_3_coef=0.4,
+        )
+
+        journal_grade = make_grade(work_number=1, grade=4, created_at=now)
+        journal_grade.lab_subject_id = uuid4()
+        subject_id = str(uuid4())
+
+        result = calculator.calculate(
+            lesson_grades=[journal_grade],
+            settings=settings,
+            submission_grades=[
+                {"subject_id": str(journal_grade.lab_subject_id), "work_number": 1, "grade": 5},
+                {"subject_id": subject_id, "work_number": 3, "grade": 5, "lesson_id": str(uuid4())},
+            ],
+        )
+
+        details_by_key = {(detail["subject_id"], detail["work_number"]): detail for detail in result.details}
+
+        assert details_by_key[(str(journal_grade.lab_subject_id), 1)]["grade"] == 4
+        assert details_by_key[(str(journal_grade.lab_subject_id), 1)]["source"] == "journal"
+        assert details_by_key[(subject_id, 3)]["grade"] == 5
+        assert details_by_key[(subject_id, 3)]["source"] == "submission"
+        assert result.labs_count == 2
+
+    def test_dedupe_submission_lab_grades_keeps_best_latest_submission(self):
+        subject_id = uuid4()
+        now = datetime.now(UTC)
+
+        weaker = Submission(
+            id=uuid4(),
+            user_id=uuid4(),
+            lab_id=uuid4(),
+            lesson_id=uuid4(),
+            status=SubmissionStatus.ACCEPTED,
+            grade=4,
+            is_manual=True,
+        )
+        weaker.created_at = now
+        weaker.accepted_at = now
+
+        better = Submission(
+            id=uuid4(),
+            user_id=weaker.user_id,
+            lab_id=uuid4(),
+            lesson_id=uuid4(),
+            status=SubmissionStatus.ACCEPTED,
+            grade=5,
+            is_manual=True,
+        )
+        better.created_at = now + timedelta(minutes=1)
+        better.accepted_at = now + timedelta(minutes=1)
+
+        deduped = dedupe_submission_lab_grades(
+            [
+                (weaker, subject_id, 3),
+                (better, subject_id, 3),
+            ]
+        )
+
+        assert deduped == [
+            {
+                "submission_id": str(better.id),
+                "lesson_id": str(better.lesson_id),
+                "subject_id": str(subject_id),
+                "work_number": 3,
+                "grade": 5,
+                "accepted_at": better.accepted_at.isoformat(),
+                "created_at": better.created_at.isoformat(),
+            }
+        ]
 
     def test_resolve_lab_acceptance_prefers_journal_even_for_grade_two(self):
         submission = Submission(

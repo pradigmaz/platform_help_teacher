@@ -1,6 +1,6 @@
 import enum
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -23,6 +23,7 @@ from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from .lab import Lab
+    from .lesson import Lesson
     from .user import User
 
 
@@ -51,6 +52,7 @@ class Submission(Base, TimestampMixin):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     lab_id: Mapped[UUID] = mapped_column(ForeignKey("labs.id", ondelete="CASCADE"), nullable=False)
+    lesson_id: Mapped[UUID | None] = mapped_column(ForeignKey("lessons.id", ondelete="SET NULL"), nullable=True)
 
     status: Mapped[SubmissionStatus] = mapped_column(
         SAEnum(SubmissionStatus), default=SubmissionStatus.NEW, nullable=False
@@ -89,6 +91,7 @@ class Submission(Base, TimestampMixin):
     # Связи
     user: Mapped["User"] = relationship(back_populates="submissions")
     lab: Mapped["Lab"] = relationship(back_populates="submissions")
+    lesson: Mapped[Optional["Lesson"]] = relationship()
 
     __table_args__ = (
         # Constraint: Либо это ручная оценка, либо должен быть файл
@@ -101,4 +104,5 @@ class Submission(Base, TimestampMixin):
         Index("idx_submission_status", "status"),
         # Composite index для запросов очереди
         Index("idx_submission_status_ready_at", "status", "ready_at"),
+        Index("idx_submission_lesson_id", "lesson_id"),
     )

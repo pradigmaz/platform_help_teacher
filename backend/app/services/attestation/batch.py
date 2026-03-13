@@ -22,10 +22,16 @@ from app.schemas.attestation import (
     CalculationErrorInfo,
     ComponentBreakdown,
 )
+from app.services.attendance_slots import (
+    build_attendance_slot_filter,
+    get_lesson_slot_sets,
+    matches_attendance_slot,
+)
 
 from .calculator import AttestationCalculator
 from .lab_progress import dedupe_lesson_grade_rows, dedupe_transfer_lab_grades
 from .settings import AttestationSettingsManager
+from .submission_fallbacks import get_submission_grade_fallbacks_batch
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +69,10 @@ class BatchScoreCalculator:
 
         # Оценки за лабы
         lesson_grades_map = await self._get_lesson_grades_batch(student_ids, group_id, settings)
+        submission_grades_map = await get_submission_grade_fallbacks_batch(self.db, student_ids, group_id, settings)
 
         # Посещаемость
-        attendance_map = await self._get_attendance_batch(group_id, student_ids, settings)
+        attendance_map = await self._get_attendance_batch(group_id, student_ids, settings, lessons=lessons)
 
         # Активность
         activity_map = await self._get_activity_batch(student_ids, attestation_type)
@@ -83,6 +90,7 @@ class BatchScoreCalculator:
                     settings,
                     lessons_by_subgroup,
                     lesson_grades_map,
+                    submission_grades_map,
                     attendance_map,
                     activity_map,
                     transfers_map,
@@ -104,6 +112,7 @@ class BatchScoreCalculator:
         settings: AttestationSettings,
         lessons_by_subgroup: dict,
         lesson_grades_map: dict,
+        submission_grades_map: dict,
         attendance_map: dict,
         activity_map: dict,
         transfers_map: dict,
@@ -120,7 +129,7 @@ class BatchScoreCalculator:
         else:
             relevant_lessons = [l for l in lessons_by_subgroup.get(None, []) if not l.is_cancelled]
 
-        relevant_dates = {l.date for l in relevant_lessons}
+        lesson_ids, legacy_slots = get_lesson_slot_sets(relevant_lessons)
 
         # Expected lessons: max(lessons_in_db, min_expected)
         lessons_in_db = len(relevant_lessons)
@@ -129,8 +138,11 @@ class BatchScoreCalculator:
 
         # Данные студента
         lesson_grades = lesson_grades_map.get(student.id, [])
+        submission_grades = submission_grades_map.get(student.id, [])
         all_attendance = attendance_map.get(student.id, [])
-        attendance = [a for a in all_attendance if a.date in relevant_dates]
+        attendance = [
+            a for a in all_attendance if matches_attendance_slot(a, lesson_ids=lesson_ids, legacy_slots=legacy_slots)
+        ]
         activity_points = activity_map.get(student.id, 0.0)
 
         # Данные из снапшотов переводов
@@ -140,7 +152,12 @@ class BatchScoreCalculator:
         transfer_activity = self._sum_transfer_activity(student_transfers)
 
         # Расчёт с учётом переводов
-        lab_result = self.calculator.calculate_labs(lesson_grades, settings, transfer_lab_grades)
+        lab_result = self.calculator.calculate_labs(
+            lesson_grades,
+            settings,
+            transfer_lab_grades,
+            submission_grades,
+        )
         attendance_result = self.calculator.calculate_attendance(
             attendance, settings, expected_lessons, transfer_attendance
         )
@@ -189,6 +206,7 @@ class BatchScoreCalculator:
         query = (
             select(Lesson)
             .where(Lesson.group_id == group_id)
+            .where(Lesson.is_cancelled.is_(False))
             .where(Lesson.date >= period_start)
             .where(Lesson.date <= period_end)
         )
@@ -211,6 +229,7 @@ class BatchScoreCalculator:
             .where(LessonGrade.student_id.in_(student_ids))
             .where(LessonGrade.work_number.isnot(None))
             .where(Lesson.group_id == group_id)
+            .where(Lesson.is_cancelled.is_(False))
             .where(Lesson.date >= period_start)
             .where(Lesson.date <= period_end)
         )
@@ -226,14 +245,22 @@ class BatchScoreCalculator:
         return grouped
 
     async def _get_attendance_batch(
-        self, group_id: UUID, student_ids: list[UUID], settings: AttestationSettings
+        self,
+        group_id: UUID,
+        student_ids: list[UUID],
+        settings: AttestationSettings,
+        lessons: list[Lesson] | None = None,
     ) -> dict:
-        period_start, period_end = settings.get_effective_period()
+        if lessons is None:
+            lessons = await self._get_lessons(group_id, settings)
+        if not lessons:
+            return {}
+
+        slot_filter = build_attendance_slot_filter(lessons)
         query = select(Attendance).where(
             Attendance.group_id == group_id,
             Attendance.student_id.in_(student_ids),
-            Attendance.date >= period_start,
-            Attendance.date <= period_end,
+            slot_filter,
         )
         result = await self.db.execute(query)
 

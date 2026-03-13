@@ -1,9 +1,9 @@
 """Тесты нормализации прогресса лабораторных."""
 
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -14,6 +14,7 @@ from app.models.attestation_settings import AttestationSettings, AttestationType
 from app.models.lab import Lab
 from app.models.lesson_grade import LessonGrade
 from app.models.submission import Submission, SubmissionStatus
+from app.services.attendance_slots import matches_attendance_slot
 from app.services.attestation.lab_calculator import LabScoreCalculator
 from app.services.attestation.student_score import StudentScoreCalculator
 from app.services.student_lab_service import StudentLabService
@@ -47,7 +48,7 @@ def _build_grade(*, grade_value: int, work_number: int, created_at: datetime, up
 class TestLabProgressNormalization:
     def test_lab_calculator_counts_only_grades_above_two(self):
         calculator = LabScoreCalculator()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         lesson_grades = [
             _build_grade(grade_value=2, work_number=1, created_at=now),
             _build_grade(grade_value=4, work_number=2, created_at=now + timedelta(minutes=1)),
@@ -71,7 +72,7 @@ class TestLabProgressNormalization:
         subject_b = uuid4()
         student_id = uuid4()
         group_id = uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         older = _build_grade(grade_value=5, work_number=4, created_at=now)
         newer = _build_grade(
@@ -93,9 +94,44 @@ class TestLabProgressNormalization:
         assert grades == [newer, other_subject]
 
     @pytest.mark.asyncio
+    async def test_student_score_handles_sqlalchemy_row_like_results(self):
+        subject_id = uuid4()
+        student_id = uuid4()
+        group_id = uuid4()
+        now = datetime.now(UTC)
+
+        older = _build_grade(grade_value=4, work_number=2, created_at=now)
+        newer = _build_grade(
+            grade_value=5,
+            work_number=2,
+            created_at=now - timedelta(minutes=1),
+            updated_at=now + timedelta(minutes=1),
+        )
+
+        class FakeRow:
+            def __init__(self, grade: LessonGrade, subject: UUID):
+                self._items = (grade, subject)
+
+            def __iter__(self):
+                return iter(self._items)
+
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = []
+        mock_result = MagicMock()
+        mock_result.all.return_value = [FakeRow(older, subject_id), FakeRow(newer, subject_id)]
+        mock_result.scalars.return_value = mock_scalars
+        mock_db = AsyncMock()
+        mock_db.execute.return_value = mock_result
+
+        calculator = StudentScoreCalculator(mock_db)
+        grades = await calculator._get_lesson_grades(student_id, group_id, _build_settings())
+
+        assert grades == [newer]
+
+    @pytest.mark.asyncio
     async def test_student_lab_service_dedupes_journal_grades_per_subject(self, mock_db: AsyncMock):
         subject_id = uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         older = _build_grade(grade_value=4, work_number=2, created_at=now)
         newer = _build_grade(
             grade_value=4,
@@ -123,7 +159,7 @@ class TestLabProgressNormalization:
         previous_journal_grade = _build_grade(
             grade_value=4,
             work_number=1,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         previous_lab_result = MagicMock()
@@ -151,7 +187,7 @@ class TestLabProgressNormalization:
             is_manual=True,
         )
         lab = Lab(id=lab_id, number=3, title="Lab 3", subject_id=subject_id, is_sequential=True)
-        rework_grade = _build_grade(grade_value=2, work_number=3, created_at=datetime.now(timezone.utc))
+        rework_grade = _build_grade(grade_value=2, work_number=3, created_at=datetime.now(UTC))
 
         service.get_user_submission_for_lab = AsyncMock(return_value=stale_submission)
         service.get_lab_by_id = AsyncMock(return_value=lab)
@@ -163,6 +199,30 @@ class TestLabProgressNormalization:
         assert result.variant_number == 1
         mock_db.commit.assert_awaited_once()
 
+    def test_attendance_slot_matching_uses_lesson_id_or_slot_tuple(self):
+        lesson_id = uuid4()
+        matching_by_lesson = MagicMock()
+        matching_by_lesson.lesson_id = lesson_id
+        matching_by_lesson.date = date(2025, 9, 1)
+        matching_by_lesson.lesson_number = 1
+
+        matching_legacy = MagicMock()
+        matching_legacy.lesson_id = None
+        matching_legacy.date = date(2025, 9, 1)
+        matching_legacy.lesson_number = 2
+
+        foreign_parallel = MagicMock()
+        foreign_parallel.lesson_id = None
+        foreign_parallel.date = date(2025, 9, 1)
+        foreign_parallel.lesson_number = 3
+
+        lesson_ids = {lesson_id}
+        legacy_slots = {(date(2025, 9, 1), 2)}
+
+        assert matches_attendance_slot(matching_by_lesson, lesson_ids=lesson_ids, legacy_slots=legacy_slots) is True
+        assert matches_attendance_slot(matching_legacy, lesson_ids=lesson_ids, legacy_slots=legacy_slots) is True
+        assert matches_attendance_slot(foreign_parallel, lesson_ids=lesson_ids, legacy_slots=legacy_slots) is False
+
     @pytest.mark.asyncio
     async def test_update_lesson_grade_merges_duplicate_work_number(self, mock_db: AsyncMock, monkeypatch: pytest.MonkeyPatch):
         lesson_id = uuid4()
@@ -170,7 +230,7 @@ class TestLabProgressNormalization:
         current_grade = _build_grade(
             grade_value=3,
             work_number=3,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         current_grade.id = grade_id
         current_grade.lesson_id = lesson_id
@@ -180,7 +240,7 @@ class TestLabProgressNormalization:
         existing_grade = _build_grade(
             grade_value=5,
             work_number=4,
-            created_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+            created_at=datetime.now(UTC) + timedelta(minutes=1),
         )
         existing_grade.lesson_id = uuid4()
         existing_grade.comment = "existing"

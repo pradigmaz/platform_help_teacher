@@ -26,8 +26,33 @@ class LabScoreResult:
 class LabScoreCalculator:
     """Калькулятор баллов за лабораторные (автобалансировка)"""
 
+    @staticmethod
+    def _pick_external_grade(transfer_grade: dict | None, submission_grade: dict | None) -> tuple[str, dict] | None:
+        if transfer_grade is None and submission_grade is None:
+            return None
+        if transfer_grade is None:
+            return "submission", submission_grade
+        if submission_grade is None:
+            return "transfer", transfer_grade
+
+        transfer_rank = (
+            int(transfer_grade.get("grade", 0)),
+            str(transfer_grade.get("updated_at") or transfer_grade.get("created_at") or ""),
+        )
+        submission_rank = (
+            int(submission_grade.get("grade", 0)),
+            str(submission_grade.get("accepted_at") or submission_grade.get("created_at") or ""),
+        )
+        if submission_rank >= transfer_rank:
+            return "submission", submission_grade
+        return "transfer", transfer_grade
+
     def calculate(
-        self, lesson_grades: list[LessonGrade], settings: AttestationSettings, transfer_grades: list[dict] = None
+        self,
+        lesson_grades: list[LessonGrade],
+        settings: AttestationSettings,
+        transfer_grades: list[dict] = None,
+        submission_grades: list[dict] = None,
     ) -> LabScoreResult:
         """
         Расчёт баллов за лабораторные.
@@ -54,6 +79,7 @@ class LabScoreCalculator:
         details = []
         normalized_current: dict[tuple[str, int], LessonGrade] = {}
         normalized_transfer: dict[tuple[str, int], dict] = {}
+        normalized_submission: dict[tuple[str, int], dict] = {}
 
         # Обрабатываем текущие оценки
         for grade in lesson_grades:
@@ -70,29 +96,37 @@ class LabScoreCalculator:
                 subject_key = str(tg.get("subject_id") or "__legacy__")
                 normalized_transfer[(subject_key, int(work_number))] = tg
 
-        all_keys = set(normalized_current) | set(normalized_transfer)
+        if submission_grades:
+            for sg in submission_grades:
+                work_number = sg.get("work_number")
+                if work_number is None:
+                    continue
+                subject_key = str(sg.get("subject_id") or "__legacy__")
+                normalized_submission[(subject_key, int(work_number))] = sg
+
+        all_keys = set(normalized_current) | set(normalized_transfer) | set(normalized_submission)
 
         for key in sorted(all_keys):
             current_grade = normalized_current.get(key)
             transfer_grade = normalized_transfer.get(key)
+            submission_grade = normalized_submission.get(key)
 
             use_transfer = False
             if current_grade is not None and transfer_grade is not None:
                 transfer_value = int(transfer_grade.get("grade", 0))
                 use_transfer = transfer_value > current_grade.grade
-            elif current_grade is None and transfer_grade is not None:
-                use_transfer = True
+            external_grade = self._pick_external_grade(transfer_grade, submission_grade)
 
             if current_grade is not None and not use_transfer:
                 grade_value = current_grade.grade
                 lesson_id = str(current_grade.lesson_id)
-                from_transfer = False
+                source = "journal"
                 subject_id = getattr(current_grade, "lab_subject_id", None)
-            elif transfer_grade is not None:
-                grade_value = int(transfer_grade.get("grade", 0))
-                lesson_id = transfer_grade.get("lesson_id")
-                from_transfer = True
-                subject_id = transfer_grade.get("subject_id")
+            elif external_grade is not None:
+                source, grade_payload = external_grade
+                grade_value = int(grade_payload.get("grade", 0))
+                lesson_id = grade_payload.get("lesson_id")
+                subject_id = grade_payload.get("subject_id")
             else:
                 continue
 
@@ -114,7 +148,9 @@ class LabScoreCalculator:
                     "coef": coef,
                     "points": round(points, 2),
                     "needs_rework": grade_value == 2,
-                    "from_transfer": from_transfer,
+                    "from_transfer": source == "transfer",
+                    "from_submission": source == "submission",
+                    "source": source,
                 }
             )
 
