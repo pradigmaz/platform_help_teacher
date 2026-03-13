@@ -249,12 +249,8 @@ class BatchScoreCalculator:
         group_id: UUID,
         student_ids: list[UUID],
         settings: AttestationSettings,
-        lessons: list[Lesson] | None = None,
+        lessons: list[Lesson],
     ) -> dict[UUID, list[Attendance]]:
-        if lessons is None:
-            # Keep the private helper backward-compatible for tests and any legacy callers
-            # that still rely on the method to fetch the period-scoped lesson set itself.
-            lessons = await self._get_lessons(group_id, settings, subject_id=None)
         if not lessons:
             return {}
         slot_filter = build_attendance_slot_filter(lessons)

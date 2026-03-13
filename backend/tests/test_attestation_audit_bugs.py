@@ -6,8 +6,10 @@ Exploration-тесты для bug conditions аттестации (Задача 
 
 Validates: Requirements 1.1, 1.2, 1.3, 1.5, 1.6, 1.7, 1.8, 1.9, 1.12
 """
+
 import sys
-sys.path.insert(0, '/app')
+
+sys.path.insert(0, "/app")
 
 import pytest
 import pytest_asyncio
@@ -29,6 +31,7 @@ from app.services.attestation.settings import AttestationSettingsManager
 # ============================================================
 # P0-1: SECOND Fallback — должен бросать ValueError
 # ============================================================
+
 
 class TestP01SecondFallback:
     """
@@ -84,6 +87,7 @@ class TestP01SecondFallback:
 # ============================================================
 # P0-2: Double Count — двойной подсчёт при переводе
 # ============================================================
+
 
 class TestP02DoubleCount:
     """
@@ -156,6 +160,7 @@ class TestP02DoubleCount:
 # P1-3: Cumulative Period — SECOND должен быть 0-14 недель
 # ============================================================
 
+
 class TestP13CumulativePeriod:
     """
     Bug: get_effective_period() для SECOND возвращает только недели 8-14,
@@ -225,6 +230,7 @@ class TestP13CumulativePeriod:
 # ============================================================
 # P1-5: is_cancelled Single Path — должен фильтровать отменённые
 # ============================================================
+
 
 class TestP15IsCancelledSinglePath:
     """
@@ -362,9 +368,7 @@ class TestP15IsCancelledSinglePath:
         # На нефиксированном коде: 2 execute вызова (занятия + attendance)
         # После фикса с SQL фильтром: мок вернёт только normal_lesson → 1 execute для attendance
         # Но т.к. мок не фильтрует — проверяем через SQL строку второго запроса
-        assert mock_db.execute.call_count == 2, (
-            "Ожидалось 2 вызова execute (занятия + attendance)"
-        )
+        assert mock_db.execute.call_count == 2, "Ожидалось 2 вызова execute (занятия + attendance)"
 
         att_query_str = str(mock_db.execute.call_args_list[1][0][0])
 
@@ -381,6 +385,7 @@ class TestP15IsCancelledSinglePath:
 # ============================================================
 # P1-6: Preview Label — должен быть "баллов за занятие"
 # ============================================================
+
 
 class TestP16PreviewLabel:
     """
@@ -410,9 +415,7 @@ class TestP16PreviewLabel:
         previews = AttestationSettingsManager.build_score_preview(settings)
 
         # Находим компонент посещаемости
-        attendance_preview = next(
-            (p for p in previews if "Посещаемость" in p.component), None
-        )
+        attendance_preview = next((p for p in previews if "Посещаемость" in p.component), None)
 
         assert attendance_preview is not None, "Компонент 'Посещаемость' не найден в превью"
 
@@ -437,9 +440,7 @@ class TestP16PreviewLabel:
         )
 
         previews = AttestationSettingsManager.build_score_preview(settings)
-        attendance_preview = next(
-            (p for p in previews if "Посещаемость" in p.component), None
-        )
+        attendance_preview = next((p for p in previews if "Посещаемость" in p.component), None)
 
         assert attendance_preview is not None
 
@@ -458,6 +459,7 @@ class TestP16PreviewLabel:
 # ============================================================
 # P1-7: EXCUSED — должен уменьшать expected_lessons
 # ============================================================
+
 
 class TestP17Excused:
     """
@@ -489,10 +491,9 @@ class TestP17Excused:
         )
 
         # 7 PRESENT + 3 EXCUSED = 10 занятий
-        records = (
-            [self._make_attendance(AttendanceStatus.PRESENT)] * 7
-            + [self._make_attendance(AttendanceStatus.EXCUSED)] * 3
-        )
+        records = [self._make_attendance(AttendanceStatus.PRESENT)] * 7 + [
+            self._make_attendance(AttendanceStatus.EXCUSED)
+        ] * 3
 
         calculator = AttendanceScoreCalculator()
         result = calculator.calculate(
@@ -547,9 +548,11 @@ class TestP17Excused:
 # P1-8: Batch Period Filter — SQL должен фильтровать по периоду
 # ============================================================
 
+
 class TestP18BatchPeriodFilter:
     """
-    Bug: _get_attendance_batch() загружает ВСЮ attendance без фильтра по периоду.
+    Bug: _get_attendance_batch() не должен загружать attendance без привязки
+    к lesson-slot'ам релевантного периода.
 
     Validates: Requirements 1.8
     """
@@ -557,15 +560,26 @@ class TestP18BatchPeriodFilter:
     @pytest.mark.asyncio
     async def test_get_attendance_batch_should_filter_by_period(self):
         """
-        ОЖИДАЕМОЕ поведение: SQL содержит WHERE date >= period_start AND date <= period_end.
-        НА НЕФИКСИРОВАННОМ КОДЕ: нет фильтра по дате — тест упадёт.
+        ОЖИДАЕМОЕ поведение: SQL использует slot-filter по lesson_id и legacy
+        (date, lesson_number) для уже найденных lessons периода.
+        НА НЕФИКСИРОВАННОМ КОДЕ: attendance грузится без привязки к lesson-slot'ам
+        — тест упадёт.
 
-        Counterexample: SQL запрос не содержит фильтр по дате периода.
+        Counterexample: SQL запрос не содержит slot-filter по lessons.
         """
         from app.services.attestation.batch import BatchScoreCalculator
+        from app.models.lesson import Lesson, LessonType
 
         group_id = uuid4()
         student_ids = [uuid4(), uuid4()]
+        lesson = Lesson(
+            id=uuid4(),
+            group_id=group_id,
+            subject_id=uuid4(),
+            date=date(2025, 9, 10),
+            lesson_number=2,
+            lesson_type=LessonType.LAB,
+        )
 
         mock_db = AsyncMock()
         mock_scalars = MagicMock()
@@ -583,28 +597,26 @@ class TestP18BatchPeriodFilter:
             activity_reserve=10.0,
             semester_start_date=date(2025, 9, 1),
         )
-        await calculator._get_attendance_batch(group_id, student_ids, settings)
+        await calculator._get_attendance_batch(group_id, student_ids, settings, lessons=[lesson])
 
         # Проверяем SQL запрос
-        executed_query = str(mock_db.execute.call_args[0][0])
+        executed_query = str(mock_db.execute.call_args[0][0]).lower()
 
-        # После фикса: запрос должен содержать фильтр по дате
-        # На нефиксированном коде: нет WHERE date >= ... AND date <= ...
-        has_date_filter = (
-            "date" in executed_query.lower()
-            and (">=" in executed_query or "<=" in executed_query)
+        assert "attendance.lesson_id" in executed_query, (
+            "Counterexample: SQL запрос _get_attendance_batch не содержит slot-filter по attendance.lesson_id."
         )
-
-        assert has_date_filter, (
-            f"Counterexample: SQL запрос _get_attendance_batch не содержит "
-            f"фильтр по дате периода. Запрос: {executed_query[:300]}. "
-            f"Загружается ВСЯ attendance без фильтра — баг подтверждён."
+        assert "attendance.date >=" not in executed_query, (
+            "Counterexample: _get_attendance_batch вернулся к прямому date-bound filtering вместо lesson-slot matching."
+        )
+        assert "attendance.date <=" not in executed_query, (
+            "Counterexample: _get_attendance_batch вернулся к прямому date-bound filtering вместо lesson-slot matching."
         )
 
 
 # ============================================================
 # P1-9: Hardcoded FIRST — должен использовать переданный тип
 # ============================================================
+
 
 class TestP19HardcodedFirst:
     """
@@ -642,23 +654,25 @@ class TestP19HardcodedFirst:
 
         collector = ReportDataCollector(mock_db)
 
-        with patch(
-            "app.services.reports.data_collector.get_group_students",
-            return_value=[mock_student],
-        ), patch.object(
-            AttestationService,
-            "calculate_group_scores_batch",
-            return_value=([mock_att_result], []),
-        ) as mock_batch:
+        with (
+            patch(
+                "app.services.reports.data_collector.get_group_students",
+                return_value=[mock_student],
+            ),
+            patch.object(
+                AttestationService,
+                "calculate_group_scores_batch",
+                return_value=([mock_att_result], []),
+            ) as mock_batch,
+        ):
             await collector._get_group_comparison_stats(group_id, student_id, 50.0, AttestationType.SECOND)
 
             # Проверяем с каким attestation_type был вызван batch
             assert mock_batch.called, "calculate_group_scores_batch не был вызван"
 
             call_kwargs = mock_batch.call_args
-            used_type = (
-                call_kwargs.kwargs.get("attestation_type")
-                or (call_kwargs.args[1] if len(call_kwargs.args) > 1 else None)
+            used_type = call_kwargs.kwargs.get("attestation_type") or (
+                call_kwargs.args[1] if len(call_kwargs.args) > 1 else None
             )
 
             # После фикса: должен использовать переданный тип
@@ -675,6 +689,7 @@ class TestP19HardcodedFirst:
 # ============================================================
 # P2-12: Error Handling — должен возвращать HTTP 500
 # ============================================================
+
 
 class TestP212ErrorHandling:
     """
