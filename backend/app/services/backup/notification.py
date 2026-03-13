@@ -18,6 +18,10 @@ from app.core.time_constants import (
     BACKUP_UPLOAD_TIMEOUT_SECONDS,
     TELEGRAM_NOTIFICATION_TIMEOUT_SECONDS,
 )
+from app.services.backup.notification_templates import (
+    build_backup_caption,
+    build_recovery_code_message,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,11 +75,31 @@ class BackupNotificationService:
             logger.error(f"Failed to init VK API: {e}")
             return False
 
+    async def _send_recovery_code_message(
+        self,
+        telegram_id: int,
+        backup_name: str,
+        recovery_code: str | None,
+    ) -> str | None:
+        """Send a second Telegram message with the portable recovery code."""
+        if not recovery_code:
+            return None
+
+        try:
+            await self.bot.send_message(
+                chat_id=telegram_id,
+                text=build_recovery_code_message(backup_name, recovery_code),
+            )
+            return None
+        except Exception as e:
+            return f"Failed to send recovery code message: {e}"
+
     async def send_backup_to_admin(
         self,
         file_path: Path,
         backup_name: str,
         size: int,
+        recovery_code: str | None = None,
         admin_telegram_id: int | None = None,
     ) -> NotificationResult:
         """
@@ -104,12 +128,7 @@ class BackupNotificationService:
 
         try:
             size_kb = size / 1024
-            caption = (
-                f"🔐 <b>Резервная копия БД</b>\n\n"
-                f"📦 <code>{backup_name}</code>\n"
-                f"📊 Размер: {size_kb:.1f} KB\n\n"
-                f"⚠️ Файл зашифрован AES-256-GCM"
-            )
+            caption = build_backup_caption(backup_name, size_kb)
 
             document = FSInputFile(file_path, filename=backup_name)
             await self.bot.send_document(
@@ -118,8 +137,10 @@ class BackupNotificationService:
                 caption=caption,
             )
 
+            recovery_error = await self._send_recovery_code_message(telegram_id, backup_name, recovery_code)
+
             logger.info(f"Backup sent to admin {telegram_id}: {backup_name}")
-            return NotificationResult(success=True)
+            return NotificationResult(success=True, error=recovery_error)
 
         except Exception as e:
             error = f"Failed to send backup to admin: {e}"
@@ -292,6 +313,7 @@ def send_backup_to_admin_sync(
     file_path: Path,
     backup_name: str,
     size: int,
+    recovery_code: str | None = None,
     admin_telegram_id: int | None = None,
 ) -> NotificationResult:
     """
@@ -309,9 +331,7 @@ def send_backup_to_admin_sync(
 
     try:
         size_kb = size / 1024
-        caption = (
-            f"🔐 Резервная копия БД\n\n📦 {backup_name}\n📊 Размер: {size_kb:.1f} KB\n\n⚠️ Файл зашифрован AES-256-GCM"
-        )
+        caption = build_backup_caption(backup_name, size_kb)
 
         url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendDocument"
 
@@ -324,8 +344,23 @@ def send_backup_to_admin_sync(
             )
 
         if response.status_code == 200:
+            recovery_error = None
+            if recovery_code:
+                recovery_response = requests.post(
+                    f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage",
+                    json={
+                        "chat_id": telegram_id,
+                        "text": build_recovery_code_message(backup_name, recovery_code),
+                        "parse_mode": "HTML",
+                    },
+                    timeout=TELEGRAM_NOTIFICATION_TIMEOUT_SECONDS,
+                )
+                if recovery_response.status_code != 200:
+                    recovery_error = f"Failed to send recovery code message: {recovery_response.text}"
+                    logger.warning(recovery_error)
+
             logger.info(f"Backup sent to admin {telegram_id}: {backup_name}")
-            return NotificationResult(success=True)
+            return NotificationResult(success=True, error=recovery_error)
 
         error = f"Failed to send backup: {response.text}"
         logger.error(error)

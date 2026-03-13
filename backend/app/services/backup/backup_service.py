@@ -187,10 +187,11 @@ class BackupService:
                         file_path=encrypted_file,
                         backup_name=remote_key,
                         size=size,
+                        recovery_code=recovery_code,
                     )
                     notification_sent = notification_result.success
                     notification_error = notification_result.error
-                    if not notification_result.success and notification_result.error:
+                    if notification_result.error:
                         logger.warning(notification_result.error)
 
                 return BackupResult(
@@ -397,10 +398,11 @@ class BackupService:
                         file_path=encrypted_file,
                         backup_name=remote_key,
                         size=size,
+                        recovery_code=recovery_code,
                     )
                     notification_sent = notification_result.success
                     notification_error = notification_result.error
-                    if not notification_result.success and notification_result.error:
+                    if notification_result.error:
                         logger.warning(notification_result.error)
 
                 return BackupResult(
