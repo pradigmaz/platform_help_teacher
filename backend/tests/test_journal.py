@@ -2,6 +2,7 @@
 Тесты для модуля Journal (оценки и посещаемость).
 """
 import pytest
+from unittest.mock import AsyncMock
 from uuid import uuid4
 from datetime import date
 
@@ -14,6 +15,9 @@ from app.schemas.lesson_grade import (
     LessonGradeCreate, LessonGradeUpdate, GradeItem, 
     BulkGradeCreate, BulkAttendanceUpdate, AttendanceRecord
 )
+from app.schemas.schedule import GroupedLectureSheetSaveRequest, GroupedLectureSheetSaveItem, LessonSheetSaveRequest
+from app.services.journal_grade_service import JournalGradeValidationError, JournalGradeWriteService
+from app.services.lesson_sheet_service import LessonSheetService
 
 
 class TestGradeValidation:
@@ -179,3 +183,123 @@ class TestLessonGradeUpdate:
         """Валидация grade при обновлении."""
         with pytest.raises(ValidationError):
             LessonGradeUpdate(grade=10)
+
+
+class TestJournalGradeWriteService:
+    """Тесты канонического write-path для оценок."""
+
+    @pytest.mark.asyncio
+    async def test_upsert_rejects_second_work_on_same_lesson(self):
+        """На одной паре нельзя молча заменить работу на другую."""
+        service = JournalGradeWriteService()
+        lesson = Lesson(
+            id=uuid4(),
+            group_id=uuid4(),
+            subject_id=uuid4(),
+            date=date.today(),
+            lesson_number=1,
+            lesson_type=LessonType.LAB,
+            work_number=1,
+            is_cancelled=False,
+        )
+        existing = LessonGrade(
+            id=uuid4(),
+            lesson_id=lesson.id,
+            student_id=uuid4(),
+            work_number=1,
+            grade=5,
+            comment=None,
+            created_by=uuid4(),
+        )
+        db = AsyncMock()
+        service.list_cell_grades = AsyncMock(return_value=[existing])
+
+        with pytest.raises(JournalGradeValidationError, match="Вторая работа на одной паре запрещена"):
+            await service.upsert_grade(
+                db=db,
+                lesson=lesson,
+                student_id=existing.student_id,
+                grade=4,
+                work_number=2,
+                comment=None,
+                actor_id=uuid4(),
+            )
+
+
+class TestLessonSheetService:
+    """Тесты atomic lesson sheet flow."""
+
+    @pytest.mark.asyncio
+    async def test_save_sheet_preserves_metadata_when_field_omitted(self):
+        service = LessonSheetService()
+        lesson = Lesson(
+            id=uuid4(),
+            group_id=uuid4(),
+            subject_id=uuid4(),
+            date=date.today(),
+            lesson_number=2,
+            lesson_type=LessonType.LECTURE,
+            topic="Старая тема",
+            work_number=4,
+            is_cancelled=False,
+            ended_early=False,
+        )
+        db = AsyncMock()
+        service._apply_attendance_updates = AsyncMock()
+        service._apply_grade_updates = AsyncMock()
+        service._build_response = AsyncMock(return_value={"lesson": lesson, "attendance": [], "grades": []})
+
+        payload = LessonSheetSaveRequest(status="normal")
+
+        await service.save_sheet(db, lesson, payload, actor_id=uuid4())
+
+        assert lesson.topic == "Старая тема"
+        assert lesson.work_number == 4
+
+    @pytest.mark.asyncio
+    async def test_save_grouped_sheet_saves_all_lessons_in_one_service_call(self):
+        service = LessonSheetService()
+        lesson_a = Lesson(
+            id=uuid4(),
+            group_id=uuid4(),
+            subject_id=uuid4(),
+            date=date.today(),
+            lesson_number=1,
+            lesson_type=LessonType.LECTURE,
+            is_cancelled=False,
+            ended_early=False,
+        )
+        lesson_b = Lesson(
+            id=uuid4(),
+            group_id=lesson_a.group_id,
+            subject_id=lesson_a.subject_id,
+            date=lesson_a.date,
+            lesson_number=lesson_a.lesson_number,
+            lesson_type=LessonType.LECTURE,
+            is_cancelled=False,
+            ended_early=False,
+        )
+        db = AsyncMock()
+        service.save_sheet = AsyncMock(
+            side_effect=[
+                {"attendance": [{"student_id": uuid4(), "status": "PRESENT"}]},
+                {"attendance": []},
+            ]
+        )
+        payload = GroupedLectureSheetSaveRequest(
+            status="normal",
+            items=[
+                GroupedLectureSheetSaveItem(lesson_id=lesson_a.id),
+                GroupedLectureSheetSaveItem(lesson_id=lesson_b.id),
+            ],
+        )
+
+        result = await service.save_grouped_sheet(
+            db=db,
+            lessons_by_id={lesson_a.id: lesson_a, lesson_b.id: lesson_b},
+            payload=payload,
+            actor_id=uuid4(),
+        )
+
+        assert service.save_sheet.await_count == 2
+        assert [item["lesson_id"] for item in result["items"]] == [lesson_a.id, lesson_b.id]

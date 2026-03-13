@@ -3,6 +3,7 @@
 """
 
 from datetime import date
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -88,6 +89,63 @@ class LessonResponse(LessonBase):
 
     class Config:
         from_attributes = True
+
+
+class ScheduleAttendanceUpdate(BaseModel):
+    student_id: UUID
+    status: str | None = None
+
+
+class ScheduleGradeUpdate(BaseModel):
+    student_id: UUID
+    grade: int | None = Field(None, ge=2, le=5)
+    work_number: int | None = Field(None, ge=1, le=20, description="Номер сдаваемой работы")
+
+
+class LessonSheetSaveRequest(BaseModel):
+    topic: str | None = None
+    lesson_work_number: int | None = Field(None, ge=1, le=20, description="Базовый номер работы пары")
+    status: Literal["normal", "cancelled", "early"]
+    attendance_updates: list[ScheduleAttendanceUpdate] = Field(default_factory=list)
+    grade_updates: list[ScheduleGradeUpdate] = Field(default_factory=list)
+
+
+class GroupedLectureSheetSaveItem(BaseModel):
+    lesson_id: UUID
+    attendance_updates: list[ScheduleAttendanceUpdate] = Field(default_factory=list)
+
+
+class GroupedLectureSheetSaveRequest(BaseModel):
+    status: Literal["normal", "cancelled", "early"]
+    items: list[GroupedLectureSheetSaveItem] = Field(default_factory=list)
+
+
+class LessonSheetAttendanceResponse(BaseModel):
+    student_id: UUID
+    status: str
+
+
+class LessonSheetGradeResponse(BaseModel):
+    student_id: UUID
+    grade: int | None = None
+    work_number: int | None = None
+    has_conflict: bool = False
+    conflict_count: int = 1
+
+
+class LessonSheetSaveResponse(BaseModel):
+    lesson: LessonResponse
+    attendance: list[LessonSheetAttendanceResponse]
+    grades: list[LessonSheetGradeResponse]
+
+
+class GroupedLectureSheetItemResponse(BaseModel):
+    lesson_id: UUID
+    attendance: list[LessonSheetAttendanceResponse]
+
+
+class GroupedLectureSheetSaveResponse(BaseModel):
+    items: list[GroupedLectureSheetItemResponse]
 
 
 # === Bulk operations ===

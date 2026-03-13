@@ -14,6 +14,7 @@ from app.models.lesson import Lesson
 from app.models.schedule import LessonType
 
 logger = logging.getLogger(__name__)
+_DEADLINE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
 
 
 async def get_max_allowed_grades_batch(
@@ -31,7 +32,7 @@ async def get_max_allowed_grades_batch(
     Returns:
         Dict: {(student_id, work_number): max_grade}
     """
-    if lesson.lesson_type != LessonType.LAB:
+    if lesson.lesson_type not in _DEADLINE_LESSON_TYPES:
         return {item: 5 for item in grade_items}
 
     # Собираем уникальные work_numbers
@@ -79,7 +80,7 @@ async def get_max_allowed_grades_batch(
         result = await db.execute(ol_query)
         origin_lessons = {ol.id: ol for ol in result.scalars().all()}
 
-    # 5. Загружаем все LAB-занятия для расчёта индексов (один запрос)
+    # 5. Загружаем все lab/practice-занятия для расчёта индексов (один запрос)
     # Находим минимальную дату среди origin_lessons
     if origin_lessons:
         min_date = min(ol.date for ol in origin_lessons.values())
@@ -89,7 +90,7 @@ async def get_max_allowed_grades_batch(
                 and_(
                     Lesson.group_id == lesson.group_id,
                     Lesson.subject_id == lesson.subject_id,
-                    Lesson.lesson_type == LessonType.LAB,
+                    Lesson.lesson_type.in_(_DEADLINE_LESSON_TYPES),
                     Lesson.is_cancelled.is_(False),
                     Lesson.date >= min_date,
                 )

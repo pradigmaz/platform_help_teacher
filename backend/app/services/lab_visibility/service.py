@@ -10,7 +10,12 @@ from app.models.lab_deadline_extension import LabDeadlineExtension
 from app.models.lesson import Lesson
 from app.models.schedule import LessonType
 from app.services.lab_visibility.models import LabVisibilityInfo
-from app.services.lab_visibility.session_checker import is_lab_session_now as _is_lab_session_now
+from app.services.lab_visibility.session_checker import (
+    get_current_lab_session as _get_current_lab_session,
+)
+from app.services.lab_visibility.session_checker import (
+    is_lab_session_now as _is_lab_session_now,
+)
 from app.services.lab_visibility.visibility_calculator import (
     _build_subgroup_filter,
     calculate_visibility_for_subject,
@@ -128,7 +133,7 @@ class LabVisibilityService:
 
         base_filter = [
             Lesson.group_id == group_id,
-            Lesson.lesson_type == LessonType.LAB,
+            Lesson.lesson_type.in_((LessonType.LAB, LessonType.PRACTICE)),
             Lesson.is_cancelled.is_(False),
             Lesson.work_number.isnot(None),
             Lesson.date <= today,
@@ -158,7 +163,7 @@ class LabVisibilityService:
 
         base_filter = [
             Lesson.group_id == group_id,
-            Lesson.lesson_type == LessonType.LAB,
+            Lesson.lesson_type.in_((LessonType.LAB, LessonType.PRACTICE)),
             Lesson.is_cancelled.is_(False),
             Lesson.work_number.isnot(None),
             Lesson.date <= today,
@@ -174,3 +179,9 @@ class LabVisibilityService:
     async def is_lab_session_now(self, group_id: UUID, subgroup: int | None, subject_id: UUID | None = None) -> bool:
         """Проверить идёт ли сейчас лабораторное занятие для студента."""
         return await _is_lab_session_now(self.db, group_id, subgroup, subject_id)
+
+    async def get_current_lab_session(
+        self, group_id: UUID, subgroup: int | None, subject_id: UUID | None = None
+    ) -> Lesson | None:
+        """Получить текущее lab/practice-занятие для студента."""
+        return await _get_current_lab_session(self.db, group_id, subgroup, subject_id)

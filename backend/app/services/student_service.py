@@ -2,10 +2,10 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.models import Group, Lab, LessonGrade, Submission, SubmissionStatus, User
+from app.models import Group, Lab, Lesson, LessonGrade, Submission, SubmissionStatus, User
 from app.schemas.student import StudentLabSubmission, StudentProfileOut, StudentStats
+from app.services.attestation.lab_progress import dedupe_lesson_grade_rows
 
 
 class StudentService:
@@ -46,7 +46,7 @@ class StudentService:
         subs_map = {sub.lab_id: sub for sub in submissions}
 
         # Получаем оценки из lesson_grades (журнал)
-        grades_map = await self._get_lesson_grades_map(student_id, labs)
+        grades_map = await self._get_lesson_grades_map(student_id)
 
         # Собираем данные по лабам и статистику
         labs_data, stats = self._calculate_stats(labs, subs_map, grades_map)
@@ -107,30 +107,37 @@ class StudentService:
             stats=stats,
         )
 
-    async def _get_lesson_grades_map(self, student_id: UUID, labs: list[Lab]) -> dict[int, LessonGrade]:
+    async def _get_lesson_grades_map(self, student_id: UUID) -> dict[tuple[UUID | None, int], LessonGrade]:
         """
         Получить оценки из журнала (lesson_grades) для студента.
-        Возвращает dict: work_number -> LessonGrade (лучшая оценка)
+        Возвращает dict: (subject_id, work_number) -> LessonGrade (лучшая оценка)
         """
-        # Получаем все оценки студента с загрузкой lesson
         grades_result = await self.db.execute(
-            select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(LessonGrade.student_id == student_id)
+            select(LessonGrade, Lesson.subject_id)
+            .join(Lesson, LessonGrade.lesson_id == Lesson.id)
+            .where(LessonGrade.student_id == student_id)
+            .where(LessonGrade.work_number.isnot(None))
+            .where(Lesson.is_cancelled.is_(False))
         )
-        grades = grades_result.scalars().all()
+        rows = grades_result.all()
+        grades = dedupe_lesson_grade_rows(rows)
+        subject_by_grade_id = {grade.id: subject_id for grade, subject_id in rows}
 
-        # Группируем по work_number, берём лучшую оценку
-        grades_map: dict[int, LessonGrade] = {}
+        grades_map: dict[tuple[UUID | None, int], LessonGrade] = {}
         for grade in grades:
             work_num = grade.work_number
             if work_num is None:
                 continue
-            if work_num not in grades_map or grade.grade > grades_map[work_num].grade:
-                grades_map[work_num] = grade
+            subject_id = subject_by_grade_id.get(grade.id)
+            grades_map[(subject_id, work_num)] = grade
 
         return grades_map
 
     def _calculate_stats(
-        self, labs: list[Lab], subs_map: dict, grades_map: dict[int, LessonGrade]
+        self,
+        labs: list[Lab],
+        subs_map: dict,
+        grades_map: dict[tuple[UUID | None, int], LessonGrade],
     ) -> tuple[list[StudentLabSubmission], StudentStats]:
         """
         Расчет статистики по лабам.
@@ -141,7 +148,7 @@ class StudentService:
 
         for lab in labs:
             sub = subs_map.get(lab.id)
-            journal_grade = grades_map.get(lab.number)  # noqa: F841  # Оценка из журнала (зарезервировано)
+            journal_grade = grades_map.get((lab.subject_id, lab.number))  # noqa: F841  # reserved
 
             # TODO: is_overdue теперь зависит от количества пар, не от даты
             # Для корректного расчёта нужен доступ к расписанию

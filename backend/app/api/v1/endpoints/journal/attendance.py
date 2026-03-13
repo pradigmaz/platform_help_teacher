@@ -15,6 +15,10 @@ from app.core import error_messages as em
 from app.core.limiter import limiter
 from app.models import Attendance, AttendanceStatus, Lesson, User
 from app.schemas.lesson_grade import BulkAttendanceUpdate
+from app.services.journal_attendance_write_service import (
+    AttendanceWriteValidationError,
+    journal_attendance_write_service,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -60,7 +64,7 @@ async def bulk_update_attendance(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_teacher),
 ):
-    """Массовое обновление посещаемости."""
+    """Массовое обновление посещаемости через канонический write-path."""
     lesson_result = await db.execute(
         select(Lesson).where(Lesson.id == data.lesson_id).options(selectinload(Lesson.group))
     )
@@ -68,49 +72,16 @@ async def bulk_update_attendance(
     if not lesson:
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
 
-    # Проверка принадлежности студентов к группе
-    group_result = await db.execute(select(User.id).where(User.group_id == lesson.group_id))
-    group_student_ids = {row[0] for row in group_result.fetchall()}
-
-    for record in data.records:
-        if record.student_id not in group_student_ids:
-            raise HTTPException(status_code=400, detail=f"Student {record.student_id} not in group {lesson.group_id}")
-
-    updated = []
-    for record in data.records:
-        status = AttendanceStatus(record.status)
-
-        # Проверяем по student_id, date, lesson_number (соответствует UniqueConstraint)
-        existing_result = await db.execute(
-            select(Attendance).where(
-                and_(
-                    Attendance.student_id == record.student_id,
-                    Attendance.date == lesson.date,
-                    Attendance.lesson_number == lesson.lesson_number,
-                )
-            )
+    try:
+        updated = await journal_attendance_write_service.bulk_upsert_attendance(
+            db=db,
+            lesson=lesson,
+            records=[(record.student_id, AttendanceStatus(record.status)) for record in data.records],
+            actor_id=current_user.id,
         )
-        existing = existing_result.scalar_one_or_none()
-
-        if existing:
-            existing.status = status
-            existing.lesson_id = data.lesson_id  # Обновляем lesson_id если был None
-            updated.append(existing)
-        else:
-            new_attendance = Attendance(
-                lesson_id=data.lesson_id,
-                student_id=record.student_id,
-                group_id=lesson.group_id,
-                date=lesson.date,
-                lesson_number=lesson.lesson_number,
-                lesson_type=lesson.lesson_type,
-                subgroup=lesson.subgroup,
-                status=status,
-                created_by=current_user.id,
-            )
-            db.add(new_attendance)
-            updated.append(new_attendance)
-
+    except AttendanceWriteValidationError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
     logger.info(f"Bulk updated {len(updated)} attendance records for lesson {data.lesson_id}")
 

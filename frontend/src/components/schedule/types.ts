@@ -43,6 +43,19 @@ export interface GradeRecord {
   work_number?: number | null;
 }
 
+export interface StudentGradeData {
+  grade: number | null;
+  work_number: number | null;
+  has_conflict?: boolean;
+  conflict_count?: number;
+}
+
+export interface LessonSheetSyncData {
+  lesson: Pick<LessonData, 'id' | 'topic' | 'work_number' | 'is_cancelled' | 'ended_early'>;
+  attendance: Record<string, AttendanceStatus | null>;
+  grades: Record<string, StudentGradeData>;
+}
+
 // Grouped lecture types
 export interface LectureGroup {
   id: string;

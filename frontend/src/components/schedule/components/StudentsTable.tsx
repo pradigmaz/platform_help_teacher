@@ -2,17 +2,19 @@
 
 import { Users } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import type { Student, AttendanceStatus } from '../types';
+import type { Student, AttendanceStatus, StudentGradeData } from '../types';
 import { StudentRow } from './StudentRow';
 
 interface StudentsTableProps {
   students: Student[];
   attendance: Record<string, AttendanceStatus | null>;
-  grades: Record<string, number | null>;
+  grades: Record<string, StudentGradeData>;
   canHaveGrade: boolean;
+  lessonWorkNumber: number | null;
   isLoading: boolean;
   onAttendanceClick: (studentId: string) => void;
   onGradeClick: (studentId: string, grade: number) => void;
+  onWorkNumberChange: (studentId: string, workNumber: number) => void;
 }
 
 export function StudentsTable({
@@ -20,9 +22,11 @@ export function StudentsTable({
   attendance,
   grades,
   canHaveGrade,
+  lessonWorkNumber,
   isLoading,
   onAttendanceClick,
   onGradeClick,
+  onWorkNumberChange,
 }: StudentsTableProps) {
   return (
     <div className="space-y-2">
@@ -43,7 +47,7 @@ export function StudentsTable({
 
       <div className="border rounded-lg overflow-hidden">
         {/* Table header */}
-        <div className="grid grid-cols-[32px_1fr_32px_40px_100px] gap-2 px-3 py-2 bg-muted text-[10px] font-medium text-muted-foreground uppercase">
+        <div className="grid grid-cols-[32px_1fr_32px_40px_148px] gap-2 px-3 py-2 bg-muted text-[10px] font-medium text-muted-foreground uppercase">
           <span>#</span>
           <span>ФИО</span>
           <span></span>
@@ -62,10 +66,12 @@ export function StudentsTable({
                 student={student}
                 index={idx}
                 attendance={attendance[student.id] || null}
-                grade={grades[student.id] || null}
+                gradeData={grades[student.id]}
                 canHaveGrade={canHaveGrade}
+                lessonWorkNumber={lessonWorkNumber}
                 onAttendanceClick={() => onAttendanceClick(student.id)}
                 onGradeClick={(grade) => onGradeClick(student.id, grade)}
+                onWorkNumberChange={(workNumber) => onWorkNumberChange(student.id, workNumber)}
               />
             ))
           )}

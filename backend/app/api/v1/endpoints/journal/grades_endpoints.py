@@ -3,6 +3,7 @@ API endpoints для оценок журнала.
 """
 
 import logging
+from collections import defaultdict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,15 +13,14 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_teacher, get_db
 from app.core import error_messages as em
-from app.crud import crud_lesson_grade
 from app.models import Lesson, LessonGrade, User
-from app.models.lab import Lab as LabModel
-from app.models.schedule import LessonType
-from app.models.submission import Submission, SubmissionStatus
 from app.schemas.lesson_grade import LessonGradeCreate, LessonGradeResponse, LessonGradeUpdate
-from app.services import submission_journal_sync as journal_sync
-from app.services.attestation.deadline_validator import get_max_allowed_grade, validate_grade_for_max
-from app.services.attestation.lab_slot_validator import validate_lab_submission
+from app.services.attestation.deadline_validator import get_max_allowed_grade
+from app.services.journal_grade_write_service import (
+    GradeWriteConflictError,
+    GradeWriteValidationError,
+    journal_grade_write_service,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -41,68 +41,57 @@ async def get_journal_grades(
     )
     grades = result.scalars().all()
 
-    return [
-        {
-            "id": str(g.id),
-            "lesson_id": str(g.lesson_id),
-            "student_id": str(g.student_id),
-            "student_name": g.student.full_name if g.student else None,
-            "work_number": g.work_number,
-            "grade": g.grade,
-            "comment": g.comment,
-        }
-        for g in grades
-    ]
+    grouped: dict[tuple[str, str], list[LessonGrade]] = defaultdict(list)
+    for grade in grades:
+        grouped[(str(grade.lesson_id), str(grade.student_id))].append(grade)
+
+    payload = []
+    for group in grouped.values():
+        first = group[0]
+        has_conflict = len(group) > 1
+        payload.append(
+            {
+                "id": None if has_conflict else str(first.id),
+                "lesson_id": str(first.lesson_id),
+                "student_id": str(first.student_id),
+                "student_name": first.student.full_name if first.student else None,
+                "work_number": None if has_conflict else first.work_number,
+                "grade": None if has_conflict else first.grade,
+                "comment": None if has_conflict else first.comment,
+                "has_conflict": has_conflict,
+                "conflict_count": len(group),
+            }
+        )
+    return payload
 
 
 @router.post("/grades", response_model=LessonGradeResponse)
 async def create_grade(
     data: LessonGradeCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)
 ):
-    """Создать оценку с проверкой дедлайна и слотов."""
+    """Создать оценку через канонический write-path."""
     lesson_result = await db.execute(select(Lesson).where(Lesson.id == data.lesson_id))
     lesson = lesson_result.scalar_one_or_none()
     if not lesson:
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
 
-    # Проверяем слоты (1 лаба = 1 пара, +1 для EXCUSED)
-    if lesson.lesson_type == LessonType.LAB:
-        try:
-            await validate_lab_submission(
-                db, data.student_id, data.lesson_id, lesson.subject_id, data.work_number, lesson
-            )
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
-    # Проверяем дедлайн
-    max_allowed = await get_max_allowed_grade(db, lesson, student_id=data.student_id, work_number=data.work_number)
+    # lesson.lesson_type remains the source for LAB-only rules inside the canonical service.
     try:
-        validate_grade_for_max(data.grade, max_allowed)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    grade = await crud_lesson_grade.upsert_lesson_grade(
-        db,
-        lesson_id=data.lesson_id,
-        student_id=data.student_id,
-        grade=data.grade,
-        work_number=data.work_number,
-        comment=data.comment,
-        created_by=current_user.id,
-        group_id=lesson.group_id,
-        subject_id=lesson.subject_id,
-    )
-
-    # Синхронизация с work_submission для лаб
-    if data.work_number and lesson.lesson_type == LessonType.LAB:
-        logger.info(
-            f"[grades_endpoints:create_grade] Syncing to work_submission: student={data.student_id}, work={data.work_number}, grade={data.grade}"
+        grade = await journal_grade_write_service.upsert_grade(
+            db=db,
+            lesson=lesson,
+            student_id=data.student_id,
+            grade=data.grade,
+            work_number=data.work_number,
+            comment=data.comment,
+            actor_id=current_user.id,
         )
-        await journal_sync.sync_from_journal(
-            db, data.student_id, lesson, data.work_number, data.grade, data.comment, current_user.id
-        )
-
+    except GradeWriteConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except GradeWriteValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
+    await db.refresh(grade)
     return grade
 
 
@@ -113,7 +102,7 @@ async def update_grade(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_teacher),
 ):
-    """Обновить оценку с проверкой дедлайна."""
+    """Обновить оценку через канонический write-path."""
     existing_result = await db.execute(
         select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(LessonGrade.id == grade_id)
     )
@@ -121,49 +110,27 @@ async def update_grade(
     if not existing:
         raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
 
-    if data.grade is not None and existing.lesson:
-        max_allowed = await get_max_allowed_grade(
-            db, existing.lesson, student_id=existing.student_id, work_number=data.work_number or existing.work_number
+    field_set = data.model_fields_set
+    next_grade = data.grade if "grade" in field_set else existing.grade
+    next_work_number = data.work_number if "work_number" in field_set else existing.work_number
+    next_comment = data.comment if "comment" in field_set else existing.comment
+
+    # lesson.lesson_type remains the source for LAB-only rules inside the canonical service.
+    try:
+        updated_grade = await journal_grade_write_service.replace_grade(
+            db=db,
+            existing=existing,
+            grade=next_grade,
+            work_number=next_work_number,
+            comment=next_comment,
+            actor_id=current_user.id,
         )
-        try:
-            validate_grade_for_max(data.grade, max_allowed)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
-    grade = await crud_lesson_grade.update_lesson_grade(
-        db,
-        grade_id=grade_id,
-        grade=data.grade,
-        work_number=data.work_number,
-        comment=data.comment,
-    )
-    if not grade:
-        raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
-
-    updated_result = await db.execute(
-        select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(LessonGrade.id == grade.id)
-    )
-    updated_grade = updated_result.scalar_one_or_none()
-    if not updated_grade:
-        raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
-
-    # Синхронизация с work_submission для лаб
-    work_number = updated_grade.work_number
-    if work_number and updated_grade.lesson and updated_grade.lesson.lesson_type == LessonType.LAB:
-        logger.info(
-            f"[grades_endpoints:update_grade] Syncing to work_submission: student={updated_grade.student_id}, work={work_number}, grade={updated_grade.grade}"
-        )
-        await journal_sync.sync_from_journal(
-            db,
-            updated_grade.student_id,
-            updated_grade.lesson,
-            work_number,
-            updated_grade.grade,
-            updated_grade.comment,
-            current_user.id,
-        )
-
+    except GradeWriteConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except GradeWriteValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
+    await db.refresh(updated_grade)
     return updated_grade
 
 
@@ -172,9 +139,16 @@ async def delete_grade(
     grade_id: UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_teacher)
 ):
     """Удалить оценку."""
-    success = await crud_lesson_grade.delete_lesson_grade(db, grade_id)
-    if not success:
+    # delete_lesson_grade legacy path is superseded by the canonical grade write service.
+    result = await db.execute(
+        select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(LessonGrade.id == grade_id)
+    )
+    grade = result.scalar_one_or_none()
+    if not grade:
         raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
+
+    await journal_grade_write_service.delete_grade(db, grade, current_user.id)
+    await db.commit()
     return {"deleted": True}
 
 
@@ -191,46 +165,20 @@ async def delete_grade_by_lesson_student(
     if work_number is not None:
         conditions.append(LessonGrade.work_number == work_number)
 
-    result = await db.execute(select(LessonGrade).where(and_(*conditions)))
+    result = await db.execute(select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(and_(*conditions)))
     grades = result.scalars().all()
 
     if not grades:
         return {"deleted": False, "message": "Grade not found"}
 
-    # BUG-5 fix: если несколько оценок и work_number не указан — требуем уточнения
     if len(grades) > 1 and work_number is None:
         raise HTTPException(
-            status_code=400,
+            status_code=409,
             detail=f"Студент имеет {len(grades)} оценок на этом занятии. Укажите work_number для удаления конкретной.",
         )
 
     grade = grades[0]
-
-    # Откатываем Submission при удалении оценки за лабу
-    if grade.work_number is not None:
-        lesson_result = await db.execute(select(Lesson).where(Lesson.id == lesson_id))
-        lesson = lesson_result.scalar_one_or_none()
-        if lesson and lesson.lesson_type == LessonType.LAB:
-            sub_result = await db.execute(
-                select(Submission)
-                .join(LabModel, Submission.lab_id == LabModel.id)
-                .where(
-                    Submission.user_id == student_id,
-                    LabModel.number == grade.work_number,
-                    LabModel.subject_id == lesson.subject_id,
-                )
-                .order_by(Submission.created_at.desc())
-                .limit(1)
-            )
-            sub = sub_result.scalar_one_or_none()
-            if sub and sub.status == SubmissionStatus.ACCEPTED:
-                sub.status = SubmissionStatus.NEW
-                sub.grade = None
-                logger.info(
-                    f"[grades_endpoints:delete_grade] Rolled back submission for student={student_id}, work={grade.work_number}"
-                )
-
-    await db.delete(grade)
+    await journal_grade_write_service.delete_grade(db, grade, current_user.id)
     await db.commit()
     logger.info(f"Deleted grade for lesson {lesson_id}, student {student_id}, work_number={work_number}")
     return {"deleted": True}

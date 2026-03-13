@@ -17,16 +17,16 @@ from app.models.lesson_grade import LessonGrade
 from app.models.schedule import LessonType
 
 logger = logging.getLogger(__name__)
+_LAB_SLOT_TYPES = (LessonType.LAB, LessonType.PRACTICE)
 
 
-async def get_excused_lab_ids(db: AsyncSession, student_id: UUID, subject_id: UUID) -> set[UUID]:
+async def get_excused_lab_numbers(db: AsyncSession, student_id: UUID, subject_id: UUID) -> set[int]:
     """
-    Получить ID лаб, созданных на занятиях где студент был EXCUSED.
+    Получить номера работ, на занятиях которых студент был EXCUSED.
     Эти лабы не имеют дедлайна для данного студента.
     """
-    # Находим LAB-занятия где студент EXCUSED
-    excused_lessons_query = (
-        select(Lesson.id)
+    result = await db.execute(
+        select(Lesson.work_number)
         .join(
             Attendance,
             and_(
@@ -36,18 +36,15 @@ async def get_excused_lab_ids(db: AsyncSession, student_id: UUID, subject_id: UU
             ),
         )
         .where(
-            and_(Lesson.subject_id == subject_id, Lesson.lesson_type == LessonType.LAB, Lesson.is_cancelled.is_(False))
+            and_(
+                Lesson.subject_id == subject_id,
+                Lesson.lesson_type.in_(_LAB_SLOT_TYPES),
+                Lesson.work_number.isnot(None),
+                Lesson.is_cancelled.is_(False),
+            )
         )
+        .distinct()
     )
-    result = await db.execute(excused_lessons_query)
-    excused_lesson_ids = {row[0] for row in result.fetchall()}
-
-    if not excused_lesson_ids:
-        return set()
-
-    # Находим лабы, привязанные к этим занятиям
-    labs_query = select(Lab.id).where(and_(Lab.lesson_id.in_(excused_lesson_ids), Lab.deleted_at.is_(None)))
-    result = await db.execute(labs_query)
     return {row[0] for row in result.fetchall()}
 
 
@@ -56,16 +53,7 @@ async def get_unsubmitted_excused_labs_count(db: AsyncSession, student_id: UUID,
     Количество несданных EXCUSED-лаб.
     Если > 0, студент получает бонусный слот (+1 лаба за пару).
     """
-    excused_lab_ids = await get_excused_lab_ids(db, student_id, subject_id)
-    if not excused_lab_ids:
-        return 0
-
-    # Считаем сколько из них уже сдано (есть оценка)
-    # Нужно найти лабы по номеру, т.к. оценки хранятся по work_number
-    labs_query = select(Lab.number).where(Lab.id.in_(excused_lab_ids))
-    result = await db.execute(labs_query)
-    excused_lab_numbers = {row[0] for row in result.fetchall()}
-
+    excused_lab_numbers = await get_excused_lab_numbers(db, student_id, subject_id)
     if not excused_lab_numbers:
         return 0
 
@@ -183,14 +171,21 @@ async def is_excused_lab(db: AsyncSession, student_id: UUID, lab: Lab) -> bool:
     Проверить, является ли лаба EXCUSED для студента.
     (Студент был EXCUSED на занятии, где лаба была создана)
     """
-    if not lab.lesson_id:
+    if not lab.subject_id:
         return False
 
-    query = select(Attendance).where(
+    query = (
+        select(Attendance)
+        .join(Lesson, Attendance.lesson_id == Lesson.id)
+        .where(
         and_(
-            Attendance.lesson_id == lab.lesson_id,
-            Attendance.student_id == student_id,
-            Attendance.status == AttendanceStatus.EXCUSED,
+                Attendance.student_id == student_id,
+                Attendance.status == AttendanceStatus.EXCUSED,
+                Lesson.subject_id == lab.subject_id,
+                Lesson.lesson_type.in_(_LAB_SLOT_TYPES),
+                Lesson.work_number == lab.number,
+                Lesson.is_cancelled.is_(False),
+            )
         )
     )
     result = await db.execute(query)

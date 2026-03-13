@@ -2,13 +2,14 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lab import Lab
+from app.models.lesson import Lesson
 from app.models.lesson_grade import LessonGrade
 from app.models.submission import Submission, SubmissionStatus
 from app.models.user import User, UserRole
@@ -119,7 +120,8 @@ class StudentLabService:
             "FROM lesson_grades lg "
             "JOIN lessons l ON CAST(lg.lesson_id AS TEXT) = CAST(l.id AS TEXT) "
             "WHERE CAST(lg.student_id AS TEXT) = :student_id "
-            "AND lg.work_number IS NOT NULL"
+            "AND lg.work_number IS NOT NULL "
+            "AND l.is_cancelled IS NOT TRUE"
         )
         params: dict = {"student_id": str(student_id)}
 
@@ -163,7 +165,11 @@ class StudentLabService:
         result = await db.execute(
             select(LessonGrade, LessonModel.subject_id)
             .join(LessonModel, LessonGrade.lesson_id == LessonModel.id)
-            .where(LessonGrade.student_id == student_id, LessonGrade.work_number.isnot(None))
+            .where(
+                LessonGrade.student_id == student_id,
+                LessonGrade.work_number.isnot(None),
+                LessonModel.is_cancelled.is_(False),
+            )
         )
         rows = result.all()
         subject_by_grade_id = {grade.id: subject_id for grade, subject_id in rows}
@@ -222,6 +228,7 @@ class StudentLabService:
         user_id: UUID,
         lab_id: UUID,
         variant_number: int | None,
+        lesson: Lesson | None = None,
     ) -> Submission:
         """Поставить submission в очередь на сдачу."""
         sub = await self.get_user_submission_for_lab(db, user_id, lab_id)
@@ -238,7 +245,7 @@ class StudentLabService:
                 if resolve_lab_acceptance(sub, journal_grade)[0]:
                     raise ValueError("Lab already accepted")
             sub.status = SubmissionStatus.READY
-            sub.ready_at = datetime.utcnow()
+            sub.ready_at = datetime.now(UTC)
             sub.variant_number = variant_number
         else:
             sub = Submission(
@@ -247,9 +254,13 @@ class StudentLabService:
                 status=SubmissionStatus.READY,
                 is_manual=True,
                 variant_number=variant_number,
-                ready_at=datetime.utcnow(),
+                ready_at=datetime.now(UTC),
             )
             db.add(sub)
+        if lesson is not None:
+            sub.lesson_id = lesson.id
+            sub.lesson_date = lesson.date
+            sub.lesson_number = lesson.lesson_number
         await db.commit()
         await db.refresh(sub)
         logger.info(f"Student {user_id} marked lab {lab_id} as ready, variant={variant_number}")

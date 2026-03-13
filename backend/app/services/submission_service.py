@@ -9,9 +9,12 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Lab, LessonGrade, Submission, SubmissionStatus, User
-from app.services.attestation.deadline_validator import get_max_allowed_grade_for_lab
-from app.services.attestation.lab_slot_validator import get_grades_count_on_lesson, get_max_labs_per_lesson
+from app.models import Lab, Lesson, Submission, SubmissionStatus, User
+from app.services.journal_grade_service import (
+    JournalGradeConflictError,
+    JournalGradeValidationError,
+    journal_grade_service,
+)
 from app.services.submission_journal_sync import journal_sync
 
 logger = logging.getLogger(__name__)
@@ -33,18 +36,20 @@ class SubmissionService:
     ) -> dict[str, Any]:
         """
         Принять работу студента.
-        Автоматически синхронизирует с журналом если есть привязка к занятию.
-        Проверяет дедлайны и слоты.
+        Пишет каноническую оценку в LessonGrade и отражает результат в Submission.
         """
         if submission.status != SubmissionStatus.READY:
             raise ValueError(f"Cannot accept submission with status {submission.status.value}")
 
-        # Валидация дедлайна и слотов
-        await self._validate_grade_constraints(db, submission, grade)
+        lab, lesson = await self._resolve_acceptance_context(db, submission)
 
         now = datetime.now(UTC)
 
         # Обновляем Submission
+        if lesson is not None:
+            submission.lesson_id = lesson.id
+            submission.lesson_date = lesson.date
+            submission.lesson_number = lesson.lesson_number
         submission.status = SubmissionStatus.ACCEPTED
         submission.grade = grade
         submission.feedback = comment
@@ -61,8 +66,23 @@ class SubmissionService:
             }
         ]
 
-        # Синхронизация с журналом
-        lesson_grade_synced = await journal_sync.sync_with_journal(db, submission, grade, comment, accepted_by)
+        lesson_grade_synced = False
+        if lesson and lab:
+            try:
+                await journal_grade_service.write_grade(
+                    db=db,
+                    lesson=lesson,
+                    student_id=submission.user_id,
+                    grade=grade,
+                    work_number=lab.number,
+                    comment=comment,
+                    actor_id=accepted_by,
+                    sync_submission=True,
+                    submission_history=False,
+                )
+            except (JournalGradeValidationError, JournalGradeConflictError) as exc:
+                raise ValueError(str(exc)) from exc
+            lesson_grade_synced = True
 
         await db.commit()
         logger.info(f"Submission {submission.id} accepted with grade {grade}")
@@ -103,9 +123,12 @@ class SubmissionService:
             "comment": comment,
         }
 
-    async def _validate_grade_constraints(self, db: AsyncSession, submission: Submission, grade: int) -> None:
-        """Проверить дедлайн и слоты перед принятием работы."""
-        # Загружаем lab если не загружен
+    async def resolve_acceptance_context(self, db: AsyncSession, submission: Submission):
+        """Public wrapper for lesson/lab resolution shared by queue preview and accept."""
+        return await self._resolve_acceptance_context(db, submission)
+
+    async def _resolve_acceptance_context(self, db: AsyncSession, submission: Submission):
+        """Resolve lab and target lesson for canonical grade write."""
         if not submission.lab:
             result = await db.execute(select(Lab).where(Lab.id == submission.lab_id))
             lab = result.scalar_one_or_none()
@@ -114,34 +137,29 @@ class SubmissionService:
 
         subject_id = getattr(lab, "subject_id", None) if lab else None
         if not lab or not isinstance(subject_id, UUID):
-            return  # Нет привязки к предмету — нет ограничений
+            return lab, None
 
-        # Ищем занятие для студента
-        lesson = await journal_sync.find_lesson_for_student(db, lab, submission.user_id)
+        lesson = None
+        if submission.lesson_id:
+            lesson = await db.get(Lesson, submission.lesson_id)
+
+        if lesson is None and submission.lesson_date and submission.lesson_number is not None:
+            conditions = [
+                Lesson.subject_id == subject_id,
+                Lesson.date == submission.lesson_date,
+                Lesson.lesson_number == submission.lesson_number,
+            ]
+            if submission.user and submission.user.group_id:
+                conditions.append(Lesson.group_id == submission.user.group_id)
+            lesson_result = await db.execute(select(Lesson).where(and_(*conditions)))
+            lesson = lesson_result.scalar_one_or_none()
+
+        if lesson is None:
+            lesson = await journal_sync.find_lesson_for_student(db, lab, submission.user_id)
         if not lesson:
-            return  # Нет занятия — нет ограничений
+            raise ValueError("Не найдено занятие для синхронизации приёмки с журналом")
 
-        # Проверяем дедлайн
-        max_allowed = await get_max_allowed_grade_for_lab(db, lab, lesson, submission.user_id)
-        if grade > max_allowed:
-            raise ValueError(f"Максимальная оценка для этой работы: {max_allowed} (просрочка дедлайна)")
-
-        # Проверяем слоты (только для новых оценок)
-        existing = await db.execute(
-            select(LessonGrade).where(
-                and_(
-                    LessonGrade.lesson_id == lesson.id,
-                    LessonGrade.student_id == submission.user_id,
-                    LessonGrade.work_number == lab.number,
-                )
-            )
-        )
-        if existing.scalar_one_or_none() is None:
-            # Новая оценка — проверяем слоты
-            current_count = await get_grades_count_on_lesson(db, submission.user_id, lesson.id)
-            max_labs = await get_max_labs_per_lesson(db, submission.user_id, lesson.subject_id, lesson)
-            if current_count >= max_labs:
-                raise ValueError(f"Лимит лаб за занятие: {max_labs} (уже сдано: {current_count})")
+        return lab, lesson
 
 
 submission_service = SubmissionService()

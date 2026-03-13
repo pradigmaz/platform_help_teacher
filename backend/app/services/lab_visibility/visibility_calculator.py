@@ -13,6 +13,8 @@ from app.services.lab_visibility.models import LabVisibilityInfo
 
 logger = logging.getLogger(__name__)
 
+_VISIBLE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
+
 
 def _build_subgroup_filter(subgroup: int | None) -> list:
     """
@@ -32,7 +34,7 @@ def _build_base_filter(group_id: UUID, subgroup: int | None, subject_id: UUID | 
     """Построить базовый фильтр для запросов к занятиям."""
     base_filter = [
         Lesson.group_id == group_id,
-        Lesson.lesson_type == LessonType.LAB,
+        Lesson.lesson_type.in_(_VISIBLE_LESSON_TYPES),
         Lesson.is_cancelled.is_(False),
     ]
     base_filter.extend(_build_subgroup_filter(subgroup))

@@ -21,6 +21,7 @@ from app.models.schedule import LessonType
 from app.services.schedule_constants import today_msk
 
 logger = logging.getLogger(__name__)
+ATTACHABLE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
 
 
 @dataclass
@@ -117,7 +118,7 @@ class LabAttachmentValidator:
         """Получить занятия с указанным work_number."""
         filters = [
             Lesson.group_id == group_id,
-            Lesson.lesson_type == LessonType.LAB,
+            Lesson.lesson_type.in_(ATTACHABLE_LESSON_TYPES),
             Lesson.work_number == work_number,
             Lesson.is_cancelled.is_(False),
         ]
@@ -137,7 +138,7 @@ class LabAttachmentValidator:
 
         filters = [
             Lesson.group_id == group_id,
-            Lesson.lesson_type == LessonType.LAB,
+            Lesson.lesson_type.in_(ATTACHABLE_LESSON_TYPES),
             Lesson.date >= from_date,
             Lesson.date <= today,
             Lesson.work_number.isnot(None),
@@ -161,7 +162,7 @@ class LabAttachmentValidator:
         """
         filters = [
             Lesson.group_id == group_id,
-            Lesson.lesson_type == LessonType.LAB,
+            Lesson.lesson_type.in_(ATTACHABLE_LESSON_TYPES),
             Lesson.date >= first_lesson_date,
             Lesson.work_number.isnot(None),
             Lesson.is_cancelled.is_(False),

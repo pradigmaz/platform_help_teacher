@@ -27,8 +27,8 @@ interface LessonTopicProps {
 
 export function LessonTopic({ lesson, topic, workNumber, onChange, onWorkNumberChange }: LessonTopicProps) {
   const [labs, setLabs] = useState<Lab[]>([]);
-  const showWorkNumberSelect = canHaveGrade(lesson.lesson_type) && lesson.lesson_type.toLowerCase() === 'lab';
-  const currentWorkNumber = workNumber ?? lesson.work_number;
+  const showWorkNumberSelect = canHaveGrade(lesson.lesson_type);
+  const currentWorkNumber = workNumber === undefined ? lesson.work_number : workNumber;
 
   // Load labs for this subject
   useEffect(() => {
@@ -65,13 +65,13 @@ export function LessonTopic({ lesson, topic, workNumber, onChange, onWorkNumberC
       
       {showWorkNumberSelect && onWorkNumberChange && (
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Лабораторная работа</Label>
+          <Label className="text-xs text-muted-foreground">Номер работы пары</Label>
           <Select
             value={currentWorkNumber?.toString() || 'none'}
             onValueChange={(v) => onWorkNumberChange(v === 'none' ? null : parseInt(v))}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Выберите лабораторную..." />
+              <SelectValue placeholder="Выберите работу..." />
             </SelectTrigger>
             <SelectContent className="z-[10000]">
               <SelectItem value="none">Не указано</SelectItem>
@@ -99,7 +99,7 @@ export function LessonTopic({ lesson, topic, workNumber, onChange, onWorkNumberC
         />
         {currentWorkNumber && (
           <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded">
-            ЛР №{currentWorkNumber}
+            №{currentWorkNumber}
           </div>
         )}
       </div>

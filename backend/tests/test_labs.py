@@ -10,7 +10,9 @@ import sys
 sys.path.insert(0, '/app')
 
 from app.models.lab import Lab
+from app.models.lesson import Lesson
 from app.models.submission import Submission, SubmissionStatus
+from app.models.schedule import LessonType
 from app.schemas.lab import LabCreate, LabUpdate
 from app.core.constants import (
     LAB_CONTENT_MAX_SIZE_BYTES,
@@ -334,3 +336,32 @@ class TestGradeRangeValidation:
         
         with pytest.raises(ValidationError):
             AcceptSubmissionRequest(grade=6)
+
+
+class TestStudentLabService:
+    """Тесты sync-ready контекста пары."""
+
+    @pytest.mark.asyncio
+    async def test_mark_ready_stores_lesson_context(self, mock_db: AsyncMock):
+        from app.services.student_lab_service import StudentLabService
+
+        service = StudentLabService()
+        user_id = uuid4()
+        lab_id = uuid4()
+        lesson = Lesson(
+            id=uuid4(),
+            group_id=uuid4(),
+            subject_id=uuid4(),
+            date=datetime.now(timezone.utc).date(),
+            lesson_number=3,
+            lesson_type=LessonType.LAB,
+        )
+        mock_db.refresh = AsyncMock()
+        service.get_user_submission_for_lab = AsyncMock(return_value=None)
+
+        submission = await service.mark_ready(mock_db, user_id, lab_id, variant_number=2, lesson=lesson)
+
+        assert submission.lesson_id == lesson.id
+        assert submission.lesson_date == lesson.date
+        assert submission.lesson_number == lesson.lesson_number
+        mock_db.commit.assert_awaited_once()

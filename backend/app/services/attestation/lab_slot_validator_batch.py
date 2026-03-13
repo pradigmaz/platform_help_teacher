@@ -17,6 +17,7 @@ from app.models.lesson_grade import LessonGrade
 from app.models.schedule import LessonType
 
 logger = logging.getLogger(__name__)
+_LAB_SLOT_TYPES = (LessonType.LAB, LessonType.PRACTICE)
 
 
 async def get_grades_count_on_lesson_batch(
@@ -71,7 +72,7 @@ async def get_max_labs_per_lesson_batch(
         )
         return {sid: lesson.max_labs_override for sid in student_ids}
 
-    # 1. Находим все LAB-занятия с EXCUSED для этих студентов
+    # 1. Находим все lab/practice-занятия с EXCUSED для этих студентов
     excused_query = (
         select(Attendance.student_id, Lesson.id.label("lesson_id"))
         .join(Lesson, Attendance.lesson_id == Lesson.id)
@@ -80,7 +81,7 @@ async def get_max_labs_per_lesson_batch(
                 Attendance.student_id.in_(student_ids),
                 Attendance.status == AttendanceStatus.EXCUSED,
                 Lesson.subject_id == subject_id,
-                Lesson.lesson_type == LessonType.LAB,
+                Lesson.lesson_type.in_(_LAB_SLOT_TYPES),
                 Lesson.is_cancelled.is_(False),
             )
         )

@@ -263,13 +263,15 @@ async def mark_lab_ready(
         if not visibility_info.is_visible:
             raise HTTPException(status_code=403, detail=em.LAB_NOT_AVAILABLE_BY_SCHEDULE)
 
-        is_session_now = await visibility_service.is_lab_session_now(
+        current_lesson = await visibility_service.get_current_lab_session(
             group_id=current_user.group_id,
             subgroup=current_user.subgroup,
             subject_id=lab.subject_id,
         )
-        if not is_session_now:
+        if not current_lesson:
             raise HTTPException(status_code=403, detail="Сдача доступна только во время пары")
+    else:
+        current_lesson = None
 
     is_available = await student_lab_service.check_lab_availability(db, current_user.id, lab)
     if not is_available:
@@ -281,7 +283,13 @@ async def mark_lab_ready(
         variant_number = ((student_position - 1) % len(lab.variants)) + 1
 
     try:
-        sub = await student_lab_service.mark_ready(db, current_user.id, lab_id, variant_number)
+        sub = await student_lab_service.mark_ready(
+            db,
+            current_user.id,
+            lab_id,
+            variant_number,
+            lesson=current_lesson,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -34,8 +34,10 @@ export interface Lesson {
 }
 
 export interface GradeData {
-  grade: number;
+  grade: number | null;
   work_number: number | null;
+  has_conflict?: boolean;
+  conflict_count?: number;
 }
 
 export interface JournalStats {

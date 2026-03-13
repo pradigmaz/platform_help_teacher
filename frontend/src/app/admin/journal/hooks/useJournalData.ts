@@ -18,27 +18,6 @@ interface UseJournalDataProps {
 export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
   // Filters
   const filters = useJournalFilters();
-  
-  // Stats (needs to be created first for refetch callback)
-  const statsHook = useJournalStats({
-    selectedGroupId: filters.selectedGroupId,
-    selectedSubjectId: filters.selectedSubjectId,
-    weekStart: filters.weekStart,
-    weekEnd: filters.weekEnd,
-    lessonsCount: 0, // Will be updated
-  });
-
-  // Attendance
-  const attendanceHook = useJournalAttendance({
-    onStatsRefetch: statsHook.refetchStats,
-  });
-
-  // Grades
-  const gradesHook = useJournalGrades({
-    attendance: attendanceHook.attendance,
-    updateAttendance: attendanceHook.updateAttendance,
-    onStatsRefetch: statsHook.refetchStats,
-  });
 
   // Lessons
   const lessonsHook = useJournalLessons({
@@ -54,6 +33,25 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
     setSelectedGroupId: filters.setSelectedGroupId,
     setSelectedSubjectId: filters.setSelectedSubjectId,
     setCurrentWeek: filters.setCurrentWeek,
+  });
+
+  // Stats
+  const statsHook = useJournalStats({
+    selectedGroupId: filters.selectedGroupId,
+    selectedSubjectId: filters.selectedSubjectId,
+    startDate: lessonsHook.startDate,
+    endDate: lessonsHook.endDate,
+    lessonsCount: lessonsHook.lessons.length,
+  });
+
+  // Attendance
+  const attendanceHook = useJournalAttendance({
+    onStatsRefetch: statsHook.refetchStats,
+  });
+
+  // Grades
+  const gradesHook = useJournalGrades({
+    onStatsRefetch: statsHook.refetchStats,
   });
 
   // Load attendance, grades, stats when lessons change
@@ -89,6 +87,39 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonsKey, filters.selectedGroupId, filters.attestationPeriod]);
 
+  const refreshJournalData = async () => {
+    if (!filters.selectedGroupId) {
+      return;
+    }
+
+    const refreshed = await lessonsHook.refreshLessonsData();
+    const nextLessons = refreshed?.lessons ?? lessonsHook.lessons;
+    const nextStartDate = refreshed?.startDate ?? lessonsHook.startDate;
+    const nextEndDate = refreshed?.endDate ?? lessonsHook.endDate;
+
+    if (nextLessons.length === 0) {
+      attendanceHook.setAttendance({});
+      gradesHook.setGrades({});
+      statsHook.setStats(null);
+      return;
+    }
+
+    const lessonIds = nextLessons.map((lesson: Lesson) => lesson.id);
+    await Promise.all([
+      attendanceHook.loadAttendance(filters.selectedGroupId, lessonIds),
+      gradesHook.loadGrades(lessonIds),
+      statsHook.loadStats(
+        filters.selectedGroupId,
+        nextStartDate,
+        nextEndDate,
+        filters.selectedSubjectId
+      ),
+      filters.attestationPeriod !== 'all'
+        ? gradesHook.loadAttestationScores(filters.selectedGroupId, filters.attestationPeriod)
+        : Promise.resolve(),
+    ]);
+  };
+
   return {
     // Filters
     selectedGroupId: filters.selectedGroupId,
@@ -122,6 +153,7 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
     
     // Stats
     stats: statsHook.stats,
+    refreshJournalData,
     
     // Saving state
     isSaving: attendanceHook.isSaving || gradesHook.isSaving,

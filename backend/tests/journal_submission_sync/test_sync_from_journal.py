@@ -471,7 +471,7 @@ class TestSyncFromJournal:
         async def mock_find_published_lab(db, subject_id, work_number):
             return sample_lab
         
-        # Mock: первый SELECT возвращает None, второй (после rollback) — submission
+        # Mock: первый SELECT возвращает None, второй (после IntegrityError) — submission
         call_count = 0
         
         def mock_execute_side_effect(*args, **kwargs):
@@ -518,8 +518,8 @@ class TestSyncFromJournal:
             assert submission.status == SubmissionStatus.ACCEPTED
             assert submission.feedback == comment
             
-            # Проверяем что rollback был вызван
-            mock_db.rollback.assert_called_once()
+            # Outer transaction не откатывается: race condition локализуется nested savepoint.
+            mock_db.rollback.assert_not_called()
             
             # Проверяем что история обновлена
             assert len(submission.history) == 1
@@ -574,6 +574,51 @@ class TestFindPublishedLab:
         
         # Assert
         assert lab is None
+
+
+class TestRollbackFromJournal:
+    """Тесты rollback submission-проекции."""
+
+    @pytest.mark.asyncio
+    async def test_rollback_updates_submission_for_unpublished_lab(
+        self,
+        mock_db: AsyncMock,
+        sample_student: User,
+        sample_lab: Lab,
+        sample_lesson: Lesson,
+        sample_teacher: User,
+    ):
+        """Rollback не должен зависеть от is_published/deleted_at у лабы."""
+        sample_lab.is_published = False
+        sample_lab.deleted_at = datetime.now(timezone.utc)
+        submission = Submission(
+            id=uuid4(),
+            user_id=sample_student.id,
+            lab_id=sample_lab.id,
+            status=SubmissionStatus.ACCEPTED,
+            is_manual=True,
+            grade=5,
+            feedback="OK",
+            history=[],
+        )
+        submission.created_at = datetime.now(timezone.utc)
+        submission.updated_at = datetime.now(timezone.utc)
+        mock_db.execute.return_value = scalar_result(submission)
+
+        rolled_back = await journal_sync.rollback_from_journal(
+            mock_db,
+            student_id=sample_student.id,
+            lesson=sample_lesson,
+            work_number=sample_lab.number,
+            created_by=sample_teacher.id,
+        )
+
+        assert rolled_back is True
+        assert submission.status == SubmissionStatus.NEW
+        assert submission.grade is None
+        assert submission.feedback is None
+        assert submission.accepted_at is None
+        assert submission.history[-1]["action"] == "grade_removed_from_journal"
 
     @pytest.mark.asyncio
     async def test_find_published_lab_ignores_deleted(

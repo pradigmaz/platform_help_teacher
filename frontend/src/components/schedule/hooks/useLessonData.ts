@@ -1,9 +1,26 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import type { AxiosError } from 'axios';
+import { toast } from 'sonner';
 import api from '@/lib/api';
-import type { Student, LessonData, LessonStatus, AttendanceStatus } from '../types';
-import { ATTENDANCE_CYCLE } from '../constants';
+import type { Student, LessonData, LessonStatus, AttendanceStatus, StudentGradeData, LessonSheetSyncData } from '../types';
+import { canHaveGrade } from '../constants';
+import {
+  cycleAttendanceState,
+  updateGradeState,
+  updateStudentWorkNumberState,
+} from './lessonSheetMutations';
+import {
+  buildAttendanceUpdates,
+  buildGradeMap,
+  buildGradeUpdates,
+  cloneGradeMap,
+  extractServerState,
+  getLessonStatus,
+  type LessonSnapshot,
+  type SavedLessonState,
+} from './lessonSheetState';
 
 interface UseLessonDataProps {
   lesson: LessonData | null;
@@ -13,7 +30,7 @@ interface UseLessonDataProps {
 interface UseLessonDataReturn {
   students: Student[];
   attendance: Record<string, AttendanceStatus | null>;
-  grades: Record<string, number | null>;
+  grades: Record<string, StudentGradeData>;
   topic: string;
   workNumber: number | null;
   status: LessonStatus;
@@ -24,34 +41,69 @@ interface UseLessonDataReturn {
   setStatus: (status: LessonStatus) => void;
   cycleAttendance: (studentId: string) => void;
   setGrade: (studentId: string, grade: number) => void;
-  saveAll: () => Promise<void>;
+  setStudentWorkNumber: (studentId: string, workNumber: number) => void;
+  saveAll: () => Promise<LessonSheetSyncData | null>;
   resetChanges: () => void;
 }
 
 export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLessonDataReturn {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus | null>>({});
-  const [grades, setGrades] = useState<Record<string, number | null>>({});
+  const [grades, setGrades] = useState<Record<string, StudentGradeData>>({});
   const [topic, setTopicState] = useState('');
   const [workNumber, setWorkNumberState] = useState<number | null>(null);
   const [status, setStatusState] = useState<LessonStatus>('normal');
   const [isLoading, setIsLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const initialAttendanceRef = useRef<Record<string, AttendanceStatus | null>>({});
+  const initialGradesRef = useRef<Record<string, StudentGradeData>>({});
+  const initialLessonRef = useRef<SavedLessonState | null>(null);
+  const lessonSnapshot = useMemo<LessonSnapshot | null>(() => {
+    if (!lesson) {
+      return null;
+    }
 
-  const loadData = useCallback(async () => {
-    if (!lesson) return;
+    return {
+      id: lesson.id,
+      group_id: lesson.group_id,
+      subgroup: lesson.subgroup,
+      topic: lesson.topic,
+      work_number: lesson.work_number,
+      is_cancelled: lesson.is_cancelled,
+      ended_early: lesson.ended_early,
+    };
+  }, [lesson]);
+
+  const loadData = useCallback(async (currentLesson: LessonSnapshot) => {
     setIsLoading(true);
 
+    const initialLesson: SavedLessonState = {
+      id: currentLesson.id,
+      topic: currentLesson.topic ?? null,
+      work_number: currentLesson.work_number ?? null,
+      is_cancelled: currentLesson.is_cancelled,
+      ended_early: currentLesson.ended_early ?? false,
+    };
+    initialLessonRef.current = initialLesson;
+    initialAttendanceRef.current = {};
+    initialGradesRef.current = {};
+    setStudents([]);
+    setAttendance({});
+    setGrades({});
+    setTopicState(initialLesson.topic || '');
+    setWorkNumberState(initialLesson.work_number ?? null);
+    setStatusState(getLessonStatus(initialLesson));
+    setHasChanges(false);
+
     try {
-      // Load students
-      if (lesson.group_id) {
+      if (currentLesson.group_id) {
         try {
-          const { data: groupData } = await api.get(`/groups/${lesson.group_id}`);
+          const { data: groupData } = await api.get(`/groups/${currentLesson.group_id}`);
           let studentsList = groupData.students || [];
           
-          if (lesson.subgroup !== null && lesson.subgroup !== undefined) {
+          if (currentLesson.subgroup !== null && currentLesson.subgroup !== undefined) {
             studentsList = studentsList.filter(
-              (s: Student) => s.subgroup === lesson.subgroup
+              (s: Student) => s.subgroup === currentLesson.subgroup
             );
           }
           setStudents(studentsList);
@@ -59,139 +111,153 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
           console.warn('Could not load group');
           setStudents([]);
         }
+      } else {
+        setStudents([]);
       }
 
-      // Load attendance
-      if (lesson.group_id) {
-        const { data: attData } = await api.get('/admin/journal/attendance', {
-          params: { group_id: lesson.group_id, lesson_ids: [lesson.id] }
-        });
-        const attMap: Record<string, AttendanceStatus | null> = {};
-        for (const a of attData) {
-          attMap[a.student_id] = a.status as AttendanceStatus;
+      if (currentLesson.group_id) {
+        try {
+          const { data: attData } = await api.get('/admin/journal/attendance', {
+            params: { group_id: currentLesson.group_id, lesson_ids: [currentLesson.id] }
+          });
+          const attMap: Record<string, AttendanceStatus | null> = {};
+          for (const a of attData) {
+            attMap[a.student_id] = a.status as AttendanceStatus;
+          }
+          setAttendance(attMap);
+          initialAttendanceRef.current = { ...attMap };
+        } catch {
+          setAttendance({});
+          initialAttendanceRef.current = {};
         }
-        setAttendance(attMap);
+      } else {
+        setAttendance({});
+        initialAttendanceRef.current = {};
       }
 
-      // Load grades
-      const { data: gradeData } = await api.get('/admin/journal/grades', {
-        params: { lesson_ids: [lesson.id] }
-      });
-      const gradeMap: Record<string, number | null> = {};
-      for (const g of gradeData) {
-        gradeMap[g.student_id] = g.grade;
+      try {
+        const { data: gradeData } = await api.get('/admin/journal/grades', {
+          params: { lesson_ids: [currentLesson.id] }
+        });
+        const gradeMap = buildGradeMap(gradeData);
+        setGrades(gradeMap);
+        initialGradesRef.current = cloneGradeMap(gradeMap);
+      } catch {
+        setGrades({});
+        initialGradesRef.current = {};
       }
-      setGrades(gradeMap);
-
-      // Set initial values
-      setTopicState(lesson.topic || '');
-      setWorkNumberState(lesson.work_number ?? null);
-      setStatusState(lesson.is_cancelled ? 'cancelled' : lesson.ended_early ? 'early' : 'normal');
-      setHasChanges(false);
     } catch (err) {
       console.error('Ошибка загрузки данных занятия', err);
     } finally {
       setIsLoading(false);
     }
-  }, [lesson]);
+  }, []);
 
   useEffect(() => {
-    if (lesson && isOpen) {
-      loadData();
+    if (lessonSnapshot && isOpen) {
+      loadData(lessonSnapshot);
     }
-  }, [lesson?.id, isOpen, loadData]);
+  }, [lessonSnapshot, isOpen, loadData]);
 
   const setTopic = (value: string) => {
     setTopicState(value);
     setHasChanges(true);
   };
-
   const setWorkNumber = (value: number | null) => {
     setWorkNumberState(value);
     setHasChanges(true);
   };
-
   const setStatus = (value: LessonStatus) => {
     setStatusState(value);
     setHasChanges(true);
   };
 
   const cycleAttendance = (studentId: string) => {
-    setAttendance(prev => {
-      const current = prev[studentId];
-      if (!current) return { ...prev, [studentId]: 'PRESENT' };
-      const idx = ATTENDANCE_CYCLE.indexOf(current);
-      const next = ATTENDANCE_CYCLE[(idx + 1) % ATTENDANCE_CYCLE.length];
-      return { ...prev, [studentId]: next };
-    });
+    setAttendance((prev) => cycleAttendanceState(prev, studentId));
     setHasChanges(true);
   };
 
   const setGrade = (studentId: string, grade: number) => {
-    setGrades(prev => ({
-      ...prev,
-      [studentId]: prev[studentId] === grade ? null : grade
-    }));
-    if (!attendance[studentId]) {
-      setAttendance(prev => ({ ...prev, [studentId]: 'PRESENT' }));
+    if (grades[studentId]?.has_conflict) {
+      toast.error('Сначала разберите конфликт оценок в журнале');
+      return;
     }
+
+    setGrades((prev) => updateGradeState(prev, studentId, grade, workNumber ?? null));
+    setHasChanges(true);
+  };
+
+  const setStudentWorkNumber = (studentId: string, nextWorkNumber: number) => {
+    if (grades[studentId]?.has_conflict) {
+      toast.error('Сначала разберите конфликт оценок в журнале');
+      return;
+    }
+
+    setGrades((prev) => updateStudentWorkNumberState(prev, studentId, nextWorkNumber));
     setHasChanges(true);
   };
 
   const saveAll = async () => {
-    if (!lesson) return;
+    if (!lesson) return null;
     setIsLoading(true);
 
     try {
-      // Save attendance
-      const attRecords = Object.entries(attendance)
-        .filter(([_, status]) => status)
-        .map(([student_id, status]) => ({ student_id, status }));
-      
-      if (attRecords.length > 0) {
-        await api.post('/admin/journal/attendance/bulk', {
-          lesson_id: lesson.id,
-          records: attRecords
-        });
+      const attendanceUpdates = buildAttendanceUpdates(initialAttendanceRef.current, attendance);
+      const gradeUpdates = buildGradeUpdates(initialGradesRef.current, grades);
+
+      if (
+        canHaveGrade(lesson.lesson_type) &&
+        gradeUpdates.some(({ grade, work_number }) => grade !== null && work_number == null)
+      ) {
+        toast.error('Для этой пары нужно указать номер работы');
+        throw new Error('work_number_required');
       }
 
-      // Save grades (bulk instead of one-by-one)
-      // НЕ берём lesson.work_number автоматически — студент может сдавать долг
-      // work_number должен быть явно выбран преподавателем
-      const gradeRecords = Object.entries(grades)
-        .filter(([_, grade]) => grade !== null)
-        .map(([student_id, grade]) => ({
-          student_id,
-          grade,
-          work_number: workNumber ?? null
-        }));
-      
-      if (gradeRecords.length > 0) {
-        await api.post('/admin/journal/grades/bulk', {
-          lesson_id: lesson.id,
-          grades: gradeRecords
-        });
-      }
+      const { data } = await api.post(`/admin/lessons/${lesson.id}/sheet`, {
+        topic,
+        lesson_work_number: workNumber,
+        status,
+        attendance_updates: attendanceUpdates,
+        grade_updates: gradeUpdates,
+      });
 
-      // Save lesson (status, topic, work_number)
-      const lessonUpdate: Record<string, unknown> = {};
-      if (status !== 'normal' || lesson.is_cancelled || lesson.ended_early) {
-        lessonUpdate.is_cancelled = status === 'cancelled';
-        lessonUpdate.ended_early = status === 'early';
-      }
-      if (topic !== (lesson.topic || '')) {
-        lessonUpdate.topic = topic;
-      }
-      if (workNumber !== lesson.work_number) {
-        lessonUpdate.work_number = workNumber;
-      }
-      if (Object.keys(lessonUpdate).length > 0) {
-        await api.patch(`/admin/lessons/${lesson.id}`, lessonUpdate);
-      }
+      const fallbackState = {
+        lesson: {
+          id: lesson.id,
+          topic: topic || null,
+          work_number: workNumber,
+          is_cancelled: status === 'cancelled',
+          ended_early: status === 'early',
+        },
+        attendance: { ...attendance },
+        grades: cloneGradeMap(grades),
+      };
+      const nextState = extractServerState(data, fallbackState) ?? fallbackState;
 
+      initialLessonRef.current = nextState.lesson;
+      initialAttendanceRef.current = { ...nextState.attendance };
+      initialGradesRef.current = cloneGradeMap(nextState.grades);
+
+      setAttendance(nextState.attendance);
+      setGrades(nextState.grades);
+      setTopicState(nextState.lesson.topic || '');
+      setWorkNumberState(nextState.lesson.work_number ?? null);
+      setStatusState(getLessonStatus(nextState.lesson));
       setHasChanges(false);
+      return {
+        lesson: nextState.lesson,
+        attendance: { ...nextState.attendance },
+        grades: cloneGradeMap(nextState.grades),
+      };
     } catch (err) {
       console.error('Ошибка сохранения', err);
+      if ((err as Error).message === 'work_number_required') {
+        throw err;
+      }
+      const detail =
+        ((err as AxiosError<{ detail?: string }>).response?.data?.detail as string | undefined) ||
+        'Ошибка сохранения';
+      toast.error(detail);
       throw err;
     } finally {
       setIsLoading(false);
@@ -199,11 +265,13 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
   };
 
   const resetChanges = () => {
-    if (lesson) {
-      setTopicState(lesson.topic || '');
-      setWorkNumberState(lesson.work_number ?? null);
-      setStatusState(lesson.is_cancelled ? 'cancelled' : lesson.ended_early ? 'early' : 'normal');
+    if (initialLessonRef.current) {
+      setTopicState(initialLessonRef.current.topic || '');
+      setWorkNumberState(initialLessonRef.current.work_number ?? null);
+      setStatusState(getLessonStatus(initialLessonRef.current));
     }
+    setAttendance({ ...initialAttendanceRef.current });
+    setGrades(cloneGradeMap(initialGradesRef.current));
     setHasChanges(false);
   };
 
@@ -221,6 +289,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
     setStatus,
     cycleAttendance,
     setGrade,
+    setStudentWorkNumber,
     saveAll,
     resetChanges,
   };

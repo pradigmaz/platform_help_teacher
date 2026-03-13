@@ -17,6 +17,33 @@ from app.models.lesson import Lesson
 from app.models.schedule import LessonType
 
 logger = logging.getLogger(__name__)
+_DEADLINE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
+
+
+async def _get_origin_lesson_for_group(
+    db: AsyncSession,
+    current_lesson: Lesson,
+    lab_number: int,
+) -> Lesson | None:
+    """Resolve the first lesson slot for this lab in the current lesson's group."""
+    if not current_lesson.group_id or not current_lesson.subject_id:
+        return None
+
+    result = await db.execute(
+        select(Lesson)
+        .where(
+            and_(
+                Lesson.group_id == current_lesson.group_id,
+                Lesson.subject_id == current_lesson.subject_id,
+                Lesson.lesson_type.in_(_DEADLINE_LESSON_TYPES),
+                Lesson.work_number == lab_number,
+                Lesson.is_cancelled.is_(False),
+            )
+        )
+        .order_by(Lesson.date, Lesson.lesson_number)
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
 
 
 async def get_max_allowed_grade_for_lab(
@@ -34,8 +61,8 @@ async def get_max_allowed_grade_for_lab(
     Returns:
         Максимально допустимая оценка (2-5)
     """
-    # Если лаба не привязана к занятию — нет ограничений
-    if not lab.lesson_id:
+    origin_lesson = await _get_origin_lesson_for_group(db, current_lesson, lab.number)
+    if not origin_lesson:
         return 5
 
     # Проверяем EXCUSED на занятии создания лабы (origin_lesson)
@@ -43,7 +70,7 @@ async def get_max_allowed_grade_for_lab(
     if student_id:
         excused_query = select(Attendance).where(
             and_(
-                Attendance.lesson_id == lab.lesson_id,
+                Attendance.lesson_id == origin_lesson.id,
                 Attendance.student_id == student_id,
                 Attendance.status == AttendanceStatus.EXCUSED,
             )
@@ -54,11 +81,6 @@ async def get_max_allowed_grade_for_lab(
 
     # Если нет дедлайнов — нет ограничений
     if lab.deadline_5_lessons is None and lab.deadline_4_lessons is None:
-        return 5
-
-    # Получаем занятие на котором создана лаба
-    origin_lesson = await db.get(Lesson, lab.lesson_id)
-    if not origin_lesson:
         return 5
 
     # Проверяем продление дедлайна для группы студента
@@ -124,7 +146,7 @@ async def _get_lesson_index(db: AsyncSession, origin_lesson: Lesson, current_les
             and_(
                 Lesson.group_id == origin_lesson.group_id,
                 Lesson.subject_id == origin_lesson.subject_id,
-                Lesson.lesson_type == LessonType.LAB,
+                Lesson.lesson_type.in_(_DEADLINE_LESSON_TYPES),
                 Lesson.is_cancelled.is_(False),
                 Lesson.date >= origin_lesson.date,
             )
@@ -168,7 +190,7 @@ async def get_max_allowed_grade(
     Returns:
         Максимально допустимая оценка (2-5)
     """
-    if lesson.lesson_type != LessonType.LAB:
+    if lesson.lesson_type not in _DEADLINE_LESSON_TYPES:
         return 5
 
     lab_number = work_number or lesson.work_number

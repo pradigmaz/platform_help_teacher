@@ -17,14 +17,12 @@ export interface UseJournalGradesReturn {
 }
 
 interface UseJournalGradesProps {
-  attendance: Record<string, Record<string, string>>;
-  updateAttendance: (lessonId: string, studentId: string, status: string | null) => Promise<void>;
   onStatsRefetch: () => void;
 }
 
 const STATS_DEBOUNCE_MS = 300;
 
-export function useJournalGrades({ attendance, updateAttendance, onStatsRefetch }: UseJournalGradesProps): UseJournalGradesReturn {
+export function useJournalGrades({ onStatsRefetch }: UseJournalGradesProps): UseJournalGradesReturn {
   const [grades, setGrades] = useState<Record<string, Record<string, GradeData>>>({});
   const [attestationScores, setAttestationScores] = useState<Record<string, AttestationResult>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -51,7 +49,12 @@ export function useJournalGrades({ attendance, updateAttendance, onStatsRefetch 
       const gradeMap: Record<string, Record<string, GradeData>> = {};
       for (const g of data) {
         if (!gradeMap[g.lesson_id]) gradeMap[g.lesson_id] = {};
-        gradeMap[g.lesson_id][g.student_id] = { grade: g.grade, work_number: g.work_number };
+        gradeMap[g.lesson_id][g.student_id] = {
+          grade: g.grade,
+          work_number: g.work_number,
+          has_conflict: g.has_conflict,
+          conflict_count: g.conflict_count,
+        };
       }
       setGrades(gradeMap);
     } catch {
@@ -115,13 +118,7 @@ export function useJournalGrades({ attendance, updateAttendance, onStatsRefetch 
           grade,
           work_number: workNumber
         });
-        
-        const currentStatus = attendance[lessonId]?.[studentId];
-        if (!currentStatus || currentStatus === 'ABSENT') {
-          await updateAttendance(lessonId, studentId, 'PRESENT');
-        } else {
-          debouncedStatsRefetch();
-        }
+        debouncedStatsRefetch();
       }
     } catch {
       // Откат при ошибке
@@ -141,7 +138,7 @@ export function useJournalGrades({ attendance, updateAttendance, onStatsRefetch 
     } finally {
       setIsSaving(false);
     }
-  }, [grades, attendance, updateAttendance, debouncedStatsRefetch]);
+  }, [grades, debouncedStatsRefetch]);
 
   return { grades, setGrades, attestationScores, updateGrade, loadGrades, loadAttestationScores, isSaving };
 }

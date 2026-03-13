@@ -65,7 +65,7 @@ class CRUDSchedule:
 
     async def update(self, db: AsyncSession, *, db_obj: ScheduleItem, **kwargs) -> ScheduleItem:
         for field, value in kwargs.items():
-            if value is not None and hasattr(db_obj, field):
+            if hasattr(db_obj, field):
                 setattr(db_obj, field, value)
         db.add(db_obj)
         await db.commit()
@@ -184,7 +184,7 @@ class CRUDLesson:
 
     async def update(self, db: AsyncSession, *, db_obj: Lesson, **kwargs) -> Lesson:
         for field, value in kwargs.items():
-            if value is not None and hasattr(db_obj, field):
+            if hasattr(db_obj, field):
                 setattr(db_obj, field, value)
         db.add(db_obj)
         await db.commit()

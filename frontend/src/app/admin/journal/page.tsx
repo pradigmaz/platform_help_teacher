@@ -57,6 +57,7 @@ export default function JournalPage() {
     isLoading,
     updateAttendance,
     updateGrade,
+    refreshJournalData,
   } = useJournalData({ lessonIdParam });
 
   // Generate semester options (current year and previous)
@@ -205,8 +206,10 @@ export default function JournalPage() {
         } : null}
         isOpen={!!selectedLesson}
         onClose={() => setSelectedLesson(null)}
-        onSave={() => {
-          // Refresh data after save
+        onSave={async (savedSheet) => {
+          if (savedSheet) {
+            await refreshJournalData();
+          }
           setSelectedLesson(null);
         }}
       />

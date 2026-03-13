@@ -1,4 +1,4 @@
-"""Сервис синхронизации сдач лабораторных работ с журналом."""
+"""Projection sync between journal grades and submissions."""
 
 import logging
 from datetime import UTC, datetime
@@ -46,6 +46,7 @@ class SubmissionJournalSync:
         grade: int,
         comment: str | None,
         created_by: UUID,
+        append_history: bool = True,
     ) -> Submission | None:
         """
         Создать или обновить Submission на основе оценки из журнала.
@@ -100,15 +101,16 @@ class SubmissionJournalSync:
             submission.accepted_at = now
 
             # Добавляем в историю
-            submission.history = submission.history + [
-                {
-                    "action": "graded_from_journal",
-                    "grade": grade,
-                    "comment": comment,
-                    "by": str(created_by),
-                    "at": now.isoformat(),
-                }
-            ]
+            if append_history:
+                submission.history = submission.history + [
+                    {
+                        "action": "graded_from_journal",
+                        "grade": grade,
+                        "comment": comment,
+                        "by": str(created_by),
+                        "at": now.isoformat(),
+                    }
+                ]
         else:
             # Создаём новую сдачу
             logger.info(
@@ -122,27 +124,31 @@ class SubmissionJournalSync:
                 grade=grade,
                 feedback=comment,
                 accepted_at=now,
-                history=[
-                    {
-                        "action": "created_from_journal",
-                        "grade": grade,
-                        "comment": comment,
-                        "by": str(created_by),
-                        "at": now.isoformat(),
-                    }
-                ],
+                history=(
+                    [
+                        {
+                            "action": "created_from_journal",
+                            "grade": grade,
+                            "comment": comment,
+                            "by": str(created_by),
+                            "at": now.isoformat(),
+                        }
+                    ]
+                    if append_history
+                    else []
+                ),
             )
 
             try:
-                db.add(submission)
-                await db.flush()  # Триггер constraint проверки
+                async with db.begin_nested():
+                    db.add(submission)
+                    await db.flush()  # Триггер constraint проверки
             except IntegrityError:
                 # Race condition: другой запрос уже создал submission
                 logger.warning(
                     f"[SubmissionJournalSync:sync_from_journal] Race condition detected, retrying... "
                     f"student={student_id}, lab={lab.id}"
                 )
-                await db.rollback()
 
                 # Повторяем SELECT — submission уже создан
                 result = await db.execute(
@@ -167,15 +173,16 @@ class SubmissionJournalSync:
                     submission.accepted_at = now
 
                     # Добавляем в историю
-                    submission.history = submission.history + [
-                        {
-                            "action": "graded_from_journal",
-                            "grade": grade,
-                            "comment": comment,
-                            "by": str(created_by),
-                            "at": now.isoformat(),
-                        }
-                    ]
+                    if append_history:
+                        submission.history = submission.history + [
+                            {
+                                "action": "graded_from_journal",
+                                "grade": grade,
+                                "comment": comment,
+                                "by": str(created_by),
+                                "at": now.isoformat(),
+                            }
+                        ]
                 else:
                     # Не должно произойти, но на всякий случай
                     logger.error(
@@ -189,6 +196,51 @@ class SubmissionJournalSync:
             f"student={student_id}, lab={lab.id}, grade={grade}"
         )
         return submission
+
+    async def rollback_from_journal(
+        self,
+        db: AsyncSession,
+        student_id: UUID,
+        lesson: Lesson,
+        work_number: int,
+        created_by: UUID | None = None,
+        append_history: bool = True,
+    ) -> bool:
+        """Rollback submission projection after grade removal or work-number move."""
+        if not lesson.subject_id:
+            return False
+
+        result = await db.execute(
+            select(Submission)
+            .join(Lab, Submission.lab_id == Lab.id)
+            .where(
+                and_(
+                    Submission.user_id == student_id,
+                    Submission.deleted_at.is_(None),
+                    Lab.subject_id == lesson.subject_id,
+                    Lab.number == work_number,
+                )
+            )
+        )
+        submission = result.scalar_one_or_none()
+        if not submission:
+            return False
+
+        now = datetime.now(UTC)
+        submission.status = SubmissionStatus.NEW
+        submission.grade = None
+        submission.feedback = None
+        submission.accepted_at = None
+        if append_history:
+            submission.history = submission.history + [
+                {
+                    "action": "grade_removed_from_journal",
+                    "work_number": work_number,
+                    "by": str(created_by) if created_by else None,
+                    "at": now.isoformat(),
+                }
+            ]
+        return True
 
     async def find_lesson_for_student(self, db: AsyncSession, lab: Lab, student_id: UUID) -> Lesson | None:
         """
@@ -215,20 +267,20 @@ class SubmissionJournalSync:
 
         today = today_msk()
 
-        # Ищем ближайшее LAB-занятие на сегодня или раньше
+        # Ищем ближайшее lab/practice-занятие на сегодня или раньше
         # НЕ фильтруем по work_number — студент может сдавать долг
         query = (
             select(Lesson)
             .where(
                 Lesson.subject_id == subject_id,
                 Lesson.group_id == student.group_id,
-                Lesson.lesson_type == LessonType.LAB,
+                Lesson.lesson_type.in_((LessonType.LAB, LessonType.PRACTICE)),
                 Lesson.date <= today,
                 Lesson.is_cancelled.is_(False),
                 # Подгруппа: либо совпадает, либо занятие для всех (NULL)
                 or_(Lesson.subgroup == student.subgroup, Lesson.subgroup.is_(None)),
             )
-            .order_by(Lesson.date.desc())  # Ближайшее к сегодня
+            .order_by(Lesson.date.desc(), Lesson.lesson_number.desc())
             .limit(1)
         )
 

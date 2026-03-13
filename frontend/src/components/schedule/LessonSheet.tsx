@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { Save, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import type { LessonData } from './types';
+import type { LessonData, LessonSheetSyncData } from './types';
 import { canHaveGrade } from './constants';
 import { useLessonData } from './hooks/useLessonData';
 import { SheetHeader, LessonStatus, LessonTopic, StudentsTable } from './components';
@@ -18,7 +18,7 @@ interface LessonSheetProps {
   lesson: LessonData | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave?: () => void;
+  onSave?: (savedSheet: LessonSheetSyncData | null) => void | Promise<void>;
 }
 
 export function LessonSheet({ lesson, isOpen, onClose, onSave }: LessonSheetProps) {
@@ -73,13 +73,14 @@ export function LessonSheet({ lesson, isOpen, onClose, onSave }: LessonSheetProp
     setStatus,
     cycleAttendance,
     setGrade,
+    setStudentWorkNumber,
     saveAll,
   } = useLessonData({ lesson, isOpen });
 
   const handleSave = async () => {
     try {
-      await saveAll();
-      onSave?.();
+      const savedSheet = await saveAll();
+      await onSave?.(savedSheet);
       onClose();
     } catch {
       // Error already logged in hook
@@ -131,9 +132,11 @@ export function LessonSheet({ lesson, isOpen, onClose, onSave }: LessonSheetProp
             attendance={attendance}
             grades={grades}
             canHaveGrade={lessonCanHaveGrade}
+            lessonWorkNumber={workNumber}
             isLoading={isLoading}
             onAttendanceClick={cycleAttendance}
             onGradeClick={setGrade}
+            onWorkNumberChange={setStudentWorkNumber}
           />
         </div>
 

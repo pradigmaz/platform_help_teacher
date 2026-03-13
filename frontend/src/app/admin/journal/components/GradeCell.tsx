@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -19,21 +20,24 @@ interface GradeCellProps {
 
 export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: GradeCellProps) {
   const gradeValue = gradeData?.grade;
-  const workNum = gradeData?.work_number;
+  const workNum = gradeData?.work_number ?? lesson.work_number ?? null;
   const lessonWorkNum = lesson.work_number;
   const lessonType = lesson.lesson_type.toLowerCase();
+  const hasConflict = gradeData?.has_conflict;
+  const conflictCount = gradeData?.conflict_count ?? 2;
   
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(gradeValue?.toString() || '');
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const skipBlurSaveRef = useRef(false);
 
   const form = useForm<GradeCellFormValues>({
     resolver: zodResolver(gradeCellSchema),
     mode: 'onChange',
     defaultValues: {
       grade: gradeValue?.toString() || '',
-      work_number: workNum ?? null,
+      work_number: workNum,
     },
   });
 
@@ -42,7 +46,7 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
     const newGrade = gradeValue?.toString() || '';
     setValue(newGrade);
     form.setValue('grade', newGrade, { shouldValidate: false });
-    form.setValue('work_number', workNum ?? null, { shouldValidate: false });
+    form.setValue('work_number', workNum, { shouldValidate: false });
   }, [gradeValue, workNum, form]);
 
   // Cleanup debounce on unmount
@@ -64,14 +68,24 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
   const handleBlur = () => {
     setIsEditing(false);
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (skipBlurSaveRef.current) {
+      skipBlurSaveRef.current = false;
+      return;
+    }
     
     const newGrade = value ? parseInt(value) : null;
-    const currentWorkNum = form.watch('work_number');
+    const currentWorkNum = form.getValues('work_number') ?? lessonWorkNum ?? null;
     
     if (newGrade === null && gradeValue) {
       onGradeChange(null, null);
     } else if (newGrade && newGrade !== gradeValue) {
-      onGradeChange(newGrade, currentWorkNum ?? null);
+      if ((lessonType === 'lab' || lessonType === 'practice') && !currentWorkNum) {
+        setValue(gradeValue?.toString() || '');
+        form.setValue('grade', gradeValue?.toString() || '', { shouldValidate: false });
+        toast.error('Сначала укажите номер работы');
+        return;
+      }
+      onGradeChange(newGrade, currentWorkNum);
     }
   };
 
@@ -86,14 +100,26 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
   };
 
   const handleFocus = () => {
+    if (hasConflict) return;
     setIsEditing(true);
     // Select all on focus
     setTimeout(() => inputRef.current?.select(), 0);
   };
 
   const showWorkNum = workNum && workNum !== lessonWorkNum;
-  const needsWorkNum = !workNum && gradeValue && (lessonType === 'lab' || lessonType === 'practice');
+  const needsWorkNum = !workNum && !!value && (lessonType === 'lab' || lessonType === 'practice');
   const workNumbers = Array.from({ length: Math.max(maxWorkNum, 8) }, (_, i) => i + 1);
+
+  if (hasConflict) {
+    return (
+      <div
+        title={`У студента ${conflictCount} оценки на этой паре. Разберите конфликт до редактирования.`}
+        className="w-5 h-5 rounded bg-destructive/15 text-destructive text-[10px] font-bold flex items-center justify-center cursor-not-allowed"
+      >
+        !
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-0.5">
@@ -116,10 +142,15 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
         )}
       />
       {/* Work number selector for labs/practices */}
-      {(lessonType === 'lab' || lessonType === 'practice') && gradeValue && (
+      {(lessonType === 'lab' || lessonType === 'practice') && !!value && (
         <Popover>
           <PopoverTrigger asChild>
-            <button 
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                skipBlurSaveRef.current = true;
+              }}
               className={cn(
                 "text-[8px] px-0.5 rounded hover:bg-accent",
                 needsWorkNum ? "text-orange-500 font-bold animate-pulse" : 
@@ -138,9 +169,16 @@ export function GradeCell({ gradeData, lesson, maxWorkNum, onGradeChange }: Grad
                   variant={workNum === n ? 'default' : 'outline'}
                   size="sm"
                   className="h-5 w-5 text-[10px] p-0"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    skipBlurSaveRef.current = true;
+                  }}
                   onClick={() => {
                     form.setValue('work_number', n);
-                    onGradeChange(gradeValue, n);
+                    const pendingGrade = value ? parseInt(value, 10) : gradeValue;
+                    if (pendingGrade) {
+                      onGradeChange(pendingGrade, n);
+                    }
                   }}
                 >
                   {n}

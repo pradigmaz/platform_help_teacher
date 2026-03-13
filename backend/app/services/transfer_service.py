@@ -28,6 +28,7 @@ from app.schemas.transfer import (
     TransferResponse,
     TransferSummary,
 )
+from app.services.attendance_slots import build_attendance_slot_filter
 from app.services.attestation.lab_progress import dedupe_lesson_grade_rows
 from app.services.schedule_constants import today_msk
 
@@ -152,7 +153,7 @@ class TransferService:
         settings = result.scalar_one_or_none()
 
         # Получаем релевантные занятия
-        lessons_query = select(Lesson).where(Lesson.group_id == group_id)
+        lessons_query = select(Lesson).where(Lesson.group_id == group_id, Lesson.is_cancelled.is_(False))
         if settings and settings.period_start_date:
             lessons_query = lessons_query.where(Lesson.date >= settings.period_start_date)
         if settings and settings.period_end_date:
@@ -166,14 +167,16 @@ class TransferService:
 
         lessons_result = await self.db.execute(lessons_query)
         relevant_lessons = list(lessons_result.scalars().all())
-        relevant_dates = {l.date for l in relevant_lessons}
 
-        if not relevant_dates:
+        if not relevant_lessons:
             return AttendanceSnapshot(total_lessons=0)
 
         # Получаем посещаемость
+        slot_filter = build_attendance_slot_filter(relevant_lessons)
         attendance_query = select(Attendance).where(
-            Attendance.student_id == student_id, Attendance.group_id == group_id, Attendance.date.in_(relevant_dates)
+            Attendance.student_id == student_id,
+            Attendance.group_id == group_id,
+            slot_filter,
         )
         attendance_result = await self.db.execute(attendance_query)
         records = list(attendance_result.scalars().all())
@@ -210,6 +213,7 @@ class TransferService:
             .where(LessonGrade.student_id == student_id)
             .where(Lesson.group_id == group_id)
             .where(LessonGrade.work_number.isnot(None))
+            .where(Lesson.is_cancelled.is_(False))
         )
         if settings and settings.period_start_date:
             grades_query = grades_query.where(Lesson.date >= settings.period_start_date)

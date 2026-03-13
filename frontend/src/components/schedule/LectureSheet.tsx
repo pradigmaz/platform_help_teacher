@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import { Save, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import api from '@/lib/api';
 import type { GroupedLecture, LessonStatus } from './types';
 import { useLectureData } from './hooks/useLectureData';
 import { LectureSheetHeader } from './components/LectureSheetHeader';
@@ -66,14 +65,14 @@ export function LectureSheet({ lecture, isOpen, onClose, onSave }: LectureSheetP
   useEffect(() => {
     setStatus(getInitialStatus(lecture));
     setHasChanges(false);
-  }, [lecture?.date, lecture?.lesson_number, lecture?.subject_id]);
+  }, [lecture]);
 
   const {
     groupsData,
     expandedGroups,
     toggleGroup,
     cycleAttendance,
-    saveAttendance,
+    saveLectureSheet,
     isLoading,
   } = useLectureData({ lecture, isOpen });
 
@@ -92,19 +91,8 @@ export function LectureSheet({ lecture, isOpen, onClose, onSave }: LectureSheetP
     setIsSaving(true);
 
     try {
-      // Save status for all lessons in the lecture
-      const statusPayload = {
-        is_cancelled: status === 'cancelled',
-        ended_early: status === 'early',
-      };
-      
-      for (const group of lecture.groups) {
-        // Update lesson status
-        await api.patch(`/admin/lessons/${group.lesson_id}`, statusPayload);
-        // Save attendance
-        await saveAttendance(group.id, group.lesson_id);
-      }
-      
+      await saveLectureSheet(status);
+
       setHasChanges(false);
       onSave?.(status);
       onClose();

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { format } from 'date-fns';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import type { JournalStats } from '../lib/journal-constants';
@@ -16,16 +15,16 @@ export interface UseJournalStatsReturn {
 interface UseJournalStatsProps {
   selectedGroupId: string;
   selectedSubjectId: string;
-  weekStart: Date;
-  weekEnd: Date;
+  startDate: string;
+  endDate: string;
   lessonsCount: number;
 }
 
 export function useJournalStats({
   selectedGroupId,
   selectedSubjectId,
-  weekStart,
-  weekEnd,
+  startDate,
+  endDate,
   lessonsCount
 }: UseJournalStatsProps): UseJournalStatsReturn {
   const [stats, setStats] = useState<JournalStats | null>(null);
@@ -53,13 +52,13 @@ export function useJournalStats({
   }, []);
 
   const refetchStats = useCallback(async () => {
-    if (!selectedGroupId || lessonsCount === 0) return;
+    if (!selectedGroupId || lessonsCount === 0 || !startDate || !endDate) return;
     try {
       const { data } = await api.get('/admin/journal/stats', {
         params: {
           group_id: selectedGroupId,
-          start_date: format(weekStart, 'yyyy-MM-dd'),
-          end_date: format(weekEnd, 'yyyy-MM-dd'),
+          start_date: startDate,
+          end_date: endDate,
           ...(selectedSubjectId !== 'all' && { subject_id: selectedSubjectId })
         }
       });
@@ -67,7 +66,7 @@ export function useJournalStats({
     } catch {
       toast.error('Ошибка обновления статистики');
     }
-  }, [selectedGroupId, selectedSubjectId, weekStart, weekEnd, lessonsCount]);
+  }, [selectedGroupId, selectedSubjectId, startDate, endDate, lessonsCount]);
 
   return { stats, setStats, loadStats, refetchStats };
 }

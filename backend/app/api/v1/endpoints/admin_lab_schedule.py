@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 SCHEDULE_LOOKAHEAD_DAYS = 14
+ATTACHABLE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
 
 
 class ScheduleSlot(BaseModel):
@@ -62,6 +63,22 @@ class AttachResponse(BaseModel):
     attached_count: int
 
 
+async def _sync_lab_origin_lesson(db: AsyncSession, lab: Lab) -> None:
+    result = await db.execute(
+        select(Lesson)
+        .where(
+            Lesson.work_number == lab.number,
+            Lesson.subject_id == lab.subject_id,
+            Lesson.lesson_type.in_(ATTACHABLE_LESSON_TYPES),
+            Lesson.is_cancelled.is_(False),
+        )
+        .order_by(Lesson.date, Lesson.lesson_number)
+        .limit(1)
+    )
+    origin_lesson = result.scalar_one_or_none()
+    lab.lesson_id = origin_lesson.id if origin_lesson else None
+
+
 @router.get("/{lab_id}/schedule-slots", response_model=ScheduleSlotsResponse)
 async def get_schedule_slots(
     lab_id: UUID,
@@ -78,7 +95,7 @@ async def get_schedule_slots(
 
     # Build filter
     filters = [
-        Lesson.lesson_type == LessonType.LAB,
+        Lesson.lesson_type.in_(ATTACHABLE_LESSON_TYPES),
         Lesson.date >= today,
         Lesson.date <= end_date,
         Lesson.is_cancelled.is_(False),
@@ -157,38 +174,40 @@ async def attach_to_lessons(
     lesson_uuids = [UUID(lid) for lid in data.lesson_ids]
 
     # Получаем первое занятие для валидации
-    first_lesson = await db.get(Lesson, lesson_uuids[0])
-    if not first_lesson:
+    lessons_result = await db.execute(select(Lesson).where(Lesson.id.in_(lesson_uuids)))
+    lessons = lessons_result.scalars().all()
+    if len(lessons) != len(lesson_uuids):
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
 
-    # Валидация: проверяем не активна ли предыдущая лаба
     validator = LabAttachmentValidator(db)
-    validation = await validator.validate_attachment(
-        lab_to_attach=lab,
-        target_lesson_date=first_lesson.date,
-        group_id=first_lesson.group_id,
-        subject_id=lab.subject_id,
-    )
-
-    if not validation.is_valid:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error": "previous_lab_active",
-                "blocking_lab_number": validation.blocking_lab_number,
-                "can_attach_from": validation.can_attach_from.isoformat() if validation.can_attach_from else None,
-                "message": validation.message,
-            },
+    for lesson in lessons:
+        validation = await validator.validate_attachment(
+            lab_to_attach=lab,
+            target_lesson_date=lesson.date,
+            group_id=lesson.group_id,
+            subject_id=lab.subject_id,
         )
+
+        if not validation.is_valid:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "previous_lab_active",
+                    "blocking_lab_number": validation.blocking_lab_number,
+                    "can_attach_from": validation.can_attach_from.isoformat() if validation.can_attach_from else None,
+                    "message": validation.message,
+                },
+            )
 
     # Update work_number for selected lessons
     stmt = (
         update(Lesson)
         .where(Lesson.id.in_(lesson_uuids))
-        .where(Lesson.lesson_type == LessonType.LAB)
+        .where(Lesson.lesson_type.in_(ATTACHABLE_LESSON_TYPES))
         .values(work_number=lab.number)
     )
     result = await db.execute(stmt)
+    await _sync_lab_origin_lesson(db, lab)
     await db.commit()
 
     logger.info(f"Admin {admin.id} attached lab {lab.number} to {result.rowcount} lessons")
@@ -221,6 +240,7 @@ async def detach_from_lessons(
         .values(work_number=None)
     )
     result = await db.execute(stmt)
+    await _sync_lab_origin_lesson(db, lab)
     await db.commit()
 
     logger.info(f"Admin {admin.id} detached lab {lab.number} from {result.rowcount} lessons")

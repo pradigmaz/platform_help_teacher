@@ -32,6 +32,12 @@ export interface UseJournalLessonsReturn {
   initialLoadDone: boolean;
   startDate: string;
   endDate: string;
+  refreshLessonsData: () => Promise<{
+    lessons: Lesson[];
+    students: Student[];
+    startDate: string;
+    endDate: string;
+  } | null>;
 }
 
 // Helper to get attestation period date range
@@ -153,7 +159,7 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
   }, [selectedGroupId, selectedSubjectId, selectedLessonType, weekKey, attestationPeriod, semesterKey, initialLoadDone]);
 
   const loadLessonsData = useCallback(async () => {
-    if (!selectedGroupId) return;
+    if (!selectedGroupId) return null;
     setIsLoading(true);
     
     try {
@@ -192,8 +198,15 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
 
       const { data: groupData } = await api.get(`/groups/${selectedGroupId}`);
       setStudents(groupData.students || []);
+      return {
+        lessons: lessonsData,
+        students: groupData.students || [],
+        startDate: start,
+        endDate: end,
+      };
     } catch {
       toast.error('Ошибка загрузки занятий');
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -209,5 +222,6 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
     initialLoadDone,
     startDate,
     endDate,
+    refreshLessonsData: loadLessonsData,
   };
 }

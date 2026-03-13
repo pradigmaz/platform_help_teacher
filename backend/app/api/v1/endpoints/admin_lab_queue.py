@@ -8,17 +8,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api import deps
 from app.core import error_messages as em
 from app.db.session import get_db
-from app.models import Lab, Lesson, Submission, SubmissionStatus, User
-from app.models.schedule import LessonType
+from app.models import Lab, Submission, SubmissionStatus, User
 from app.services.attestation.deadline_validator import get_max_allowed_grade_for_lab
-from app.services.schedule_constants import today_msk
 from app.services.submission_service import submission_service
 
 router = APIRouter()
@@ -181,7 +179,7 @@ async def get_submission_detail(
     # Вычисляем max_allowed_grade с учётом дедлайна
     max_allowed_grade = 5
     if lab.subject_id and student.group_id:
-        lesson = await _find_lesson_for_grading(db, lab, student)
+        _, lesson = await submission_service.resolve_acceptance_context(db, sub)
         if lesson:
             max_allowed_grade = await get_max_allowed_grade_for_lab(db, lab, lesson, student.id)
 
@@ -203,31 +201,6 @@ async def get_submission_detail(
     )
 
 
-async def _find_lesson_for_grading(db: AsyncSession, lab: Lab, student: User) -> Lesson | None:
-    """Найти занятие для определения дедлайна."""
-    if not lab.subject_id or not student.group_id:
-        return None
-
-    today = today_msk()
-
-    query = (
-        select(Lesson)
-        .where(
-            Lesson.subject_id == lab.subject_id,
-            Lesson.group_id == student.group_id,
-            Lesson.lesson_type == LessonType.LAB,
-            Lesson.date <= today,
-            Lesson.is_cancelled.is_(False),
-            or_(Lesson.subgroup == student.subgroup, Lesson.subgroup.is_(None)),
-        )
-        .order_by(Lesson.date.desc())
-        .limit(1)
-    )
-
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
-
-
 @router.post("/submissions/{submission_id}/accept")
 async def accept_submission(
     submission_id: UUID,
@@ -247,6 +220,7 @@ async def accept_submission(
         result = await submission_service.accept(db, sub, data.grade, data.comment, current_user.id)
         return result
     except ValueError as e:
+        await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
