@@ -3,7 +3,7 @@
 from collections import defaultdict
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import Date, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attestation_settings import AttestationSettings
@@ -14,6 +14,42 @@ from app.models.submission import Submission, SubmissionStatus
 from .lab_progress import dedupe_submission_lab_grades
 
 
+def _build_submission_fallback_query(
+    student_filter,
+    group_id: UUID,
+    settings: AttestationSettings,
+):
+    period_start, period_end = settings.get_effective_period()
+    subject_expr = func.coalesce(Lesson.subject_id, Lab.subject_id)
+    period_date_expr = func.coalesce(
+        Lesson.date,
+        Submission.lesson_date,
+        cast(Submission.accepted_at, Date),
+        cast(Submission.created_at, Date),
+    )
+
+    return (
+        select(Submission, subject_expr, Lab.number)
+        .join(Lab, Submission.lab_id == Lab.id)
+        .outerjoin(Lesson, Submission.lesson_id == Lesson.id)
+        .where(student_filter)
+        .where(Submission.status == SubmissionStatus.ACCEPTED)
+        .where(Submission.grade.isnot(None))
+        .where(Submission.deleted_at.is_(None))
+        .where(subject_expr.isnot(None))
+        .where(period_date_expr.isnot(None))
+        .where(period_date_expr >= period_start)
+        .where(period_date_expr <= period_end)
+        .where(or_(Submission.lesson_id.is_(None), Lesson.is_cancelled.is_(False)))
+        .where(
+            or_(
+                Lesson.group_id == group_id,
+                Submission.lesson_id.is_(None),
+            )
+        )
+    )
+
+
 async def get_student_submission_grade_fallbacks(
     db: AsyncSession,
     student_id: UUID,
@@ -21,22 +57,7 @@ async def get_student_submission_grade_fallbacks(
     settings: AttestationSettings,
 ) -> list[dict]:
     """Load accepted submissions that can fill missing journal grades."""
-    period_start, period_end = settings.get_effective_period()
-    query = (
-        select(Submission, Lesson.subject_id, Lab.number)
-        .join(Lab, Submission.lab_id == Lab.id)
-        .join(Lesson, Submission.lesson_id == Lesson.id)
-        .where(Submission.user_id == student_id)
-        .where(Submission.status == SubmissionStatus.ACCEPTED)
-        .where(Submission.grade.isnot(None))
-        .where(Submission.deleted_at.is_(None))
-        .where(Submission.lesson_id.isnot(None))
-        .where(Lesson.subject_id.isnot(None))
-        .where(Lesson.group_id == group_id)
-        .where(Lesson.is_cancelled.is_(False))
-        .where(Lesson.date >= period_start)
-        .where(Lesson.date <= period_end)
-    )
+    query = _build_submission_fallback_query(Submission.user_id == student_id, group_id, settings)
     result = await db.execute(query)
     return dedupe_submission_lab_grades(result.all())
 
@@ -51,22 +72,7 @@ async def get_submission_grade_fallbacks_batch(
     if not student_ids:
         return {}
 
-    period_start, period_end = settings.get_effective_period()
-    query = (
-        select(Submission, Lesson.subject_id, Lab.number)
-        .join(Lab, Submission.lab_id == Lab.id)
-        .join(Lesson, Submission.lesson_id == Lesson.id)
-        .where(Submission.user_id.in_(student_ids))
-        .where(Submission.status == SubmissionStatus.ACCEPTED)
-        .where(Submission.grade.isnot(None))
-        .where(Submission.deleted_at.is_(None))
-        .where(Submission.lesson_id.isnot(None))
-        .where(Lesson.subject_id.isnot(None))
-        .where(Lesson.group_id == group_id)
-        .where(Lesson.is_cancelled.is_(False))
-        .where(Lesson.date >= period_start)
-        .where(Lesson.date <= period_end)
-    )
+    query = _build_submission_fallback_query(Submission.user_id.in_(student_ids), group_id, settings)
     result = await db.execute(query)
 
     rows_by_student: dict[UUID, list[tuple[Submission, UUID | None, int | None]]] = defaultdict(list)

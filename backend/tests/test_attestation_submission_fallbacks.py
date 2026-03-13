@@ -24,7 +24,7 @@ def _build_settings() -> AttestationSettings:
 
 class TestSubmissionFallbackQueries:
     @pytest.mark.asyncio
-    async def test_student_fallback_query_uses_lesson_subject(self):
+    async def test_student_fallback_query_supports_legacy_submission_context(self):
         mock_result = MagicMock()
         mock_result.all.return_value = []
         mock_db = AsyncMock()
@@ -34,9 +34,11 @@ class TestSubmissionFallbackQueries:
 
         query = str(mock_db.execute.call_args[0][0]).lower()
 
-        assert "join lessons" in query
-        assert "lessons.subject_id" in query
-        assert "labs.subject_id is not null" not in query
+        assert "left outer join lessons" in query
+        assert "coalesce(lessons.subject_id, labs.subject_id)" in query
+        assert "coalesce(lessons.date, submissions.lesson_date" in query
+        assert "submissions.lesson_id is null" in query
+        assert "lessons.is_cancelled is false" in query
 
     @pytest.mark.asyncio
     async def test_batch_attendance_query_uses_slot_filter_instead_of_date_bounds(self):
