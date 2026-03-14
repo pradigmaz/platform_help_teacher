@@ -119,13 +119,9 @@ class AttestationSettingsManager:
     async def update_settings(self, settings_update: AttestationSettingsUpdate) -> AttestationSettings:
         att_settings = await self.get_or_create_settings(settings_update.attestation_type)
 
-        update_data = settings_update.model_dump(
-            exclude={"attestation_type", "labs_count_first", "labs_count_second"}
-        )
+        update_data = settings_update.model_dump(exclude={"attestation_type", "labs_count_first", "labs_count_second"})
         first_required_override = (
-            settings_update.labs_count_first
-            if settings_update.attestation_type == AttestationType.FIRST
-            else None
+            settings_update.labs_count_first if settings_update.attestation_type == AttestationType.FIRST else None
         )
 
         for field, value in update_data.items():
