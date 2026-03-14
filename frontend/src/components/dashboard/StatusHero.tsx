@@ -154,7 +154,10 @@ export function StatusHero({ attestation, isLoading }: StatusHeroProps) {
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             {labsRequired > 0 && (
               <span>
-                Сдано лаб: <span className={cn("font-semibold", labsCount >= labsRequired ? "text-green-500" : "text-foreground")}>{labsCount}/{labsRequired}</span>
+                Зачтено для аттестации:{' '}
+                <span className={cn("font-semibold", labsCount >= labsRequired ? "text-green-500" : "text-foreground")}>
+                  {labsCount}/{labsRequired}
+                </span>
               </span>
             )}
             {status !== 'passing' && (

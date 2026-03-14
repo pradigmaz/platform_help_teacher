@@ -22,8 +22,13 @@ class AttestationSettingsBase(BaseModel):
     activity_reserve: float = Field(default=10.0, ge=0, le=100, description="Резерв для активности (%)")
 
     # === КОЛИЧЕСТВО РАБОТ ===
-    labs_count_first: int = Field(default=8, ge=1, le=20, description="Лаб для 1-й аттестации")
-    labs_count_second: int = Field(default=10, ge=0, le=20, description="Доп. лаб для 2-й аттестации")
+    labs_count_first: int = Field(default=8, ge=1, le=20, description="Требуемые лабы для 1-й аттестации")
+    labs_count_second: int = Field(
+        default=10,
+        ge=0,
+        le=20,
+        description="Доп. лабы после 1-й аттестации, синхронизируются от общего числа лабораторных",
+    )
 
     # === КОЭФФИЦИЕНТЫ ОЦЕНОК (5=1.0 и 2=0.0 фиксированы) ===
     grade_4_coef: float = Field(default=0.7, ge=0, le=1, description="Коэффициент оценки 4")

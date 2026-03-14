@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { Lab, LabCreate, LabUpdate } from './types';
+import type { Lab, LabCreate, LabUpdate, LabSettings } from './types';
 
 // Типы для продлений дедлайнов
 export interface DeadlineExtension {
@@ -56,6 +56,11 @@ export const LabsAPI = {
   },
 
   // Admin endpoints
+  getSettings: async () => {
+    const { data } = await api.get<LabSettings>('/admin/lab-settings');
+    return data;
+  },
+
   adminList: async () => {
     const { data } = await api.get<Lab[]>('/admin/labs');
     return data;

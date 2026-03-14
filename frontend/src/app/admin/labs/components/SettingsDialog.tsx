@@ -41,8 +41,8 @@ export function SettingsDialog({ open, onOpenChange, settings, setSettings, onSa
           </DialogTitle>
           <DialogDescription>
             {isInitialSetup 
-              ? 'Укажите количество лабораторных работ в семестре для начала работы.'
-              : 'Количество лабораторных для отслеживания прогресса. Шкала оценок настраивается в разделе «Аттестация».'}
+              ? 'Укажите общее количество лабораторных работ в семестре для начала работы.'
+              : 'Это общий total лабораторных на семестр. Он используется и в разделе «Лабораторные», и в расчёте 2-й аттестации.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -56,7 +56,7 @@ export function SettingsDialog({ open, onOpenChange, settings, setSettings, onSa
               value={settings.labs_count} 
               onChange={(e) => setSettings({ ...settings, labs_count: parseInt(e.target.value) || 10 })} 
             />
-            <p className="text-xs text-muted-foreground">Сколько лабораторных работ в семестре</p>
+            <p className="text-xs text-muted-foreground">Общее количество лабораторных на обе аттестации</p>
           </div>
         </div>
         <DialogFooter>

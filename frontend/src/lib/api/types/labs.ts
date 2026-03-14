@@ -12,6 +12,13 @@ export interface Submission {
   created_at: string;
 }
 
+export interface LabSettings {
+  labs_count: number;
+  grading_scale: '5' | '10' | '100';
+  default_max_grade: number;
+  is_configured: boolean;
+}
+
 export interface LabVariant {
   id?: string;  // Optional for API responses, required in editor
   number: number;

@@ -15,8 +15,21 @@ function getLabStats(labs: QuickStatsProps['labs'], attestation?: QuickStatsProp
   const accepted = labs.filter(isLabAccepted).length;
   const pending = labs.filter(l => !isLabAccepted(l) && (l.submission?.status === 'IN_REVIEW' || l.submission?.status === 'READY')).length;
   const required = attestation?.breakdown?.labs?.required ?? visible;
-  const percent = required > 0 ? Math.round((accepted / required) * 100) : 0;
+  const percent = required > 0 ? Math.min(Math.round((accepted / required) * 100), 100) : 0;
   return { visible, accepted, pending, required, percent };
+}
+
+function getLabSummaryText({ visible, pending, required }: ReturnType<typeof getLabStats>) {
+  const publishedText =
+    required > visible
+      ? `Опубликовано сейчас: ${visible} из ${required}`
+      : `Опубликовано: ${visible}`;
+
+  if (pending > 0) {
+    return `${publishedText} • На проверке: ${pending}`;
+  }
+
+  return publishedText;
 }
 
 /** Get nearest deadline (by lessons count) */
@@ -44,6 +57,7 @@ export function QuickStats({ labs, attendance, attestation, isLoading }: QuickSt
   }
 
   const labStats = getLabStats(labs, attestation);
+  const labSummaryText = getLabSummaryText(labStats);
   const attendanceRate = attendance?.stats.attendance_rate || 0;
   const nearestDeadline = getNearestDeadline(labs);
 
@@ -70,7 +84,7 @@ export function QuickStats({ labs, attendance, attestation, isLoading }: QuickSt
             <Progress value={labStats.percent} className="h-1.5 [&>div]:bg-purple-500" />
             
             <p className="text-xs text-muted-foreground mt-2">
-              {labStats.pending > 0 ? `На проверке: ${labStats.pending}` : `Всего работ: ${labStats.visible}`}
+              {labSummaryText}
             </p>
           </div>
         </MagicCard>

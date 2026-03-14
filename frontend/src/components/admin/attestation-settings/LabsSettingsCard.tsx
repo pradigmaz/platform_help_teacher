@@ -10,10 +10,18 @@ import type { AttestationFormState } from './types';
 interface LabsSettingsCardProps {
   form: AttestationFormState;
   attestationType: 'first' | 'second';
+  totalLabsCount: number;
+  derivedSecondLabsCount: number;
   onUpdate: <K extends keyof AttestationFormState>(key: K, value: AttestationFormState[K]) => void;
 }
 
-export function LabsSettingsCard({ form, attestationType, onUpdate }: LabsSettingsCardProps) {
+export function LabsSettingsCard({
+  form,
+  attestationType,
+  totalLabsCount,
+  derivedSecondLabsCount,
+  onUpdate,
+}: LabsSettingsCardProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -23,7 +31,7 @@ export function LabsSettingsCard({ form, attestationType, onUpdate }: LabsSettin
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
             <Label>Вес (%)</Label>
             <div className="flex items-center gap-2">
@@ -32,15 +40,40 @@ export function LabsSettingsCard({ form, attestationType, onUpdate }: LabsSettin
             </div>
           </div>
           <div>
+            <Label>Всего лаб в семестре</Label>
+            <Input type="number" value={totalLabsCount} readOnly className="bg-muted" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Общее количество задаётся в разделе «Лабораторные».
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
             <Label>Кол-во для 1-й атт.</Label>
-            <Input type="number" value={form.labs_count_first} onChange={e => onUpdate('labs_count_first', +e.target.value)} min={1} max={20} />
+            <Input
+              type="number"
+              value={form.labs_count_first}
+              onChange={e => onUpdate('labs_count_first', +e.target.value)}
+              min={1}
+              max={totalLabsCount}
+              readOnly={attestationType === 'second'}
+              className={attestationType === 'second' ? 'bg-muted' : undefined}
+            />
+            {attestationType === 'second' && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Порог 1-й аттестации редактируется на вкладке «1-я аттестация».
+              </p>
+            )}
+          </div>
+          <div>
+            <Label>Доп. лаб ко 2-й атт.</Label>
+            <Input type="number" value={derivedSecondLabsCount} readOnly className="bg-muted" />
           </div>
         </div>
         {attestationType === 'second' && (
-          <div>
-            <Label>Доп. лаб для 2-й атт.</Label>
-            <Input type="number" value={form.labs_count_second} onChange={e => onUpdate('labs_count_second', +e.target.value)} min={0} max={20} />
-          </div>
+          <p className="text-xs text-muted-foreground">
+            2-я аттестация суммарно требует {totalLabsCount} лаб: {form.labs_count_first} к 1-й аттестации и {derivedSecondLabsCount} после неё.
+          </p>
         )}
         <div className="grid grid-cols-2 gap-4">
           <div>

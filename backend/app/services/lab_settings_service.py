@@ -6,6 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lab_settings import LabSettings
+from app.services.attestation.lab_count_sync import (
+    DEFAULT_TOTAL_LABS_COUNT,
+    sync_attestation_lab_counts,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +30,7 @@ class LabSettingsService:
         settings = result.scalar_one_or_none()
 
         if not settings:
-            settings = LabSettings(labs_count=10, default_max_grade=10)
+            settings = LabSettings(labs_count=DEFAULT_TOTAL_LABS_COUNT, default_max_grade=10)
             db.add(settings)
             await db.flush()
             logger.info("[LabSettingsService:update_lab_settings] Created new settings")
@@ -34,6 +38,9 @@ class LabSettingsService:
         update_data = settings_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(settings, field, value)
+
+        if "labs_count" in update_data:
+            await sync_attestation_lab_counts(db, total_labs=settings.labs_count)
 
         await db.commit()
         await db.refresh(settings)

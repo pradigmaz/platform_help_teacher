@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class GradingScale(str, Enum):
@@ -20,6 +20,6 @@ class LabSettingsResponse(BaseModel):
 
 
 class LabSettingsUpdate(BaseModel):
-    labs_count: int | None = None
+    labs_count: int | None = Field(default=None, ge=1, le=50)
     grading_scale: GradingScale | None = None
     default_max_grade: int | None = None

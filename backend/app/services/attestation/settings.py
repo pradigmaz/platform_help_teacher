@@ -4,7 +4,6 @@
 
 import logging
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import get_redis
@@ -14,6 +13,12 @@ from app.schemas.attestation import (
     AttestationSettingsResponse,
     AttestationSettingsUpdate,
     ScorePreview,
+)
+from app.services.attestation.lab_count_sync import (
+    calculate_synced_lab_counts,
+    get_attestation_settings_row,
+    get_total_labs_count,
+    sync_attestation_lab_counts,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,28 +45,60 @@ class AttestationSettingsManager:
         except Exception as e:
             logger.warning(f"Redis cache invalidation error: {e}")
 
+    async def _invalidate_caches(self, attestation_types: set[AttestationType]) -> None:
+        for attestation_type in attestation_types:
+            await self._invalidate_cache(attestation_type)
+
+    async def _get_raw_settings(self, attestation_type: AttestationType) -> AttestationSettings | None:
+        return await get_attestation_settings_row(self.db, attestation_type)
+
+    async def _sync_lab_counts(self, first_required_override: int | None = None) -> set[AttestationType]:
+        first_settings = await self._get_raw_settings(AttestationType.FIRST)
+        second_settings = await self._get_raw_settings(AttestationType.SECOND)
+        return await sync_attestation_lab_counts(
+            self.db,
+            first_required=first_required_override,
+            first_settings=first_settings,
+            second_settings=second_settings,
+        )
+
     async def get_settings(self, attestation_type: AttestationType) -> AttestationSettings | None:
-        query = select(AttestationSettings).where(AttestationSettings.attestation_type == attestation_type)
-        result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        settings = await self._get_raw_settings(attestation_type)
+        if settings is None:
+            return None
+        changed_types = await self._sync_lab_counts()
+        if changed_types:
+            await self.db.commit()
+            settings = await self._get_raw_settings(attestation_type)
+            await self._invalidate_caches(changed_types)
+        return settings
 
     async def get_or_create_settings(self, attestation_type: AttestationType) -> AttestationSettings:
-        att_settings = await self.get_settings(attestation_type)
+        att_settings = await self._get_raw_settings(attestation_type)
         if att_settings is None:
             att_settings = await self._create_default(attestation_type)
+        changed_types = await self._sync_lab_counts()
+        if changed_types:
+            await self.db.commit()
+            await self.db.refresh(att_settings)
+            await self._invalidate_caches(changed_types)
         return att_settings
 
     async def _create_default(self, attestation_type: AttestationType) -> AttestationSettings:
         """Создание настроек по умолчанию."""
         logger.info(f"Creating default settings for {attestation_type}")
 
+        total_labs = await get_total_labs_count(self.db)
+        first_required = min(8, total_labs)
+        synced_first, synced_second = calculate_synced_lab_counts(first_required, total_labs)
+
         att_settings = AttestationSettings(
             attestation_type=attestation_type,
             labs_weight=70.0,
             attendance_weight=20.0,
             activity_reserve=10.0,
-            labs_count_first=8,
-            labs_count_second=10,
+            labs_count_first=synced_first,
+            labs_count_second=synced_second,
             grade_4_coef=0.7,
             grade_3_coef=0.4,
             late_coef=0.5,
@@ -82,16 +119,25 @@ class AttestationSettingsManager:
     async def update_settings(self, settings_update: AttestationSettingsUpdate) -> AttestationSettings:
         att_settings = await self.get_or_create_settings(settings_update.attestation_type)
 
-        update_data = settings_update.model_dump(exclude={"attestation_type"})
+        update_data = settings_update.model_dump(
+            exclude={"attestation_type", "labs_count_first", "labs_count_second"}
+        )
+        first_required_override = (
+            settings_update.labs_count_first
+            if settings_update.attestation_type == AttestationType.FIRST
+            else None
+        )
+
         for field, value in update_data.items():
             setattr(att_settings, field, value)
 
         if not att_settings.validate_weights():
             raise ValueError("Веса должны суммироваться в 100%")
 
+        changed_types = await self._sync_lab_counts(first_required_override=first_required_override)
         await self.db.commit()
         await self.db.refresh(att_settings)
-        await self._invalidate_cache(settings_update.attestation_type)
+        await self._invalidate_caches(changed_types | {settings_update.attestation_type})
 
         logger.info(f"Updated settings for {settings_update.attestation_type}")
         return att_settings

@@ -100,11 +100,13 @@ export default function AdminLabsPage() {
 
   const handleSaveSettings = async () => {
     try {
-      await api.patch('/admin/lab-settings', labSettings);
+      const response = await api.patch('/admin/lab-settings', labSettings);
       toast.success('Настройки сохранены');
-      setLabSettings({ ...labSettings, is_configured: true });
+      setLabSettings(response.data);
       setSettingsDialogOpen(false);
-    } catch { toast.error('Ошибка сохранения настроек'); }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка сохранения настроек');
+    }
   };
 
   const handleSelectSubmission = async (submissionId: string) => {
