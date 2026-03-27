@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { IconBell, IconX, IconTrash } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -16,63 +16,36 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  AnnouncementsAPI,
-  Announcement,
   getReadAnnouncementIds,
-  markAnnouncementAsRead,
-  getUnreadCount,
-  clearAllAnnouncements,
+  type Announcement,
 } from '@/lib/api/announcements';
+import { useNotificationBellState } from './notification-bell-store';
 
 interface NotificationBellProps {
   onOpenChange?: (open: boolean) => void;
 }
 
 export function NotificationBell({ onOpenChange }: NotificationBellProps) {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const {
+    announcements,
+    unreadCount,
+    loading,
+    markAllAsRead,
+    dismissAnnouncement,
+    clearAnnouncements,
+  } = useNotificationBellState();
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const loadAnnouncements = useCallback(async () => {
-    try {
-      const data = await AnnouncementsAPI.getAnnouncements(0, 10);
-      setAnnouncements(data);
-      setUnreadCount(getUnreadCount(data));
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadAnnouncements();
-    // Обновляем каждые 5 минут
-    const interval = setInterval(loadAnnouncements, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [loadAnnouncements]);
 
   const handleOpen = (isOpen: boolean) => {
     setOpen(isOpen);
     onOpenChange?.(isOpen);
     if (isOpen && announcements.length > 0) {
-      // Помечаем все как прочитанные при открытии
-      announcements.forEach(a => markAnnouncementAsRead(a.id));
-      setUnreadCount(0);
+      markAllAsRead();
     }
   };
 
   const handleClearAll = () => {
-    clearAllAnnouncements();
-    setAnnouncements([]);
-    setUnreadCount(0);
-  };
-
-  const handleDismiss = (id: string) => {
-    setAnnouncements(prev => prev.filter(a => a.id !== id));
-    markAnnouncementAsRead(id);
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    clearAnnouncements();
   };
 
   const readIds = getReadAnnouncementIds();
@@ -120,7 +93,7 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps) {
                   key={a.id}
                   announcement={a}
                   isRead={readIds.has(a.id)}
-                  onDismiss={handleDismiss}
+                  onDismiss={dismissAnnouncement}
                 />
               ))}
             </div>
@@ -150,43 +123,46 @@ function AnnouncementItem({ announcement, isRead, onDismiss }: {
         {!isRead && (
           <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
         )}
-        <button 
-          onClick={() => setExpanded(!expanded)}
-          className={cn("flex-1 min-w-0 text-left", isRead && "ml-4")}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <h5 className="font-medium text-sm flex-1">
-              {announcement.title}
-            </h5>
+        <div className={cn("flex-1 min-w-0", isRead && "ml-4")}>
+          <div className="flex items-start gap-2">
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              aria-expanded={expanded}
+              className="flex-1 min-w-0 text-left"
+            >
+              <h5 className="font-medium text-sm">
+                {announcement.title}
+              </h5>
+
+              <div className={cn(
+                "text-xs text-muted-foreground mt-1 prose prose-sm dark:prose-invert max-w-none",
+                !expanded && "line-clamp-2"
+              )}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeSanitize]}
+                >
+                  {announcement.content}
+                </ReactMarkdown>
+              </div>
+
+              {timeAgo && (
+                <p className="text-xs text-muted-foreground mt-1">{timeAgo}</p>
+              )}
+            </button>
+
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               className="h-6 w-6 shrink-0 hover:bg-destructive/10"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDismiss(announcement.id);
-              }}
+              onClick={() => onDismiss(announcement.id)}
             >
               <IconX className="h-3 w-3 text-muted-foreground hover:text-destructive" />
             </Button>
           </div>
-          
-          <div className={cn(
-            "text-xs text-muted-foreground mt-1 prose prose-sm dark:prose-invert max-w-none",
-            !expanded && "line-clamp-2"
-          )}>
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeSanitize]}
-            >
-              {announcement.content}
-            </ReactMarkdown>
-          </div>
-          
-          {timeAgo && (
-            <p className="text-xs text-muted-foreground mt-1">{timeAgo}</p>
-          )}
-        </button>
+        </div>
       </div>
     </div>
   );

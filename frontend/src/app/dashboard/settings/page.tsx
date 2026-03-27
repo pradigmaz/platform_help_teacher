@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { StudentAPI, StudentProfile, RelinkTelegramResponse } from '@/lib/api';
+import { StudentAPI, RelinkTelegramResponse } from '@/lib/api';
 import type { LinkVkResponse } from '@/lib/api/types/admin';
 import { TextGenerateEffect } from '@/components/ui/text-generate-effect';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,10 +11,10 @@ import { IconUser, IconBell, IconPalette, IconShield } from '@tabler/icons-react
 import { useTheme } from 'next-themes';
 import { AnimatePresence } from 'motion/react';
 import { ProfileTab, NotificationsTab, AppearanceTab, SecurityTab } from './components';
+import { useDashboardProfile } from '../DashboardProfileProvider';
 
 export default function SettingsPage() {
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const { profile, isLoading } = useDashboardProfile();
   const { theme, setTheme } = useTheme();
   const [notifications, setNotifications] = useState({
     vk: false, telegram: true, deadlines: true, grades: true,
@@ -32,20 +32,6 @@ export default function SettingsPage() {
 
   const isVkLinked = !!profile?.vk_id;
   const isTelegramLinked = !!profile?.telegram_id;
-
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const data = await StudentAPI.getProfile();
-        setProfile(data);
-      } catch {
-        toast.error('Ошибка загрузки профиля');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadProfile();
-  }, []);
 
   const handleRelinkTelegram = async () => {
     setRelinkLoading(true);
@@ -73,7 +59,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading || !profile) {
     return (
       <div className="p-6 space-y-6 max-w-5xl mx-auto">
         <div className="space-y-2"><Skeleton className="h-8 w-32" /><Skeleton className="h-4 w-48" /></div>

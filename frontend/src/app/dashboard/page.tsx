@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   StudentAPI,
-  StudentProfile,
   StudentAttendance,
   StudentLab,
   StudentAttestation,
@@ -15,6 +14,7 @@ import { useSemesterInfo } from '@/hooks/useSemesterInfo';
 import { Effect } from '@/components/animate-ui/primitives/effects/effect';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusHero, QuickStats, DeadlinesList } from '@/components/dashboard';
+import { useDashboardProfile } from './DashboardProfileProvider';
 
 export default function DashboardOverview() {
   const semesterInfo = useSemesterInfo();
@@ -25,10 +25,10 @@ export default function DashboardOverview() {
     semesterStartDate,
   } = semesterInfo;
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [attendance, setAttendance] = useState<StudentAttendance | null>(null);
   const [labs, setLabs] = useState<StudentLab[]>([]);
   const [attestation, setAttestation] = useState<StudentAttestation | null>(null);
+  const { profile } = useDashboardProfile();
 
   useEffect(() => {
     if (semesterInfoLoading) {
@@ -37,12 +37,10 @@ export default function DashboardOverview() {
 
     const loadData = async () => {
       try {
-        const [profileData, attendanceData, labsData] = await Promise.all([
-          StudentAPI.getProfile(),
+        const [attendanceData, labsData] = await Promise.all([
           StudentAPI.getAttendance(),
           StudentAPI.getLabs(),
         ]);
-        setProfile(profileData);
         setAttendance(attendanceData);
         setLabs(labsData);
         const preferredType = getCurrentAttestationType({

@@ -1,39 +1,44 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { StudentAPI, StudentProfile } from '@/lib/api';
 import { AceternitySidebarLayout } from '@/components/dashboard/AceternitySidebar';
 import { ImpersonationBanner } from '@/components/dashboard/ImpersonationBanner';
 import { FeedbackFab } from '@/components/feedback/FeedbackFab';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DashboardProfileProvider, useDashboardProfile } from './DashboardProfileProvider';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <DashboardProfileProvider>
+      <DashboardLayoutShell>{children}</DashboardLayoutShell>
+    </DashboardProfileProvider>
+  );
+}
+
+function DashboardLayoutShell({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const router = useRouter();
-  const [profile, setProfile] = useState<StudentProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { profile, isLoading, error } = useDashboardProfile();
 
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const data = await StudentAPI.getProfile();
-        setProfile(data);
-      } catch {
-        toast.error('Ошибка авторизации');
-        router.push('/');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadProfile();
-  }, [router]);
+    if (!error) {
+      return;
+    }
 
-  if (loading) {
+    toast.error('Ошибка авторизации');
+    router.push('/');
+  }, [error, router]);
+
+  if (isLoading || !profile) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Skeleton className="h-12 w-48" />
@@ -46,9 +51,9 @@ export default function DashboardLayout({
       <ImpersonationBanner />
       <AceternitySidebarLayout
         user={{
-          name: profile?.full_name || 'Студент',
-          username: profile?.username,
-          group: profile?.group?.code,
+          name: profile.full_name || 'Студент',
+          username: profile.username,
+          group: profile.group?.code,
         }}
       >
         {children}
