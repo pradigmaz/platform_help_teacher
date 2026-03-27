@@ -1,5 +1,6 @@
 # Использует .env.dev по умолчанию
-# Запуск: docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
+# Первый запуск: docker compose -f docker-compose.dev.yml --env-file .env.dev up -d --build
+# Повторный локальный запуск без пересоздания: ./start-dev.sh
 
 x-docker-logging: &docker-logging
   driver: json-file
@@ -109,6 +110,7 @@ services:
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
       BACKUP_STORAGE_BUCKET: ${BACKUP_STORAGE_BUCKET:-edu-backups}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      FRONTEND_FINGERPRINT_MODE: ${FRONTEND_FINGERPRINT_MODE:-off}
       ENVIRONMENT: development
     depends_on:
       db:
@@ -142,6 +144,8 @@ services:
       NEXT_PUBLIC_BOT_URL: ${NEXT_PUBLIC_BOT_URL}
       NEXT_PUBLIC_TG_BOT_URL: ${NEXT_PUBLIC_TG_BOT_URL}
       NEXT_PUBLIC_VK_BOT_URL: ${NEXT_PUBLIC_VK_BOT_URL}
+      NEXT_PUBLIC_FINGERPRINT_MODE: ${FRONTEND_FINGERPRINT_MODE:-off}
+      FRONTEND_FINGERPRINT_MODE: ${FRONTEND_FINGERPRINT_MODE:-off}
       BACKEND_URL: http://backend:8000
       NODE_OPTIONS: "--max-old-space-size=2048"
     depends_on:

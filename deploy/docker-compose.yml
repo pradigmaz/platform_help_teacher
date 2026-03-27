@@ -129,6 +129,7 @@ services:
       FIRST_SUPERUSER_USERNAME: ${FIRST_SUPERUSER_USERNAME}
       VK_BOT_TOKEN: ${VK_BOT_TOKEN}
       VK_GROUP_ID: ${VK_GROUP_ID}
+      FRONTEND_FINGERPRINT_MODE: ${FRONTEND_FINGERPRINT_MODE:-off}
       ENVIRONMENT: production
     volumes:
       - backend_logs:/app/logs
@@ -159,12 +160,16 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
         NEXT_PUBLIC_BOT_URL: ${NEXT_PUBLIC_BOT_URL}
         NEXT_PUBLIC_VK_BOT_URL: ${NEXT_PUBLIC_VK_BOT_URL}
+        NEXT_PUBLIC_FINGERPRINT_MODE: ${FRONTEND_FINGERPRINT_MODE:-off}
+        FRONTEND_FINGERPRINT_MODE: ${FRONTEND_FINGERPRINT_MODE:-off}
     image: edu-frontend:prod
     container_name: edu-frontend-prod
     <<: *security
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_BOT_URL: ${NEXT_PUBLIC_BOT_URL}
+      NEXT_PUBLIC_FINGERPRINT_MODE: ${FRONTEND_FINGERPRINT_MODE:-off}
+      FRONTEND_FINGERPRINT_MODE: ${FRONTEND_FINGERPRINT_MODE:-off}
       BACKEND_URL: http://backend:8000
       NODE_ENV: production
     depends_on:
