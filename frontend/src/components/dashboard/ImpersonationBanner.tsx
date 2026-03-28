@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle, LogOut, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import { AdminAPI } from '@/lib/api';
+import { primeAuthFingerprint } from '@/lib/fingerprint/adapter';
 
 const IMPERSONATE_TTL_MINUTES = 15;
 
@@ -37,6 +38,8 @@ export function ImpersonationBanner() {
       return;
     }
 
+    void primeAuthFingerprint();
+
     const sessionStart = getSessionStart();
     const expiresAt = sessionStart + IMPERSONATE_TTL_MINUTES * 60 * 1000;
 
@@ -59,7 +62,7 @@ export function ImpersonationBanner() {
   const handleExit = async () => {
     try {
       setExiting(true);
-      await api.post('/admin/impersonate/exit');
+      await AdminAPI.exitImpersonation();
       localStorage.removeItem('impersonate_start');
       toast.success('Возврат в админку');
       router.push('/admin');

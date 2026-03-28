@@ -22,7 +22,8 @@ import { Sparkles } from '@/components/ui/sparkles';
 import { TransferStudentDialog } from '@/components/admin/TransferStudentDialog';
 import { StudentProfile } from './types';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import { AdminAPI } from '@/lib/api';
+import { primeAuthFingerprint } from '@/lib/fingerprint/adapter';
 
 interface Props {
   student: StudentProfile;
@@ -38,10 +39,18 @@ export function StudentProfileCard({ student, onResetTelegram, resettingTelegram
   const router = useRouter();
   const [impersonating, setImpersonating] = useState(false);
 
+  const prewarmImpersonationFingerprint = () => {
+    if (!student.is_active) {
+      return;
+    }
+
+    void primeAuthFingerprint();
+  };
+
   const handleImpersonate = async () => {
     try {
       setImpersonating(true);
-      await api.post(`/admin/impersonate/${student.id}`);
+      await AdminAPI.impersonateUser(student.id);
       toast.success(`Вход как ${student.full_name}`);
       router.push('/dashboard');
     } catch {
@@ -101,6 +110,8 @@ export function StudentProfileCard({ student, onResetTelegram, resettingTelegram
                   variant="outline"
                   size="sm"
                   onClick={handleImpersonate}
+                  onMouseEnter={prewarmImpersonationFingerprint}
+                  onFocus={prewarmImpersonationFingerprint}
                   disabled={impersonating || !student.is_active}
                   className="text-primary border-primary/30 hover:bg-primary/10"
                   title={!student.is_active ? 'Пользователь неактивен' : 'Войти как этот пользователь'}

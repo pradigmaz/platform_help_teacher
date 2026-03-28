@@ -1,4 +1,5 @@
 import { api } from './client';
+import { buildAuthFingerprintHeaders } from './fingerprint-auth';
 import type { AuthResponse, User } from './types';
 
 export const AuthAPI = {
@@ -11,12 +12,16 @@ export const AuthAPI = {
       otp,
       remember_device: rememberDevice,
       force_session_cookie: forceSessionCookie,
+    }, {
+      headers: buildAuthFingerprintHeaders(),
     });
     return data;
   },
 
   devLogin: async (rememberDevice: boolean = true) => {
-    const { data } = await api.post<AuthResponse>('/auth/dev-login', { remember_device: rememberDevice });
+    const { data } = await api.post<AuthResponse>('/auth/dev-login', { remember_device: rememberDevice }, {
+      headers: buildAuthFingerprintHeaders(),
+    });
     return data;
   },
   

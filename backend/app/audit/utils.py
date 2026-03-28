@@ -8,6 +8,8 @@ from typing import Any
 
 from fastapi import Request
 
+from app.fingerprint_contract import build_audit_fingerprint
+
 from .constants import ALLOWED_BODY_FIELDS, AUDIT_PATH_PREFIXES, EXCLUDED_PATHS, MAX_BODY_SIZE, SENSITIVE_FIELDS
 from .schemas import IPInfo
 
@@ -142,16 +144,4 @@ def should_audit(path: str) -> bool:
 
 def extract_fingerprint(request: Request) -> dict[str, Any] | None:
     """Извлечь fingerprint из заголовков."""
-    fp_header = request.headers.get("X-Device-Fingerprint")
-    if not fp_header or fp_header == "{}":
-        return None
-
-    try:
-        fp = json.loads(fp_header)
-        # Проверяем что есть хоть какие-то данные
-        if not fp or len(fp) < 2:
-            return None
-        return fp
-    except json.JSONDecodeError:
-        # Если не JSON — сохраняем как hash
-        return {"hash": fp_header}
+    return build_audit_fingerprint(request.headers.get("X-Device-Fingerprint"))

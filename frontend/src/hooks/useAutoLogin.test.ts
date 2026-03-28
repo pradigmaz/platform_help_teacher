@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
     success: vi.fn(),
     error: vi.fn(),
   },
+  primeAuthFingerprint: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -40,11 +41,16 @@ vi.mock('@/lib/api', () => ({
   ApiError: class ApiError extends Error {},
 }));
 
+vi.mock('@/lib/fingerprint/adapter', () => ({
+  primeAuthFingerprint: mocks.primeAuthFingerprint,
+}));
+
 import { useAutoLogin } from './useAutoLogin';
 
 describe('useAutoLogin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.primeAuthFingerprint.mockResolvedValue(undefined);
     mocks.authApi.me.mockRejectedValue(new Error('Not authenticated'));
     mocks.authApi.login.mockResolvedValue({
       user: {
@@ -92,6 +98,28 @@ describe('useAutoLogin', () => {
     });
 
     expect(mocks.authApi.login).not.toHaveBeenCalled();
+  });
+
+  it('prewarms auth fingerprint on mount without blocking auth check', async () => {
+    const { result } = renderHook(() => useAutoLogin());
+
+    await waitFor(() => expect(result.current.checkingAuth).toBe(false));
+
+    expect(mocks.primeAuthFingerprint).toHaveBeenCalledTimes(1);
+    expect(mocks.authApi.me).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not wait for fingerprint prewarm before auto-login submit', async () => {
+    mocks.primeAuthFingerprint.mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useAutoLogin());
+
+    await waitFor(() => expect(result.current.checkingAuth).toBe(false));
+    await waitFor(() => {
+      expect(mocks.authApi.login).toHaveBeenCalledWith('123456', false, true);
+    });
+
+    expect(mocks.primeAuthFingerprint).toHaveBeenCalledTimes(1);
   });
 
   it('ignores non-numeric legacy query codes', async () => {

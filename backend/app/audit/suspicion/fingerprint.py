@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from app.fingerprint_contract import get_fingerprint_matching
+
 from .constants import (
     SCORE_CANVAS,
     SCORE_PLATFORM,
@@ -15,9 +17,10 @@ from .user_agent import parse_user_agent
 
 def extract_webgl_key(fp: dict[str, Any] | None) -> str | None:
     """Извлечь ключ WebGL."""
-    if not fp:
+    matching = get_fingerprint_matching(fp)
+    if not matching:
         return None
-    webgl = fp.get("webgl")
+    webgl = matching.get("webgl")
     if webgl and isinstance(webgl, dict):
         vendor = webgl.get("vendor", "")
         renderer = webgl.get("renderer", "")
@@ -28,9 +31,10 @@ def extract_webgl_key(fp: dict[str, Any] | None) -> str | None:
 
 def extract_screen_key(fp: dict[str, Any] | None) -> str | None:
     """Извлечь ключ screen."""
-    if not fp:
+    matching = get_fingerprint_matching(fp)
+    if not matching:
         return None
-    screen = fp.get("screen")
+    screen = matching.get("screen")
     if screen and isinstance(screen, dict):
         w = screen.get("width")
         h = screen.get("height")
@@ -42,10 +46,11 @@ def extract_screen_key(fp: dict[str, Any] | None) -> str | None:
 
 def extract_platform_key(fp: dict[str, Any] | None) -> str | None:
     """Извлечь ключ platform."""
-    if not fp:
+    matching = get_fingerprint_matching(fp)
+    if not matching:
         return None
-    platform = fp.get("platform", "")
-    cores = fp.get("hardwareConcurrency", 0)
+    platform = matching.get("platform", "")
+    cores = matching.get("hardwareConcurrency", 0)
     if platform:
         return f"{platform}|{cores}"
     return None
@@ -55,15 +60,16 @@ def detect_inconsistencies(fp: dict[str, Any] | None) -> list[str]:
     """
     Детектит нереалистичные комбинации (признак антидетект браузера).
     """
-    if not fp:
+    matching = get_fingerprint_matching(fp)
+    if not matching:
         return []
 
     issues = []
 
-    webgl = fp.get("webgl", {})
+    webgl = matching.get("webgl", {})
     renderer = webgl.get("renderer", "").lower() if webgl else ""
-    cores = fp.get("hardwareConcurrency", 0)
-    platform = fp.get("platform", "").lower()
+    cores = matching.get("hardwareConcurrency", 0)
+    platform = matching.get("platform", "").lower()
 
     # Мощный GPU но мало ядер — подозрительно
     powerful_gpu_keywords = ["rtx", "gtx", "radeon rx", "nvidia", "geforce"]
@@ -95,7 +101,9 @@ def calculate_fingerprint_score(
     ua2: str | None = None,
 ) -> tuple[int, list[str]]:
     """Рассчитать score совпадения двух fingerprints."""
-    if not fp1 or not fp2:
+    matching1 = get_fingerprint_matching(fp1)
+    matching2 = get_fingerprint_matching(fp2)
+    if not matching1 or not matching2:
         return 0, []
 
     score = 0
@@ -123,13 +131,17 @@ def calculate_fingerprint_score(
         matches.append("platform")
 
     # Canvas
-    canvas1 = fp1.get("canvas")
-    canvas2 = fp2.get("canvas")
+    canvas1 = matching1.get("canvas")
+    canvas2 = matching2.get("canvas")
     if canvas1 and canvas2 and canvas1 == canvas2:
         score += SCORE_CANVAS
         matches.append("canvas")
 
     # User-Agent
+    if not ua1:
+        ua1 = matching1.get("userAgent")
+    if not ua2:
+        ua2 = matching2.get("userAgent")
     if ua1 and ua2:
         browser1, os1 = parse_user_agent(ua1)
         browser2, os2 = parse_user_agent(ua2)

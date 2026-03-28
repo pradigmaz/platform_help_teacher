@@ -44,7 +44,8 @@ async def test_create_session_stores_device_summary_without_raw_fingerprint() ->
     assert stored_ttl == session_service.SESSION_TTL
     assert stored_session["user_id"] == str(user_id)
     assert stored_session["device_summary"] == {
-        "platform": "Win32",
+        "platform": "Windows",
+        "browser": "Chrome",
         "userAgent": "Chrome",
         "screen": {"width": 1920, "height": 1080},
     }
@@ -85,6 +86,38 @@ async def test_get_my_sessions_reads_new_device_summary() -> None:
     assert session.device.screen == "1920×1080"
     assert session.ip_address == "192.168.x.x"
     assert session.is_current is True
+
+
+@pytest.mark.asyncio
+async def test_get_my_sessions_reads_canonical_device_summary() -> None:
+    request = Mock()
+    request.cookies = {}
+    current_user = Mock(id=uuid4())
+
+    with patch(
+        "app.api.v1.endpoints.user_sessions.session_service.get_user_sessions",
+        new=AsyncMock(
+            return_value=[
+                {
+                    "session_id": "canonical-session",
+                    "created_at": "2026-03-12T12:30:00+00:00",
+                    "device_summary": {
+                        "platform": "Windows",
+                        "browser": "Chrome",
+                        "screen": {"width": 1920, "height": 1080},
+                    },
+                    "ip_address": "192.168.1.30",
+                    "is_impersonation": False,
+                }
+            ]
+        ),
+    ):
+        response = await GET_MY_SESSIONS(request=request, current_user=current_user)
+
+    session = response.sessions[0]
+    assert session.device.platform == "Windows"
+    assert session.device.browser == "Chrome"
+    assert session.device.screen == "1920×1080"
 
 
 @pytest.mark.asyncio

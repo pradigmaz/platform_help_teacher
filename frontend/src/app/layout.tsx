@@ -1,8 +1,20 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { FingerprintInitializer } from "@/components/FingerprintInitializer";
 import "./globals.css";
+
+function getFingerprintMode(): 'off' | 'auth_only' {
+  const value = (
+    process.env.FRONTEND_FINGERPRINT_MODE
+    ?? process.env.FINGERPRINT_MODE
+    ?? process.env.NEXT_PUBLIC_FINGERPRINT_MODE
+    ?? 'off'
+  )
+    .trim()
+    .toLowerCase();
+
+  return value === 'auth_only' ? 'auth_only' : 'off';
+}
 
 export const metadata: Metadata = {
   title: "Edu Platform",
@@ -21,9 +33,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" suppressHydrationWarning>
+    <html lang="ru" suppressHydrationWarning data-fingerprint-mode={getFingerprintMode()}>
       <body className="min-h-screen bg-background font-sans antialiased">
-        <FingerprintInitializer />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

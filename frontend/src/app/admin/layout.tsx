@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { AdminSidebar, MobileSidebarTrigger } from "@/components/admin/AdminSidebar";
+import { AdminSessionProvider, useAdminSession } from "@/components/admin/AdminSessionProvider";
 import { OnboardingDialog } from "@/components/admin/OnboardingDialog";
 import { DotPattern } from "@/components/ui/dot-pattern";
 import { BlurFade } from "@/components/ui/blur-fade";
@@ -12,54 +13,12 @@ import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { toast } from "@/components/ui/sonner";
 import { ApiErrorBoundary } from "@/components/ui/api-error-boundary";
 
-// Mock useAuth hook as requested
-interface User {
-  id: string;
-  email: string;
-  full_name: string;
-  role: "admin" | "teacher" | "student";
-  onboarding_completed: boolean;
-}
-
-function useAuth() {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
-
-  const refetch = React.useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/users/me', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setUser({ 
-          id: data.id, 
-          email: data.username || data.full_name, 
-          full_name: data.full_name,
-          role: data.role,
-          onboarding_completed: data.onboarding_completed 
-        });
-      }
-    } catch (err) {
-      console.error('Auth check failed:', err);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    const checkAuth = async () => {
-      await refetch();
-      setIsLoading(false);
-    };
-    checkAuth();
-  }, [refetch]);
-
-  return { user, isLoading, refetch };
-}
-
-export default function AdminLayout({
+function AdminLayoutContent({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isLoading, refetch } = useAuth();
+  const { user, isLoading, refetch } = useAdminSession();
   const router = useRouter();
   const pathname = usePathname();
   const [showFioDialog, setShowFioDialog] = React.useState(false);
@@ -72,13 +31,6 @@ export default function AdminLayout({
       }
     }
   }, [isLoading, user, pathname]);
-
-  // Refetch при смене pathname (после редиректа с аттестации)
-  React.useEffect(() => {
-    if (!isLoading && pathname !== '/admin/attestation') {
-      refetch();
-    }
-  }, [pathname, isLoading, refetch]);
 
   const handleFioComplete = async () => {
     setShowFioDialog(false);
@@ -136,5 +88,17 @@ export default function AdminLayout({
         </main>
       </div>
     </div>
+  );
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <AdminSessionProvider>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </AdminSessionProvider>
   );
 }

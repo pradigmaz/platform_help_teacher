@@ -186,3 +186,57 @@ async def test_impersonate_user_stashes_original_session_cookie() -> None:
         and f"Max-Age={IMPERSONATE_TOKEN_TTL_MINUTES * 60}" in header
         for header in set_cookies
     )
+
+
+@pytest.mark.asyncio
+async def test_exit_impersonation_creates_session_without_fingerprint_header() -> None:
+    admin_user = make_user(role=UserRole.ADMIN)
+    original_token = security.create_access_token(admin_user.id, role=admin_user.role.value)
+    request = make_request(
+        path="/api/v1/admin/impersonate/exit",
+        cookies={
+            ADMIN_TOKEN_COOKIE: original_token,
+            ADMIN_SESSION_COOKIE: "stale-admin-session",
+            SESSION_COOKIE_NAME: "imp-session-id",
+        },
+    )
+    response = Response()
+    db = AsyncMock()
+    db.execute.return_value = Mock(scalar_one_or_none=Mock(return_value=admin_user))
+
+    with (
+        patch("app.api.v1.endpoints.admin_impersonate.session_service.validate_session", new=AsyncMock(return_value=None)),
+        patch("app.api.v1.endpoints.admin_impersonate.session_service.revoke_session", new=AsyncMock()),
+        patch("app.api.v1.endpoints.admin_impersonate.session_service.create_session", new=AsyncMock()) as mock_create,
+    ):
+        await exit_impersonation(request=request, response=response, db=db)
+
+    assert mock_create.await_args.kwargs["device_fingerprint"] is None
+
+
+@pytest.mark.asyncio
+async def test_impersonate_user_creates_session_without_fingerprint_header() -> None:
+    admin_user = make_user(role=UserRole.ADMIN)
+    target_user = make_user(role=UserRole.STUDENT)
+    original_token = security.create_access_token(admin_user.id, role=admin_user.role.value)
+    request = make_request(
+        path=f"/api/v1/admin/impersonate/{target_user.id}",
+        cookies={
+            "access_token": original_token,
+            SESSION_COOKIE_NAME: "admin-session-id",
+        },
+    )
+    response = Response()
+    db = AsyncMock()
+    db.execute.return_value = Mock(scalar_one_or_none=Mock(return_value=target_user))
+
+    with patch("app.api.v1.endpoints.admin_impersonate.session_service.create_session", new=AsyncMock()) as mock_create:
+        await impersonate_user(
+            user_id=target_user.id,
+            request=request,
+            response=response,
+            db=db,
+            admin=admin_user,
+        )
+
+    assert mock_create.await_args.kwargs["device_fingerprint"] is None

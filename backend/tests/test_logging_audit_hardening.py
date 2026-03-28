@@ -113,3 +113,24 @@ async def test_audit_middleware_preserves_action_type_and_sanitizes_body():
     assert audit_context.action_type == ActionType.AUTH_LOGIN.value
     assert audit_context.response_status == 400
     assert audit_context.request_body == {"otp": "[REDACTED]"}
+
+
+@pytest.mark.asyncio
+async def test_audit_middleware_tolerates_missing_fingerprint_header() -> None:
+    request = make_request(body={"otp": "489786"})
+    middleware = AuditMiddleware(app=MagicMock())
+
+    mock_service = MagicMock()
+    mock_service.is_security_critical.return_value = True
+    mock_service.write_log_sync = AsyncMock()
+    mock_service.write_log = AsyncMock()
+
+    async def call_next(_: Request):
+        return StarletteResponse(status_code=200)
+
+    with patch("app.audit.middleware.get_audit_service", return_value=mock_service):
+        response = await middleware.dispatch(request, call_next)
+
+    assert response.status_code == 200
+    audit_context = mock_service.write_log_sync.await_args.args[0]
+    assert audit_context.fingerprint is None

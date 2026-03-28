@@ -10,6 +10,7 @@ from uuid import UUID
 
 from app.core.config import settings
 from app.core.redis import get_redis
+from app.fingerprint_contract import build_session_device_summary
 
 logger = logging.getLogger(__name__)
 
@@ -75,34 +76,7 @@ return removed_count
 
 
 def _build_device_summary(device_fingerprint: str | None) -> dict[str, object] | None:
-    if not device_fingerprint:
-        return None
-    try:
-        fingerprint = json.loads(device_fingerprint)
-    except (json.JSONDecodeError, TypeError):
-        return None
-    ua = fingerprint.get("userAgent", "")
-    screen = fingerprint.get("screen") or {}
-    browser = (
-        "Chrome"
-        if "Chrome" in ua and "Edg" not in ua
-        else "Firefox"
-        if "Firefox" in ua
-        else "Safari"
-        if "Safari" in ua and "Chrome" not in ua
-        else "Edge"
-        if "Edg" in ua
-        else "Opera"
-        if "Opera" in ua or "OPR" in ua
-        else ""
-    )
-    return {
-        "platform": fingerprint.get("platform") or "",
-        "userAgent": browser,
-        "screen": {"width": screen.get("width"), "height": screen.get("height")}
-        if screen.get("width") and screen.get("height")
-        else {},
-    }
+    return build_session_device_summary(device_fingerprint)
 
 
 def _mask_ip_for_storage(ip_address: str | None) -> str | None:

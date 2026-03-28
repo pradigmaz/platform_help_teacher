@@ -27,10 +27,6 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-vi.mock('@/lib/fingerprint', () => ({
-  getFingerprintHash: vi.fn(() => 'test-fingerprint'),
-}));
-
 vi.mock('@hookform/resolvers/zod', () => ({
   zodResolver: () => async (values: unknown) => ({ values, errors: {} }),
 }));

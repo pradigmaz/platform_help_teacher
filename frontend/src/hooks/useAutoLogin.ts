@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { AuthAPI, ApiError } from '@/lib/api';
+import { primeAuthFingerprint } from '@/lib/fingerprint/adapter';
 import { ZodError } from 'zod';
 import { AxiosError } from 'axios';
 import { useAuthStore } from '@/stores';
@@ -51,6 +52,10 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
   const router = useRouter();
   const loginAttemptedRef = useRef(false);
   const canUseDevLogin = process.env.NODE_ENV === 'development';
+
+  useEffect(() => {
+    void primeAuthFingerprint();
+  }, []);
 
   // Check if already authenticated
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { api } from './client';
+import { buildAuthFingerprintHeaders } from './fingerprint-auth';
 import type {
   TeacherContactsData,
   TeacherContactsUpdate,
@@ -12,7 +13,8 @@ export interface AdminProfile {
   username?: string;
   telegram_id?: number;
   vk_id?: number;
-  role: string;
+  role: 'admin' | 'teacher' | 'student';
+  onboarding_completed: boolean;
 }
 
 export const AdminAPI = {
@@ -39,5 +41,17 @@ export const AdminAPI = {
   linkVk: async (): Promise<LinkVkResponse> => {
     const { data } = await api.post<LinkVkResponse>('/users/me/link-vk');
     return data;
+  },
+
+  impersonateUser: async (userId: string): Promise<void> => {
+    await api.post(`/admin/impersonate/${userId}`, undefined, {
+      headers: buildAuthFingerprintHeaders(),
+    });
+  },
+
+  exitImpersonation: async (): Promise<void> => {
+    await api.post('/admin/impersonate/exit', undefined, {
+      headers: buildAuthFingerprintHeaders(),
+    });
   },
 };

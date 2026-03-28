@@ -2,7 +2,6 @@
 Security Monitor Middleware — детекция атак в реальном времени.
 """
 
-import json
 import logging
 from typing import Any
 from uuid import UUID
@@ -15,6 +14,7 @@ from starlette.responses import JSONResponse
 
 from app.core.client_ip import extract_client_ip
 from app.core.config import settings
+from app.fingerprint_contract import build_audit_fingerprint
 from app.services.security_monitor import StrikeLevel, get_security_detector
 from app.services.security_monitor.constants import MESSAGES_RU
 
@@ -148,12 +148,4 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
 
     def _get_fingerprint(self, request: Request) -> dict[str, Any] | None:
         """Извлекает fingerprint из заголовка."""
-        fp_header = request.headers.get("X-Device-Fingerprint")
-        if not fp_header:
-            return None
-
-        try:
-            return json.loads(fp_header)
-        except (json.JSONDecodeError, TypeError):
-            # Hash string (legacy) — сохраняем для security tracking
-            return {"hash": fp_header}
+        return build_audit_fingerprint(request.headers.get("X-Device-Fingerprint"))

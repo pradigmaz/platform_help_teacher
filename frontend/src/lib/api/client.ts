@@ -1,7 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import axiosRetry from 'axios-retry';
 import qs from 'qs';
-import { getFingerprint } from '../fingerprint';
 
 // --- Custom Error Class ---
 export class ApiError extends Error {
@@ -13,6 +12,40 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+function formatApiDetail(detail: unknown): string {
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail.map((item) => {
+      if (typeof item === 'string') {
+        return item;
+      }
+
+      if (item && typeof item === 'object') {
+        const record = item as Record<string, unknown>;
+        const location = Array.isArray(record.loc) ? record.loc.join('.') : null;
+        const message = typeof record.msg === 'string' ? record.msg : JSON.stringify(record);
+        return location ? `${location}: ${message}` : message;
+      }
+
+      return String(item);
+    });
+
+    return messages.join('; ');
+  }
+
+  if (detail && typeof detail === 'object') {
+    if ('detail' in detail) {
+      return formatApiDetail((detail as Record<string, unknown>).detail);
+    }
+    return JSON.stringify(detail);
+  }
+
+  return '';
 }
 
 // --- Axios Configuration ---
@@ -42,14 +75,6 @@ export const api = axios.create({
 api.interceptors.request.use(async (config) => {
   if (!isValidRelativeUrl(config.url)) {
     return Promise.reject(new ApiError(400, 'Invalid URL: absolute URLs are not allowed'));
-  }
-  // Добавляем полный JSON fingerprint в каждый запрос
-  if (typeof window !== 'undefined') {
-    try {
-      config.headers['X-Device-Fingerprint'] = getFingerprint();
-    } catch (error) {
-      console.error('[API] Failed to get fingerprint:', error);
-    }
   }
   // Автоматически добавляем CSRF токен для мутирующих запросов
   const method = config.method?.toUpperCase();
@@ -125,7 +150,7 @@ export function resetCsrfToken(): void {
 // Response interceptor
 api.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError<{ detail: string }>) => {
+  async (error: AxiosError<{ detail: unknown }>) => {
     if (axios.isCancel(error)) {
       return Promise.reject(error);
     }
@@ -134,7 +159,8 @@ api.interceptors.response.use(
     }
 
     const status = error.response?.status || 0;
-    const detail = error.response?.data?.detail || '';
+    const detail = error.response?.data?.detail;
+    const detailText = formatApiDetail(detail);
     
     // 401 Unauthorized — редирект на логин
     if (status === 401 && typeof window !== 'undefined') {
@@ -154,7 +180,7 @@ api.interceptors.response.use(
     }
     
     // CSRF ошибка (400 или 403) — сбрасываем токен и повторяем запрос один раз
-    if ((status === 400 || status === 403) && detail.includes('CSRF')) {
+    if ((status === 400 || status === 403) && detailText.includes('CSRF')) {
       csrfToken = null;
       
       // Повторяем запрос только если это первая попытка
@@ -170,7 +196,7 @@ api.interceptors.response.use(
       }
     }
 
-    const message = detail || error.message || 'Something went wrong';
+    const message = detailText || error.message || 'Something went wrong';
     const isRetryable = status >= 500 || status === 0;
     return Promise.reject(new ApiError(status, message, isRetryable));
   }
@@ -189,25 +215,17 @@ publicApi.interceptors.request.use(async (config) => {
   if (!isValidRelativeUrl(config.url)) {
     return Promise.reject(new ApiError(400, 'Invalid URL: absolute URLs are not allowed'));
   }
-  // Добавляем полный JSON fingerprint
-  if (typeof window !== 'undefined') {
-    try {
-      config.headers['X-Device-Fingerprint'] = getFingerprint();
-    } catch (error) {
-      console.error('[API] Failed to get fingerprint:', error);
-    }
-  }
   return config;
 });
 
 publicApi.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<{ detail: string }>) => {
+  (error: AxiosError<{ detail: unknown }>) => {
     if (error.code === 'ERR_NETWORK' || !error.response) {
       return Promise.reject(new ApiError(0, 'Network error. Please check your connection.', true));
     }
     const status = error.response?.status || 0;
-    const message = error.response?.data?.detail || error.message || 'Something went wrong';
+    const message = formatApiDetail(error.response?.data?.detail) || error.message || 'Something went wrong';
     const isRetryable = status >= 500 || status === 0;
     return Promise.reject(new ApiError(status, message, isRetryable));
   }

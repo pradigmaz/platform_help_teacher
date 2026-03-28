@@ -99,6 +99,12 @@ async def get_csrf_token(csrf_protect: CsrfProtect = Depends()):
     return response
 
 
+@router.get("/fingerprint-mode")
+async def get_fingerprint_mode() -> dict[str, str]:
+    """Expose the frontend fingerprint rollout mode for client-side prewarm."""
+    return {"mode": settings.FRONTEND_FINGERPRINT_MODE}
+
+
 @router.post("/otp")
 @limiter.limit("5/minute")
 @audit_action(ActionType.AUTH_LOGIN, EntityType.AUTH)

@@ -33,11 +33,6 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-// Mock fingerprint to avoid browser API issues
-vi.mock('@/lib/fingerprint', () => ({
-  getFingerprintHash: vi.fn(() => 'test-fingerprint'),
-}));
-
 // Mock zodResolver
 vi.mock('@hookform/resolvers/zod', () => ({
   zodResolver: () => async (values: unknown) => ({ values, errors: {} }),

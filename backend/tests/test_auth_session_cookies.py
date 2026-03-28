@@ -6,6 +6,7 @@ from fastapi import Response
 from starlette.requests import Request
 
 from app.api.v1.endpoints.auth import _complete_login
+from app.api.v1.endpoints.auth import get_fingerprint_mode
 from app.audit.middleware import SESSION_COOKIE_NAME
 from app.core.config import settings
 from app.models import User
@@ -101,3 +102,43 @@ async def test_complete_login_keeps_admin_persistent_without_force_session_cooki
     set_cookies = response.headers.getlist("set-cookie")
     assert any(header.startswith("access_token=") and expected_max_age in header for header in set_cookies)
     assert any(header.startswith(f"{SESSION_COOKIE_NAME}=") and expected_max_age in header for header in set_cookies)
+
+
+@pytest.mark.asyncio
+async def test_complete_login_tolerates_missing_fingerprint_header() -> None:
+    request = make_request()
+    response = Response()
+    user = make_user(UserRole.STUDENT)
+
+    with (
+        patch(
+            "app.api.v1.endpoints.auth.session_service.create_session",
+            new=AsyncMock(return_value=True),
+        ) as mock_create_session,
+        patch(
+            "app.api.v1.endpoints.auth.device_service.register_or_update_device",
+            new=AsyncMock(return_value=None),
+        ) as mock_register_device,
+    ):
+        result = await _complete_login(
+            request=request,
+            response=response,
+            user=user,
+            remember_device=False,
+            db=AsyncMock(),
+        )
+
+    assert result["device_registered"] is None
+    assert mock_create_session.await_args.kwargs["device_fingerprint"] is None
+    assert mock_register_device.await_args.kwargs["device_fingerprint"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_fingerprint_mode_returns_runtime_rollout_value() -> None:
+    original_value = settings.FRONTEND_FINGERPRINT_MODE
+    settings.FRONTEND_FINGERPRINT_MODE = "auth_only"
+
+    try:
+      assert await get_fingerprint_mode() == {"mode": "auth_only"}
+    finally:
+      settings.FRONTEND_FINGERPRINT_MODE = original_value

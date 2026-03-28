@@ -1,100 +1,41 @@
 """Device binding service."""
 
 import hashlib
-import json
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import crud_device
+from app.fingerprint_contract import build_device_info, compute_fingerprint_digest, parse_fingerprint_payload
 from app.schemas.device import DeviceCreate, DeviceUpdate
 
 logger = logging.getLogger(__name__)
 
 
 def hash_fingerprint(fingerprint: str) -> str:
-    """Create SHA256 hash of device fingerprint."""
-    return hashlib.sha256(fingerprint.encode()).hexdigest()
+    """Create a backward-compatible device-binding digest for accepted fingerprint input."""
+    envelope = parse_fingerprint_payload(fingerprint)
+    if not envelope:
+        return ""
+    if envelope.get("kind") == "missing":
+        return ""
+
+    if envelope.get("kind") == "normalized_replacement":
+        return compute_fingerprint_digest(envelope) or ""
+
+    raw_fingerprint = fingerprint.strip()
+    if not raw_fingerprint:
+        return ""
+    return hashlib.sha256(raw_fingerprint.encode()).hexdigest()
 
 
 def parse_device_info(fingerprint_str: str | None) -> dict:
-    """Parse device info from fingerprint JSON string.
-
-    Supports dual-format input:
-    - JSON object: extracts platform, browser, screen
-    - Hash string (legacy/fallback): returns Unknown values without warning
-    """
+    """Parse device info from any accepted fingerprint input."""
     if not fingerprint_str or fingerprint_str == "{}":
-        logger.warning("[device_service:parse_device_info] Empty fingerprint")
-        return {
-            "platform": "Unknown",
-            "browser": "Unknown",
-            "screen": None,
-        }
-
-    try:
-        fp = json.loads(fingerprint_str)
-    except (json.JSONDecodeError, TypeError):
-        # Hash string (e.g. "k7f2m1") — treat as legacy fingerprint, no warning
-        return {
-            "platform": "Unknown",
-            "browser": "Unknown",
-            "screen": None,
-        }
-
-    if not isinstance(fp, dict):
-        # json.loads("0") → int, json.loads('"str"') → str, etc.
-        return {
-            "platform": "Unknown",
-            "browser": "Unknown",
-            "screen": None,
-        }
-
-    # Platform
-    platform = fp.get("platform", "")
-    if "Win" in platform:
-        platform = "Windows"
-    elif "Mac" in platform:
-        platform = "macOS"
-    elif "Linux" in platform:
-        platform = "Linux"
-    elif "Android" in platform:
-        platform = "Android"
-    elif "iPhone" in platform or "iPad" in platform:
-        platform = "iOS"
-    else:
-        platform = platform or "Unknown"
-
-    # Browser from userAgent
-    ua = fp.get("userAgent", "")
-    browser = "Unknown"
-    if "Chrome" in ua and "Edg" not in ua:
-        browser = "Chrome"
-    elif "Firefox" in ua:
-        browser = "Firefox"
-    elif "Safari" in ua and "Chrome" not in ua:
-        browser = "Safari"
-    elif "Edg" in ua:
-        browser = "Edge"
-    elif "Opera" in ua or "OPR" in ua:
-        browser = "Opera"
-
-    # Screen
-    screen_info = fp.get("screen", {})
-    screen = None
-    if screen_info:
-        w = screen_info.get("width")
-        h = screen_info.get("height")
-        if w and h:
-            screen = f"{w}×{h}"
-
-    return {
-        "platform": platform,
-        "browser": browser,
-        "screen": screen,
-    }
+        logger.debug("[device_service:parse_device_info] Empty fingerprint tolerated")
+    return build_device_info(fingerprint_str)
 
 
 async def register_or_update_device(
@@ -116,11 +57,14 @@ async def register_or_update_device(
         None if fingerprint is empty (early return, no operation performed).
     """
     if not device_fingerprint or device_fingerprint == "{}":
-        logger.warning(f"[device_service:register_or_update] Empty fingerprint for user {user_id}")
+        logger.debug("[device_service:register_or_update] Empty fingerprint tolerated for user %s", user_id)
         return None
 
     try:
         fingerprint_hash = hash_fingerprint(device_fingerprint)
+        if not fingerprint_hash:
+            logger.debug("[device_service:register_or_update] Missing digest tolerated for user %s", user_id)
+            return None
         device_info = parse_device_info(device_fingerprint)
 
         logger.info(

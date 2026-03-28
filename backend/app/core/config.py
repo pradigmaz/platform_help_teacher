@@ -20,6 +20,7 @@ from app.core.time_constants import (
 )
 
 VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
+VALID_FRONTEND_FINGERPRINT_MODES = {"off", "auth_only"}
 
 
 class Settings(BaseSettings):
@@ -29,6 +30,7 @@ class Settings(BaseSettings):
 
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
+    FRONTEND_FINGERPRINT_MODE: str = "off"
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Edu Platform API"
 
@@ -39,6 +41,14 @@ class Settings(BaseSettings):
             return "INFO"
         normalized = str(v).strip().upper()
         return normalized if normalized in VALID_LOG_LEVELS else "INFO"
+
+    @field_validator("FRONTEND_FINGERPRINT_MODE", mode="before")
+    @classmethod
+    def normalize_frontend_fingerprint_mode(cls, v: str | None) -> str:
+        if not v:
+            return "off"
+        normalized = str(v).strip().lower()
+        return normalized if normalized in VALID_FRONTEND_FINGERPRINT_MODES else "off"
 
     # URLS
     BACKEND_URL: str = "http://localhost:8000"

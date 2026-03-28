@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.models import User
 from app.schemas.session import DeviceInfo, RevokeSessionsResponse, SessionListResponse, SessionResponse
+from app.fingerprint_contract import build_device_info
 from app.services import session_service
 
 logger = logging.getLogger(__name__)
@@ -24,53 +25,29 @@ def _parse_device_info(device_payload: dict | str | None) -> DeviceInfo:
     if not device_payload:
         return DeviceInfo()
 
-    if isinstance(device_payload, dict):
-        fp = device_payload
-    else:
+    raw_payload = device_payload
+    if not isinstance(device_payload, dict):
         try:
-            fp = json.loads(device_payload)
+            raw_payload = json.loads(device_payload)
         except (json.JSONDecodeError, TypeError):
-            return DeviceInfo()
+            raw_payload = device_payload
 
-    # Platform
-    platform = fp.get("platform", "")
-    if "Win" in platform:
-        platform = "Windows"
-    elif "Mac" in platform:
-        platform = "macOS"
-    elif "Linux" in platform:
-        platform = "Linux"
-    elif "Android" in platform:
-        platform = "Android"
-    elif "iPhone" in platform or "iPad" in platform:
-        platform = "iOS"
-    else:
-        platform = platform or "Unknown"
+    if isinstance(raw_payload, dict) and isinstance(raw_payload.get("browser"), str):
+        screen = raw_payload.get("screen") if isinstance(raw_payload.get("screen"), dict) else {}
+        width = screen.get("width")
+        height = screen.get("height")
+        return DeviceInfo(
+            platform=raw_payload.get("platform"),
+            browser=raw_payload.get("browser") or raw_payload.get("userAgent"),
+            screen=f"{width}×{height}" if width and height else None,
+        )
 
-    # Browser from userAgent
-    ua = fp.get("userAgent", "")
-    browser = "Unknown"
-    if "Chrome" in ua and "Edg" not in ua:
-        browser = "Chrome"
-    elif "Firefox" in ua:
-        browser = "Firefox"
-    elif "Safari" in ua and "Chrome" not in ua:
-        browser = "Safari"
-    elif "Edg" in ua or ua == "Edge":
-        browser = "Edge"
-    elif "Opera" in ua or "OPR" in ua:
-        browser = "Opera"
-
-    # Screen
-    screen_info = fp.get("screen", {})
-    screen = None
-    if screen_info:
-        w = screen_info.get("width")
-        h = screen_info.get("height")
-        if w and h:
-            screen = f"{w}×{h}"
-
-    return DeviceInfo(platform=platform, browser=browser, screen=screen)
+    device_info = build_device_info(raw_payload)
+    return DeviceInfo(
+        platform=device_info.get("platform"),
+        browser=device_info.get("browser"),
+        screen=device_info.get("screen"),
+    )
 
 
 def _mask_ip(ip: str | None) -> str | None:

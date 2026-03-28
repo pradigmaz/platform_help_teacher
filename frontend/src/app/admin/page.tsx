@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import { 
   Users, 
   BookOpen,
@@ -18,13 +17,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
 import { toast } from '@/components/ui/sonner';
-
-interface User {
-  username?: string;
-  telegram_id?: string;
-  full_name?: string;
-  role: string;
-}
+import { useAdminSession } from '@/components/admin/AdminSessionProvider';
 
 interface DashboardStats {
   total_users: number;
@@ -35,45 +28,13 @@ interface DashboardStats {
 }
 
 export default function AdminPanel() {
+  const { user, isLoading: sessionLoading } = useAdminSession();
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const router = useRouter();
   const { theme } = useTheme();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/v1/users/me', {
-          credentials: 'include'
-        });
-        
-        if (response.ok) {
-          const userData = await response.json();
-          if (userData.role === 'admin' || userData.role === 'teacher') {
-            setIsAuthorized(true);
-            setUser(userData);
-            fetchStats();
-          } else {
-            router.push('/');
-          }
-        } else {
-          router.push('/auth/login?redirect=/admin');
-        }
-      } catch (error) {
-        toast.error('Ошибка проверки авторизации');
-        console.error('Auth check failed:', error);
-        router.push('/auth/login?redirect=/admin');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    checkAuth();
-  }, [router]);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setIsRefreshing(true);
     try {
       const response = await fetch('/api/v1/admin/stats', {
@@ -96,10 +57,24 @@ export default function AdminPanel() {
       });
     } finally {
       setIsRefreshing(false);
+      setIsLoading(false);
     }
-  };
+  }, []);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (sessionLoading) {
+      return;
+    }
+
+    if (!user || (user.role !== 'admin' && user.role !== 'teacher')) {
+      setIsLoading(false);
+      return;
+    }
+
+    void fetchStats();
+  }, [fetchStats, sessionLoading, user]);
+
+  if (sessionLoading || isLoading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -110,7 +85,7 @@ export default function AdminPanel() {
     );
   }
 
-  if (!isAuthorized) {
+  if (!user || (user.role !== 'admin' && user.role !== 'teacher')) {
     return null;
   }
 

@@ -11,6 +11,7 @@ something that was working before has been broken.
 """
 import inspect
 import json
+import logging
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -327,6 +328,27 @@ class TestRegisterOrUpdateEmptyFingerprintPreservation:
 
         db.commit.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_empty_fingerprint_does_not_log_warning(self, caplog):
+        """Expected degraded mode must not emit warning-level noise."""
+        db = AsyncMock()
+        user_id = uuid4()
+
+        caplog.set_level(logging.WARNING)
+        await register_or_update_device(db=db, user_id=user_id, device_fingerprint=None)
+
+        assert "Empty fingerprint" not in caplog.text
+
+
+class TestParseFingerprintLoggingPreservation:
+    def test_parse_device_info_empty_fingerprint_does_not_log_warning(self, caplog):
+        caplog.set_level(logging.WARNING)
+
+        result = parse_device_info(None)
+
+        assert result["platform"] == "Unknown"
+        assert "Empty fingerprint" not in caplog.text
+
 
 # ---------------------------------------------------------------------------
 # Preservation 6: hash_fingerprint is deterministic
@@ -395,21 +417,20 @@ class TestSecurityMonitorFingerprintPreservation:
     must continue to work after the fix.
     """
 
-    def test_get_fingerprint_source_parses_json(self):
+    def test_get_fingerprint_source_uses_shared_contract(self):
         """
-        Preservation req 3.4: _get_fingerprint() uses json.loads() to parse header.
-        Source inspection confirms JSON parsing is present.
+        Preservation req 3.4: _get_fingerprint() delegates to the shared contract parser.
         """
         from app.middleware.security_monitor import SecurityMonitorMiddleware
         source = inspect.getsource(SecurityMonitorMiddleware._get_fingerprint)
-        assert "json.loads" in source, (
-            "REGRESSION: _get_fingerprint() no longer uses json.loads(). "
-            "Security monitor fingerprint parsing is broken."
+        assert "build_audit_fingerprint" in source, (
+            "REGRESSION: _get_fingerprint() no longer delegates to the shared "
+            "fingerprint compatibility parser."
         )
 
     def test_get_fingerprint_with_valid_json(self):
         """
-        Preservation req 3.4: _get_fingerprint() returns parsed dict for valid JSON.
+        Preservation req 3.4: _get_fingerprint() returns canonical envelope for valid JSON.
         """
         from app.middleware.security_monitor import SecurityMonitorMiddleware
 
@@ -425,8 +446,10 @@ class TestSecurityMonitorFingerprintPreservation:
         assert result is not None, (
             "REGRESSION: _get_fingerprint() returned None for valid JSON fingerprint."
         )
-        assert result.get("platform") == "Win32"
-        assert result.get("userAgent") == "Chrome/120"
+        assert result.get("schema") == "fingerprint-migration-v1"
+        assert result.get("kind") == "legacy_structured"
+        assert result.get("raw_payload", {}).get("platform") == "Win32"
+        assert result.get("normalized_summary", {}).get("platform") == "Windows"
 
     def test_get_fingerprint_returns_none_for_missing_header(self):
         """
@@ -441,10 +464,9 @@ class TestSecurityMonitorFingerprintPreservation:
         result = middleware._get_fingerprint(request)
         assert result is None
 
-    def test_get_fingerprint_returns_none_for_hash_string(self):
+    def test_get_fingerprint_wraps_hash_string_as_opaque_envelope(self):
         """
-        After task 3.7 fix: _get_fingerprint() returns {"hash": value} for hash strings.
-        Hash string fingerprint is preserved for security tracking instead of being lost.
+        Hash string fingerprint is preserved inside an opaque compatibility envelope.
         """
         from app.middleware.security_monitor import SecurityMonitorMiddleware
 
@@ -453,8 +475,15 @@ class TestSecurityMonitorFingerprintPreservation:
         request.headers.get = MagicMock(return_value="k7f2m1")
 
         result = middleware._get_fingerprint(request)
-        # Fixed behavior: hash string → {"hash": value} for security tracking
-        assert result == {"hash": "k7f2m1"}, (
-            "After task 3.7 fix: hash string fingerprint should be preserved as "
-            '{"hash": value} instead of being lost (None).'
+        assert result == {
+            "schema": "fingerprint-migration-v1",
+            "kind": "opaque_hash",
+            "raw_payload": "k7f2m1",
+            "opaque_hash": "k7f2m1",
+            "normalized_summary": None,
+            "normalized_matching": None,
+            "quality": "opaque",
+        }, (
+            "Opaque legacy fingerprint should be preserved inside the canonical "
+            "migration envelope instead of being dropped."
         )

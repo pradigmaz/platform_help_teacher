@@ -16,6 +16,7 @@ from typing import Any, Optional
 from uuid import UUID
 
 from app.core.redis import get_redis
+from app.fingerprint_contract import compute_fingerprint_digest, parse_fingerprint_payload
 
 from .constants import (
     ATTACK_PATTERNS,
@@ -78,6 +79,23 @@ class SecurityDetector:
 
     def _hash_fingerprint(self, fingerprint: dict[str, Any]) -> str:
         """Хеширует fingerprint для использования как ключ."""
+        envelope = parse_fingerprint_payload(fingerprint)
+        if envelope and envelope.get("kind") == "missing":
+            return ""
+        if envelope and envelope.get("kind") == "legacy_structured":
+            legacy_payload = envelope.get("raw_payload")
+            if isinstance(legacy_payload, dict):
+                fp_str = json.dumps(legacy_payload, sort_keys=True)
+                return hashlib.sha256(fp_str.encode()).hexdigest()[:16]
+        if envelope and envelope.get("kind") == "opaque_hash":
+            opaque_hash = envelope.get("opaque_hash")
+            if isinstance(opaque_hash, str) and opaque_hash:
+                fp_str = json.dumps({"hash": opaque_hash}, sort_keys=True)
+                return hashlib.sha256(fp_str.encode()).hexdigest()[:16]
+
+        digest = compute_fingerprint_digest(envelope or fingerprint)
+        if digest:
+            return digest[:16]
         fp_str = json.dumps(fingerprint, sort_keys=True)
         return hashlib.sha256(fp_str.encode()).hexdigest()[:16]
 
