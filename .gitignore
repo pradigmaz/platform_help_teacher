@@ -79,3 +79,8 @@ backend/logs/*
 backend/.ai
 
 frontend/.ai
+
+# Local repo tooling / backups
+.rmu/
+backups/
+deploy/.env.vps_*
