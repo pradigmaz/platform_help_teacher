@@ -8,11 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
+from app.api.v1.endpoints.student.lab_response import format_submission, serialize_visibility_fields
 from app.audit import ActionType, EntityType, audit_action
 from app.audit.deps import audit_user
 from app.core import error_messages as em
 from app.core.limiter import limiter
-from app.api.v1.endpoints.student.lab_response import format_submission, serialize_visibility_fields
 from app.models.lab import Lab
 from app.models.user import User
 from app.services.lab_visibility import LabVisibilityService
@@ -20,6 +20,7 @@ from app.services.lab_visibility.models import LabVisibilityInfo
 from app.services.student_lab_service import resolve_lab_acceptance, student_lab_service
 
 router = APIRouter()
+
 
 @router.get("/labs")
 @audit_action(ActionType.VIEW, EntityType.LAB)

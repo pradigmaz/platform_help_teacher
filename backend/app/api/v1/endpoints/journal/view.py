@@ -51,7 +51,9 @@ def _lesson_type_value(lesson: Lesson) -> str:
     return str(lesson.lesson_type)
 
 
-def _stats_from_payload(lessons: list[Lesson], grade_rows: list[LessonGrade], attendance_rows: list[Attendance]) -> JournalStatsResponse:
+def _stats_from_payload(
+    lessons: list[Lesson], grade_rows: list[LessonGrade], attendance_rows: list[Attendance]
+) -> JournalStatsResponse:
     lectures = sum(1 for lesson in lessons if _lesson_type_value(lesson).lower() == "lecture")
     labs = sum(1 for lesson in lessons if _lesson_type_value(lesson).lower() == "lab")
     practices = sum(1 for lesson in lessons if _lesson_type_value(lesson).lower() == "practice")
@@ -162,7 +164,9 @@ async def get_journal_view(
         period_type = AttestationType(attestation_period)
         range_start, range_end = _attestation_range(period_type, semester_start)
 
-    group_result = await db.execute(select(Group).options(selectinload(Group.users)).where(Group.id == resolved_group_id))
+    group_result = await db.execute(
+        select(Group).options(selectinload(Group.users)).where(Group.id == resolved_group_id)
+    )
     group = group_result.scalar_one_or_none()
     students = []
     if group is not None:

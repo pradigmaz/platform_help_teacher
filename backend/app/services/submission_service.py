@@ -14,7 +14,11 @@ from app.services.acceptance_lesson_resolver import (
     find_latest_lesson_for_student,
     resolve_lesson_from_submission_context,
 )
-from app.services.journal_grade_service import JournalGradeConflictError, JournalGradeValidationError, journal_grade_service
+from app.services.journal_grade_service import (
+    JournalGradeConflictError,
+    JournalGradeValidationError,
+    journal_grade_service,
+)
 from app.services.submission_transition import move_submission_to_accepted, move_submission_to_rejected
 
 logger = logging.getLogger(__name__)

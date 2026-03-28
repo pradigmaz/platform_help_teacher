@@ -97,4 +97,7 @@ async def load_ordered_deadline_lessons(
         )
         .order_by(Lesson.date, Lesson.lesson_number)
     )
-    return [(lesson_id, work_number, lesson_date, lesson_number) for lesson_id, work_number, lesson_date, lesson_number in result.all()]
+    return [
+        (lesson_id, work_number, lesson_date, lesson_number)
+        for lesson_id, work_number, lesson_date, lesson_number in result.all()
+    ]

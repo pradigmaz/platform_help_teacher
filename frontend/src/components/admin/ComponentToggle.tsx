@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -41,6 +41,11 @@ export function ComponentToggle({
   useEffect(() => {
     form.setValue('weight', weight);
   }, [weight, form]);
+  const formWeight = useWatch({
+    control: form.control,
+    name: 'weight',
+    defaultValue: weight,
+  });
 
   const handleWeightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value) || 0;
@@ -67,7 +72,7 @@ export function ComponentToggle({
                 type="number"
                 min={0}
                 max={100}
-                value={form.watch('weight')}
+                value={formWeight}
                 onChange={handleWeightChange}
                 disabled={!enabled}
                 className="w-20 h-8 text-center"

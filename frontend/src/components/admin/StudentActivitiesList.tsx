@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,28 +31,28 @@ export function StudentActivitiesList({ studentId, studentName }: StudentActivit
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const loadActivities = async () => {
+  const loadActivities = useCallback(async () => {
     try {
       const data = await ActivitiesAPI.getByStudent(studentId);
       setActivities(data);
-    } catch (error) {
+    } catch {
       toast.error('Не удалось загрузить активность');
     } finally {
       setLoading(false);
     }
-  };
+  }, [studentId]);
 
   useEffect(() => {
-    loadActivities();
-  }, [studentId]);
+    void loadActivities();
+  }, [loadActivities]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
       await ActivitiesAPI.delete(deleteId);
       toast.success('Активность удалена');
-      loadActivities();
-    } catch (error) {
+      void loadActivities();
+    } catch {
       toast.error('Ошибка при удалении');
     } finally {
       setDeleteId(null);

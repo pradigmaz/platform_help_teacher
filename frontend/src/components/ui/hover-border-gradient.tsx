@@ -1,9 +1,10 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
 type Direction = "TOP" | "LEFT" | "BOTTOM" | "RIGHT";
+const DIRECTIONS: Direction[] = ["TOP", "LEFT", "BOTTOM", "RIGHT"];
 
 export function HoverBorderGradient({
   children,
@@ -25,14 +26,13 @@ export function HoverBorderGradient({
   const [hovered, setHovered] = useState<boolean>(false);
   const [direction, setDirection] = useState<Direction>("TOP");
 
-  const rotateDirection = (currentDirection: Direction) => {
-    const directions: Direction[] = ["TOP", "LEFT", "BOTTOM", "RIGHT"];
-    const currentIndex = directions.indexOf(currentDirection);
+  const rotateDirection = useCallback((currentDirection: Direction) => {
+    const currentIndex = DIRECTIONS.indexOf(currentDirection);
     const nextIndex = clockwise
-      ? (currentIndex - 1 + directions.length) % directions.length
-      : (currentIndex + 1) % directions.length;
-    return directions[nextIndex];
-  };
+      ? (currentIndex - 1 + DIRECTIONS.length) % DIRECTIONS.length
+      : (currentIndex + 1) % DIRECTIONS.length;
+    return DIRECTIONS[nextIndex];
+  }, [clockwise]);
 
   const movingMap: Record<Direction, string> = {
     TOP: "radial-gradient(20% 50% at 50% 0%, #3275F8 0%, rgba(50, 117, 248, 0) 100%)",
@@ -53,7 +53,7 @@ export function HoverBorderGradient({
       }, duration * 1000);
       return () => clearInterval(interval);
     }
-  }, [hovered, duration, clockwise]);
+  }, [hovered, duration, rotateDirection]);
 
   return (
     <Tag

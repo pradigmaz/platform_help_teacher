@@ -36,6 +36,7 @@ async def _get_origin_lessons_for_group(
         work_numbers=work_numbers,
     )
 
+
 async def get_max_allowed_grades_batch(
     db: AsyncSession,
     lesson: Lesson,

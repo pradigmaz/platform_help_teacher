@@ -11,6 +11,7 @@ FINGERPRINT_KIND_OPAQUE = "opaque_hash"
 FINGERPRINT_KIND_LEGACY = "legacy_structured"
 FINGERPRINT_KIND_REPLACEMENT = "normalized_replacement"
 
+
 def classify_fingerprint_payload(parsed: Any, *, raw_header: str | None = None) -> dict[str, Any]:
     if isinstance(parsed, dict):
         if parsed.get("schema") == FINGERPRINT_SCHEMA:
@@ -32,6 +33,7 @@ def build_legacy_envelope(payload: dict[str, Any]) -> dict[str, Any]:
         matching=matching,
         opaque_hash=None,
     )
+
 
 def normalize_existing_envelope(payload: dict[str, Any]) -> dict[str, Any]:
     kind = str(payload.get("kind") or FINGERPRINT_KIND_REPLACEMENT)
@@ -68,6 +70,7 @@ def normalize_existing_envelope(payload: dict[str, Any]) -> dict[str, Any]:
         matching=matching,
         opaque_hash=opaque_hash,
     )
+
 
 def build_opaque_envelope(raw_value: str, raw_payload: Any) -> dict[str, Any]:
     return build_envelope(
@@ -287,11 +290,13 @@ def format_screen(screen: Any) -> str | None:
         return f"{width}×{height}"
     return None
 
+
 def non_empty_string(value: Any) -> str | None:
     if isinstance(value, str):
         stripped = value.strip()
         return stripped or None
     return None
+
 
 def stable_stringify(value: Any) -> str:
     try:

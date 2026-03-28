@@ -75,6 +75,11 @@ ALLOWED_BODY_FIELDS: set[str] = {
     "action",
 }
 
+# Query params храним только в компактном виде
+MAX_QUERY_PARAMS_SIZE = 2 * 1024  # 2KB
+MAX_QUERY_PARAM_ITEMS = 10
+MAX_QUERY_VALUE_LENGTH = 160
+
 # Пути, которые НЕ нужно логировать
 EXCLUDED_PATHS: set[str] = {
     "/health",
@@ -83,12 +88,19 @@ EXCLUDED_PATHS: set[str] = {
     "/openapi.json",
     "/favicon.ico",
     "/api/v1/auth/csrf-token",
+    "/api/v1/auth/fingerprint-mode",
+}
+
+# Точные пути, которые нужно логировать
+AUDIT_EXACT_PATHS: set[str] = {
+    "/api/v1/auth/otp",
+    "/api/v1/auth/dev-login",
+    "/api/v1/auth/logout",
 }
 
 # Префиксы путей для логирования (whitelist)
 AUDIT_PATH_PREFIXES = (
     "/api/v1/student",
-    "/api/v1/auth",
     "/api/v1/lectures",
     "/api/v1/labs",
     "/api/v1/admin/backups",  # Security-critical operations

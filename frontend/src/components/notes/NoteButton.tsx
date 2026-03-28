@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -82,6 +82,16 @@ export function NoteButton({ entityType, entityId, size = 'sm', className }: Not
     resolver: zodResolver(noteSchema),
     mode: 'onChange',
     defaultValues: noteDefaults,
+  });
+  const noteText = useWatch({
+    control: form.control,
+    name: 'text',
+    defaultValue: noteDefaults.text,
+  });
+  const noteColor = useWatch({
+    control: form.control,
+    name: 'color',
+    defaultValue: noteDefaults.color,
   });
 
   const handleCreate = async () => {
@@ -219,7 +229,7 @@ export function NoteButton({ entityType, entityId, size = 'sm', className }: Not
           <div className="space-y-2 pt-2 border-t">
             <Textarea
               placeholder={editingNote ? 'Редактировать заметку...' : 'Новая заметка...'}
-              value={form.watch('text')}
+              value={noteText}
               onChange={(e) => form.setValue('text', e.target.value, { shouldValidate: true })}
               className="min-h-[60px] text-sm resize-none"
             />
@@ -231,7 +241,7 @@ export function NoteButton({ entityType, entityId, size = 'sm', className }: Not
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-7 gap-1.5">
-                    <div className={cn('h-3 w-3 rounded-full', getColorConfig(form.watch('color')).dot)} />
+                    <div className={cn('h-3 w-3 rounded-full', getColorConfig(noteColor).dot)} />
                     <span className="text-xs">Цвет</span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -259,7 +269,7 @@ export function NoteButton({ entityType, entityId, size = 'sm', className }: Not
                   size="sm" 
                   className="h-7"
                   onClick={editingNote ? handleUpdate : handleCreate}
-                  disabled={!form.formState.isValid || !form.watch('text').trim()}
+                  disabled={!form.formState.isValid || !noteText.trim()}
                 >
                   <Plus className="h-3 w-3 mr-1" />
                   {editingNote ? 'Сохранить' : 'Добавить'}

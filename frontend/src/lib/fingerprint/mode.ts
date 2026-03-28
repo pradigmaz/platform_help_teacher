@@ -23,12 +23,13 @@ function readFingerprintModeFromEnv(): string | null {
   return process.env.NEXT_PUBLIC_FINGERPRINT_MODE ?? null;
 }
 
-function getBootstrapFingerprintMode(): FingerprintMode {
-  return normalizeFingerprintMode(readFingerprintModeFromDom() ?? readFingerprintModeFromEnv());
+function readBootstrapFingerprintMode(): FingerprintMode | null {
+  const value = readFingerprintModeFromDom() ?? readFingerprintModeFromEnv();
+  return value === null ? null : normalizeFingerprintMode(value);
 }
 
 export function getFingerprintMode(): FingerprintMode {
-  return resolvedFingerprintMode ?? getBootstrapFingerprintMode();
+  return resolvedFingerprintMode ?? readBootstrapFingerprintMode() ?? 'off';
 }
 
 export function isAuthFingerprintCollectionEnabled(): boolean {
@@ -37,6 +38,12 @@ export function isAuthFingerprintCollectionEnabled(): boolean {
 
 export async function primeFingerprintMode(): Promise<FingerprintMode> {
   if (resolvedFingerprintMode) {
+    return resolvedFingerprintMode;
+  }
+
+  const bootstrapMode = readBootstrapFingerprintMode();
+  if (bootstrapMode !== null) {
+    resolvedFingerprintMode = bootstrapMode;
     return resolvedFingerprintMode;
   }
 
@@ -57,7 +64,7 @@ export async function primeFingerprintMode(): Promise<FingerprintMode> {
         resolvedFingerprintMode = normalizeFingerprintMode(payload.mode);
         return resolvedFingerprintMode;
       } catch {
-        return getBootstrapFingerprintMode();
+        return 'off';
       } finally {
         inFlightFingerprintMode = null;
       }

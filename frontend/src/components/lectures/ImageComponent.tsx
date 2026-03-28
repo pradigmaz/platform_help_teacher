@@ -34,6 +34,10 @@ interface ImageComponentProps {
 
 type Alignment = 'left' | 'center' | 'right';
 
+// Разрешённые MIME-типы изображений (без SVG для безопасности)
+const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+
 export function ImageComponent({
   nodeKey,
   src,
@@ -93,10 +97,6 @@ export function ImageComponent({
       }
     });
   }, [editor, nodeKey]);
-
-  // Разрешённые MIME-типы изображений (без SVG для безопасности)
-  const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 
   const handleFileDrop = useCallback(async (file: File) => {
     // Валидация MIME-типа

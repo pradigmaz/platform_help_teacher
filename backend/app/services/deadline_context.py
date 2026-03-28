@@ -21,7 +21,9 @@ def build_deadline_context_for_visibility(
     extensions_map: dict[UUID, int],
     excused_lab_numbers: set[int],
 ) -> DeadlineContext:
-    origin_index = next((idx for idx, (work_number, _, _) in enumerate(ordered_lessons) if work_number == lab_number), None)
+    origin_index = next(
+        (idx for idx, (work_number, _, _) in enumerate(ordered_lessons) if work_number == lab_number), None
+    )
     lesson_index = len(ordered_lessons) - origin_index - 1 if origin_index is not None else 0
     extension_bonus = extensions_map.get(lab_id, 0) if lab_id else 0
     return DeadlineContext(

@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Save, Loader2, Eye, EyeOff, Users, FileText, MessageSquare } from 'lucide-react';
 import { IconBrandTelegram, IconBrandVk, IconMessage } from '@tabler/icons-react';
@@ -56,13 +55,9 @@ export function ContactsCard({
       max_visibility: visibility.max || 'none',
     },
   });
-
-  useEffect(() => {
-    console.log('[ContactsCard] Form errors:', form.formState.errors);
-  }, [form.formState.errors]);
+  const formValues = useWatch({ control: form.control });
 
   const handleSave = form.handleSubmit((values) => {
-    console.log('[ContactsCard] Submitting:', values);
     // Update parent state with form values
     onContactChange('telegram', values.telegram);
     onContactChange('vk', values.vk);
@@ -103,6 +98,11 @@ export function ContactsCard({
           <div key={field.key}>
             {index > 0 && <Separator className="mb-6" />}
             <div className="space-y-4">
+              {(() => {
+                const visibilityField = `${field.key}_visibility` as keyof ContactsFormValues;
+                const visibilityValue = (formValues?.[visibilityField] ?? 'none') as ContactVisibility;
+                return (
+                  <>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={cn("p-2 rounded-lg", field.bgColor)}>
@@ -113,7 +113,7 @@ export function ContactsCard({
                     <p className="text-xs text-muted-foreground">{field.description}</p>
                   </div>
                 </div>
-                {getVisibilityBadge(form.watch(`${field.key}_visibility` as keyof ContactsFormValues) as ContactVisibility)}
+                {getVisibilityBadge(visibilityValue)}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-[1fr,180px]">
@@ -129,7 +129,7 @@ export function ContactsCard({
                   )}
                 </div>
                 <Select
-                  value={form.watch(`${field.key}_visibility` as keyof ContactsFormValues) as string}
+                  value={visibilityValue}
                   onValueChange={(value) => form.setValue(`${field.key}_visibility` as keyof ContactsFormValues, value as ContactVisibility)}
                 >
                   <SelectTrigger className="h-11">
@@ -147,6 +147,9 @@ export function ContactsCard({
                   </SelectContent>
                 </Select>
               </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         ))}

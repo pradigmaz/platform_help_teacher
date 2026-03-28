@@ -87,18 +87,27 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
   const [isLoading, setIsLoading] = useState(true);
   const skipNextLoadRef = useRef(false);
   const loadViewRef = useRef<(() => Promise<void>) | null>(null);
+  const handleStatsRefetch = useCallback(() => {
+    void loadViewRef.current?.();
+  }, []);
 
-  const attendanceHook = useJournalAttendance({
-    onStatsRefetch: () => {
-      void loadViewRef.current?.();
-    },
-  });
+  const attendanceHook = useJournalAttendance({ onStatsRefetch: handleStatsRefetch });
+  const {
+    attendance,
+    isSaving: isAttendanceSaving,
+    setAttendance,
+    updateAttendance,
+  } = attendanceHook;
 
-  const gradesHook = useJournalGrades({
-    onStatsRefetch: () => {
-      void loadViewRef.current?.();
-    },
-  });
+  const gradesHook = useJournalGrades({ onStatsRefetch: handleStatsRefetch });
+  const {
+    attestationScores,
+    grades,
+    isSaving: isGradesSaving,
+    setAttestationScores,
+    setGrades,
+    updateGrade,
+  } = gradesHook;
 
   const loadView = useCallback(async () => {
     if (semesterLoading) {
@@ -129,9 +138,9 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
       setSubjects(mapSubjects(response.subjects));
       setLessons(mapLessons(response.lessons));
       setStudents(mapStudents(response.students));
-      attendanceHook.setAttendance(response.attendance);
-      gradesHook.setGrades(response.grades);
-      gradesHook.setAttestationScores(response.attestation_scores);
+      setAttendance(response.attendance);
+      setGrades(response.grades);
+      setAttestationScores(response.attestation_scores);
       setStats(response.stats);
 
       const resolvedGroupId = response.resolved.group_id ?? '';
@@ -174,8 +183,11 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
     setCurrentWeek,
     setSelectedGroupId,
     setSelectedSubjectId,
+    setAttendance,
+    setAttestationScores,
     weekEnd,
     weekStart,
+    setGrades,
   ]);
 
   useEffect(() => {
@@ -223,13 +235,13 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
     lessons,
     students,
     isLoading,
-    attendance: attendanceHook.attendance,
-    updateAttendance: attendanceHook.updateAttendance,
-    grades: gradesHook.grades,
-    attestationScores: gradesHook.attestationScores,
-    updateGrade: gradesHook.updateGrade,
+    attendance,
+    updateAttendance,
+    grades,
+    attestationScores,
+    updateGrade,
     stats,
     refreshJournalData: loadView,
-    isSaving: attendanceHook.isSaving || gradesHook.isSaving,
+    isSaving: isAttendanceSaving || isGradesSaving,
   };
 }

@@ -6,8 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_teacher, get_db
-from app.crud import crud_parse_history
-from app.crud import crud_schedule_parser
+from app.crud import crud_parse_history, crud_schedule_parser
 from app.crud.crud_schedule import lesson as crud_lesson
 from app.models import User
 from app.models.schedule import LessonType

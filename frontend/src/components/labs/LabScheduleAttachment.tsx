@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Calendar, Check, AlertTriangle, Loader2, ChevronDown, Ban } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -63,11 +63,7 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [initialSelected, setInitialSelected] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    loadSlots();
-  }, [labId]);
-
-  const loadSlots = async () => {
+  const loadSlots = useCallback(async () => {
     try {
       const { data: resp } = await api.get<ScheduleSlotsResponse>(
         `/admin/labs/${labId}/schedule-slots`
@@ -88,7 +84,11 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [labId]);
+
+  useEffect(() => {
+    void loadSlots();
+  }, [loadSlots]);
 
   const toggleSlot = (lessonId: string, slot: ScheduleSlot, groupBlocked?: GroupSlots['attachment_blocked']) => {
     if (slot.current_work_number && slot.current_work_number !== labNumber) {

@@ -19,7 +19,7 @@ class Device(Base):
 
     __tablename__ = "devices"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     fingerprint_hash = Column(String(64), nullable=False, index=True)
     device_info = Column(JSON, nullable=False, default=dict)
@@ -35,7 +35,6 @@ class Device(Base):
 
     __table_args__ = (
         UniqueConstraint("user_id", "fingerprint_hash", name="uq_devices_user_fingerprint"),
-        Index("ix_devices_user_fingerprint", "user_id", "fingerprint_hash"),
         Index("ix_devices_user_trusted", "user_id", "is_trusted"),
     )
 

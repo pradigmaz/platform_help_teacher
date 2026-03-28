@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,6 +46,10 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
       is_sequential: data.is_sequential,
     });
   }, [data, form]);
+  const formValues = useWatch({
+    control: form.control,
+    defaultValue: form.getValues(),
+  });
 
   // Update parent on field change
   const handleFieldChange = (
@@ -78,7 +82,7 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
                   id="lab-number"
                   type="number"
                   min={1}
-                  value={form.watch('number')}
+                  value={formValues.number}
                   onChange={(e) => handleFieldChange('number', Number(e.target.value))}
                 />
               </InputGroup>
@@ -88,10 +92,10 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
             </div>
             <div className="flex-1">
               <Label htmlFor="lab-title">Название (тема) *</Label>
-              <Input
-                id="lab-title"
-                className="mt-1.5"
-                value={form.watch('title')}
+                <Input
+                  id="lab-title"
+                  className="mt-1.5"
+                value={formValues.title}
                 onChange={(e) => handleFieldChange('title', e.target.value)}
                 placeholder="Введите название темы"
               />
@@ -105,7 +109,7 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
             <Textarea
               id="lab-goal"
               className="mt-1.5"
-              value={form.watch('goal')}
+              value={formValues.goal}
               onChange={(e) => handleFieldChange('goal', e.target.value)}
               placeholder="Опишите цель лабораторной работы..."
               rows={3}
@@ -124,7 +128,7 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
             <Textarea
               id="lab-formatting"
               className="mt-1.5"
-              value={form.watch('formatting_guide')}
+              value={formValues.formatting_guide}
               onChange={(e) => handleFieldChange('formatting_guide', e.target.value)}
               placeholder="1. Тема и цель работы..."
               rows={5}
@@ -137,7 +141,7 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
               <select
                 id="lab-deadline-5"
                 className="mt-1.5 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                value={form.watch('deadline_5_lessons') ?? ''}
+                value={formValues.deadline_5_lessons ?? ''}
                 onChange={(e) => handleFieldChange('deadline_5_lessons', e.target.value ? Number(e.target.value) : null)}
               >
                 <option value="">Без ограничения</option>
@@ -152,7 +156,7 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
               <select
                 id="lab-deadline-4"
                 className="mt-1.5 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                value={form.watch('deadline_4_lessons') ?? ''}
+                value={formValues.deadline_4_lessons ?? ''}
                 onChange={(e) => handleFieldChange('deadline_4_lessons', e.target.value ? Number(e.target.value) : null)}
               >
                 <option value="">Без ограничения</option>
@@ -171,7 +175,7 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
           <div className="flex items-center gap-3 pt-4">
             <Switch
               id="is_sequential"
-              checked={form.watch('is_sequential')}
+              checked={formValues.is_sequential}
               onCheckedChange={(checked) => handleFieldChange('is_sequential', checked)}
             />
             <Label htmlFor="is_sequential" className="cursor-pointer">

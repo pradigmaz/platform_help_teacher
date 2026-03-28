@@ -11,9 +11,9 @@ from app.audit import ActionType, EntityType, audit_action
 from app.audit.middleware import SESSION_COOKIE_NAME
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.fingerprint_contract import build_device_info
 from app.models import User
 from app.schemas.session import DeviceInfo, RevokeSessionsResponse, SessionListResponse, SessionResponse
-from app.fingerprint_contract import build_device_info
 from app.services import session_service
 
 logger = logging.getLogger(__name__)

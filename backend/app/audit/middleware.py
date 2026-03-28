@@ -18,7 +18,7 @@ from app.core.config import settings
 from .constants import ActionType
 from .schemas import AuditContext
 from .service import get_audit_service
-from .utils import extract_body, extract_fingerprint, extract_ip_info, should_audit
+from .utils import extract_body, extract_fingerprint, extract_ip_info, extract_query_params, should_audit
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             actor_role=role or "anonymous",
             method=request.method,
             path=request.url.path,
-            query_params=dict(request.query_params) if request.query_params else None,
+            query_params=extract_query_params(request),
             request_body=request_body,
             ip_address=ip_info.real_ip,
             ip_forwarded=ip_info.forwarded_chain,

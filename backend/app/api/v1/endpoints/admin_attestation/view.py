@@ -12,8 +12,10 @@ from app.db.session import get_db
 from app.models import Group, Subject, User, UserRole
 from app.schemas.attestation import (
     AttestationSubjectOption,
-    AttestationType as AttestationTypeSchema,
     AttestationViewResponse,
+)
+from app.schemas.attestation import (
+    AttestationType as AttestationTypeSchema,
 )
 from app.schemas.group import GroupResponse
 from app.services.attestation.subject_scope import list_group_subject_options_in_period

@@ -8,9 +8,19 @@ from typing import Any
 
 from fastapi import Request
 
-from app.fingerprint_contract import build_audit_fingerprint
+from app.fingerprint_contract import build_compact_audit_fingerprint
 
-from .constants import ALLOWED_BODY_FIELDS, AUDIT_PATH_PREFIXES, EXCLUDED_PATHS, MAX_BODY_SIZE, SENSITIVE_FIELDS
+from .constants import (
+    ALLOWED_BODY_FIELDS,
+    AUDIT_EXACT_PATHS,
+    AUDIT_PATH_PREFIXES,
+    EXCLUDED_PATHS,
+    MAX_BODY_SIZE,
+    MAX_QUERY_PARAM_ITEMS,
+    MAX_QUERY_PARAMS_SIZE,
+    MAX_QUERY_VALUE_LENGTH,
+    SENSITIVE_FIELDS,
+)
 from .schemas import IPInfo
 
 logger = logging.getLogger(__name__)
@@ -79,7 +89,7 @@ def sanitize_dict(data: dict[str, Any], max_depth: int = 3) -> dict[str, Any]:
     if max_depth <= 0:
         return {"_truncated": True}
 
-    result = {}
+    result: dict[str, Any] = {}
     for key, value in data.items():
         if isinstance(value, dict):
             result[key] = sanitize_dict(value, max_depth - 1)
@@ -92,6 +102,13 @@ def sanitize_dict(data: dict[str, Any], max_depth: int = 3) -> dict[str, Any]:
             result[key] = sanitize_value(value, key)
 
     return result
+
+
+def _truncate_string(value: str, max_length: int) -> str:
+    """Ограничить длину строки для компактного хранения."""
+    if len(value) <= max_length:
+        return value
+    return value[:max_length] + "...[TRUNCATED]"
 
 
 async def extract_body(request: Request) -> dict[str, Any] | None:
@@ -132,11 +149,57 @@ async def extract_body(request: Request) -> dict[str, Any] | None:
         return None
 
 
+def extract_query_params(request: Request) -> dict[str, Any] | None:
+    """
+    Извлечь query params в компактном и безопасном виде.
+
+    Не сохраняем длинные query strings целиком, чтобы не раздувать audit.
+    """
+    if not request.query_params:
+        return None
+
+    params = dict(request.query_params)
+    if not params:
+        return None
+
+    compact_params: dict[str, Any] = {}
+    total_items = len(params)
+
+    for index, (key, value) in enumerate(params.items()):
+        if index >= MAX_QUERY_PARAM_ITEMS:
+            compact_params["_truncated"] = True
+            compact_params["_items"] = total_items
+            break
+
+        sanitized = sanitize_value(value, key)
+        if isinstance(sanitized, str):
+            sanitized = _truncate_string(sanitized, MAX_QUERY_VALUE_LENGTH)
+        compact_params[key] = sanitized
+
+    try:
+        payload_size = len(json.dumps(compact_params, ensure_ascii=True).encode("utf-8"))
+    except (TypeError, ValueError):
+        logger.debug("Failed to serialize compact query params")
+        return {"_truncated": True, "_items": total_items}
+
+    if payload_size > MAX_QUERY_PARAMS_SIZE:
+        return {
+            "_truncated": True,
+            "_items": total_items,
+            "_size": payload_size,
+        }
+
+    return compact_params or None
+
+
 def should_audit(path: str) -> bool:
     """Проверить, нужно ли логировать этот путь."""
     # Исключения
     if path in EXCLUDED_PATHS:
         return False
+
+    if path in AUDIT_EXACT_PATHS:
+        return True
 
     # Whitelist префиксов
     return any(path.startswith(prefix) for prefix in AUDIT_PATH_PREFIXES)
@@ -144,4 +207,4 @@ def should_audit(path: str) -> bool:
 
 def extract_fingerprint(request: Request) -> dict[str, Any] | None:
     """Извлечь fingerprint из заголовков."""
-    return build_audit_fingerprint(request.headers.get("X-Device-Fingerprint"))
+    return build_compact_audit_fingerprint(request.headers.get("X-Device-Fingerprint"))

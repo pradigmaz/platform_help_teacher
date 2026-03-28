@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,64 +44,60 @@ export function ActivityManagementSection({ attestationType }: ActivityManagemen
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [targetMode, setTargetMode] = useState<'group' | 'student'>('group');
 
-  useEffect(() => {
-    loadGroups();
-    loadAllActivities();
-  }, []);
-
-  useEffect(() => {
-    loadAllActivities();
-  }, [attestationType]);
-
-  useEffect(() => {
-    if (selectedGroupId) {
-      loadStudents(selectedGroupId);
-    } else {
-      setStudents([]);
-      setSelectedStudentId('');
-    }
-  }, [selectedGroupId]);
-
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     try {
       const data = await GroupsAPI.list();
       setGroups(data);
-    } catch (error) {
+    } catch {
       toast.error('Не удалось загрузить группы');
     }
-  };
+  }, []);
 
-  const loadStudents = async (groupId: string) => {
+  const loadStudents = useCallback(async (groupId: string) => {
     setLoading(true);
     try {
       const group = await GroupsAPI.get(groupId);
       setStudents(group.students || []);
-    } catch (error) {
+    } catch {
       toast.error('Не удалось загрузить студентов');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadAllActivities = async () => {
+  const loadAllActivities = useCallback(async () => {
     setLoadingActivities(true);
     try {
       const data = await ActivitiesAPI.getAll(attestationType, 100);
       setAllActivities(data);
-    } catch (error) {
+    } catch {
       toast.error('Не удалось загрузить активности');
     } finally {
       setLoadingActivities(false);
     }
-  };
+  }, [attestationType]);
+
+  useEffect(() => {
+    void loadGroups();
+    void loadAllActivities();
+  }, [loadAllActivities, loadGroups]);
+
+  useEffect(() => {
+    if (selectedGroupId) {
+      void loadStudents(selectedGroupId);
+    } else {
+      setStudents([]);
+      setSelectedStudentId('');
+    }
+  }, [loadStudents, selectedGroupId]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
       await ActivitiesAPI.delete(deleteId);
       toast.success('Активность удалена');
-      loadAllActivities();
-    } catch (error) {
+      void loadAllActivities();
+    } catch {
       toast.error('Ошибка при удалении');
     } finally {
       setDeleteId(null);
@@ -109,7 +105,7 @@ export function ActivityManagementSection({ attestationType }: ActivityManagemen
   };
 
   const handleAddSuccess = () => {
-    loadAllActivities();
+    void loadAllActivities();
   };
 
   const selectedGroup = groups.find(g => g.id === selectedGroupId);

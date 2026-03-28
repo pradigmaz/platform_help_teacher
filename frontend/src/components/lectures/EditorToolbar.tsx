@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   Bold, Italic, Underline, Strikethrough, Code,
   Heading1, Heading2, Heading3, List, ListOrdered, Quote,
-  Image, FileCode, FileCode2, Undo, Redo, Save,
+  Image as ImageIcon, FileCode, FileCode2, Undo, Redo, Save,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   IndentIncrease, IndentDecrease, Subscript, Superscript, Minus,
   Table, Sigma,
@@ -135,7 +135,7 @@ export function EditorToolbar({ onSave, isSaving, className, config, onFontSizeC
       <ToolbarGroup key="insert" label="Вставка">
         <ToolbarButton icon={<FileCode className="h-4 w-4" />} label="Блок кода" onClick={actions.insertCodeBlock} />
         <ToolbarButton icon={<FileCode2 className="h-4 w-4" />} label="Листинг" onClick={actions.insertSnippet} />
-        <ToolbarButton icon={<Image className="h-4 w-4" />} label="Изображение" onClick={actions.insertImage} />
+        <ToolbarButton icon={<ImageIcon className="h-4 w-4" />} label="Изображение" onClick={actions.insertImage} />
         <ToolbarButton icon={<Table className="h-4 w-4" />} label="Таблица" onClick={() => actions.insertTable(3, 3)} />
         <ToolbarButton icon={<Sigma className="h-4 w-4" />} label="Формула" onClick={() => actions.insertMath(true)} />
         <ToolbarButton icon={<Minus className="h-4 w-4" />} label="Разделитель" onClick={actions.insertHorizontalRule} />

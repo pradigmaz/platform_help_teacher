@@ -100,9 +100,7 @@ async def find_latest_lesson_for_student(
     conditions.append(Lesson.date <= target_date)
 
     result = await db.execute(
-        select(Lesson)
-        .where(and_(*conditions))
-        .order_by(Lesson.date.desc(), Lesson.lesson_number.desc())
+        select(Lesson).where(and_(*conditions)).order_by(Lesson.date.desc(), Lesson.lesson_number.desc())
     )
     lessons = list(result.scalars().all())
     if not lessons:

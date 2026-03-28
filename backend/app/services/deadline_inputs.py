@@ -68,8 +68,4 @@ async def load_excused_origin_numbers(
         )
     )
     excused_lesson_ids = {lesson_id for (lesson_id,) in result.all()}
-    return {
-        lab_number
-        for lab_number, lesson in origin_lessons_by_number.items()
-        if lesson.id in excused_lesson_ids
-    }
+    return {lab_number for lab_number, lesson in origin_lessons_by_number.items() if lesson.id in excused_lesson_ids}

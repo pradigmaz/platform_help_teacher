@@ -15,9 +15,7 @@ class NotificationSettings(Base, TimestampMixin):
     __tablename__ = "notification_settings"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
-    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
 
     # Channels
     channel_telegram = Column(Boolean, default=False, nullable=False)

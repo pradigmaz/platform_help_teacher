@@ -233,7 +233,7 @@ export function VisualizationSandbox({
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [code, sandboxLoaded]);
+  }, [code, onError, sandboxLoaded]);
 
   const handleRefresh = useCallback(() => {
     if (!code.trim()) return;

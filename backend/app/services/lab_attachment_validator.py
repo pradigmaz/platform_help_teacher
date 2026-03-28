@@ -74,9 +74,7 @@ class LabAttachmentValidator:
             # Предыдущая лаба не привязана — можно привязать текущую
             return AttachmentValidationResult(is_valid=True)
 
-        slot_count = await self._count_deadline_slots_from(
-            origin_lesson.date, target_lesson_date, group_id, subject_id
-        )
+        slot_count = await self._count_deadline_slots_from(origin_lesson.date, target_lesson_date, group_id, subject_id)
 
         # Можно привязать когда прошло >= deadline_5_lessons уникальных пар
         if slot_count < prev_lab.deadline_5_lessons:

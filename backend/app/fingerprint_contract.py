@@ -9,10 +9,12 @@ from typing import Any
 from app.fingerprint_contract_support import (
     FINGERPRINT_KIND_MISSING,
     FINGERPRINT_KIND_OPAQUE,
+    FINGERPRINT_KIND_REPLACEMENT,
     FINGERPRINT_SCHEMA,
     build_legacy_envelope,
     build_opaque_envelope,
     classify_fingerprint_payload,
+    compute_quality,
     format_screen,
     normalize_existing_envelope,
 )
@@ -48,6 +50,44 @@ def parse_fingerprint_payload(value: str | dict[str, Any] | None) -> dict[str, A
 def build_audit_fingerprint(value: str | dict[str, Any] | None) -> dict[str, Any] | None:
     """Build the JSON-safe fingerprint payload stored in audit records."""
     return parse_fingerprint_payload(value)
+
+
+def build_compact_audit_fingerprint(value: str | dict[str, Any] | None) -> dict[str, Any] | None:
+    """Build a compact fingerprint envelope for audit storage without raw payload."""
+    envelope = parse_fingerprint_payload(value)
+    if not envelope:
+        return None
+
+    summary = envelope.get("normalized_summary")
+    normalized_summary = summary if isinstance(summary, dict) and summary else None
+
+    matching = envelope.get("normalized_matching")
+    normalized_matching = matching if isinstance(matching, dict) and matching else None
+
+    opaque_hash = envelope.get("opaque_hash")
+    normalized_opaque_hash = opaque_hash if isinstance(opaque_hash, str) and opaque_hash else None
+
+    kind = envelope.get("kind")
+    if kind == FINGERPRINT_KIND_MISSING:
+        normalized_kind = FINGERPRINT_KIND_MISSING
+    elif kind == FINGERPRINT_KIND_OPAQUE:
+        normalized_kind = FINGERPRINT_KIND_OPAQUE
+    else:
+        normalized_kind = FINGERPRINT_KIND_REPLACEMENT
+
+    return {
+        "schema": FINGERPRINT_SCHEMA,
+        "kind": normalized_kind,
+        "opaque_hash": normalized_opaque_hash,
+        "normalized_summary": normalized_summary,
+        "normalized_matching": normalized_matching,
+        "quality": compute_quality(
+            normalized_kind,
+            normalized_summary,
+            normalized_matching,
+            normalized_opaque_hash,
+        ),
+    }
 
 
 def get_fingerprint_summary(value: str | dict[str, Any] | None) -> dict[str, Any] | None:

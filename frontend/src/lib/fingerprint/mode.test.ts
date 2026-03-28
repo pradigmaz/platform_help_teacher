@@ -13,7 +13,18 @@ describe('fingerprint mode', () => {
     vi.unstubAllGlobals();
   });
 
-  it('prefers the runtime mode endpoint for the current page lifecycle', async () => {
+  it('uses the server bootstrap mode without extra network requests', async () => {
+    document.documentElement.dataset.fingerprintMode = 'auth_only';
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(primeFingerprintMode()).resolves.toBe('auth_only');
+    expect(getFingerprintMode()).toBe('auth_only');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the runtime endpoint when bootstrap mode is unavailable', async () => {
+    delete document.documentElement.dataset.fingerprintMode;
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ mode: 'auth_only' }),
@@ -22,38 +33,21 @@ describe('fingerprint mode', () => {
 
     await expect(primeFingerprintMode()).resolves.toBe('auth_only');
     expect(getFingerprintMode()).toBe('auth_only');
-    await expect(primeFingerprintMode()).resolves.toBe('auth_only');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to bootstrap mode when the runtime endpoint fails', async () => {
-    document.documentElement.dataset.fingerprintMode = 'auth_only';
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('boom')));
-
-    await expect(primeFingerprintMode()).resolves.toBe('auth_only');
-    expect(getFingerprintMode()).toBe('auth_only');
-  });
-
-  it('does not freeze bootstrap fallback after a transient endpoint failure', async () => {
-    document.documentElement.dataset.fingerprintMode = 'off';
-    const fetchMock = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('boom'))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ mode: 'auth_only' }),
-      });
+  it('falls back to off when bootstrap is unavailable and the runtime endpoint fails', async () => {
+    delete document.documentElement.dataset.fingerprintMode;
+    const fetchMock = vi.fn().mockRejectedValue(new Error('boom'));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(primeFingerprintMode()).resolves.toBe('off');
     expect(getFingerprintMode()).toBe('off');
-
-    await expect(primeFingerprintMode()).resolves.toBe('auth_only');
-    expect(getFingerprintMode()).toBe('auth_only');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('drops the resolved runtime mode when cache is cleared', async () => {
+    delete document.documentElement.dataset.fingerprintMode;
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ mode: 'auth_only' }),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Loader2, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -39,7 +39,7 @@ export function ImageGalleryModal({
     }
   }, [isOpen, initialIndex]);
 
-  const loadUrl = async (attachment: Attachment) => {
+  const loadUrl = useCallback(async (attachment: Attachment) => {
     if (urls[attachment.id] || loading[attachment.id]) return;
     
     setLoading(prev => ({ ...prev, [attachment.id]: true }));
@@ -51,13 +51,13 @@ export function ImageGalleryModal({
     } finally {
       setLoading(prev => ({ ...prev, [attachment.id]: false }));
     }
-  };
+  }, [feedbackId, loading, urls]);
 
   useEffect(() => {
     if (isOpen && attachments[currentIndex]) {
-      loadUrl(attachments[currentIndex]);
+      void loadUrl(attachments[currentIndex]);
     }
-  }, [isOpen, currentIndex, feedbackId]);
+  }, [attachments, currentIndex, isOpen, loadUrl]);
 
   const goToPrevious = () => {
     setCurrentIndex(prev => prev > 0 ? prev - 1 : attachments.length - 1);

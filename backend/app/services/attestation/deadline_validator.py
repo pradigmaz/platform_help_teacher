@@ -41,6 +41,20 @@ async def _get_origin_lesson_for_group(
     ).get(lab_number)
 
 
+async def _get_lesson_positions(
+    db: AsyncSession,
+    origin_lesson: Lesson,
+) -> dict[UUID, int]:
+    """Build lesson position map for deadline evaluation from the origin lesson onward."""
+    ordered_lessons = await load_ordered_deadline_lessons(
+        db,
+        group_id=origin_lesson.group_id,
+        subject_id=origin_lesson.subject_id,
+        since_date=origin_lesson.date,
+    )
+    return {lesson_id: idx for idx, (lesson_id, _, _, _) in enumerate(ordered_lessons)}
+
+
 async def get_max_allowed_grade_for_lab(
     db: AsyncSession, lab: Lab, current_lesson: Lesson, student_id: UUID | None = None
 ) -> int:
@@ -99,7 +113,7 @@ async def get_deadline_trace_for_lab(
         subject_id=origin_lesson.subject_id,
         since_date=origin_lesson.date,
     )
-    lesson_positions = {lesson_id: idx for idx, (lesson_id, _, _, _) in enumerate(ordered_lessons)}
+    lesson_positions = await _get_lesson_positions(db, origin_lesson)
     context = build_deadline_context_for_current_lesson(
         lab_number=lab.number,
         origin_lesson_id=origin_lesson.id,
@@ -115,12 +129,16 @@ async def get_deadline_trace_for_lab(
     effective_deadline_5_date = resolve_effective_deadline_date(
         ordered_lessons=ordered_lessons_for_trace,
         lab_number=lab.number,
-        effective_deadline_lessons=bonus_lessons + lab.deadline_5_lessons if lab.deadline_5_lessons is not None else None,
+        effective_deadline_lessons=bonus_lessons + lab.deadline_5_lessons
+        if lab.deadline_5_lessons is not None
+        else None,
     )
     effective_deadline_4_date = resolve_effective_deadline_date(
         ordered_lessons=ordered_lessons_for_trace,
         lab_number=lab.number,
-        effective_deadline_lessons=bonus_lessons + lab.deadline_4_lessons if lab.deadline_4_lessons is not None else None,
+        effective_deadline_lessons=bonus_lessons + lab.deadline_4_lessons
+        if lab.deadline_4_lessons is not None
+        else None,
     )
     evaluation = evaluate_deadline_context(
         context=context,
