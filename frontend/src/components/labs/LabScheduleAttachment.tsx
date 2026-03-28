@@ -33,6 +33,11 @@ interface GroupSlots {
   group_id: string;
   group_name: string;
   slots: ScheduleSlot[];
+  attachment_blocked?: {
+    blocking_lab_number: number;
+    can_attach_from: string | null;
+    message: string;
+  };
 }
 
 interface ScheduleSlotsResponse {
@@ -85,8 +90,11 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
     }
   };
 
-  const toggleSlot = (lessonId: string, slot: ScheduleSlot) => {
+  const toggleSlot = (lessonId: string, slot: ScheduleSlot, groupBlocked?: GroupSlots['attachment_blocked']) => {
     if (slot.current_work_number && slot.current_work_number !== labNumber) {
+      return;
+    }
+    if (groupBlocked && !selected.has(lessonId)) {
       return;
     }
     
@@ -222,24 +230,31 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
+                    {group.attachment_blocked && (
+                      <div className="mb-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-sm">
+                        <p className="font-medium text-yellow-600">Для этой группы привязка пока заблокирована</p>
+                        <p className="text-muted-foreground mt-1">{group.attachment_blocked.message}</p>
+                      </div>
+                    )}
                     <div className="space-y-1 pl-2">
                       {group.slots.map(slot => {
                         const isOccupied = slot.current_work_number && slot.current_work_number !== labNumber;
                         const isChecked = selected.has(slot.lesson_id);
+                        const isBlockedForGroup = Boolean(group.attachment_blocked) && !isChecked;
                         
                         return (
                           <label
                             key={slot.lesson_id}
                             className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
-                              isOccupied 
+                              isOccupied || isBlockedForGroup
                                 ? 'opacity-50 cursor-not-allowed bg-muted' 
                                 : 'hover:bg-muted/50'
                             }`}
                           >
                             <Checkbox
                               checked={isChecked}
-                              onCheckedChange={() => toggleSlot(slot.lesson_id, slot)}
-                              disabled={!!isOccupied}
+                              onCheckedChange={() => toggleSlot(slot.lesson_id, slot, group.attachment_blocked)}
+                              disabled={!!isOccupied || isBlockedForGroup}
                             />
                             <span className="text-sm">
                               {formatSubgroup(slot.subgroup)} — {formatDate(slot.date)}, пара {slot.lesson_number}
@@ -262,7 +277,7 @@ export function LabScheduleAttachment({ labId, labNumber }: Props) {
             <div className="mt-4 flex justify-end">
               <Button 
                 onClick={handleSave} 
-                disabled={!hasChanges || saving || !!data.attachment_blocked}
+                disabled={!hasChanges || saving}
                 size="sm"
               >
                 {saving ? (

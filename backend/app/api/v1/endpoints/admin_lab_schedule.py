@@ -35,18 +35,19 @@ class ScheduleSlot(BaseModel):
     is_attached: bool  # True if attached to THIS lab
 
 
-class GroupSlots(BaseModel):
-    group_id: str
-    group_name: str
-    slots: list[ScheduleSlot]
-
-
 class AttachmentBlockInfo(BaseModel):
     """Информация о блокировке привязки."""
 
     blocking_lab_number: int
     can_attach_from: date | None
     message: str
+
+
+class GroupSlots(BaseModel):
+    group_id: str
+    group_name: str
+    slots: list[ScheduleSlot]
+    attachment_blocked: AttachmentBlockInfo | None = None
 
 
 class ScheduleSlotsResponse(BaseModel):
@@ -77,6 +78,14 @@ async def _sync_lab_origin_lesson(db: AsyncSession, lab: Lab) -> None:
     )
     origin_lesson = result.scalar_one_or_none()
     lab.lesson_id = origin_lesson.id if origin_lesson else None
+
+
+def _same_block_reason(first: AttachmentBlockInfo, second: AttachmentBlockInfo) -> bool:
+    return (
+        first.blocking_lab_number == second.blocking_lab_number
+        and first.can_attach_from == second.can_attach_from
+        and first.message == second.message
+    )
 
 
 @router.get("/{lab_id}/schedule-slots", response_model=ScheduleSlotsResponse)
@@ -132,24 +141,33 @@ async def get_schedule_slots(
             )
         )
 
-    # Проверяем блокировку привязки для каждой группы
+    # Проверяем блокировку привязки для каждой группы отдельно.
     attachment_blocked = None
     if lessons and lab.number > 1:
         validator = LabAttachmentValidator(db)
-        # Проверяем для первой группы (блокировка одинакова для всех)
-        first_lesson = lessons[0]
-        validation = await validator.validate_attachment(
-            lab_to_attach=lab,
-            target_lesson_date=first_lesson.date,
-            group_id=first_lesson.group_id,
-            subject_id=lab.subject_id,
-        )
-        if not validation.is_valid:
-            attachment_blocked = AttachmentBlockInfo(
-                blocking_lab_number=validation.blocking_lab_number,
-                can_attach_from=validation.can_attach_from,
-                message=validation.message,
+        group_blocks: list[AttachmentBlockInfo] = []
+        for group in groups_map.values():
+            if not group.slots:
+                continue
+            first_slot = group.slots[0]
+            validation = await validator.validate_attachment(
+                lab_to_attach=lab,
+                target_lesson_date=first_slot.date,
+                group_id=UUID(group.group_id),
+                subject_id=lab.subject_id,
             )
+            if not validation.is_valid:
+                group.attachment_blocked = AttachmentBlockInfo(
+                    blocking_lab_number=validation.blocking_lab_number,
+                    can_attach_from=validation.can_attach_from,
+                    message=validation.message,
+                )
+                group_blocks.append(group.attachment_blocked)
+
+        if group_blocks and len(group_blocks) == len(groups_map):
+            first_block = group_blocks[0]
+            if all(_same_block_reason(first_block, block) for block in group_blocks[1:]):
+                attachment_blocked = first_block
 
     return ScheduleSlotsResponse(
         lab_number=lab.number, groups=list(groups_map.values()), attachment_blocked=attachment_blocked

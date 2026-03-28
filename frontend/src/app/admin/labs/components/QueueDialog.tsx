@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DeadlineTraceBadges } from '@/components/labs/DeadlineTraceBadges';
 import { Users, FlaskConical, Clock, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import type { LabQueue, SubmissionDetail } from '@/lib/api/types/lab-queue';
 import { getQuestionText } from '@/lib/utils/question-utils';
@@ -146,6 +147,8 @@ export function QueueDialog({
                 </Button>
               </div>
             </div>
+
+            <DeadlineTraceBadges trace={selectedSubmission?.deadline_trace} className="flex flex-wrap gap-2 mb-3" />
             
             {selectedSubmission.questions && selectedSubmission.questions.length > 0 && (
               <div className="bg-muted/50 rounded-lg p-3">

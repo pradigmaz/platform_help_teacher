@@ -8,6 +8,7 @@ import { CardSpotlight } from '@/components/ui/card-spotlight';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { DeadlineTraceBadges } from '@/components/labs/DeadlineTraceBadges';
 import { IconArrowLeft, IconCheck, IconClock, IconX, IconTarget, IconBook, IconCode, IconQuestionMark, IconPlayerPlay, IconHandStop, IconAlertCircle, IconNotebook, IconFlask } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -30,7 +31,6 @@ export default function LabDetailPage() {
   const [loading, setLoading] = useState(true);
   const [lab, setLab] = useState<StudentLabDetail | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-
   const loadLab = async () => {
     try {
       const data = await StudentAPI.getLabDetail(labId);
@@ -134,6 +134,7 @@ export default function LabDetailPage() {
                 <span className="text-xl font-bold text-foreground">{resolvedGrade}/{lab.max_grade}</span>
               )}
             </div>
+            <DeadlineTraceBadges trace={lab.deadline_trace} className="flex flex-wrap gap-2 mt-3" />
           </div>
         </div>
         {lab.submission?.feedback && (

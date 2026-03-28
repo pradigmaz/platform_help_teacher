@@ -12,9 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import Attendance, AttendanceStatus
 from app.models.lab import Lab
-from app.models.lab_deadline_extension import LabDeadlineExtension
 from app.models.lesson import Lesson
 from app.models.schedule import LessonType
+from app.services.deadline_context import build_deadline_context_for_current_lesson
+from app.services.deadline_engine import evaluate_deadline_context
+from app.services.deadline_inputs import load_active_extension_bonus
+from app.services.deadline_lesson_loader import load_ordered_deadline_lessons, load_origin_lessons
+from app.services.deadline_trace import DeadlineTrace, resolve_effective_deadline_date
+from app.services.lab_lookup import find_active_lab_by_subject_and_number
 
 logger = logging.getLogger(__name__)
 _DEADLINE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
@@ -26,24 +31,14 @@ async def _get_origin_lesson_for_group(
     lab_number: int,
 ) -> Lesson | None:
     """Resolve the first lesson slot for this lab in the current lesson's group."""
-    if not current_lesson.group_id or not current_lesson.subject_id:
-        return None
-
-    result = await db.execute(
-        select(Lesson)
-        .where(
-            and_(
-                Lesson.group_id == current_lesson.group_id,
-                Lesson.subject_id == current_lesson.subject_id,
-                Lesson.lesson_type.in_(_DEADLINE_LESSON_TYPES),
-                Lesson.work_number == lab_number,
-                Lesson.is_cancelled.is_(False),
-            )
+    return (
+        await load_origin_lessons(
+            db,
+            group_id=current_lesson.group_id,
+            subject_id=current_lesson.subject_id,
+            work_numbers={lab_number},
         )
-        .order_by(Lesson.date, Lesson.lesson_number)
-        .limit(1)
-    )
-    return result.scalar_one_or_none()
+    ).get(lab_number)
 
 
 async def get_max_allowed_grade_for_lab(
@@ -61,12 +56,26 @@ async def get_max_allowed_grade_for_lab(
     Returns:
         Максимально допустимая оценка (2-5)
     """
+    trace = await get_deadline_trace_for_lab(db, lab, current_lesson, student_id)
+    return trace.current_max_grade if trace else 5
+
+
+async def get_deadline_trace_for_lab(
+    db: AsyncSession,
+    lab: Lab,
+    current_lesson: Lesson,
+    student_id: UUID | None = None,
+) -> DeadlineTrace | None:
+    """Get traceable deadline state for a lab on a concrete lesson."""
     origin_lesson = await _get_origin_lesson_for_group(db, current_lesson, lab.number)
     if not origin_lesson:
-        return 5
+        return None
 
-    # Проверяем EXCUSED на занятии создания лабы (origin_lesson)
-    # Если студент был EXCUSED когда лаба создана — дедлайн не применяется
+    # Если нет дедлайнов — нет содержательного trace для teacher acceptance path.
+    if lab.deadline_5_lessons is None and lab.deadline_4_lessons is None:
+        return None
+
+    is_excused_origin = False
     if student_id:
         excused_query = select(Attendance).where(
             and_(
@@ -76,92 +85,51 @@ async def get_max_allowed_grade_for_lab(
             )
         )
         excused_result = await db.execute(excused_query)
-        if excused_result.scalar_one_or_none() is not None:
-            return 5  # EXCUSED-лаба — без дедлайна
+        is_excused_origin = excused_result.scalar_one_or_none() is not None
 
-    # Если нет дедлайнов — нет ограничений
-    if lab.deadline_5_lessons is None and lab.deadline_4_lessons is None:
-        return 5
-
-    # Проверяем продление дедлайна для группы студента
-    bonus_lessons = await _get_extension_bonus(db, lab.id, current_lesson.group_id)
-
-    # Считаем номер текущей пары относительно создания лабы
-    lesson_index = await _get_lesson_index(db, origin_lesson=origin_lesson, current_lesson=current_lesson)
-
-    if lesson_index is None:
-        return 5
-
-    # Применяем бонус от продления
-    effective_deadline_5 = (lab.deadline_5_lessons or 0) + bonus_lessons if lab.deadline_5_lessons is not None else None
-    effective_deadline_4 = (lab.deadline_4_lessons or 0) + bonus_lessons if lab.deadline_4_lessons is not None else None
-
-    # Проверяем дедлайны
-    # lesson_index = 0 — это пара создания лабы
-    # deadline_5_lessons = 1 — можно сдать на 5 на паре 0 и 1 (текущая + следующая)
-
-    if effective_deadline_4 is not None and lesson_index > effective_deadline_4:
-        return 3  # Сильно просрочил → макс 3
-
-    if effective_deadline_5 is not None and lesson_index > effective_deadline_5:
-        return 4  # Немного просрочил → макс 4
-
-    return 5  # Вовремя
-
-
-async def _get_extension_bonus(db: AsyncSession, lab_id: UUID, group_id: UUID | None) -> int:
-    """Получить бонус пар от продления дедлайна для группы."""
-    if not group_id:
-        return 0
-
-    now = datetime.now(UTC)
-
-    query = select(LabDeadlineExtension.bonus_lessons).where(
-        and_(
-            LabDeadlineExtension.lab_id == lab_id,
-            LabDeadlineExtension.group_id == group_id,
-            LabDeadlineExtension.is_active,
-            # Не истекло (expires_at is NULL или > now)
-            (LabDeadlineExtension.expires_at.is_(None)) | (LabDeadlineExtension.expires_at > now),
-        )
+    bonus_lessons = await load_active_extension_bonus(
+        db,
+        lab_id=lab.id,
+        group_id=current_lesson.group_id,
+        now=datetime.now(UTC),
     )
-
-    result = await db.execute(query)
-    bonus = result.scalar_one_or_none()
-
-    return bonus or 0
-
-
-async def _get_lesson_index(db: AsyncSession, origin_lesson: Lesson, current_lesson: Lesson) -> int | None:
-    """
-    Получить индекс текущего занятия относительно занятия создания лабы.
-    Считаются только LAB-занятия той же группы и предмета.
-
-    Returns:
-        Индекс (0 = пара создания), None если не найдено
-    """
-    query = (
-        select(Lesson.id, Lesson.date, Lesson.lesson_number)
-        .where(
-            and_(
-                Lesson.group_id == origin_lesson.group_id,
-                Lesson.subject_id == origin_lesson.subject_id,
-                Lesson.lesson_type.in_(_DEADLINE_LESSON_TYPES),
-                Lesson.is_cancelled.is_(False),
-                Lesson.date >= origin_lesson.date,
-            )
-        )
-        .order_by(Lesson.date, Lesson.lesson_number)
+    ordered_lessons = await load_ordered_deadline_lessons(
+        db,
+        group_id=origin_lesson.group_id,
+        subject_id=origin_lesson.subject_id,
+        since_date=origin_lesson.date,
     )
+    lesson_positions = {lesson_id: idx for idx, (lesson_id, _, _, _) in enumerate(ordered_lessons)}
+    context = build_deadline_context_for_current_lesson(
+        lab_number=lab.number,
+        origin_lesson_id=origin_lesson.id,
+        current_lesson_id=current_lesson.id,
+        lesson_positions=lesson_positions,
+        extension_bonus=bonus_lessons,
+        is_excused_origin=is_excused_origin,
+    )
+    if context.lesson_index is None:
+        return None
 
-    result = await db.execute(query)
-    lessons = result.all()
-
-    for idx, (lesson_id, _, _) in enumerate(lessons):
-        if lesson_id == current_lesson.id:
-            return idx
-
-    return None
+    ordered_lessons_for_trace = [(work_number, lesson_date) for _, work_number, lesson_date, _ in ordered_lessons]
+    effective_deadline_5_date = resolve_effective_deadline_date(
+        ordered_lessons=ordered_lessons_for_trace,
+        lab_number=lab.number,
+        effective_deadline_lessons=bonus_lessons + lab.deadline_5_lessons if lab.deadline_5_lessons is not None else None,
+    )
+    effective_deadline_4_date = resolve_effective_deadline_date(
+        ordered_lessons=ordered_lessons_for_trace,
+        lab_number=lab.number,
+        effective_deadline_lessons=bonus_lessons + lab.deadline_4_lessons if lab.deadline_4_lessons is not None else None,
+    )
+    evaluation = evaluate_deadline_context(
+        context=context,
+        deadline_5_lessons=lab.deadline_5_lessons,
+        deadline_4_lessons=lab.deadline_4_lessons,
+        effective_deadline_5_date=effective_deadline_5_date,
+        effective_deadline_4_date=effective_deadline_4_date,
+    )
+    return evaluation.trace
 
 
 def validate_grade_for_max(grade: int, max_allowed: int) -> None:
@@ -197,11 +165,7 @@ async def get_max_allowed_grade(
     if not lab_number:
         return 5
 
-    lab_query = select(Lab).where(
-        and_(Lab.subject_id == lesson.subject_id, Lab.number == lab_number, Lab.deleted_at.is_(None))
-    )
-    result = await db.execute(lab_query)
-    lab = result.scalar_one_or_none()
+    lab = await find_active_lab_by_subject_and_number(db, lesson.subject_id, lab_number)
 
     if not lab:
         return 5

@@ -12,16 +12,14 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lab import Lab
 from app.models.lesson import Lesson
-from app.models.schedule import LessonType
-from app.services.schedule_constants import today_msk
+from app.services.deadline_lesson_loader import load_ordered_deadline_lessons, load_origin_lessons
 
 logger = logging.getLogger(__name__)
-ATTACHABLE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
 
 
 @dataclass
@@ -71,26 +69,20 @@ class LabAttachmentValidator:
         if prev_lab.deadline_5_lessons is None:
             return AttachmentValidationResult(is_valid=True)
 
-        # Получаем занятия с предыдущей лабой
-        prev_lab_lessons = await self._get_lessons_with_work_number(group_id, subject_id, prev_lab_number)
-
-        if not prev_lab_lessons:
+        origin_lesson = await self._get_origin_lesson(group_id, subject_id, prev_lab_number)
+        if not origin_lesson:
             # Предыдущая лаба не привязана — можно привязать текущую
             return AttachmentValidationResult(is_valid=True)
 
-        # Находим первое занятие с предыдущей лабой
-        first_lesson_date = min(lesson.date for lesson in prev_lab_lessons)
-
-        # Считаем уникальные work_number начиная с первого занятия (включительно)
-        # deadline_5_lessons = сколько пар (включая первую) можно сдавать на 5
-        # Привязка N+1 возможна начиная с пары номер deadline_5_lessons
-        unique_labs_count = await self._count_unique_labs_from(first_lesson_date, group_id, subject_id)
+        slot_count = await self._count_deadline_slots_from(
+            origin_lesson.date, target_lesson_date, group_id, subject_id
+        )
 
         # Можно привязать когда прошло >= deadline_5_lessons уникальных пар
-        if unique_labs_count < prev_lab.deadline_5_lessons:
+        if slot_count < prev_lab.deadline_5_lessons:
             # Лаба ещё активна
             can_attach_from = await self._get_attachment_available_date(
-                first_lesson_date, prev_lab.deadline_5_lessons, group_id, subject_id
+                origin_lesson.date, prev_lab.deadline_5_lessons, group_id, subject_id
             )
 
             return AttachmentValidationResult(
@@ -106,50 +98,42 @@ class LabAttachmentValidator:
 
     async def _get_lab_by_number(self, number: int, subject_id: UUID | None) -> Lab | None:
         """Получить лабу по номеру и предмету."""
-        query = select(Lab).where(Lab.number == number)
+        query = select(Lab).where(Lab.number == number, Lab.deleted_at.is_(None))
         if subject_id:
             query = query.where(Lab.subject_id == subject_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
-    async def _get_lessons_with_work_number(
-        self, group_id: UUID, subject_id: UUID | None, work_number: int
-    ) -> list[Lesson]:
-        """Получить занятия с указанным work_number."""
-        filters = [
-            Lesson.group_id == group_id,
-            Lesson.lesson_type.in_(ATTACHABLE_LESSON_TYPES),
-            Lesson.work_number == work_number,
-            Lesson.is_cancelled.is_(False),
-        ]
-        if subject_id:
-            filters.append(Lesson.subject_id == subject_id)
+    async def _get_origin_lesson(self, group_id: UUID, subject_id: UUID | None, work_number: int) -> Lesson | None:
+        """Получить origin lesson для указанного номера лабы в текущей группе/предмете."""
+        return (
+            await load_origin_lessons(
+                self.db,
+                group_id=group_id,
+                subject_id=subject_id,
+                work_numbers={work_number},
+            )
+        ).get(work_number)
 
-        query = select(Lesson).where(and_(*filters))
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
-
-    async def _count_unique_labs_from(self, from_date: date, group_id: UUID, subject_id: UUID | None) -> int:
+    async def _count_deadline_slots_from(
+        self,
+        from_date: date,
+        until_date: date,
+        group_id: UUID,
+        subject_id: UUID | None,
+    ) -> int:
         """
-        Посчитать уникальные work_number начиная с указанной даты (включительно).
-        Считает только прошедшие занятия (date <= today).
+        Посчитать deadline slots начиная с origin lesson даты и до target slot включительно.
+        Использует ту же ordered slot-sequence, что и student/teacher deadline paths.
         """
-        today = today_msk()
-
-        filters = [
-            Lesson.group_id == group_id,
-            Lesson.lesson_type.in_(ATTACHABLE_LESSON_TYPES),
-            Lesson.date >= from_date,
-            Lesson.date <= today,
-            Lesson.work_number.isnot(None),
-            Lesson.is_cancelled.is_(False),
-        ]
-        if subject_id:
-            filters.append(Lesson.subject_id == subject_id)
-
-        query = select(func.count(func.distinct(Lesson.work_number))).where(and_(*filters))
-        result = await self.db.execute(query)
-        return result.scalar() or 0
+        lessons = await load_ordered_deadline_lessons(
+            self.db,
+            group_id=group_id,
+            subject_id=subject_id,
+            since_date=from_date,
+            until_date=until_date,
+        )
+        return len(lessons)
 
     async def _get_attachment_available_date(
         self, first_lesson_date: date, deadline_5_lessons: int, group_id: UUID, subject_id: UUID | None
@@ -160,28 +144,12 @@ class LabAttachmentValidator:
         Это дата N-го уникального занятия начиная с first_lesson_date,
         где N = deadline_5_lessons.
         """
-        filters = [
-            Lesson.group_id == group_id,
-            Lesson.lesson_type.in_(ATTACHABLE_LESSON_TYPES),
-            Lesson.date >= first_lesson_date,
-            Lesson.work_number.isnot(None),
-            Lesson.is_cancelled.is_(False),
-        ]
-        if subject_id:
-            filters.append(Lesson.subject_id == subject_id)
-
-        # Получаем все занятия начиная с first_lesson_date
-        query = select(Lesson.date, Lesson.work_number).where(and_(*filters)).order_by(Lesson.date)
-        result = await self.db.execute(query)
-        lessons = result.all()
-
-        # Считаем уникальные work_number
-        seen_work_numbers = set()
-        for lesson_date, work_number in lessons:
-            if work_number not in seen_work_numbers:
-                seen_work_numbers.add(work_number)
-                if len(seen_work_numbers) >= deadline_5_lessons:
-                    return lesson_date
-
-        # Не хватает занятий в расписании
-        return None
+        lessons = await load_ordered_deadline_lessons(
+            self.db,
+            group_id=group_id,
+            subject_id=subject_id,
+            since_date=first_lesson_date,
+        )
+        if len(lessons) < deadline_5_lessons:
+            return None
+        return lessons[deadline_5_lessons - 1][2]

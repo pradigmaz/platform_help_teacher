@@ -42,6 +42,24 @@ export interface StudentLabSubmission {
   accepted_at?: string;
 }
 
+export interface StudentDeadlineTrace {
+  lesson_index?: number | null;
+  current_max_grade: number;
+  extension_bonus: number;
+  has_extension: boolean;
+  is_excused_origin: boolean;
+  deadline_5_lessons?: number | null;
+  deadline_4_lessons?: number | null;
+  effective_deadline_5_lessons?: number | null;
+  effective_deadline_4_lessons?: number | null;
+  effective_deadline_5_date?: string | null;
+  effective_deadline_4_date?: string | null;
+  deadline_5_status?: 'active' | 'expired' | null;
+  deadline_4_status?: 'active' | 'expired' | null;
+  lessons_until_deadline_5?: number | null;
+  lessons_until_deadline_4?: number | null;
+}
+
 export interface StudentLab {
   id: string;
   number: number;
@@ -69,6 +87,7 @@ export interface StudentLab {
   // Продление дедлайна
   has_extension?: boolean;
   extension_bonus?: number;
+  deadline_trace?: StudentDeadlineTrace | null;
 }
 
 export interface StudentLabDetail {
@@ -106,6 +125,10 @@ export interface StudentLabDetail {
   lessons_until_deadline_4?: number | null;
   // Можно ли сейчас сдать (идёт ли пара)
   can_submit_now?: boolean;
+  has_extension?: boolean;
+  extension_bonus?: number;
+  is_excused_origin?: boolean;
+  deadline_trace?: StudentDeadlineTrace | null;
 }
 
 export interface StudentAttestation {

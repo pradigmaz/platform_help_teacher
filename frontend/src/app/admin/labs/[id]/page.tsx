@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { LabsAPI, Lab } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LabViewHeader, LabInfoBadges, LabContentTabs, LabQuestions, LabScheduleAttachment } from '@/components/labs';
+import { LabViewHeader, LabInfoBadges, LabContentTabs, LabQuestions } from '@/components/labs';
 
 export default function LabViewPage() {
   const params = useParams();
@@ -50,7 +50,6 @@ export default function LabViewPage() {
     <div className="p-6 space-y-6">
       <LabViewHeader lab={lab} onLabUpdate={setLab} onDelete={handleDelete} />
       <LabInfoBadges lab={lab} />
-      <LabScheduleAttachment labId={lab.id} labNumber={lab.number} />
       <LabContentTabs lab={lab} />
       <LabQuestions lab={lab} />
     </div>

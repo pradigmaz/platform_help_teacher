@@ -5,15 +5,17 @@ import secrets
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import LAB_PUBLIC_CODE_LENGTH, LAB_PUBLIC_CODE_MAX_ATTEMPTS
 from app.models.lab import Lab
 from app.models.lesson import Lesson
+from app.models.schedule import LessonType
 from app.schemas.lab import LabCreate, LabUpdate
 
 logger = logging.getLogger(__name__)
+_ATTACHABLE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
 
 
 class LabService:
@@ -42,6 +44,48 @@ class LabService:
             raise ValueError(
                 f"Несоответствие предмета: lab.subject_id={subject_id}, lesson.subject_id={lesson.subject_id}"
             )
+
+    async def _sync_origin_lesson(self, db: AsyncSession, lab: Lab) -> None:
+        """Обновить legacy origin lesson для совместимости read-path'ов."""
+        if not lab.subject_id:
+            lab.lesson_id = None
+            return
+
+        result = await db.execute(
+            select(Lesson)
+            .where(
+                Lesson.work_number == lab.number,
+                Lesson.subject_id == lab.subject_id,
+                Lesson.lesson_type.in_(_ATTACHABLE_LESSON_TYPES),
+                Lesson.is_cancelled.is_(False),
+            )
+            .order_by(Lesson.date, Lesson.lesson_number)
+            .limit(1)
+        )
+        origin_lesson = result.scalar_one_or_none()
+        lab.lesson_id = origin_lesson.id if origin_lesson else None
+
+    async def _sync_attached_lessons_work_number(
+        self,
+        db: AsyncSession,
+        *,
+        subject_id: UUID | None,
+        old_number: int,
+        new_number: int,
+    ) -> None:
+        """Сохранить связь lab <-> schedule при переименовании номера работы."""
+        if not subject_id or old_number == new_number:
+            return
+
+        await db.execute(
+            update(Lesson)
+            .where(
+                Lesson.subject_id == subject_id,
+                Lesson.work_number == old_number,
+                Lesson.lesson_type.in_(_ATTACHABLE_LESSON_TYPES),
+            )
+            .values(work_number=new_number)
+        )
 
     async def get_by_id(
         self,
@@ -83,6 +127,8 @@ class LabService:
     async def update(self, db: AsyncSession, lab: Lab, lab_in: LabUpdate) -> Lab:
         """Обновить лабораторную работу."""
         update_data = lab_in.model_dump(exclude_unset=True)
+        old_number = lab.number
+        old_subject_id = lab.subject_id
 
         # Автоматически синхронизируем subject_id при изменении lesson_id
         if "lesson_id" in update_data:
@@ -99,6 +145,17 @@ class LabService:
 
         for field, value in update_data.items():
             setattr(lab, field, value)
+
+        await self._sync_attached_lessons_work_number(
+            db,
+            subject_id=old_subject_id,
+            old_number=old_number,
+            new_number=lab.number,
+        )
+
+        if lab.number != old_number or lab.subject_id != old_subject_id:
+            await self._sync_origin_lesson(db, lab)
+
         await db.commit()
         await db.refresh(lab)
         logger.info(f"Lab {lab.id} updated")

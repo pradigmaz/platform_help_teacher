@@ -18,5 +18,9 @@ class LabVisibilityInfo:
     lessons_until_deadline_5: int | None = None
     lessons_until_deadline_4: int | None = None
     current_max_grade: int = 5  # Текущий максимальный балл с учётом дедлайна
+    lesson_index: int = 0  # Traceable index относительно origin slot
     has_extension: bool = False  # Есть ли активное продление
     extension_bonus: int = 0  # Сколько бонусных пар от продления
+    is_excused_origin: bool = False  # Студент был EXCUSED на origin lab slot
+    effective_deadline_5_date: date | None = None
+    effective_deadline_4_date: date | None = None

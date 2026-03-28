@@ -7,6 +7,7 @@ import { CardSpotlight } from '@/components/ui/card-spotlight';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { DeadlineTraceBadges } from '@/components/labs/DeadlineTraceBadges';
 import { IconCheck, IconClock, IconX, IconLock, IconFlask, IconCalendar, IconHandStop, IconPlayerPlay } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -210,6 +211,8 @@ export default function LabsPage() {
                       Ваш вариант: <span className="font-semibold text-foreground">{lab.variant_number}</span>
                     </div>
                   )}
+
+                  <DeadlineTraceBadges trace={lab.deadline_trace} className="flex flex-wrap gap-2 mb-3" />
 
                   <div className="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border">
                     <div className="flex items-center gap-1">

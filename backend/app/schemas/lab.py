@@ -191,7 +191,6 @@ class LabDetailResponse(BaseModel):
     is_published: bool
     public_code: str | None = None
     subject_id: UUID | None = None
-    lesson_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

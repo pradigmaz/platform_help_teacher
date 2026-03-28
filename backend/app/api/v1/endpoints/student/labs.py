@@ -12,26 +12,14 @@ from app.audit import ActionType, EntityType, audit_action
 from app.audit.deps import audit_user
 from app.core import error_messages as em
 from app.core.limiter import limiter
+from app.api.v1.endpoints.student.lab_response import format_submission, serialize_visibility_fields
 from app.models.lab import Lab
-from app.models.submission import Submission
 from app.models.user import User
 from app.services.lab_visibility import LabVisibilityService
 from app.services.lab_visibility.models import LabVisibilityInfo
 from app.services.student_lab_service import resolve_lab_acceptance, student_lab_service
 
 router = APIRouter()
-
-
-def _format_submission(sub: Submission) -> dict:
-    return {
-        "id": str(sub.id),
-        "status": sub.status.value,
-        "grade": sub.grade,
-        "feedback": sub.feedback,
-        "ready_at": sub.ready_at.isoformat() if sub.ready_at else None,
-        "accepted_at": sub.accepted_at.isoformat() if sub.accepted_at else None,
-    }
-
 
 @router.get("/labs")
 @audit_action(ActionType.VIEW, EntityType.LAB)
@@ -48,12 +36,15 @@ async def get_my_labs(
     visible_by_subject = await visibility_service.get_visible_lab_numbers_by_subject(
         group_id=current_user.group_id, subgroup=current_user.subgroup
     )
+    group_subject_ids = await visibility_service.get_group_subject_ids(
+        group_id=current_user.group_id, subgroup=current_user.subgroup
+    )
 
     labs = await student_lab_service.get_published_labs(db)
 
     def is_lab_relevant(lab: Lab) -> bool:
         if lab.subject_id:
-            return lab.subject_id in visible_by_subject
+            return lab.subject_id in visible_by_subject or lab.subject_id in group_subject_ids
         return any(lab.number in work_numbers for work_numbers in visible_by_subject.values())
 
     relevant_labs = [lab for lab in labs if is_lab_relevant(lab)]
@@ -72,6 +63,7 @@ async def get_my_labs(
             labs_deadlines={lab.number: (lab.deadline_5_lessons, lab.deadline_4_lessons) for lab in subject_labs},
             labs_subjects={lab.number: subject_id for lab in subject_labs},
             labs_ids={lab.number: lab.id for lab in subject_labs},
+            student_id=current_user.id,
         )
         visibility_by_subject[subject_id] = subject_visibility
 
@@ -98,7 +90,7 @@ async def get_my_labs(
 
         submission_data = None
         if sub:
-            submission_data = _format_submission(sub)
+            submission_data = format_submission(sub)
             # [StudentLabs:get_my_labs] Found submission for lab {lab.number}
 
         result.append(
@@ -118,18 +110,11 @@ async def get_my_labs(
                 "acceptance_source": acceptance_source,
                 "variant_number": variant_number,
                 "submission": submission_data,
-                "visible_from": visibility_info.visible_from.isoformat()
-                if visibility_info and visibility_info.visible_from
-                else None,
-                "deadline_active_from": visibility_info.deadline_active_from.isoformat()
-                if visibility_info and visibility_info.deadline_active_from
-                else None,
-                "deadline_5_status": visibility_info.deadline_5_status if visibility_info else None,
-                "deadline_4_status": visibility_info.deadline_4_status if visibility_info else None,
-                "lessons_until_deadline_5": visibility_info.lessons_until_deadline_5 if visibility_info else None,
-                "lessons_until_deadline_4": visibility_info.lessons_until_deadline_4 if visibility_info else None,
-                "has_extension": visibility_info.has_extension if visibility_info else False,
-                "extension_bonus": visibility_info.extension_bonus if visibility_info else 0,
+                **serialize_visibility_fields(
+                    visibility_info=visibility_info,
+                    deadline_5_lessons=lab.deadline_5_lessons,
+                    deadline_4_lessons=lab.deadline_4_lessons,
+                ),
             }
         )
 
@@ -165,6 +150,8 @@ async def get_lab_detail(
             deadline_5_lessons=lab.deadline_5_lessons,
             deadline_4_lessons=lab.deadline_4_lessons,
             subject_id=lab.subject_id,
+            lab_id=lab.id,
+            student_id=current_user.id,
         )
         if not visibility_info.is_visible:
             raise HTTPException(status_code=403, detail=em.LAB_NOT_AVAILABLE_YET)
@@ -207,21 +194,16 @@ async def get_lab_detail(
         "acceptance_source": acceptance_source,
         "variant_number": variant_number,
         "variant_data": variant_data,
-        "submission": _format_submission(sub) if sub else None,
+        "submission": format_submission(sub) if sub else None,
     }
 
     if visibility_info:
         response.update(
-            {
-                "visible_from": visibility_info.visible_from.isoformat() if visibility_info.visible_from else None,
-                "deadline_active_from": visibility_info.deadline_active_from.isoformat()
-                if visibility_info.deadline_active_from
-                else None,
-                "deadline_5_status": visibility_info.deadline_5_status,
-                "deadline_4_status": visibility_info.deadline_4_status,
-                "lessons_until_deadline_5": visibility_info.lessons_until_deadline_5,
-                "lessons_until_deadline_4": visibility_info.lessons_until_deadline_4,
-            }
+            serialize_visibility_fields(
+                visibility_info=visibility_info,
+                deadline_5_lessons=lab.deadline_5_lessons,
+                deadline_4_lessons=lab.deadline_4_lessons,
+            )
         )
 
     can_submit_now = False
@@ -259,6 +241,8 @@ async def mark_lab_ready(
             deadline_5_lessons=lab.deadline_5_lessons,
             deadline_4_lessons=lab.deadline_4_lessons,
             subject_id=lab.subject_id,
+            lab_id=lab.id,
+            student_id=current_user.id,
         )
         if not visibility_info.is_visible:
             raise HTTPException(status_code=403, detail=em.LAB_NOT_AVAILABLE_BY_SCHEDULE)

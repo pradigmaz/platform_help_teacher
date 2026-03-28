@@ -37,6 +37,25 @@ export interface SubmissionDetail {
   ready_at: string;
   status: string;
   max_allowed_grade: number;  // Максимальная оценка с учётом дедлайна (2-5)
+  deadline_trace?: SubmissionDeadlineTrace | null;
+}
+
+export interface SubmissionDeadlineTrace {
+  lesson_index?: number | null;
+  current_max_grade: number;
+  extension_bonus: number;
+  has_extension: boolean;
+  is_excused_origin: boolean;
+  deadline_5_lessons?: number | null;
+  deadline_4_lessons?: number | null;
+  effective_deadline_5_lessons?: number | null;
+  effective_deadline_4_lessons?: number | null;
+  effective_deadline_5_date?: string | null;
+  effective_deadline_4_date?: string | null;
+  deadline_5_status?: 'active' | 'expired' | null;
+  deadline_4_status?: 'active' | 'expired' | null;
+  lessons_until_deadline_5?: number | null;
+  lessons_until_deadline_4?: number | null;
 }
 
 export interface AcceptSubmissionRequest {

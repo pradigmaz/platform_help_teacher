@@ -46,7 +46,6 @@ export interface Lab {
   public_code?: string | null;
   s3_key?: string;
   subject_id?: string;
-  lesson_id?: string;
   my_submission?: Submission;
   created_at?: string;
   updated_at?: string;
@@ -75,7 +74,6 @@ export interface LabCreate {
   max_grade?: number;
   is_sequential?: boolean;
   subject_id?: string;
-  lesson_id?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

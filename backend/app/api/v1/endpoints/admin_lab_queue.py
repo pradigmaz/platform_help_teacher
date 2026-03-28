@@ -2,7 +2,8 @@
 Admin Lab Queue API - очередь на сдачу лабораторных работ.
 """
 
-from datetime import datetime
+from dataclasses import asdict
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -16,7 +17,8 @@ from app.api import deps
 from app.core import error_messages as em
 from app.db.session import get_db
 from app.models import Lab, Submission, SubmissionStatus, User
-from app.services.attestation.deadline_validator import get_max_allowed_grade_for_lab
+from app.services.attestation.deadline_validator import get_deadline_trace_for_lab
+from app.services.deadline_trace import DeadlineTrace
 from app.services.submission_service import submission_service
 
 router = APIRouter()
@@ -64,6 +66,26 @@ class RejectSubmissionRequest(BaseModel):
     comment: str = Field(..., min_length=1, description="Причина отклонения")
 
 
+class SubmissionDeadlineTraceResponse(BaseModel):
+    """Traceable deadline context for manual acceptance verification."""
+
+    lesson_index: int | None = None
+    current_max_grade: int
+    extension_bonus: int
+    has_extension: bool
+    is_excused_origin: bool
+    deadline_5_lessons: int | None = None
+    deadline_4_lessons: int | None = None
+    effective_deadline_5_lessons: int | None = None
+    effective_deadline_4_lessons: int | None = None
+    effective_deadline_5_date: date | None = None
+    effective_deadline_4_date: date | None = None
+    deadline_5_status: str | None = None
+    deadline_4_status: str | None = None
+    lessons_until_deadline_5: int | None = None
+    lessons_until_deadline_4: int | None = None
+
+
 class SubmissionDetailResponse(BaseModel):
     """Детали сдачи для приёма работы."""
 
@@ -81,9 +103,17 @@ class SubmissionDetailResponse(BaseModel):
     ready_at: datetime | None = None
     status: str
     max_allowed_grade: int = 5  # Максимальная оценка с учётом дедлайна (2-5)
+    deadline_trace: SubmissionDeadlineTraceResponse | None = None
 
     class Config:
         from_attributes = True
+
+
+def _serialize_deadline_trace(trace: DeadlineTrace | None) -> SubmissionDeadlineTraceResponse | None:
+    """Convert shared deadline trace to API response model."""
+    if trace is None:
+        return None
+    return SubmissionDeadlineTraceResponse(**asdict(trace))
 
 
 # === Endpoints ===
@@ -176,12 +206,13 @@ async def get_submission_detail(
                 variant_data = v
                 break
 
-    # Вычисляем max_allowed_grade с учётом дедлайна
-    max_allowed_grade = 5
+    deadline_trace = None
     if lab.subject_id and student.group_id:
         _, lesson = await submission_service.resolve_acceptance_context(db, sub)
         if lesson:
-            max_allowed_grade = await get_max_allowed_grade_for_lab(db, lab, lesson, student.id)
+            deadline_trace = await get_deadline_trace_for_lab(db, lab, lesson, student.id)
+
+    max_allowed_grade = deadline_trace.current_max_grade if deadline_trace else 5
 
     return SubmissionDetailResponse(
         submission_id=sub.id,
@@ -198,6 +229,7 @@ async def get_submission_detail(
         ready_at=sub.ready_at,
         status=sub.status.value if sub.status else "unknown",
         max_allowed_grade=max_allowed_grade,
+        deadline_trace=_serialize_deadline_trace(deadline_trace),
     )
 
 

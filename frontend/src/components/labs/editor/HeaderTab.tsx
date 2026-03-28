@@ -163,6 +163,11 @@ export function HeaderTab({ data, updateField }: HeaderTabProps) {
               </select>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Здесь задаются пороги в парах, а не конкретные даты. Реальные даты дедлайна
+            считаются по расписанию, продлениям и origin-slot и показываются в student/teacher
+            deadline badges.
+          </p>
           <div className="flex items-center gap-3 pt-4">
             <Switch
               id="is_sequential"

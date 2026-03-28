@@ -3,6 +3,7 @@ Batch-версия валидатора дедлайнов для оптимиз
 """
 
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -12,10 +13,28 @@ from app.models.attendance import Attendance, AttendanceStatus
 from app.models.lab import Lab
 from app.models.lesson import Lesson
 from app.models.schedule import LessonType
+from app.services.deadline_context import build_deadline_context_for_current_lesson
+from app.services.deadline_engine import evaluate_deadline_context
+from app.services.deadline_inputs import load_active_extension_bonus_map
+from app.services.deadline_lesson_loader import load_ordered_deadline_lessons, load_origin_lessons
+from app.services.lab_lookup import find_active_labs_by_subject_and_numbers
 
 logger = logging.getLogger(__name__)
 _DEADLINE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
 
+
+async def _get_origin_lessons_for_group(
+    db: AsyncSession,
+    current_lesson: Lesson,
+    work_numbers: set[int],
+) -> dict[int, Lesson]:
+    """Resolve first lesson slot per work_number in current lesson's group/subject."""
+    return await load_origin_lessons(
+        db,
+        group_id=current_lesson.group_id,
+        subject_id=current_lesson.subject_id,
+        work_numbers=work_numbers,
+    )
 
 async def get_max_allowed_grades_batch(
     db: AsyncSession,
@@ -47,17 +66,21 @@ async def get_max_allowed_grades_batch(
         return {item: 5 for item in grade_items}
 
     # 1. Загружаем все нужные лабы одним запросом
-    labs_query = select(Lab).where(
-        and_(Lab.subject_id == lesson.subject_id, Lab.number.in_(work_numbers), Lab.deleted_at.is_(None))
-    )
-    result = await db.execute(labs_query)
-    labs = {lab.number: lab for lab in result.scalars().all()}
+    labs = await find_active_labs_by_subject_and_numbers(db, lesson.subject_id, work_numbers)
 
     if not labs:
         return {item: 5 for item in grade_items}
 
-    # 2. Собираем lesson_ids для проверки EXCUSED
-    origin_lesson_ids = {lab.lesson_id for lab in labs.values() if lab.lesson_id}
+    extension_bonus_by_lab_id = await load_active_extension_bonus_map(
+        db,
+        lab_ids={lab.id for lab in labs.values()},
+        group_id=lesson.group_id,
+        now=datetime.now(UTC),
+    )
+
+    # 2. Находим origin lessons в текущей группе, а не по глобальному lab.lesson_id.
+    origin_lessons_by_number = await _get_origin_lessons_for_group(db, lesson, work_numbers)
+    origin_lesson_ids = {origin.id for origin in origin_lessons_by_number.values()}
     student_ids = {sid for sid, _ in grade_items}
 
     # 3. Загружаем EXCUSED статусы одним запросом
@@ -73,39 +96,24 @@ async def get_max_allowed_grades_batch(
         result = await db.execute(excused_query)
         excused_pairs = {(row[0], row[1]) for row in result.fetchall()}
 
-    # 4. Загружаем origin_lessons для расчёта индексов
-    origin_lessons: dict[UUID, Lesson] = {}
-    if origin_lesson_ids:
-        ol_query = select(Lesson).where(Lesson.id.in_(origin_lesson_ids))
-        result = await db.execute(ol_query)
-        origin_lessons = {ol.id: ol for ol in result.scalars().all()}
+    # 4. Карта origin lessons по id для расчёта индексов.
+    origin_lessons = {origin.id: origin for origin in origin_lessons_by_number.values()}
 
     # 5. Загружаем все lab/practice-занятия для расчёта индексов (один запрос)
     # Находим минимальную дату среди origin_lessons
     if origin_lessons:
         min_date = min(ol.date for ol in origin_lessons.values())
-        lessons_query = (
-            select(Lesson.id, Lesson.date, Lesson.lesson_number)
-            .where(
-                and_(
-                    Lesson.group_id == lesson.group_id,
-                    Lesson.subject_id == lesson.subject_id,
-                    Lesson.lesson_type.in_(_DEADLINE_LESSON_TYPES),
-                    Lesson.is_cancelled.is_(False),
-                    Lesson.date >= min_date,
-                )
-            )
-            .order_by(Lesson.date, Lesson.lesson_number)
+        all_lessons = await load_ordered_deadline_lessons(
+            db,
+            group_id=lesson.group_id,
+            subject_id=lesson.subject_id,
+            since_date=min_date,
         )
-        result = await db.execute(lessons_query)
-        all_lessons = list(result.fetchall())
     else:
         all_lessons = []
 
     # Строим индекс: lesson_id -> position
-    lesson_positions = {lid: idx for idx, (lid, _, _) in enumerate(all_lessons)}
-    current_pos = lesson_positions.get(lesson.id)
-
+    lesson_positions = {lid: idx for idx, (lid, _, _, _) in enumerate(all_lessons)}
     # 6. Вычисляем max_grade для каждого item
     results: dict[tuple[UUID, int | None], int] = {}
 
@@ -116,9 +124,10 @@ async def get_max_allowed_grades_batch(
             continue
 
         lab = labs[lab_num]
+        origin_lesson = origin_lessons_by_number.get(lab_num)
 
         # Проверяем EXCUSED
-        if lab.lesson_id and (student_id, lab.lesson_id) in excused_pairs:
+        if origin_lesson and (student_id, origin_lesson.id) in excused_pairs:
             results[(student_id, work_number)] = 5
             continue
 
@@ -128,23 +137,26 @@ async def get_max_allowed_grades_batch(
             continue
 
         # Вычисляем индекс
-        if not lab.lesson_id or lab.lesson_id not in origin_lessons:
+        if origin_lesson is None or origin_lesson.id not in origin_lessons:
             results[(student_id, work_number)] = 5
             continue
 
-        origin_pos = lesson_positions.get(lab.lesson_id)
-        if origin_pos is None or current_pos is None:
+        context = build_deadline_context_for_current_lesson(
+            lab_number=lab_num,
+            origin_lesson_id=origin_lesson.id,
+            current_lesson_id=lesson.id,
+            lesson_positions=lesson_positions,
+            extension_bonus=extension_bonus_by_lab_id.get(lab.id, 0),
+        )
+        if context.lesson_index is None:
             results[(student_id, work_number)] = 5
             continue
 
-        lesson_index = current_pos - origin_pos
-
-        # Проверяем дедлайны
-        if lab.deadline_4_lessons is not None and lesson_index > lab.deadline_4_lessons:
-            results[(student_id, work_number)] = 3
-        elif lab.deadline_5_lessons is not None and lesson_index > lab.deadline_5_lessons:
-            results[(student_id, work_number)] = 4
-        else:
-            results[(student_id, work_number)] = 5
+        evaluation = evaluate_deadline_context(
+            context=context,
+            deadline_5_lessons=lab.deadline_5_lessons,
+            deadline_4_lessons=lab.deadline_4_lessons,
+        )
+        results[(student_id, work_number)] = evaluation.state.current_max_grade
 
     return results
