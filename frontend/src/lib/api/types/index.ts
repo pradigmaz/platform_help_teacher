@@ -25,6 +25,9 @@ export * from './student';
 // Schedule
 export * from './schedule';
 
+// Journal
+export * from './journal';
+
 // Reports
 export * from './reports';
 

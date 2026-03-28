@@ -4,6 +4,7 @@ import type {
   AttestationResult,
   AttestationSubjectOption,
   AttestationType,
+  AttestationViewResponse,
   GroupAttestationResult,
   GroupResponse,
 } from '@/lib/api';
@@ -38,6 +39,7 @@ export type Action =
   | { type: 'TOGGLE_SORT'; payload: SortKey }
   | { type: 'SET_GROUPS'; payload: GroupResponse[] }
   | { type: 'SET_AVAILABLE_SUBJECTS'; payload: AttestationSubjectOption[] }
+  | { type: 'APPLY_VIEW_RESPONSE'; payload: AttestationViewResponse }
   | { type: 'SET_DATA'; payload: GroupAttestationResult | null }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_GROUPS_LOADING'; payload: boolean }
@@ -86,6 +88,28 @@ export function reducer(state: State, action: Action): State {
       };
     case 'SET_AVAILABLE_SUBJECTS':
       return { ...state, availableSubjects: action.payload };
+    case 'APPLY_VIEW_RESPONSE': {
+      const availableSubjectIds = new Set(action.payload.available_subjects.map((subject) => subject.id));
+      let nextSubjectId = state.selectedSubjectId;
+
+      if (action.payload.available_subjects.length === 1) {
+        nextSubjectId = action.payload.available_subjects[0].id;
+      } else if (nextSubjectId && !availableSubjectIds.has(nextSubjectId)) {
+        nextSubjectId = '';
+      }
+
+      return {
+        ...state,
+        groups: action.payload.groups,
+        availableSubjects: action.payload.available_subjects,
+        data: action.payload.data,
+        loading: false,
+        groupsLoading: false,
+        selectedGroupId:
+          state.viewMode === 'by-group' ? (action.payload.resolved_group_id ?? '') : state.selectedGroupId,
+        selectedSubjectId: nextSubjectId,
+      };
+    }
     case 'SET_DATA':
       return { ...state, data: action.payload, loading: false };
     case 'SET_LOADING':

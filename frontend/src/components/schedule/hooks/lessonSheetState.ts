@@ -14,7 +14,14 @@ export type SavedLessonState = Pick<
 
 export type LessonSnapshot = Pick<
   LessonData,
-  'id' | 'group_id' | 'subgroup' | 'topic' | 'work_number' | 'is_cancelled' | 'ended_early'
+  | 'id'
+  | 'group_id'
+  | 'subgroup'
+  | 'subject_id'
+  | 'topic'
+  | 'work_number'
+  | 'is_cancelled'
+  | 'ended_early'
 >;
 
 export type SheetAttendanceUpdate = {

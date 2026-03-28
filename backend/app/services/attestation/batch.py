@@ -2,6 +2,7 @@
 
 import logging
 from collections import defaultdict
+from time import perf_counter
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -50,13 +51,16 @@ class BatchScoreCalculator:
         students: list[User] | None = None,
         subject_id: UUID | None = None,
     ) -> tuple[list[AttestationResult], list[CalculationErrorInfo]]:
+        total_started_at = perf_counter()
         settings = await self.settings_manager.get_or_create_settings(attestation_type)
+        settings_loaded_at = perf_counter()
         subject_scope = await resolve_attestation_subject_scope(
             self.db,
             group_id=group_id,
             settings=settings,
             requested_subject_id=subject_id,
         )
+        subject_scope_at = perf_counter()
 
         if not students:
             students_query = select(User).where(
@@ -68,12 +72,15 @@ class BatchScoreCalculator:
             students = list(students_result.scalars().all())
         if not students:
             return [], []
+        students_loaded_at = perf_counter()
         student_ids = [student.id for student in students]
         lessons = await self._get_lessons(group_id, settings, subject_scope.subject_id)
+        lessons_loaded_at = perf_counter()
         lessons_by_subgroup = self._group_lessons_by_subgroup(lessons)
         lesson_grades_map = await self._get_lesson_grades_batch(
             student_ids, group_id, settings, subject_scope.subject_id
         )
+        grades_loaded_at = perf_counter()
         submission_grades_map = await get_submission_grade_fallbacks_batch(
             self.db,
             student_ids,
@@ -81,9 +88,13 @@ class BatchScoreCalculator:
             settings,
             subject_id=subject_scope.subject_id,
         )
+        submission_fallbacks_at = perf_counter()
         attendance_map = await self._get_attendance_batch(group_id, student_ids, settings, lessons)
+        attendance_loaded_at = perf_counter()
         activity_map = await self._get_activity_batch(student_ids, attestation_type, subject_scope)
+        activity_loaded_at = perf_counter()
         transfers_map = await self._get_transfers_batch(student_ids, attestation_type, settings)
+        transfers_loaded_at = perf_counter()
 
         results: list[AttestationResult] = []
         errors: list[CalculationErrorInfo] = []
@@ -111,6 +122,27 @@ class BatchScoreCalculator:
                         error=str(exc),
                     )
                 )
+        calculated_at = perf_counter()
+
+        logger.info(
+            "attestation.batch_timing group=%s type=%s students=%s settings=%.4fs scope=%.4fs students_q=%.4fs "
+            "lessons=%.4fs grades=%.4fs submission_fallbacks=%.4fs attendance=%.4fs activity=%.4fs "
+            "transfers=%.4fs calculate=%.4fs total=%.4fs",
+            group_id,
+            attestation_type,
+            len(students),
+            settings_loaded_at - total_started_at,
+            subject_scope_at - settings_loaded_at,
+            students_loaded_at - subject_scope_at,
+            lessons_loaded_at - students_loaded_at,
+            grades_loaded_at - lessons_loaded_at,
+            submission_fallbacks_at - grades_loaded_at,
+            attendance_loaded_at - submission_fallbacks_at,
+            activity_loaded_at - attendance_loaded_at,
+            transfers_loaded_at - activity_loaded_at,
+            calculated_at - transfers_loaded_at,
+            calculated_at - total_started_at,
+        )
 
         return results, errors
 

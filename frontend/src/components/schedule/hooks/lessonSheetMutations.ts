@@ -51,14 +51,11 @@ export const updateStudentWorkNumberState = (
   nextWorkNumber: number
 ) => {
   const currentGrade = currentGrades[studentId];
-  if (!currentGrade || currentGrade.grade === null) {
-    return currentGrades;
-  }
 
   return {
     ...currentGrades,
     [studentId]: {
-      ...currentGrade,
+      grade: currentGrade?.grade ?? null,
       work_number: nextWorkNumber,
     },
   };

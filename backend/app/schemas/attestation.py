@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 
 from app.models.attestation_settings import AttestationType
+from app.schemas.group import GroupResponse
 
 # ============== Settings Schemas ==============
 
@@ -218,3 +219,12 @@ class GroupAttestationResponse(BaseModel):
 
     students: list[AttestationResult]
     errors: list[CalculationErrorInfo] = Field(default_factory=list)
+
+
+class AttestationViewResponse(BaseModel):
+    """Aggregate payload for admin attestation scores page."""
+
+    resolved_group_id: UUID | None = None
+    groups: list[GroupResponse]
+    available_subjects: list[AttestationSubjectOption]
+    data: GroupAttestationResponse | None = None

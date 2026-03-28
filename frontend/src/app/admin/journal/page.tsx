@@ -189,10 +189,7 @@ export default function JournalPage() {
               onGradeChange={updateGrade}
               onLessonClick={setSelectedLesson}
               onActivityAdded={() => {
-                // Trigger re-fetch by toggling attestation period
-                const current = attestationPeriod;
-                setAttestationPeriod('all');
-                setTimeout(() => setAttestationPeriod(current), 100);
+                void refreshJournalData();
               }}
             />
           </CardContent>

@@ -15,6 +15,7 @@ export { WorksAPI, WorkSubmissionsAPI } from './works';
 export { ActivitiesAPI } from './activities';
 export { StudentAPI } from './student';
 export { ScheduleAPI } from './schedule';
+export { JournalAPI } from './journal';
 export { ReportsAPI, PublicReportAPI } from './reports';
 export { AdminAPI } from './admin';
 export { TransfersAPI } from './transfers';

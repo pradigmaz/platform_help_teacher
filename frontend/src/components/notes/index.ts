@@ -1,2 +1,2 @@
 export { NoteButton } from './NoteButton';
-export { NotesProvider, useNotesContext, useNotesContextOptional } from './NotesContext';
+export { NotesProvider, useNotesActionsContext, useNotesContext, useNotesContextOptional } from './NotesContext';

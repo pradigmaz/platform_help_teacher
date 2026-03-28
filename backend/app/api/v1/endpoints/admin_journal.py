@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from .journal.export import router as export_router
 from .journal.grades import router as grades_router
 from .journal.lessons import router as lessons_router
+from .journal.view import router as view_router
 
 router = APIRouter()
 
@@ -15,3 +16,4 @@ router = APIRouter()
 router.include_router(lessons_router, tags=["journal-lessons"])
 router.include_router(grades_router, tags=["journal-grades"])
 router.include_router(export_router, tags=["journal-export"])
+router.include_router(view_router, tags=["journal-view"])

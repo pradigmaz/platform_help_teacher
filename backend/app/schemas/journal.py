@@ -8,6 +8,8 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.models.attendance import AttendanceStatus
+from app.schemas.attestation import AttestationResultResponse, AttestationSubjectOption
+from app.schemas.group import GroupResponse, StudentInGroupResponse
 
 # === Attendance Journal ===
 
@@ -142,3 +144,59 @@ class BulkGradesResponse(BaseModel):
     created: int
     updated: int
     errors: list[str] = []
+
+
+# === Aggregate admin journal view ===
+
+
+class JournalLessonResponse(BaseModel):
+    """Плоская форма урока для admin journal view."""
+
+    id: UUID
+    date: date
+    lesson_number: int
+    lesson_type: str
+    topic: str | None = None
+    work_number: int | None = None
+    lecture_work_type: str | None = None
+    subgroup: int | None = None
+    is_cancelled: bool = False
+    subject_id: UUID | None = None
+    subject_name: str | None = None
+    group_id: UUID
+    group_name: str | None = None
+
+
+class JournalStatsResponse(BaseModel):
+    """Сводная статистика журнала."""
+
+    total_lessons: int
+    lectures: int
+    labs: int
+    practices: int
+    attendance_rate: float | None = None
+    average_grade: float | None = None
+    by_status: dict[str, int]
+
+
+class JournalResolvedFilters(BaseModel):
+    """Фактически применённые фильтры aggregate endpoint'а."""
+
+    group_id: UUID | None = None
+    subject_id: UUID | None = None
+    week_start: date
+    week_end: date
+
+
+class JournalViewResponse(BaseModel):
+    """Единый payload для admin journal page."""
+
+    resolved: JournalResolvedFilters
+    groups: list[GroupResponse]
+    subjects: list[AttestationSubjectOption]
+    lessons: list[JournalLessonResponse]
+    students: list[StudentInGroupResponse]
+    attendance: dict[str, dict[str, str]]
+    grades: dict[str, dict[str, dict[str, int | bool | None]]]
+    attestation_scores: dict[str, AttestationResultResponse]
+    stats: JournalStatsResponse | None = None

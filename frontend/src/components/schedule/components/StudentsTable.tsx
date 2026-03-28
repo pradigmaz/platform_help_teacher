@@ -11,9 +11,10 @@ interface StudentsTableProps {
   grades: Record<string, StudentGradeData>;
   canHaveGrade: boolean;
   lessonWorkNumber: number | null;
+  availableWorkNumbers: number[];
   isLoading: boolean;
   onAttendanceClick: (studentId: string) => void;
-  onGradeClick: (studentId: string, grade: number) => void;
+  onGradeClick: (studentId: string, grade: number, workNumber: number | null) => void;
   onWorkNumberChange: (studentId: string, workNumber: number) => void;
 }
 
@@ -23,6 +24,7 @@ export function StudentsTable({
   grades,
   canHaveGrade,
   lessonWorkNumber,
+  availableWorkNumbers,
   isLoading,
   onAttendanceClick,
   onGradeClick,
@@ -47,12 +49,12 @@ export function StudentsTable({
 
       <div className="border rounded-lg overflow-hidden">
         {/* Table header */}
-        <div className="grid grid-cols-[32px_1fr_32px_40px_148px] gap-2 px-3 py-2 bg-muted text-[10px] font-medium text-muted-foreground uppercase">
+        <div className="grid grid-cols-[32px_1fr_32px_40px_208px] gap-2 px-3 py-2 bg-muted text-[10px] font-medium text-muted-foreground uppercase">
           <span>#</span>
           <span>ФИО</span>
           <span></span>
           <span className="text-center">Посещ.</span>
-          <span className="text-center">Оценка</span>
+          <span className="text-center">ЛР / Оценка</span>
         </div>
 
         {/* Rows */}
@@ -69,8 +71,9 @@ export function StudentsTable({
                 gradeData={grades[student.id]}
                 canHaveGrade={canHaveGrade}
                 lessonWorkNumber={lessonWorkNumber}
+                availableWorkNumbers={availableWorkNumbers}
                 onAttendanceClick={() => onAttendanceClick(student.id)}
-                onGradeClick={(grade) => onGradeClick(student.id, grade)}
+                onGradeClick={(grade, workNumber) => onGradeClick(student.id, grade, workNumber)}
                 onWorkNumberChange={(workNumber) => onWorkNumberChange(student.id, workNumber)}
               />
             ))

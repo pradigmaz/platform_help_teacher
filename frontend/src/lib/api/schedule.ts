@@ -9,6 +9,7 @@ import type {
   LessonResponse,
   GenerateLessonsResponse,
   ParseScheduleResponse,
+  ScheduleViewResponse,
 } from './types';
 
 export const ScheduleAPI = {
@@ -86,6 +87,13 @@ export const ScheduleAPI = {
       '/admin/schedule/parse',
       { teacher_name: teacherName, start_date: startDate, end_date: endDate }
     );
+    return data;
+  },
+
+  getAdminView: async (startDate: string, endDate: string) => {
+    const { data } = await api.get<ScheduleViewResponse>('/admin/schedule/view', {
+      params: { start_date: startDate, end_date: endDate },
+    });
     return data;
   },
 };

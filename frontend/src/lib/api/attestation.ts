@@ -5,6 +5,7 @@ import {
   type AttestationSettingsUpdate,
   type AttestationResult,
   type AttestationSubjectOption,
+  type AttestationViewResponse,
   type GroupAttestationResult,
   type GradeScale,
   type BackendGradeScale,
@@ -74,6 +75,16 @@ export const AttestationAPI = {
       `/admin/attestation/scores/all/${type}`,
       { params: { subject_id: subjectId } }
     );
+    return data;
+  },
+
+  getView: async (params: {
+    view_mode: 'by-group' | 'all-students';
+    attestation_type: AttestationType;
+    group_id?: string;
+    subject_id?: string;
+  }) => {
+    const { data } = await api.get<AttestationViewResponse>('/admin/attestation/view', { params });
     return data;
   },
 };

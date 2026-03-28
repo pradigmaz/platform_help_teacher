@@ -31,6 +31,7 @@ interface UseLessonDataReturn {
   students: Student[];
   attendance: Record<string, AttendanceStatus | null>;
   grades: Record<string, StudentGradeData>;
+  availableWorkNumbers: number[];
   topic: string;
   workNumber: number | null;
   status: LessonStatus;
@@ -40,7 +41,7 @@ interface UseLessonDataReturn {
   setWorkNumber: (workNumber: number | null) => void;
   setStatus: (status: LessonStatus) => void;
   cycleAttendance: (studentId: string) => void;
-  setGrade: (studentId: string, grade: number) => void;
+  setGrade: (studentId: string, grade: number, workNumber: number | null) => void;
   setStudentWorkNumber: (studentId: string, workNumber: number) => void;
   saveAll: () => Promise<LessonSheetSyncData | null>;
   resetChanges: () => void;
@@ -50,6 +51,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus | null>>({});
   const [grades, setGrades] = useState<Record<string, StudentGradeData>>({});
+  const [availableWorkNumbers, setAvailableWorkNumbers] = useState<number[]>([]);
   const [topic, setTopicState] = useState('');
   const [workNumber, setWorkNumberState] = useState<number | null>(null);
   const [status, setStatusState] = useState<LessonStatus>('normal');
@@ -67,6 +69,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
       id: lesson.id,
       group_id: lesson.group_id,
       subgroup: lesson.subgroup,
+      subject_id: lesson.subject_id,
       topic: lesson.topic,
       work_number: lesson.work_number,
       is_cancelled: lesson.is_cancelled,
@@ -90,6 +93,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
     setStudents([]);
     setAttendance({});
     setGrades({});
+    setAvailableWorkNumbers([]);
     setTopicState(initialLesson.topic || '');
     setWorkNumberState(initialLesson.work_number ?? null);
     setStatusState(getLessonStatus(initialLesson));
@@ -146,6 +150,29 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
         setGrades({});
         initialGradesRef.current = {};
       }
+
+      if (currentLesson.subject_id) {
+        try {
+          const { data: labs } = await api.get<Array<{ number: number }>>('/admin/labs', {
+            params: {
+              subject_id: currentLesson.subject_id,
+              limit: 500,
+            },
+          });
+          const workNumbers = Array.from(
+            new Set(
+              labs
+                .map((lab) => lab.number)
+                .filter((number): number is number => Number.isInteger(number) && number > 0)
+            )
+          ).sort((left, right) => left - right);
+          setAvailableWorkNumbers(workNumbers);
+        } catch {
+          setAvailableWorkNumbers([]);
+        }
+      } else {
+        setAvailableWorkNumbers([]);
+      }
     } catch (err) {
       console.error('Ошибка загрузки данных занятия', err);
     } finally {
@@ -177,13 +204,17 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
     setHasChanges(true);
   };
 
-  const setGrade = (studentId: string, grade: number) => {
+  const setGrade = (studentId: string, grade: number, selectedWorkNumber: number | null) => {
     if (grades[studentId]?.has_conflict) {
       toast.error('Сначала разберите конфликт оценок в журнале');
       return;
     }
 
-    setGrades((prev) => updateGradeState(prev, studentId, grade, workNumber ?? null));
+    const defaultWorkNumber =
+      workNumber !== null && availableWorkNumbers.includes(workNumber) ? workNumber : null;
+    setGrades((prev) =>
+      updateGradeState(prev, studentId, grade, selectedWorkNumber ?? defaultWorkNumber)
+    );
     setHasChanges(true);
   };
 
@@ -209,7 +240,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
         canHaveGrade(lesson.lesson_type) &&
         gradeUpdates.some(({ grade, work_number }) => grade !== null && work_number == null)
       ) {
-        toast.error('Для этой пары нужно указать номер работы');
+        toast.error('Для оценки нужно указать номер лабораторной');
         throw new Error('work_number_required');
       }
 
@@ -279,6 +310,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
     students,
     attendance,
     grades,
+    availableWorkNumbers,
     topic,
     workNumber,
     status,

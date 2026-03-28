@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.schedule import DayOfWeek, LessonType, WeekParity
+from app.schemas.schedule_parser import ScheduleConflictResponse
 
 # === ScheduleItem ===
 
@@ -85,7 +86,10 @@ class LessonResponse(LessonBase):
     schedule_item_id: UUID | None
     is_cancelled: bool
     cancellation_reason: str | None
+    work_number: int | None = None
     ended_early: bool = False
+    subject_name: str | None = None
+    group_name: str | None = None
 
     class Config:
         from_attributes = True
@@ -146,6 +150,46 @@ class GroupedLectureSheetItemResponse(BaseModel):
 
 class GroupedLectureSheetSaveResponse(BaseModel):
     items: list[GroupedLectureSheetItemResponse]
+
+
+class GroupedLectureGroupResponse(BaseModel):
+    id: UUID
+    name: str
+    lesson_id: UUID
+
+
+class GroupedLectureResponse(BaseModel):
+    date: date
+    lesson_number: int
+    subject_id: UUID | None = None
+    subject_name: str | None = None
+    topic: str | None = None
+    is_cancelled: bool = False
+    ended_early: bool = False
+    groups: list[GroupedLectureGroupResponse]
+
+
+class ScheduleParseStatusResponse(BaseModel):
+    is_running: bool
+    status: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    lessons_created: int | None = None
+    lessons_updated: int | None = None
+    lessons_skipped: int | None = None
+    conflicts_created: int | None = None
+    error_message: str | None = None
+    last_run: str | None = None
+
+
+class ScheduleViewResponse(BaseModel):
+    """Aggregate payload for admin schedule page."""
+
+    parse_status: ScheduleParseStatusResponse
+    conflicts: list[ScheduleConflictResponse]
+    lessons: list[LessonResponse]
+    grouped_lectures: list[GroupedLectureResponse]
+    last_updated: str
 
 
 # === Bulk operations ===

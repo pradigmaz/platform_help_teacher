@@ -1,178 +1,235 @@
 'use client';
 
-import { useEffect } from 'react';
-import type { Lesson } from '../lib/journal-constants';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { format } from 'date-fns';
+import { JournalAPI } from '@/lib/api';
+import type { GroupResponse, JournalViewResponse, StudentInGroup } from '@/lib/api';
+import type { Lesson, Subject, Student, JournalStats as JournalStatsType } from '../lib/journal-constants';
 import { useJournalFilters, type AttestationPeriod, type SemesterInfo } from './useJournalFilters';
-import { useJournalLessons } from './useJournalLessons';
-import { useJournalStats } from './useJournalStats';
 import { useJournalAttendance } from './useJournalAttendance';
 import { useJournalGrades } from './useJournalGrades';
+import { toast } from 'sonner';
 
-// Re-export types for backward compatibility
 export type { AttestationPeriod, SemesterInfo };
 
 interface UseJournalDataProps {
   lessonIdParam: string | null;
 }
 
+function parseDateOnly(value: string): Date {
+  return new Date(`${value}T00:00:00`);
+}
+
+function mapGroups(groups: GroupResponse[]) {
+  return groups.map((group) => ({
+    id: group.id,
+    name: group.name,
+  }));
+}
+
+function mapSubjects(subjects: JournalViewResponse['subjects']): Subject[] {
+  return subjects.map((subject) => ({
+    id: subject.id,
+    name: subject.name,
+  }));
+}
+
+function mapStudents(students: StudentInGroup[]): Student[] {
+  return students.map((student) => ({
+    id: student.id,
+    full_name: student.full_name,
+    subgroup: student.subgroup ?? null,
+  }));
+}
+
+function mapLessons(lessons: JournalViewResponse['lessons']): Lesson[] {
+  return lessons.map((lesson) => ({
+    id: lesson.id,
+    date: lesson.date,
+    lesson_number: lesson.lesson_number,
+    lesson_type: lesson.lesson_type,
+    topic: lesson.topic,
+    work_number: lesson.work_number,
+    lecture_work_type: lesson.lecture_work_type,
+    subgroup: lesson.subgroup,
+    is_cancelled: lesson.is_cancelled,
+    subject_id: lesson.subject_id,
+    subject_name: lesson.subject_name,
+  }));
+}
+
 export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
-  // Filters
   const filters = useJournalFilters();
+  const {
+    attestationPeriod,
+    currentWeek,
+    getSemesterStart,
+    isCurrentSemesterSelected,
+    selectedGroupId,
+    selectedLessonType,
+    selectedSemester,
+    selectedSubjectId,
+    semesterLoading,
+    setCurrentWeek,
+    setSelectedGroupId,
+    setSelectedLessonType,
+    setSelectedSemester,
+    setSelectedSubjectId,
+    setAttestationPeriod,
+    weekEnd,
+    weekStart,
+  } = filters;
+  const [groups, setGroups] = useState<ReturnType<typeof mapGroups>>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [stats, setStats] = useState<JournalStatsType | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const skipNextLoadRef = useRef(false);
+  const loadViewRef = useRef<(() => Promise<void>) | null>(null);
 
-  // Lessons
-  const lessonsHook = useJournalLessons({
-    selectedGroupId: filters.selectedGroupId,
-    selectedSubjectId: filters.selectedSubjectId,
-    selectedLessonType: filters.selectedLessonType,
-    weekStart: filters.weekStart,
-    weekEnd: filters.weekEnd,
-    attestationPeriod: filters.attestationPeriod,
-    selectedSemester: filters.selectedSemester,
-    getSemesterStart: filters.getSemesterStart,
-    lessonIdParam,
-    setSelectedGroupId: filters.setSelectedGroupId,
-    setSelectedSubjectId: filters.setSelectedSubjectId,
-    setCurrentWeek: filters.setCurrentWeek,
-  });
-
-  // Stats
-  const statsHook = useJournalStats({
-    selectedGroupId: filters.selectedGroupId,
-    selectedSubjectId: filters.selectedSubjectId,
-    startDate: lessonsHook.startDate,
-    endDate: lessonsHook.endDate,
-    lessonsCount: lessonsHook.lessons.length,
-  });
-
-  // Attendance
   const attendanceHook = useJournalAttendance({
-    onStatsRefetch: statsHook.refetchStats,
+    onStatsRefetch: () => {
+      void loadViewRef.current?.();
+    },
   });
 
-  // Grades
   const gradesHook = useJournalGrades({
-    onStatsRefetch: statsHook.refetchStats,
+    onStatsRefetch: () => {
+      void loadViewRef.current?.();
+    },
   });
 
-  // Load attendance, grades, stats when lessons change
-  // Use lessons length + first/last ID as stable dependency instead of array reference
-  const lessonsKey = lessonsHook.lessons.length > 0 
-    ? `${lessonsHook.lessons.length}-${lessonsHook.lessons[0]?.id}-${lessonsHook.lessons[lessonsHook.lessons.length - 1]?.id}`
-    : '';
-  const canLoadAttestationScores =
-    filters.attestationPeriod !== 'all' &&
-    filters.selectedSubjectId !== 'all' &&
-    filters.isCurrentSemesterSelected;
-  
-  useEffect(() => {
-    if (lessonsHook.lessons.length > 0 && filters.selectedGroupId) {
-      const lessonIds = lessonsHook.lessons.map((l: Lesson) => l.id);
-      
-      Promise.all([
-        attendanceHook.loadAttendance(filters.selectedGroupId, lessonIds),
-        gradesHook.loadGrades(lessonIds),
-        statsHook.loadStats(
-          filters.selectedGroupId,
-          lessonsHook.startDate,
-          lessonsHook.endDate,
-          filters.selectedSubjectId
-        ),
-      ]);
-      
-      // Load attestation scores if period selected
-      if (canLoadAttestationScores) {
-        gradesHook.loadAttestationScores(
-          filters.selectedGroupId,
-          filters.attestationPeriod,
-          filters.selectedSubjectId
-        );
-      } else {
-        gradesHook.setAttestationScores({});
+  const loadView = useCallback(async () => {
+    if (semesterLoading) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await JournalAPI.getView({
+        group_id: selectedGroupId || undefined,
+        subject_id: selectedSubjectId !== 'all' ? selectedSubjectId : undefined,
+        lesson_type: selectedLessonType !== 'all' ? selectedLessonType : undefined,
+        week_start: format(weekStart, 'yyyy-MM-dd'),
+        week_end: format(weekEnd, 'yyyy-MM-dd'),
+        attestation_period: attestationPeriod,
+        academic_year: selectedSemester.academicYear,
+        semester: selectedSemester.semester,
+        semester_start_date: format(getSemesterStart(), 'yyyy-MM-dd'),
+        lesson_id: lessonIdParam,
+        include_attestation_scores:
+          attestationPeriod !== 'all' &&
+          selectedSubjectId !== 'all' &&
+          isCurrentSemesterSelected,
+      });
+
+      setGroups(mapGroups(response.groups));
+      setSubjects(mapSubjects(response.subjects));
+      setLessons(mapLessons(response.lessons));
+      setStudents(mapStudents(response.students));
+      attendanceHook.setAttendance(response.attendance);
+      gradesHook.setGrades(response.grades);
+      gradesHook.setAttestationScores(response.attestation_scores);
+      setStats(response.stats);
+
+      const resolvedGroupId = response.resolved.group_id ?? '';
+      const resolvedSubjectId = response.resolved.subject_id ?? 'all';
+      const resolvedWeekStart = response.resolved.week_start;
+      const shouldSyncGroup = resolvedGroupId !== selectedGroupId;
+      const shouldSyncSubject = resolvedSubjectId !== selectedSubjectId;
+      const shouldSyncWeek =
+        attestationPeriod === 'all' &&
+        format(weekStart, 'yyyy-MM-dd') !== resolvedWeekStart;
+
+      if (shouldSyncGroup || shouldSyncSubject || shouldSyncWeek) {
+        skipNextLoadRef.current = true;
+        if (shouldSyncGroup) {
+          setSelectedGroupId(resolvedGroupId);
+        }
+        if (shouldSyncSubject) {
+          setSelectedSubjectId(resolvedSubjectId);
+        }
+        if (shouldSyncWeek) {
+          setCurrentWeek(parseDateOnly(resolvedWeekStart));
+        }
       }
-    } else {
-      attendanceHook.setAttendance({});
-      gradesHook.setGrades({});
-      gradesHook.setAttestationScores({});
-      statsHook.setStats(null);
+    } catch (error) {
+      console.error('Failed to load journal view:', error);
+      toast.error(error instanceof Error ? error.message : 'Ошибка загрузки журнала');
+    } finally {
+      setIsLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canLoadAttestationScores, lessonsKey, filters.selectedGroupId, filters.selectedSubjectId, filters.attestationPeriod]);
+  }, [
+    attestationPeriod,
+    getSemesterStart,
+    isCurrentSemesterSelected,
+    lessonIdParam,
+    selectedGroupId,
+    selectedLessonType,
+    selectedSemester,
+    selectedSubjectId,
+    semesterLoading,
+    setCurrentWeek,
+    setSelectedGroupId,
+    setSelectedSubjectId,
+    weekEnd,
+    weekStart,
+  ]);
 
-  const refreshJournalData = async () => {
-    if (!filters.selectedGroupId) {
+  useEffect(() => {
+    loadViewRef.current = loadView;
+  }, [loadView]);
+
+  useEffect(() => {
+    if (semesterLoading) {
       return;
     }
 
-    const refreshed = await lessonsHook.refreshLessonsData();
-    const nextLessons = refreshed?.lessons ?? lessonsHook.lessons;
-    const nextStartDate = refreshed?.startDate ?? lessonsHook.startDate;
-    const nextEndDate = refreshed?.endDate ?? lessonsHook.endDate;
-
-    if (nextLessons.length === 0) {
-      attendanceHook.setAttendance({});
-      gradesHook.setGrades({});
-      gradesHook.setAttestationScores({});
-      statsHook.setStats(null);
+    if (skipNextLoadRef.current) {
+      skipNextLoadRef.current = false;
       return;
     }
 
-    const lessonIds = nextLessons.map((lesson: Lesson) => lesson.id);
-    await Promise.all([
-      attendanceHook.loadAttendance(filters.selectedGroupId, lessonIds),
-      gradesHook.loadGrades(lessonIds),
-      statsHook.loadStats(
-        filters.selectedGroupId,
-        nextStartDate,
-        nextEndDate,
-        filters.selectedSubjectId
-      ),
-      canLoadAttestationScores
-        ? gradesHook.loadAttestationScores(
-            filters.selectedGroupId,
-            filters.attestationPeriod,
-            filters.selectedSubjectId
-          )
-        : Promise.resolve(gradesHook.setAttestationScores({})),
-    ]);
-  };
+    void loadView();
+  }, [
+    attestationPeriod,
+    currentWeek,
+    loadView,
+    selectedGroupId,
+    selectedLessonType,
+    selectedSemester,
+    selectedSubjectId,
+    semesterLoading,
+  ]);
 
   return {
-    // Filters
-    selectedGroupId: filters.selectedGroupId,
-    setSelectedGroupId: filters.setSelectedGroupId,
-    selectedSubjectId: filters.selectedSubjectId,
-    setSelectedSubjectId: filters.setSelectedSubjectId,
-    selectedLessonType: filters.selectedLessonType,
-    setSelectedLessonType: filters.setSelectedLessonType,
-    currentWeek: filters.currentWeek,
-    setCurrentWeek: filters.setCurrentWeek,
-    attestationPeriod: filters.attestationPeriod,
-    setAttestationPeriod: filters.setAttestationPeriod,
-    selectedSemester: filters.selectedSemester,
-    setSelectedSemester: filters.setSelectedSemester,
-    isCurrentSemesterSelected: filters.isCurrentSemesterSelected,
-    
-    // Lessons data
-    groups: lessonsHook.groups,
-    subjects: lessonsHook.subjects,
-    lessons: lessonsHook.lessons,
-    students: lessonsHook.students,
-    isLoading: lessonsHook.isLoading,
-    
-    // Attendance
+    selectedGroupId,
+    setSelectedGroupId,
+    selectedSubjectId,
+    setSelectedSubjectId,
+    selectedLessonType,
+    setSelectedLessonType,
+    currentWeek,
+    setCurrentWeek,
+    attestationPeriod,
+    setAttestationPeriod,
+    selectedSemester,
+    setSelectedSemester,
+    isCurrentSemesterSelected,
+    groups,
+    subjects,
+    lessons,
+    students,
+    isLoading,
     attendance: attendanceHook.attendance,
     updateAttendance: attendanceHook.updateAttendance,
-    
-    // Grades
     grades: gradesHook.grades,
     attestationScores: gradesHook.attestationScores,
     updateGrade: gradesHook.updateGrade,
-    
-    // Stats
-    stats: statsHook.stats,
-    refreshJournalData,
-    
-    // Saving state
+    stats,
+    refreshJournalData: loadView,
     isSaving: attendanceHook.isSaving || gradesHook.isSaving,
   };
 }

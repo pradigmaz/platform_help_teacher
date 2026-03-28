@@ -133,16 +133,6 @@ export function LessonCard({ lesson, onClick, onAction }: LessonCardProps) {
       )}>
         {lesson.topic || lesson.subject_name || '—'}
       </p>
-
-      {/* Номер работы */}
-      {lesson.work_number && !isCancelled && (
-        <p className={cn(
-          'text-[11px] font-semibold mt-1',
-          isEndedEarly ? 'text-yellow-700 dark:text-yellow-300' : config.text
-        )}>
-          Работа №{lesson.work_number}
-        </p>
-      )}
     </div>
   );
 }

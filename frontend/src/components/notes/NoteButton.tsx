@@ -9,7 +9,7 @@ import { StickyNote, Plus, Trash2, Pin, PinOff, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNotes, type EntityType, type NoteColor, type Note } from '@/hooks/useNotes';
 import { useNotesContextOptional } from './NotesContext';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Popover,
@@ -128,25 +128,23 @@ export function NoteButton({ entityType, entityId, size = 'sm', className }: Not
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            buttonSize,
-            'relative transition-all',
-            hasNotes 
-              ? 'text-yellow-500 hover:text-yellow-600 hover:scale-110' 
-              : 'text-muted-foreground/50 hover:text-muted-foreground hover:scale-110 hover:bg-accent',
-            className
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <StickyNote className={iconSize} />
-          {hasNotes && (
-            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
-          )}
-        </Button>
+      <PopoverTrigger
+        type="button"
+        className={cn(
+          buttonVariants({ variant: 'ghost', size: 'icon' }),
+          buttonSize,
+          'relative transition-all',
+          hasNotes
+            ? 'text-yellow-500 hover:text-yellow-600 hover:scale-110'
+            : 'text-muted-foreground/50 hover:text-muted-foreground hover:scale-110 hover:bg-accent',
+          className
+        )}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <StickyNote className={iconSize} />
+        {hasNotes && (
+          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+        )}
       </PopoverTrigger>
       <PopoverContent 
         className="w-80 p-3" 

@@ -1,22 +1,22 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { format, startOfWeek, addDays, getDay, addWeeks } from 'date-fns';
 import { Download, Settings, AlertTriangle, Loader2 } from 'lucide-react';
-import api from '@/lib/api';
+import api, { ScheduleAPI } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/sonner';
 import { LessonSheet, LectureSheet, type LessonSheetData, type GroupedLecture } from '@/components/schedule';
-import { NotesProvider, useNotesContext } from '@/components/notes';
+import { NotesProvider, useNotesActionsContext } from '@/components/notes';
 import { 
   WeekNavigation, 
   ScheduleGrid, 
   ScheduleLegend,
   ParserModal, 
   AutoParserSettings,
-  LessonData 
+  type LessonData
 } from './components';
 import { ConflictResolver, type ScheduleConflict } from './components/ConflictResolver';
 
@@ -28,7 +28,7 @@ function getInitialWeek(): Date {
 
 // Внутренний компонент с логикой
 function SchedulePageContent() {
-  const { loadNotesBatch } = useNotesContext();
+  const { loadNotesBatch } = useNotesActionsContext();
   const [lessons, setLessons] = useState<LessonData[]>([]);
   const [groupedLectures, setGroupedLectures] = useState<GroupedLecture[]>([]);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
@@ -44,105 +44,115 @@ function SchedulePageContent() {
   const [isAutoParserOpen, setIsAutoParserOpen] = useState(false);
   const [isConflictsOpen, setIsConflictsOpen] = useState(false);
   
-  // Polling для статуса автопарсера
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const lastParseRunningRef = useRef(false);
 
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+  const weekStart = useMemo(
+    () => startOfWeek(currentWeek, { weekStartsOn: 1 }),
+    [currentWeek],
+  );
   // Суббота = Пн + 5 дней
-  const weekEnd = addDays(weekStart, 5);
+  const weekEnd = useMemo(() => addDays(weekStart, 5), [weekStart]);
+  const weekStartIso = useMemo(() => format(weekStart, 'yyyy-MM-dd'), [weekStart]);
+  const weekEndIso = useMemo(() => format(weekEnd, 'yyyy-MM-dd'), [weekEnd]);
+  const noteLessonIds = useMemo(() => [
+    ...lessons.map((lesson) => lesson.id),
+    ...groupedLectures.flatMap((lecture) => lecture.groups.map((group) => group.lesson_id)),
+  ], [groupedLectures, lessons]);
+  const noteLessonIdsKey = noteLessonIds.join('|');
 
-  // Проверка статуса парсинга
-  const checkParseStatus = useCallback(async () => {
+  const loadScheduleView = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setIsLoading(true);
+    }
+
     try {
-      const { data } = await api.get('/admin/schedule/parse-status');
-      const wasRunning = isParsing;
-      setIsParsing(data.is_running);
-      
-      // Если парсинг только что завершился
-      if (wasRunning && !data.is_running) {
-        if (data.status === 'success') {
-          toast.success(`Автопарсинг завершён: создано ${data.lessons_created} занятий`);
-          loadLessons();
-          loadConflicts();
-        } else if (data.status === 'failed') {
-          toast.error(`Ошибка автопарсинга: ${data.error_message || 'Неизвестная ошибка'}`);
+      const data = await ScheduleAPI.getAdminView(weekStartIso, weekEndIso);
+
+      const wasRunning = lastParseRunningRef.current;
+      const isRunningNow = data.parse_status.is_running;
+
+      setLessons(
+        data.lessons.map((lesson) => ({
+          id: lesson.id,
+          date: lesson.date,
+          lesson_number: lesson.lesson_number,
+          lesson_type: lesson.lesson_type,
+          topic: lesson.topic ?? null,
+          subject_name: lesson.subject_name ?? null,
+          work_number: lesson.work_number ?? null,
+          subgroup: lesson.subgroup ?? null,
+          is_cancelled: lesson.is_cancelled,
+          ended_early: lesson.ended_early,
+          group_id: lesson.group_id,
+          group_name: lesson.group_name ?? null,
+        })),
+      );
+      setGroupedLectures(
+        data.grouped_lectures.map((lecture) => ({
+          date: lecture.date,
+          lesson_number: lecture.lesson_number,
+          subject_id: lecture.subject_id,
+          subject_name: lecture.subject_name,
+          topic: lecture.topic,
+          is_cancelled: lecture.is_cancelled,
+          ended_early: lecture.ended_early,
+          groups: lecture.groups,
+        })),
+      );
+      setConflicts(data.conflicts);
+      setLastUpdated(format(new Date(data.last_updated), 'HH:mm'));
+      setIsParsing(isRunningNow);
+      lastParseRunningRef.current = isRunningNow;
+
+      if (wasRunning && !isRunningNow) {
+        if (data.parse_status.status === 'success') {
+          toast.success(`Автопарсинг завершён: создано ${data.parse_status.lessons_created ?? 0} занятий`);
+        } else if (data.parse_status.status === 'failed') {
+          toast.error(`Ошибка автопарсинга: ${data.parse_status.error_message || 'Неизвестная ошибка'}`);
         }
       }
     } catch {
-      // Ignore
+      console.error('Ошибка загрузки занятий');
+    } finally {
+      if (!options?.silent) {
+        setIsLoading(false);
+      }
     }
-  }, [isParsing]);
+  }, [weekEndIso, weekStartIso]);
 
-  // Запуск polling при монтировании
   useEffect(() => {
-    checkParseStatus();
-    pollingRef.current = setInterval(checkParseStatus, 5000);
-    
+    if (noteLessonIds.length === 0) {
+      return;
+    }
+
+    void loadNotesBatch('lesson', noteLessonIds);
+  }, [loadNotesBatch, noteLessonIds, noteLessonIdsKey]);
+
+  useEffect(() => {
+    void loadScheduleView();
+  }, [loadScheduleView]);
+
+  useEffect(() => {
+    if (!isParsing) {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      return;
+    }
+
+    pollingRef.current = setInterval(() => {
+      void loadScheduleView({ silent: true });
+    }, 5000);
+
     return () => {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
+        pollingRef.current = null;
       }
     };
-  }, [checkParseStatus]);
-
-  useEffect(() => {
-    loadConflicts();
-  }, []);
-
-  useEffect(() => {
-    loadLessons();
-  }, [currentWeek]);
-
-  const loadConflicts = async () => {
-    try {
-      const { data } = await api.get('/admin/schedule/conflicts');
-      setConflicts(data);
-    } catch {
-      // Ignore
-    }
-  };
-
-  const loadLessons = useCallback(async () => {
-    setIsLoading(true);
-    
-    try {
-      // Load regular lessons (non-lectures)
-      const { data } = await api.get('/admin/journal/lessons', {
-        params: {
-          start_date: format(weekStart, 'yyyy-MM-dd'),
-          end_date: format(weekEnd, 'yyyy-MM-dd'),
-        },
-      });
-      // Filter out lectures - they will be loaded separately
-      const nonLectures = data.filter((l: LessonData) => l.lesson_type.toLowerCase() !== 'lecture');
-      setLessons(nonLectures);
-      
-      // Load grouped lectures
-      const { data: lectures } = await api.get('/admin/lectures/grouped', {
-        params: {
-          start_date: format(weekStart, 'yyyy-MM-dd'),
-          end_date: format(weekEnd, 'yyyy-MM-dd'),
-        },
-      });
-      setGroupedLectures(lectures);
-      
-      // Batch-загрузка заметок для всех уроков одним запросом
-      const allLessonIds = [
-        ...nonLectures.map((l: LessonData) => l.id),
-        ...lectures.flatMap((lec: GroupedLecture) => lec.groups?.map(g => g.lesson_id) || [])
-      ].filter(Boolean);
-      
-      if (allLessonIds.length > 0) {
-        loadNotesBatch('lesson', allLessonIds);
-      }
-      
-      setLastUpdated(format(new Date(), 'HH:mm'));
-    } catch {
-      console.error('Ошибка загрузки занятий');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [weekStart, weekEnd, loadNotesBatch]);
+  }, [isParsing, loadScheduleView]);
 
   const handleLessonClick = (lesson: LessonData) => {
     setSelectedLesson(lesson as LessonSheetData);
@@ -166,7 +176,7 @@ function SchedulePageContent() {
         action === 'end_early' ? 'Отмечено как "отпустил раньше"' :
         'Занятие восстановлено'
       );
-      loadLessons();
+      void loadScheduleView();
     } catch {
       toast.error('Ошибка при обновлении занятия');
     }
@@ -239,14 +249,23 @@ function SchedulePageContent() {
       <ParserModal 
         open={isParserOpen} 
         onOpenChange={setIsParserOpen}
-        onSuccess={loadLessons}
+        onSuccess={() => {
+          void loadScheduleView();
+        }}
       />
       
       <AutoParserSettings
         open={isAutoParserOpen}
         onOpenChange={setIsAutoParserOpen}
-        onParseNow={loadLessons}
-        onParsingChange={setIsParsing}
+        onParseNow={() => {
+          void loadScheduleView();
+        }}
+        onParsingChange={(nextIsParsing) => {
+          setIsParsing(nextIsParsing);
+          if (nextIsParsing) {
+            lastParseRunningRef.current = true;
+          }
+        }}
       />
       
       <ConflictResolver
@@ -254,8 +273,7 @@ function SchedulePageContent() {
         onOpenChange={setIsConflictsOpen}
         conflicts={conflicts}
         onRefresh={() => {
-          loadConflicts();
-          loadLessons();
+          void loadScheduleView();
         }}
       />
 
@@ -265,7 +283,7 @@ function SchedulePageContent() {
         isOpen={!!selectedLesson}
         onClose={() => setSelectedLesson(null)}
         onSave={() => {
-          loadLessons();
+          void loadScheduleView();
           setSelectedLesson(null);
         }}
       />

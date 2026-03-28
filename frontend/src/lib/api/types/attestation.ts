@@ -2,6 +2,8 @@
  * Типы для системы аттестации (автобалансировка).
  */
 
+import type { GroupResponse } from './groups';
+
 export type AttestationType = 'first' | 'second';
 
 export interface ScorePreview {
@@ -142,6 +144,13 @@ export interface GroupAttestationResult {
   grade_distribution: Record<string, number>;
   average_score: number;
   students: AttestationResult[];
+}
+
+export interface AttestationViewResponse {
+  resolved_group_id: string | null;
+  groups: GroupResponse[];
+  available_subjects: AttestationSubjectOption[];
+  data: GroupAttestationResult | null;
 }
 
 export interface GradeScale {

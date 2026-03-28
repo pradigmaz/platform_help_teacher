@@ -1,14 +1,11 @@
 'use client';
 'use no memo';
 
-import { useReducer, useEffect, useMemo, useCallback } from 'react';
+import { useReducer, useEffect, useMemo, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { 
-  api,
   AttestationAPI, 
-  GroupsAPI, 
   AttestationResult,
-  AttestationSubjectOption,
 } from '@/lib/api';
 import type { AttestationType } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,87 +20,65 @@ import { initialState, reducer, type SortKey, type ViewMode } from './state';
 
 export default function AttestationScoresPage() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const skipNextLoadRef = useRef(false);
   const {
     viewMode, attestationType, selectedGroupId, selectedSubjectId, searchQuery,
     sortKey, sortOrder, groups, availableSubjects, data, loading, groupsLoading,
     selectedStudent, detailSheetOpen
   } = state;
 
-  // Load groups on mount
   useEffect(() => {
-    const loadGroups = async () => {
-      try {
-        const groupsData = await GroupsAPI.list();
-        dispatch({ type: 'SET_GROUPS', payload: groupsData });
-      } catch {
-        toast.error('Ошибка загрузки групп');
-        dispatch({ type: 'SET_GROUPS_LOADING', payload: false });
-      }
-    };
-    loadGroups();
-  }, []);
+    if (skipNextLoadRef.current) {
+      skipNextLoadRef.current = false;
+      return;
+    }
 
-  useEffect(() => {
-    const loadSubjects = async () => {
-      if (viewMode === 'by-group' && !selectedGroupId) {
-        dispatch({ type: 'SET_AVAILABLE_SUBJECTS', payload: [] });
-        return;
-      }
-
-      try {
-        const subjects = viewMode === 'all-students'
-          ? (await api.get<AttestationSubjectOption[]>('/admin/subjects/')).data
-          : await AttestationAPI.listGroupSubjects(selectedGroupId, attestationType);
-
-        dispatch({ type: 'SET_AVAILABLE_SUBJECTS', payload: subjects });
-
-        if (subjects.length === 1 && selectedSubjectId !== subjects[0].id) {
-          dispatch({ type: 'SET_SUBJECT_ID', payload: subjects[0].id });
-          return;
-        }
-
-        if (subjects.every(subject => subject.id !== selectedSubjectId) && selectedSubjectId) {
-          dispatch({ type: 'SET_SUBJECT_ID', payload: '' });
-        }
-      } catch {
-        dispatch({ type: 'SET_AVAILABLE_SUBJECTS', payload: [] });
-      }
-    };
-
-    loadSubjects();
-  }, [viewMode, selectedGroupId, selectedSubjectId, attestationType]);
-
-  const requiresExplicitSubject =
-    viewMode === 'all-students' || availableSubjects.length > 1;
-  const canLoadData =
-    (viewMode === 'by-group' ? !!selectedGroupId : true) &&
-    (!requiresExplicitSubject || !!selectedSubjectId);
-
-  // Load attestation data
-  useEffect(() => {
-    const loadData = async () => {
-      if (!canLoadData) {
-        dispatch({ type: 'SET_DATA', payload: null });
-        return;
-      }
-      
+    const loadView = async () => {
       dispatch({ type: 'SET_LOADING', payload: true });
+
       try {
-        const result = viewMode === 'all-students'
-          ? await AttestationAPI.calculateAllStudents(attestationType, selectedSubjectId)
-          : await AttestationAPI.calculateGroup(selectedGroupId, attestationType, selectedSubjectId || undefined);
-        dispatch({ type: 'SET_DATA', payload: result });
+        const response = await AttestationAPI.getView({
+          view_mode: viewMode,
+          attestation_type: attestationType,
+          group_id: viewMode === 'by-group' && selectedGroupId ? selectedGroupId : undefined,
+          subject_id: selectedSubjectId || undefined,
+        });
+
+        const nextGroupId = viewMode === 'by-group' ? (response.resolved_group_id ?? '') : selectedGroupId;
+        const nextSubjectId =
+          response.available_subjects.length === 1
+            ? response.available_subjects[0].id
+            : response.available_subjects.some((subject) => subject.id === selectedSubjectId)
+              ? selectedSubjectId
+              : '';
+
+        if (
+          (viewMode === 'by-group' && nextGroupId !== selectedGroupId) ||
+          nextSubjectId !== selectedSubjectId
+        ) {
+          skipNextLoadRef.current = true;
+        }
+
+        dispatch({ type: 'APPLY_VIEW_RESPONSE', payload: response });
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Ошибка загрузки';
-        // Не показываем toast для "нет студентов" — это не ошибка
         if (!message.includes('нет активных студентов')) {
           toast.error(message);
         }
+        dispatch({ type: 'SET_GROUPS_LOADING', payload: false });
         dispatch({ type: 'SET_DATA', payload: null });
       }
     };
-    loadData();
-  }, [attestationType, canLoadData, selectedGroupId, selectedSubjectId, viewMode]);
+
+    void loadView();
+  }, [attestationType, selectedGroupId, selectedSubjectId, viewMode]);
+
+  const effectiveSubjectId =
+    availableSubjects.length === 1 && !selectedSubjectId
+      ? availableSubjects[0].id
+      : selectedSubjectId;
+  const requiresExplicitSubject =
+    viewMode === 'all-students' || availableSubjects.length > 1;
 
   // Filter and sort students
   const filteredStudents = useMemo(() => {
@@ -211,7 +186,7 @@ export default function AttestationScoresPage() {
         )}
 
         <Select
-          value={selectedSubjectId}
+          value={effectiveSubjectId}
           onValueChange={(v) => dispatch({ type: 'SET_SUBJECT_ID', payload: v })}
           disabled={availableSubjects.length === 0}
         >
@@ -268,14 +243,14 @@ export default function AttestationScoresPage() {
           <p className="text-lg font-medium">
             {viewMode === 'by-group' && !selectedGroupId
               ? 'Выберите группу для просмотра баллов'
-              : requiresExplicitSubject && !selectedSubjectId
+              : requiresExplicitSubject && !effectiveSubjectId
                 ? 'Выберите предмет для расчёта аттестации'
                 : 'В группе нет активных студентов'}
           </p>
           <p className="text-sm mt-1">
-            {viewMode === 'by-group' && selectedGroupId && !selectedSubjectId && availableSubjects.length > 1
+            {viewMode === 'by-group' && selectedGroupId && !effectiveSubjectId && availableSubjects.length > 1
               ? 'Аттестация теперь считается по предмету, без выбора предмета расчёт не выполняется'
-              : viewMode === 'all-students' && !selectedSubjectId
+              : viewMode === 'all-students' && !effectiveSubjectId
                 ? 'Для режима "Все студенты" нужен явный предмет'
                 : viewMode === 'by-group' && selectedGroupId
                   ? 'Добавьте студентов в группу для расчёта аттестации'

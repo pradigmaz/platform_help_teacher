@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import api from '@/lib/api';
 import type { Note, EntityType, NoteColor } from '@/hooks/useNotes';
 
@@ -13,11 +13,10 @@ interface NotesContextValue {
   createNote: (entityType: EntityType, entityId: string, content: string, color?: NoteColor, isPinned?: boolean) => Promise<Note | null>;
   updateNote: (noteId: string, data: { content?: string; color?: NoteColor; is_pinned?: boolean }) => Promise<Note | null>;
   deleteNote: (noteId: string, entityType: EntityType, entityId: string) => Promise<boolean>;
-  // Статус загрузки
-  isLoading: boolean;
 }
 
 const NotesContext = createContext<NotesContextValue | null>(null);
+const NotesActionsContext = createContext<Pick<NotesContextValue, 'loadNotesBatch' | 'createNote' | 'updateNote' | 'deleteNote'> | null>(null);
 
 // Кэш: entityType:entityId -> notes[]
 type NotesCache = Map<string, Note[]>;
@@ -28,20 +27,33 @@ function getCacheKey(entityType: EntityType, entityId: string): string {
 
 export function NotesProvider({ children }: { children: ReactNode }) {
   const [cache, setCache] = useState<NotesCache>(new Map());
-  const [isLoading, setIsLoading] = useState(false);
+  const cacheRef = useRef(cache);
+  const inFlightRef = useRef<Set<string>>(new Set());
+  const emptyNotesRef = useRef<Note[]>([]);
+
+  useEffect(() => {
+    cacheRef.current = cache;
+  }, [cache]);
 
   const getNotes = useCallback((entityType: EntityType, entityId: string): Note[] => {
-    return cache.get(getCacheKey(entityType, entityId)) || [];
+    return cache.get(getCacheKey(entityType, entityId)) || emptyNotesRef.current;
   }, [cache]);
 
   const loadNotesBatch = useCallback(async (entityType: EntityType, entityIds: string[]) => {
     if (entityIds.length === 0) return;
-    
-    // Фильтруем уже загруженные
-    const uncached = entityIds.filter(id => !cache.has(getCacheKey(entityType, id)));
+
+    const uniqueIds = [...new Set(entityIds)];
+    const uncached = uniqueIds.filter((id) => {
+      const key = getCacheKey(entityType, id);
+      return !cacheRef.current.has(key) && !inFlightRef.current.has(key);
+    });
+
     if (uncached.length === 0) return;
 
-    setIsLoading(true);
+    uncached.forEach((id) => {
+      inFlightRef.current.add(getCacheKey(entityType, id));
+    });
+
     try {
       const { data } = await api.post('/admin/notes/batch', 
         { entity_ids: uncached },
@@ -58,9 +70,11 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Failed to load notes batch:', err);
     } finally {
-      setIsLoading(false);
+      uncached.forEach((id) => {
+        inFlightRef.current.delete(getCacheKey(entityType, id));
+      });
     }
-  }, [cache]);
+  }, []);
 
   const createNote = useCallback(async (
     entityType: EntityType,
@@ -141,17 +155,24 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const actionsValue = useMemo(() => ({
+    loadNotesBatch,
+    createNote,
+    updateNote,
+    deleteNote,
+  }), [createNote, deleteNote, loadNotesBatch, updateNote]);
+
+  const value = useMemo(() => ({
+    getNotes,
+    ...actionsValue,
+  }), [actionsValue, getNotes]);
+
   return (
-    <NotesContext.Provider value={{
-      getNotes,
-      loadNotesBatch,
-      createNote,
-      updateNote,
-      deleteNote,
-      isLoading
-    }}>
-      {children}
-    </NotesContext.Provider>
+    <NotesActionsContext.Provider value={actionsValue}>
+      <NotesContext.Provider value={value}>
+        {children}
+      </NotesContext.Provider>
+    </NotesActionsContext.Provider>
   );
 }
 
@@ -166,4 +187,12 @@ export function useNotesContext() {
 // Хук для опционального использования контекста (fallback на обычный useNotes)
 export function useNotesContextOptional() {
   return useContext(NotesContext);
+}
+
+export function useNotesActionsContext() {
+  const ctx = useContext(NotesActionsContext);
+  if (!ctx) {
+    throw new Error('useNotesActionsContext must be used within NotesProvider');
+  }
+  return ctx;
 }
