@@ -179,6 +179,9 @@ class TestSyncFromJournal:
             assert submission.grade == grade
             assert submission.feedback == comment
             assert submission.accepted_at is not None
+            assert submission.lesson_id == sample_lesson.id
+            assert submission.lesson_date == sample_lesson.date
+            assert submission.lesson_number == sample_lesson.lesson_number
             
             # Проверяем историю
             assert len(submission.history) == 1
@@ -260,6 +263,9 @@ class TestSyncFromJournal:
             assert submission.status == SubmissionStatus.ACCEPTED
             assert submission.feedback == new_comment
             assert submission.accepted_at is not None
+            assert submission.lesson_id == sample_lesson.id
+            assert submission.lesson_date == sample_lesson.date
+            assert submission.lesson_number == sample_lesson.lesson_number
             
             # Проверяем что история обновлена
             assert len(submission.history) == 2
@@ -618,6 +624,9 @@ class TestRollbackFromJournal:
         assert submission.grade is None
         assert submission.feedback is None
         assert submission.accepted_at is None
+        assert submission.lesson_id is None
+        assert submission.lesson_date is None
+        assert submission.lesson_number is None
         assert submission.history[-1]["action"] == "grade_removed_from_journal"
 
     @pytest.mark.asyncio

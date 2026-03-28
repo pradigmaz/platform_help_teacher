@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Group, Lab, Lesson, LessonGrade, Submission, SubmissionStatus, User
 from app.schemas.student import StudentLabSubmission, StudentProfileOut, StudentStats
 from app.services.attestation.lab_progress import dedupe_lesson_grade_rows
+from app.services.lab_progress_read_model import normalize_lab_progress
 
 
 class StudentService:
@@ -148,32 +149,27 @@ class StudentService:
 
         for lab in labs:
             sub = subs_map.get(lab.id)
-            journal_grade = grades_map.get((lab.subject_id, lab.number))  # noqa: F841  # reserved
+            journal_grade = grades_map.get((lab.subject_id, lab.number))
 
             # TODO: is_overdue теперь зависит от количества пар, не от даты
             # Для корректного расчёта нужен доступ к расписанию
             is_overdue = False
 
-            # Определяем статус и оценку (приоритет: submission > journal)
-            status = None
-            grade = None
-            submitted_at = None
-            feedback = None
+            progress = normalize_lab_progress(sub, journal_grade)
+            status = sub.status.value if sub else None
+            normalized_status = progress.normalized_status
+            grade = progress.grade
+            submitted_at = progress.submitted_at
+            feedback = progress.feedback
 
-            if sub:
-                status = sub.status.value
-                grade = sub.grade
-                submitted_at = sub.created_at
-                feedback = sub.feedback
-
-            if status:
+            if normalized_status:
                 stats.labs_submitted += 1
-                if status == "ACCEPTED":
+                if normalized_status == SubmissionStatus.ACCEPTED.value:
                     stats.labs_accepted += 1
                     stats.points_earned += grade or 0
-                elif status == "REJECTED":
+                elif normalized_status == SubmissionStatus.REJECTED.value:
                     stats.labs_rejected += 1
-                elif status in ("READY", "IN_REVIEW"):
+                elif normalized_status == SubmissionStatus.READY.value:
                     stats.labs_pending += 1
 
             stats.points_max += lab.max_grade
@@ -183,6 +179,7 @@ class StudentService:
                     lab_id=lab.id,
                     lab_title=lab.title,
                     status=status,
+                    normalized_status=normalized_status,
                     grade=grade,
                     max_grade=lab.max_grade,
                     deadline_5_lessons=lab.deadline_5_lessons,

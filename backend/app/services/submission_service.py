@@ -5,19 +5,24 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Lab, Lesson, Submission, SubmissionStatus, User
-from app.services.journal_grade_service import (
-    JournalGradeConflictError,
-    JournalGradeValidationError,
-    journal_grade_service,
+from app.models import Lab, Submission, SubmissionStatus, User
+from app.services.acceptance_lesson_resolver import (
+    find_latest_lesson_for_student,
+    resolve_lesson_from_submission_context,
 )
-from app.services.submission_journal_sync import journal_sync
+from app.services.journal_grade_service import JournalGradeConflictError, JournalGradeValidationError, journal_grade_service
+from app.services.submission_transition import move_submission_to_accepted, move_submission_to_rejected
 
 logger = logging.getLogger(__name__)
+
+
+def _append_submission_history(submission: Submission, event: dict[str, Any]) -> None:
+    """Append an event without assuming legacy rows always have a JSON list."""
+    submission.history = (submission.history or []) + [event]
 
 
 class SubmissionService:
@@ -46,25 +51,27 @@ class SubmissionService:
         now = datetime.now(UTC)
 
         # Обновляем Submission
-        if lesson is not None:
-            submission.lesson_id = lesson.id
-            submission.lesson_date = lesson.date
-            submission.lesson_number = lesson.lesson_number
-        submission.status = SubmissionStatus.ACCEPTED
-        submission.grade = grade
-        submission.feedback = comment
-        submission.accepted_at = now
+        move_submission_to_accepted(
+            submission,
+            grade=grade,
+            comment=comment,
+            accepted_at=now,
+            lesson_id=lesson.id if lesson is not None else None,
+            lesson_date=lesson.date if lesson is not None else None,
+            lesson_number=lesson.lesson_number if lesson is not None else None,
+        )
 
         # Добавляем в историю
-        submission.history = submission.history + [
+        _append_submission_history(
+            submission,
             {
                 "action": "accepted",
                 "grade": grade,
                 "comment": comment,
                 "by": str(accepted_by),
                 "at": now.isoformat(),
-            }
-        ]
+            },
+        )
 
         lesson_grade_synced = False
         if lesson and lab:
@@ -101,18 +108,18 @@ class SubmissionService:
 
         now = datetime.now(UTC)
 
-        submission.status = SubmissionStatus.REJECTED
-        submission.feedback = comment
+        move_submission_to_rejected(submission, comment=comment)
 
         # Добавляем в историю
-        submission.history = submission.history + [
+        _append_submission_history(
+            submission,
             {
                 "action": "rejected",
                 "comment": comment,
                 "by": str(rejected_by),
                 "at": now.isoformat(),
-            }
-        ]
+            },
+        )
 
         await db.commit()
         logger.info(f"Submission {submission.id} rejected")
@@ -139,23 +146,22 @@ class SubmissionService:
         if not lab or not isinstance(subject_id, UUID):
             return lab, None
 
-        lesson = None
-        if submission.lesson_id:
-            lesson = await db.get(Lesson, submission.lesson_id)
+        student = submission.user
+        if student is None:
+            student = await db.get(User, submission.user_id)
+        if student is None:
+            return lab, None
 
-        if lesson is None and submission.lesson_date and submission.lesson_number is not None:
-            conditions = [
-                Lesson.subject_id == subject_id,
-                Lesson.date == submission.lesson_date,
-                Lesson.lesson_number == submission.lesson_number,
-            ]
-            if submission.user and submission.user.group_id:
-                conditions.append(Lesson.group_id == submission.user.group_id)
-            lesson_result = await db.execute(select(Lesson).where(and_(*conditions)))
-            lesson = lesson_result.scalar_one_or_none()
-
+        lesson = await resolve_lesson_from_submission_context(
+            db,
+            student=student,
+            subject_id=subject_id,
+            lesson_id=submission.lesson_id,
+            lesson_date=submission.lesson_date,
+            lesson_number=submission.lesson_number,
+        )
         if lesson is None:
-            lesson = await journal_sync.find_lesson_for_student(db, lab, submission.user_id)
+            lesson = await find_latest_lesson_for_student(db, student=student, subject_id=subject_id)
         if not lesson:
             raise ValueError("Не найдено занятие для синхронизации приёмки с журналом")
 

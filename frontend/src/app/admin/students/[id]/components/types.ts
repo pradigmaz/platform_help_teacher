@@ -2,6 +2,7 @@ export interface LabSubmission {
   lab_id: string;
   lab_title: string;
   status: string | null;
+  normalized_status?: string | null;
   grade: number | null;
   max_grade: number;
   deadline_5_lessons: number | null;

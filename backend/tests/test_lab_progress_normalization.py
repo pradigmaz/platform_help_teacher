@@ -1,5 +1,6 @@
 """Тесты нормализации прогресса лабораторных."""
 
+import importlib
 import sys
 from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
@@ -18,6 +19,8 @@ from app.services.attendance_slots import matches_attendance_slot
 from app.services.attestation.lab_calculator import LabScoreCalculator
 from app.services.attestation.student_score import StudentScoreCalculator
 from app.services.student_lab_service import StudentLabService
+
+student_lab_service_module = importlib.import_module("app.services.student_lab_service")
 
 
 def _build_settings() -> AttestationSettings:
@@ -172,6 +175,21 @@ class TestLabProgressNormalization:
         is_available = await service.check_lab_availability(mock_db, user_id, current_lab)
 
         assert is_available is True
+
+    @pytest.mark.asyncio
+    async def test_check_lab_availability_uses_shared_active_lab_lookup(self, mock_db: AsyncMock, monkeypatch):
+        service = StudentLabService()
+        user_id = uuid4()
+        subject_id = uuid4()
+        current_lab = Lab(id=uuid4(), number=2, title="Lab 2", subject_id=subject_id, is_sequential=True)
+
+        lookup_mock = AsyncMock(return_value=None)
+        monkeypatch.setattr(student_lab_service_module, "find_active_lab_by_subject_and_number", lookup_mock)
+
+        is_available = await service.check_lab_availability(mock_db, user_id, current_lab)
+
+        assert is_available is True
+        lookup_mock.assert_awaited_once_with(mock_db, subject_id, 1, published_only=True)
 
     @pytest.mark.asyncio
     async def test_mark_ready_allows_stale_submission_when_journal_grade_is_two(self, mock_db: AsyncMock):

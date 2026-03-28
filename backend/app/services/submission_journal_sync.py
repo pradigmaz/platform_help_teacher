@@ -9,8 +9,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Lab, Lesson, LessonGrade, Submission, SubmissionStatus, User
+from app.services.acceptance_lesson_resolver import find_latest_lesson_for_student
+from app.services.lab_lookup import find_active_lab_by_subject_and_number
+from app.services.submission_transition import (
+    clear_submission_lesson_context,
+    move_submission_to_accepted,
+    move_submission_to_new,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _append_history(submission: Submission, event: dict) -> None:
+    """Append history event without assuming legacy rows always have a JSON list."""
+    submission.history = (submission.history or []) + [event]
 
 
 class SubmissionJournalSync:
@@ -28,14 +40,7 @@ class SubmissionJournalSync:
         Returns:
             Lab или None если не найдена
         """
-        result = await db.execute(
-            select(Lab).where(
-                and_(
-                    Lab.subject_id == subject_id, Lab.number == work_number, Lab.is_published, Lab.deleted_at.is_(None)
-                )
-            )
-        )
-        return result.scalar_one_or_none()
+        return await find_active_lab_by_subject_and_number(db, subject_id, work_number, published_only=True)
 
     async def sync_from_journal(
         self,
@@ -95,22 +100,28 @@ class SubmissionJournalSync:
         if submission:
             # Обновляем существующую сдачу
             logger.info(f"[SubmissionJournalSync:sync_from_journal] Updating existing submission {submission.id}")
-            submission.grade = grade
-            submission.status = SubmissionStatus.ACCEPTED
-            submission.feedback = comment
-            submission.accepted_at = now
+            move_submission_to_accepted(
+                submission,
+                grade=grade,
+                comment=comment,
+                accepted_at=now,
+                lesson_id=lesson.id,
+                lesson_date=lesson.date,
+                lesson_number=lesson.lesson_number,
+            )
 
             # Добавляем в историю
             if append_history:
-                submission.history = submission.history + [
+                _append_history(
+                    submission,
                     {
                         "action": "graded_from_journal",
                         "grade": grade,
                         "comment": comment,
                         "by": str(created_by),
                         "at": now.isoformat(),
-                    }
-                ]
+                    },
+                )
         else:
             # Создаём новую сдачу
             logger.info(
@@ -120,10 +131,6 @@ class SubmissionJournalSync:
                 user_id=student_id,
                 lab_id=lab.id,
                 is_manual=True,
-                status=SubmissionStatus.ACCEPTED,
-                grade=grade,
-                feedback=comment,
-                accepted_at=now,
                 history=(
                     [
                         {
@@ -137,6 +144,15 @@ class SubmissionJournalSync:
                     if append_history
                     else []
                 ),
+            )
+            move_submission_to_accepted(
+                submission,
+                grade=grade,
+                comment=comment,
+                accepted_at=now,
+                lesson_id=lesson.id,
+                lesson_date=lesson.date,
+                lesson_number=lesson.lesson_number,
             )
 
             try:
@@ -167,22 +183,28 @@ class SubmissionJournalSync:
                     logger.info(
                         f"[SubmissionJournalSync:sync_from_journal] Found existing submission after race, updating {submission.id}"
                     )
-                    submission.grade = grade
-                    submission.status = SubmissionStatus.ACCEPTED
-                    submission.feedback = comment
-                    submission.accepted_at = now
+                    move_submission_to_accepted(
+                        submission,
+                        grade=grade,
+                        comment=comment,
+                        accepted_at=now,
+                        lesson_id=lesson.id,
+                        lesson_date=lesson.date,
+                        lesson_number=lesson.lesson_number,
+                    )
 
                     # Добавляем в историю
                     if append_history:
-                        submission.history = submission.history + [
+                        _append_history(
+                            submission,
                             {
                                 "action": "graded_from_journal",
                                 "grade": grade,
                                 "comment": comment,
                                 "by": str(created_by),
                                 "at": now.isoformat(),
-                            }
-                        ]
+                            },
+                        )
                 else:
                     # Не должно произойти, но на всякий случай
                     logger.error(
@@ -227,19 +249,19 @@ class SubmissionJournalSync:
             return False
 
         now = datetime.now(UTC)
-        submission.status = SubmissionStatus.NEW
-        submission.grade = None
+        move_submission_to_new(submission)
+        clear_submission_lesson_context(submission)
         submission.feedback = None
-        submission.accepted_at = None
         if append_history:
-            submission.history = submission.history + [
+            _append_history(
+                submission,
                 {
                     "action": "grade_removed_from_journal",
                     "work_number": work_number,
                     "by": str(created_by) if created_by else None,
                     "at": now.isoformat(),
-                }
-            ]
+                },
+            )
         return True
 
     async def find_lesson_for_student(self, db: AsyncSession, lab: Lab, student_id: UUID) -> Lesson | None:
@@ -250,11 +272,6 @@ class SubmissionJournalSync:
         Важно: lesson.work_number может отличаться от lab.number (сдача долга).
         Оценка ставится на текущее занятие, а work_number в lesson_grade = номер сдаваемой лабы.
         """
-        from sqlalchemy import or_
-
-        from app.models.schedule import LessonType
-        from app.services.schedule_constants import today_msk
-
         # Загружаем студента с группой
         student = await db.get(User, student_id)
         if not student or not student.group_id:
@@ -265,27 +282,7 @@ class SubmissionJournalSync:
         if not isinstance(subject_id, UUID):
             return None
 
-        today = today_msk()
-
-        # Ищем ближайшее lab/practice-занятие на сегодня или раньше
-        # НЕ фильтруем по work_number — студент может сдавать долг
-        query = (
-            select(Lesson)
-            .where(
-                Lesson.subject_id == subject_id,
-                Lesson.group_id == student.group_id,
-                Lesson.lesson_type.in_((LessonType.LAB, LessonType.PRACTICE)),
-                Lesson.date <= today,
-                Lesson.is_cancelled.is_(False),
-                # Подгруппа: либо совпадает, либо занятие для всех (NULL)
-                or_(Lesson.subgroup == student.subgroup, Lesson.subgroup.is_(None)),
-            )
-            .order_by(Lesson.date.desc(), Lesson.lesson_number.desc())
-            .limit(1)
-        )
-
-        result = await db.execute(query)
-        return result.scalar_one_or_none()
+        return await find_latest_lesson_for_student(db, student=student, subject_id=subject_id)
 
     async def sync_with_journal(
         self, db: AsyncSession, submission: Submission, grade: int, comment: str | None, created_by: UUID

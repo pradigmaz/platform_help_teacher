@@ -33,7 +33,8 @@ export function StudentLabsList({ labs }: Props) {
         ) : (
           <div className="space-y-3">
             {labs.map((lab, index) => {
-              const statusConfig = lab.status ? STATUS_CONFIG[lab.status] : null;
+              const resolvedStatus = lab.normalized_status ?? lab.status;
+              const statusConfig = resolvedStatus ? STATUS_CONFIG[resolvedStatus] : null;
               return (
                 <BlurFade key={lab.lab_id} delay={0.65 + index * 0.05}>
                   <div

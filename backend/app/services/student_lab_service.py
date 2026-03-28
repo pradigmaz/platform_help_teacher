@@ -14,6 +14,8 @@ from app.models.lesson_grade import LessonGrade
 from app.models.submission import Submission, SubmissionStatus
 from app.models.user import User, UserRole
 from app.services.attestation.lab_progress import dedupe_lesson_grade_rows, is_completed_lab_grade
+from app.services.lab_lookup import find_active_lab_by_subject_and_number
+from app.services.submission_transition import move_submission_to_new, move_submission_to_ready
 
 logger = logging.getLogger(__name__)
 
@@ -201,13 +203,7 @@ class StudentLabService:
         """Проверить доступность лабы (предыдущая сдана)."""
         if lab.number == 1 or not lab.is_sequential:
             return True
-        prev_result = await db.execute(
-            select(Lab).where(
-                Lab.subject_id == lab.subject_id,
-                Lab.number == lab.number - 1,
-            )
-        )
-        prev_lab = prev_result.scalar_one_or_none()
+        prev_lab = await find_active_lab_by_subject_and_number(db, lab.subject_id, lab.number - 1, published_only=True)
         if not prev_lab:
             return True
         prev_sub = await db.execute(
@@ -231,6 +227,7 @@ class StudentLabService:
         lesson: Lesson | None = None,
     ) -> Submission:
         """Поставить submission в очередь на сдачу."""
+        now = datetime.now(UTC)
         sub = await self.get_user_submission_for_lab(db, user_id, lab_id)
         if sub:
             if sub.status == SubmissionStatus.READY:
@@ -244,23 +241,16 @@ class StudentLabService:
 
                 if resolve_lab_acceptance(sub, journal_grade)[0]:
                     raise ValueError("Lab already accepted")
-            sub.status = SubmissionStatus.READY
-            sub.ready_at = datetime.now(UTC)
-            sub.variant_number = variant_number
+            move_submission_to_ready(sub, ready_at=now, variant_number=variant_number, lesson=lesson)
         else:
             sub = Submission(
                 user_id=user_id,
                 lab_id=lab_id,
-                status=SubmissionStatus.READY,
+                status=SubmissionStatus.NEW,
                 is_manual=True,
-                variant_number=variant_number,
-                ready_at=datetime.now(UTC),
             )
             db.add(sub)
-        if lesson is not None:
-            sub.lesson_id = lesson.id
-            sub.lesson_date = lesson.date
-            sub.lesson_number = lesson.lesson_number
+            move_submission_to_ready(sub, ready_at=now, variant_number=variant_number, lesson=lesson)
         await db.commit()
         await db.refresh(sub)
         logger.info(f"Student {user_id} marked lab {lab_id} as ready, variant={variant_number}")
@@ -273,8 +263,7 @@ class StudentLabService:
             raise ValueError("Submission not found")
         if sub.status != SubmissionStatus.READY:
             raise ValueError("Not in queue")
-        sub.status = SubmissionStatus.NEW
-        sub.ready_at = None
+        move_submission_to_new(sub)
         await db.commit()
         logger.info(f"Student {user_id} cancelled ready for lab {lab_id}")
 

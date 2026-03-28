@@ -35,9 +35,9 @@ class TestSubmissionFallbackQueries:
         query = str(mock_db.execute.call_args[0][0]).lower()
 
         assert "left outer join lessons" in query
-        assert "coalesce(lessons.subject_id, labs.subject_id)" in query
-        assert "coalesce(lessons.date, submissions.lesson_date" in query
-        assert "submissions.lesson_id is null" in query
+        assert "coalesce(labs.subject_id, lessons.subject_id)" in query
+        assert "coalesce(submissions.lesson_date, lessons.date" in query
+        assert "lessons.id is null" in query
         assert "lessons.is_cancelled is false" in query
 
     @pytest.mark.asyncio

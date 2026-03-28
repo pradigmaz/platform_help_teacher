@@ -8,6 +8,7 @@ class StudentLabSubmission(BaseModel):
     lab_id: UUID
     lab_title: str
     status: str | None = None
+    normalized_status: str | None = None
     grade: int | None = None
     max_grade: int
     deadline_5_lessons: int | None = None

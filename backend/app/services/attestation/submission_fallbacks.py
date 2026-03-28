@@ -22,10 +22,10 @@ def _build_submission_fallback_query(
     subject_id: UUID | None = None,
 ):
     period_start, period_end = settings.get_effective_period()
-    subject_expr = func.coalesce(Lesson.subject_id, Lab.subject_id)
+    subject_expr = func.coalesce(Lab.subject_id, Lesson.subject_id)
     period_date_expr = func.coalesce(
-        Lesson.date,
         Submission.lesson_date,
+        Lesson.date,
         cast(Submission.accepted_at, Date),
         cast(Submission.created_at, Date),
     )
@@ -42,9 +42,9 @@ def _build_submission_fallback_query(
         .where(period_date_expr.isnot(None))
         .where(period_date_expr >= period_start)
         .where(period_date_expr <= period_end)
-        .where(or_(Submission.lesson_id.is_(None), Lesson.is_cancelled.is_(False)))
-        .where(or_(Submission.lesson_id.is_(None), Lesson.lesson_type.in_((LessonType.LAB, LessonType.PRACTICE))))
-        .where(or_(Lesson.group_id == group_id, Submission.lesson_id.is_(None)))
+        .where(or_(Lesson.id.is_(None), Lesson.is_cancelled.is_(False)))
+        .where(or_(Lesson.id.is_(None), Lesson.lesson_type.in_((LessonType.LAB, LessonType.PRACTICE))))
+        .where(or_(Lesson.id.is_(None), Lesson.group_id == group_id))
     )
     if subject_id is not None:
         query = query.where(subject_expr == subject_id)
