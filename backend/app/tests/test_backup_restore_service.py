@@ -27,7 +27,6 @@ if "aioboto3" not in sys.modules:
     aioboto3_stub.Session = Session
     sys.modules["aioboto3"] = aioboto3_stub
 
-from app.services.backup import restore_service as restore_module
 from app.services.backup.encryption import BackupEncryption
 from app.services.backup.restore_service import RestoreService
 
@@ -96,10 +95,10 @@ async def test_restore_backup_fails_on_lowercase_pg_restore_error(monkeypatch, t
     encrypted_file, _ = _write_encrypted_backup(tmp_path, service, b"pg dump payload" * 64)
     service.storage = LocalBackupStorage(encrypted_file)
 
-    async def fake_create_subprocess_exec(*cmd, **kwargs):
-        return FakeProcess(returncode=1, stderr=b"error: archive is corrupt")
+    async def fake_pg_restore(dump_path: Path, target, drop_existing: bool) -> None:
+        raise RuntimeError("pg_restore failed: error: archive is corrupt")
 
-    monkeypatch.setattr(restore_module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+    monkeypatch.setattr(service, "_pg_restore", fake_pg_restore)
 
     result = await service.restore_backup("broken.enc")
 
@@ -150,7 +149,7 @@ async def test_restore_backup_uses_recovery_code_on_different_machine(tmp_path: 
     service.storage = LocalBackupStorage(encrypted_file)
     service.encryption = BackupEncryption("restore_suite_other_machine_master_key_456")
 
-    async def fake_pg_restore(dump_path: Path, drop_existing: bool) -> None:
+    async def fake_pg_restore(dump_path: Path, target, drop_existing: bool) -> None:
         assert dump_path.exists()
         assert drop_existing is True
 

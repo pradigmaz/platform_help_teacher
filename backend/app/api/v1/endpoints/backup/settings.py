@@ -23,7 +23,7 @@ from app.schemas.backup import (
     BackupSettingsUpdate,
     BotStatusResponse,
 )
-from app.services.backup import BackupService
+from app.services.backup.backup_service import BackupService
 
 from .deps import get_backup_service
 

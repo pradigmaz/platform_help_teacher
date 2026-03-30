@@ -2,7 +2,8 @@
 Backup API dependencies.
 """
 
-from app.services.backup import BackupService, RestoreService
+from app.services.backup.backup_service import BackupService
+from app.services.backup.restore_service import RestoreService
 
 
 def get_backup_service() -> BackupService:

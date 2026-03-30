@@ -24,8 +24,10 @@ from app.schemas.backup import (
     UploadBackupResponse,
     validate_backup_key,
 )
-from app.services.backup import BackupService, RestoreService
+from app.services.backup.backup_service import BackupService
+from app.services.backup.restore_service import RestoreService
 from app.services.backup.restore_service import VERIFY_STATUS_RECOVERY_CODE_REQUIRED, VERIFY_STATUS_VALID
+from app.services.backup.upload_flow import mirror_backup_upload
 
 from .deps import get_backup_service, get_restore_service
 
@@ -168,16 +170,12 @@ async def upload_backup(
                 object_metadata["backup-key-fingerprint"] = file_info.key_fingerprint
 
             await service.storage.upload(tmp_path, safe_filename, object_metadata=object_metadata)
-            mirrored_offsite = None
-            offsite_error = None
-            if service.offsite_storage:
-                try:
-                    await service.offsite_storage.upload(tmp_path, safe_filename, object_metadata=object_metadata)
-                    mirrored_offsite = True
-                except Exception as exc:
-                    mirrored_offsite = False
-                    offsite_error = str(exc).strip() or "Offsite mirror failed"
-                    logger.error("Offsite mirror failed for uploaded backup %s: %s", safe_filename, offsite_error)
+            mirrored_offsite, offsite_error = await mirror_backup_upload(
+                tmp_path,
+                safe_filename,
+                object_metadata,
+                service.offsite_storage,
+            )
 
             version = verification.format_version or file_info.format_version
             logger.info("Backup uploaded by %s: %s (v%s)", current_user.id, safe_filename, version)

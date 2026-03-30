@@ -13,7 +13,8 @@ os.environ.setdefault("MINIO_ROOT_PASSWORD", "test")
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test")
 os.environ.setdefault("TELEGRAM_WEBHOOK_SECRET", "test")
 
-from app.services.backup.notification import BackupNotificationService, send_backup_to_admin_sync
+from app.services.backup.notification import BackupNotificationService
+from app.services.backup.notification_sync import send_backup_to_admin_sync
 
 
 class FakeBot:

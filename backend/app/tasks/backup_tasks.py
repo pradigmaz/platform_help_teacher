@@ -122,7 +122,7 @@ def create_scheduled_backup(self):
 
         logger.info("Starting scheduled backup...")
 
-        from app.services.backup import BackupService
+        from app.services.backup.backup_service import BackupService
 
         service = BackupService()
         result = service.create_backup_sync(
@@ -158,7 +158,7 @@ def create_scheduled_backup(self):
         # Уведомляем админа только при финальном retry
         if db_settings.get("notify_on_failure", True) and self.request.retries >= self.max_retries:
             try:
-                from app.services.backup.notification import notify_backup_failure_sync
+                from app.services.backup.notification_sync import notify_backup_failure_sync
 
                 notify_result = notify_backup_failure_sync(
                     f"Scheduled backup task failed after {self.max_retries} retries: {e}", traceback_text=tb_text
@@ -188,7 +188,7 @@ def cleanup_old_backups(self, retention_days: int = None, max_backups: int = Non
             retention_days = retention_days or db_settings["retention_days"]
             max_backups = max_backups or db_settings["max_backups"]
 
-        from app.services.backup import BackupService
+        from app.services.backup.backup_service import BackupService
 
         service = BackupService()
         deleted = _cleanup_with_limits_sync(service, retention_days, max_backups)

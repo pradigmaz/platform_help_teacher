@@ -20,7 +20,7 @@ from app.schemas.backup import (
     VerifyResponse,
     validate_backup_key,
 )
-from app.services.backup import RestoreService
+from app.services.backup.restore_service import RestoreService
 
 from .deps import get_restore_service
 
