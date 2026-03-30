@@ -12,6 +12,8 @@ from app.audit.middleware import AuditMiddleware
 from app.audit.models import StudentAuditLog
 from app.audit.utils import extract_query_params, should_audit
 
+pytestmark = pytest.mark.smoke
+
 
 def make_request(
     *,
@@ -135,6 +137,7 @@ async def test_login_with_otp_logs_only_masked_code():
 
 
 @pytest.mark.asyncio
+@pytest.mark.smoke
 async def test_audit_middleware_preserves_action_type_and_sanitizes_body():
     request = make_request(body={"otp": "489786", "remember_device": True})
     middleware = AuditMiddleware(app=MagicMock())
@@ -162,6 +165,7 @@ async def test_audit_middleware_preserves_action_type_and_sanitizes_body():
 
 
 @pytest.mark.asyncio
+@pytest.mark.smoke
 async def test_audit_middleware_tolerates_missing_fingerprint_header() -> None:
     request = make_request(body={"otp": "489786"})
     middleware = AuditMiddleware(app=MagicMock())

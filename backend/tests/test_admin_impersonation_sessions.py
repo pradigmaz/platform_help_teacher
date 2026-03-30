@@ -16,6 +16,8 @@ from app.audit.middleware import SESSION_COOKIE_NAME
 from app.core import security
 from app.models import User, UserRole
 
+pytestmark = pytest.mark.smoke
+
 
 def make_request(
     *,

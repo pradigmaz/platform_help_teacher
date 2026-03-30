@@ -7,7 +7,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     setupFiles: [],
+    exclude: ['tests/smoke/**/*.spec.ts'],
   },
   resolve: {
     alias: {

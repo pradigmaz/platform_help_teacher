@@ -4,11 +4,11 @@
 
 from datetime import date
 from typing import TYPE_CHECKING, Optional
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Index, Integer, String
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -31,18 +31,20 @@ class Lesson(Base, TimestampMixin):
 
     __tablename__ = "lessons"
 
-    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
 
     # Связь с расписанием (null если создано вручную)
     schedule_item_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("schedule_items.id", ondelete="SET NULL"), nullable=True
+        PGUUID(as_uuid=True), ForeignKey("schedule_items.id", ondelete="SET NULL"), nullable=True
     )
 
-    group_id: Mapped[UUID] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    group_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True
+    )
 
     # Связь с предметом
     subject_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True
+        PGUUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     # Когда
@@ -62,7 +64,9 @@ class Lesson(Base, TimestampMixin):
     lecture_work_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # Связь с работой (если на этом занятии была контрольная/лаба)
-    work_id: Mapped[UUID | None] = mapped_column(ForeignKey("works.id", ondelete="SET NULL"), nullable=True)
+    work_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("works.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Подгруппа (null = вся группа)
     subgroup: Mapped[int | None] = mapped_column(Integer, nullable=True)

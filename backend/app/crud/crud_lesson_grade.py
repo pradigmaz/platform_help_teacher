@@ -234,6 +234,8 @@ async def upsert_lesson_grade(
     await db.flush()
 
     lesson_grade = await get_student_lesson_grade(db, lesson_id, student_id, work_number)
+    if lesson_grade is None:
+        raise RuntimeError("Upserted lesson grade row was not found after flush")
     logger.info(f"Upserted lesson grade: student={student_id}, work={work_number}, grade={grade}")
     return lesson_grade
 

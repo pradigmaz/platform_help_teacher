@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:smoke": "next start --hostname 127.0.0.1 --port ${PLAYWRIGHT_TEST_PORT:-3100}",
     "lint": "eslint",
+    "test": "npm run test:unit",
+    "test:unit": "vitest --run",
+    "test:smoke": "playwright test --config=playwright.config.ts",
     "generate-types": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/schema.d.ts"
   },
   "dependencies": {

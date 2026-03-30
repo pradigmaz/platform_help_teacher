@@ -183,6 +183,9 @@ async def get_max_allowed_grade(
     if not lab_number:
         return 5
 
+    if lesson.subject_id is None:
+        return 5
+
     lab = await find_active_lab_by_subject_and_number(db, lesson.subject_id, lab_number)
 
     if not lab:

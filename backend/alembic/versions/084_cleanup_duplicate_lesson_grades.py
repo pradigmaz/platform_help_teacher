@@ -14,6 +14,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Alembic defaults `alembic_version.version_num` to VARCHAR(32), but this
+    # repository now uses human-readable revision ids longer than 32 chars.
+    op.execute("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)")
+
     # Keep one canonical row per (student_id, subject_id, work_number):
     # highest grade first, then latest row, then highest UUID as a stable tie-breaker.
     op.execute(

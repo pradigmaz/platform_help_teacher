@@ -4,20 +4,12 @@ Pydantic схемы для публичных отчётов.
 """
 
 from datetime import date, datetime
-from enum import Enum
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.group_report import ReportType
 from app.schemas.user import PublicTeacherContacts
-
-
-class ReportType(str, Enum):
-    """Типы отчётов."""
-
-    FULL = "full"
-    ATTESTATION_ONLY = "attestation_only"
-    ATTENDANCE_ONLY = "attendance_only"
 
 
 # ============== Admin Schemas ==============

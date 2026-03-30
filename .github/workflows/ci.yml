@@ -6,170 +6,255 @@ on:
   pull_request:
     branches: [main, master, develop]
 
-# Отменяет предыдущие запуски на той же ветке
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  ENVIRONMENT: test
+  SECRET_KEY: test-secret-key-for-ci-minimum-32-characters-long
+  POSTGRES_SERVER: 127.0.0.1
+  POSTGRES_PORT: 5432
+  POSTGRES_USER: test
+  POSTGRES_PASSWORD: test
+  POSTGRES_DB: test
+  REDIS_URL: redis://localhost:6379/0
+  CORS_ORIGINS: '["http://localhost:3000"]'
+  TELEGRAM_BOT_TOKEN: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+  TELEGRAM_WEBHOOK_SECRET: test-webhook-secret-for-ci-32chars
+  VK_BOT_TOKEN: test
+  MINIO_ENDPOINT: localhost:9000
+  MINIO_ROOT_USER: minioadmin
+  MINIO_ROOT_PASSWORD: minioadmin
+  MINIO_BUCKET_NAME: test
+  NEXT_TELEMETRY_DISABLED: "1"
+
 jobs:
-  # ============================================
-  # FRONTEND
-  # ============================================
-  frontend:
-    name: "Frontend"
+  frontend-static:
+    name: frontend-static
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
-
     steps:
       - uses: actions/checkout@v5
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install dependencies
         run: npm ci
-
       - name: TypeScript check
         run: npx tsc --noEmit
-
       - name: ESLint
         run: npm run lint
-
       - name: Build
         run: npm run build
 
-  # ============================================
-  # BACKEND
-  # ============================================
+  frontend-tests:
+    name: frontend-tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run unit tests
+        run: npm test
+
+  frontend-browser-smoke:
+    name: frontend-browser-smoke
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build frontend
+        run: npm run build
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Run browser smoke tests
+        run: npm run test:smoke
+
   backend-lint:
-    name: "Backend Lint"
+    name: backend-lint
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
-
     steps:
       - uses: actions/checkout@v5
-
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: "3.11"
+          cache: pip
           cache-dependency-path: backend/requirements.txt
-
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install ruff mypy types-redis
-
-      - name: Ruff (lint + format check)
+          pip install ruff
+      - name: Ruff
         run: |
           ruff check app
           ruff format --check app
 
-      - name: Mypy (type check)
-        run: mypy app || true
-
-  backend-test:
-    name: "Backend Tests"
+  backend-smoke:
+    name: backend-smoke
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
-
     steps:
       - uses: actions/checkout@v5
-
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: "3.11"
+          cache: pip
           cache-dependency-path: backend/requirements.txt
-
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Run backend smoke tests
+        run: pytest -v --tb=short -m smoke
 
-      - name: Create test .env
-        run: |
-          echo "ENVIRONMENT=test" > .env
-          echo "SECRET_KEY=test-secret-key-for-ci-minimum-32-characters-long" >> .env
-          echo "POSTGRES_SERVER=localhost" >> .env
-          echo "POSTGRES_PORT=5432" >> .env
-          echo "POSTGRES_USER=test" >> .env
-          echo "POSTGRES_PASSWORD=test" >> .env
-          echo "POSTGRES_DB=test" >> .env
-          echo "REDIS_URL=redis://localhost:6379/0" >> .env
-          echo 'CORS_ORIGINS=["http://localhost:3000"]' >> .env
-          echo "TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz" >> .env
-          echo "TELEGRAM_WEBHOOK_SECRET=test-webhook-secret-for-ci-32chars" >> .env
-          echo "VK_BOT_TOKEN=test" >> .env
-          echo "MINIO_ENDPOINT=localhost:9000" >> .env
-          echo "MINIO_ROOT_USER=minioadmin" >> .env
-          echo "MINIO_ROOT_PASSWORD=minioadmin" >> .env
-          echo "MINIO_BUCKET_NAME=test" >> .env
-
-      - name: Run tests
-        run: pytest -v --tb=short
-
-  # ============================================
-  # SECURITY
-  # ============================================
-  security:
-    name: "Security Audit"
+  backend-tests:
+    name: backend-tests
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v5
-
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run backend tests
+        run: pytest -v --tb=short -m "not smoke and not integration"
 
+  backend-types:
+    name: backend-types
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install mypy types-redis
+      - name: Check mypy regressions
+        run: python scripts/check_mypy_regressions.py
+
+  security-audit:
+    name: security-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Python dependency audit
         run: |
           pip install pip-audit
-          pip-audit -r backend/requirements.txt --ignore-vuln PYSEC-2024-62 || true
-        continue-on-error: true
-
+          pip-audit -r backend/requirements.txt --ignore-vuln PYSEC-2024-62
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
       - name: NPM audit
         working-directory: frontend
-        run: npm audit --audit-level=high || true
-        continue-on-error: true
+        run: npm audit --audit-level=high
 
-  # ============================================
-  # MIGRATION CHECK
-  # ============================================
-  migration-check:
-    name: "Migration Consistency"
+  migration-safety:
+    name: migration-safety
     runs-on: ubuntu-latest
-
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v5
-
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
       - name: Check migration numbering
         run: |
-          echo "=== Checking migration file numbering ==="
-          cd backend/alembic/versions
-          
-          # Проверяем что нет дублей номеров
-          DUPES=$(ls *.py 2>/dev/null | sed 's/_.*//' | sort | uniq -d)
-          if [ -n "$DUPES" ]; then
-            echo "❌ Duplicate migration numbers found: $DUPES"
+          cd alembic/versions
+          dupes=$(ls *.py 2>/dev/null | sed 's/_.*//' | sort | uniq -d)
+          if [ -n "$dupes" ]; then
+            echo "Duplicate migration numbers found: $dupes"
             exit 1
           fi
-          
-          echo "✅ Migration numbering is consistent"
+      - name: Check single migration head
+        run: |
+          heads_output=$(alembic heads)
+          echo "$heads_output"
+          if [ "$(printf '%s\n' "$heads_output" | grep -c '(head)$')" -ne 1 ]; then
+            echo "Expected exactly one migration head"
+            exit 1
+          fi
+      - name: Apply migrations
+        run: alembic upgrade head
+      - name: Check current revision
+        run: |
+          current_output=$(alembic current)
+          echo "$current_output"
+          printf '%s\n' "$current_output" | grep -q '(head)$'
+      - name: Run migration integration test
+        run: pytest -v --tb=short app/tests/integration/test_db_models.py

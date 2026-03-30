@@ -4,6 +4,8 @@ from sqlalchemy import select
 from app.db.session import AsyncSessionLocal
 from app.models import Group, User, UserRole
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.asyncio
 async def test_create_group_and_user():
@@ -18,7 +20,7 @@ async def test_create_group_and_user():
 
         # 2. Создаем пользователя в этой группе
         new_user = User(
-            social_id=123456789,
+            telegram_id=123456789,
             full_name="Ivanov Ivan",
             username="ivan_test",
             role=UserRole.STUDENT,
@@ -28,7 +30,7 @@ async def test_create_group_and_user():
         await session.flush()
 
         # 3. Проверяем, что пользователь сохранился и связан с группой
-        result = await session.execute(select(User).where(User.social_id == 123456789))
+        result = await session.execute(select(User).where(User.telegram_id == 123456789))
         user_from_db = result.scalar_one()
 
         assert user_from_db.full_name == "Ivanov Ivan"

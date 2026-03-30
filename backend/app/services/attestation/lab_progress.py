@@ -4,6 +4,8 @@ from collections.abc import Iterable
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.engine import Row
+
 from app.models.lesson_grade import LessonGrade
 from app.models.submission import Submission
 
@@ -35,7 +37,10 @@ def get_lesson_grade_subject_key(grade: LessonGrade) -> str:
     return str(getattr(grade, "lab_subject_id", None) or grade.lesson_id)
 
 
-def dedupe_lesson_grade_rows(rows: Iterable[tuple[LessonGrade, UUID | None]]) -> list[LessonGrade]:
+LessonGradeRow = tuple[LessonGrade, UUID | None]
+
+
+def dedupe_lesson_grade_rows(rows: Iterable[LessonGradeRow | Row[LessonGradeRow]]) -> list[LessonGrade]:
     """Keep the best row per (subject_id, work_number).
 
     Side-effect: sets ``lab_subject_id`` on each returned LessonGrade so that
@@ -44,7 +49,8 @@ def dedupe_lesson_grade_rows(rows: Iterable[tuple[LessonGrade, UUID | None]]) ->
     """
     best_by_key: dict[tuple[str, int], tuple[LessonGrade, UUID | None]] = {}
 
-    for grade, subject_id in rows:
+    for row in rows:
+        grade, subject_id = row
         if grade.work_number is None:
             continue
 
@@ -96,13 +102,16 @@ def dedupe_submission_lab_grades(rows: Iterable[tuple[Submission, UUID | None, i
 
     result: list[dict[str, Any]] = []
     for (subject_key, work_number), submission in best_by_key.items():
+        grade_value = submission.grade
+        if grade_value is None:
+            continue
         result.append(
             {
                 "submission_id": str(submission.id),
                 "lesson_id": str(submission.lesson_id) if submission.lesson_id else None,
                 "subject_id": subject_key,
                 "work_number": work_number,
-                "grade": int(submission.grade),
+                "grade": int(grade_value),
                 "accepted_at": submission.accepted_at.isoformat() if submission.accepted_at else None,
                 "created_at": submission.created_at.isoformat() if submission.created_at else None,
             }

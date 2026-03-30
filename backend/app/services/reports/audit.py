@@ -93,7 +93,7 @@ class ReportAuditService:
             .order_by(func.date(ReportView.viewed_at))
         )
         views_by_date_result = await self.db.execute(views_by_date_query)
-        views_by_date = {str(row.date): row.count for row in views_by_date_result.all()}
+        views_by_date = {str(view_date): view_count for view_date, view_count in views_by_date_result.all()}
 
         return ReportViewStats(
             total_views=total_views, unique_ips=unique_ips, last_viewed_at=last_viewed_at, views_by_date=views_by_date

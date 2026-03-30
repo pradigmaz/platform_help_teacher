@@ -12,6 +12,8 @@ from app.core.config import settings
 from app.models import User
 from app.models.user import UserRole
 
+pytestmark = pytest.mark.smoke
+
 
 def make_request() -> Request:
     scope = {

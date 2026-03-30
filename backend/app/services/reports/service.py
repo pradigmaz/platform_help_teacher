@@ -24,6 +24,7 @@ from app.schemas.report import (
 from .audit import ReportAuditService
 from .data_collector import ReportDataCollector
 from .security import generate_code, hash_pin, verify_pin
+from .visibility_helpers import apply_visibility_filter
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +193,7 @@ class ReportService:
 
     def apply_visibility_filter(self, data: dict, report: GroupReport) -> dict:
         """Применение фильтра видимости к данным."""
-        return self._collector.apply_visibility_filter(data, report)
+        return apply_visibility_filter(data, report)
 
     # ==================== Audit (delegated) ====================
 

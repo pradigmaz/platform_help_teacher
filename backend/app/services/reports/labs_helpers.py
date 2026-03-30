@@ -3,7 +3,7 @@
 """
 
 from collections import defaultdict
-from typing import Any
+from typing import Any, TypeAlias
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -16,10 +16,12 @@ from app.models.user import User
 from app.schemas.report import LabProgress, LabSubmission
 from app.services.attestation.settings import AttestationSettingsManager
 
+LabStatsMap: TypeAlias = dict[str, int]
+
 
 async def get_group_labs_stats(
     db: AsyncSession, students: list[User], labs_count_override: int | None = None
-) -> dict[UUID, dict]:
+) -> dict[UUID, LabStatsMap]:
     """Получить статистику лабораторных работ группы.
 
     Args:
@@ -45,9 +47,9 @@ async def get_group_labs_stats(
     )
     submissions_result = await db.execute(submissions_query)
 
-    stats = {}
-    for row in submissions_result.all():
-        stats[row.user_id] = {"completed": row.count, "total": total_labs}
+    stats: dict[UUID, LabStatsMap] = {}
+    for user_id, count_value in submissions_result.all():
+        stats[user_id] = {"completed": count_value, "total": total_labs}
 
     for student in students:
         if student.id not in stats:
@@ -78,7 +80,7 @@ async def get_lab_progress(
         .group_by(Submission.lab_id)
     )
     submissions_result = await db.execute(submissions_query)
-    submissions_map = {row.lab_id: row.count for row in submissions_result.all()}
+    submissions_map = {lab_id: count_value for lab_id, count_value in submissions_result.all()}
 
     # Прогресс для всех
     progress_all = []
@@ -114,7 +116,7 @@ async def get_lab_progress(
             .group_by(Submission.lab_id)
         )
         sub_result = await db.execute(sub_query)
-        sub_map = {row.lab_id: row.count for row in sub_result.all()}
+        sub_map = {lab_id: count_value for lab_id, count_value in sub_result.all()}
 
         for idx, lab in enumerate(labs, 1):
             completed = sub_map.get(lab.id, 0)
@@ -164,7 +166,7 @@ async def get_student_lab_submissions(db: AsyncSession, student_id: UUID) -> lis
 
 def calculate_grade_distribution(results: list[Any]) -> dict[str, int]:
     """Рассчитать распределение оценок."""
-    distribution = defaultdict(int)
+    distribution: defaultdict[str, int] = defaultdict(int)
     for result in results:
         if result.grade:
             distribution[result.grade] += 1

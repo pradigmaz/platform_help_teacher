@@ -12,6 +12,8 @@ from app.api.v1.endpoints.auth import (
 )
 from app.models.user import UserRole
 
+pytestmark = pytest.mark.smoke
+
 
 def make_request(
     *,

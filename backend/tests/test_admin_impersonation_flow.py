@@ -16,6 +16,8 @@ from app.audit.middleware import SESSION_COOKIE_NAME
 from app.core import security
 from app.models import User, UserRole
 
+pytestmark = pytest.mark.smoke
+
 
 def create_mock_user(*, user_id: UUID | None = None, role: UserRole, is_active: bool = True) -> User:
     if user_id is None:

@@ -4,6 +4,7 @@ API endpoints для занятий журнала.
 
 import logging
 from datetime import date
+from typing import TypeAlias
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -18,6 +19,7 @@ from app.models.schedule import LessonType
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+AttendanceStatsMap: TypeAlias = dict[AttendanceStatus, int]
 
 
 @router.get("/lessons")
@@ -125,7 +127,7 @@ async def get_journal_stats(
         .where(and_(Attendance.lesson_id.in_(lesson_ids), Attendance.group_id == group_id))
         .group_by(Attendance.status)
     )
-    attendance_stats = dict(attendance_result.all())
+    attendance_stats: AttendanceStatsMap = {status: count for status, count in attendance_result.all()}
 
     total_attendance = sum(attendance_stats.values())
     present_count = attendance_stats.get(AttendanceStatus.PRESENT, 0) + attendance_stats.get(AttendanceStatus.LATE, 0)

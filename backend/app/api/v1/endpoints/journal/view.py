@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -188,7 +189,7 @@ async def get_journal_view(
             select(Subject).where(Subject.id.in_(semester_subject_ids)).order_by(Subject.name.asc())
         )
         subjects = [
-            AttestationSubjectOption(id=subject.id, name=subject.name, code=subject.code)
+            AttestationSubjectOption(id=cast(UUID, subject.id), name=subject.name, code=subject.code)
             for subject in subjects_result.scalars().all()
         ]
     subject_ids_set = {subject.id for subject in subjects}
@@ -234,8 +235,8 @@ async def get_journal_view(
         )
         grades_rows = list(grades_result.scalars().all())
         grouped_grades: dict[tuple[str, str], list[LessonGrade]] = defaultdict(list)
-        for row in grades_rows:
-            grouped_grades[(str(row.lesson_id), str(row.student_id))].append(row)
+        for grade_row in grades_rows:
+            grouped_grades[(str(grade_row.lesson_id), str(grade_row.student_id))].append(grade_row)
 
         grades_payload = defaultdict(dict)
         for (lesson_key, student_key), rows in grouped_grades.items():

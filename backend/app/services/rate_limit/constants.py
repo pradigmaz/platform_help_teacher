@@ -2,8 +2,8 @@
 Константы для системы rate limit предупреждений.
 """
 
+from dataclasses import dataclass
 from enum import Enum
-from typing import NamedTuple
 
 
 class WarningLevel(str, Enum):
@@ -16,7 +16,8 @@ class WarningLevel(str, Enum):
     HARD_BAN = "hard_ban"  # Бан 1 час
 
 
-class Threshold(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class Threshold:
     """Порог для уровня предупреждения."""
 
     count: int

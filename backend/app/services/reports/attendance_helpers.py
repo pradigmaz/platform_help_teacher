@@ -4,7 +4,7 @@
 
 from collections import defaultdict
 from datetime import date
-from typing import TYPE_CHECKING
+from typing import TypeAlias
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -16,17 +16,26 @@ from app.models.user import User
 from app.schemas.report import (
     AttendanceDistribution,
     AttendanceRecord,
+    LessonHistoryItem,
     AttendanceStats,
     DateAttendance,
-    TodayLessonAttendance,
 )
-from app.services.schedule_constants import today_msk
+from .attendance_timeline_helpers import get_recent_lessons_history, get_today_lessons_attendance
 
-if TYPE_CHECKING:
-    from app.schemas.report import LessonHistoryItem
+AttendanceValueMap: TypeAlias = dict[str, int | float]
+StudentAttendanceStatsMap: TypeAlias = dict[UUID, AttendanceValueMap]
+SubgroupAttendanceStatsMap: TypeAlias = dict[tuple[date, int | None], dict[str, int]]
 
 
-async def get_group_attendance_stats(db: AsyncSession, group_id: UUID, students: list[User]) -> dict[UUID, dict]:
+def _status_key(status_value: object) -> str:
+    return status_value.value.lower() if hasattr(status_value, "value") else str(status_value).lower()
+
+
+async def get_group_attendance_stats(
+    db: AsyncSession,
+    group_id: UUID,
+    students: list[User],
+) -> StudentAttendanceStatsMap:
     """Получить статистику посещаемости группы."""
     student_ids = [s.id for s in students]
 
@@ -37,16 +46,18 @@ async def get_group_attendance_stats(db: AsyncSession, group_id: UUID, students:
     )
     result = await db.execute(query)
 
-    stats = defaultdict(lambda: {"present": 0, "late": 0, "excused": 0, "absent": 0, "total": 0})
-    for row in result.all():
-        status_str = row.status.value.lower() if hasattr(row.status, "value") else str(row.status).lower()
-        stats[row.student_id][status_str] = row.count
-        stats[row.student_id]["total"] += row.count
+    stats: defaultdict[UUID, AttendanceValueMap] = defaultdict(
+        lambda: {"present": 0, "late": 0, "excused": 0, "absent": 0, "total": 0, "rate": 0.0}
+    )
+    for student_id, status, count_value in result.all():
+        status_str = _status_key(status)
+        stats[student_id][status_str] = count_value
+        stats[student_id]["total"] = int(stats[student_id]["total"]) + count_value
 
     for _student_id, data in stats.items():
-        total = data["total"]
+        total = int(data["total"])
         if total > 0:
-            present_equivalent = data["present"] + data["late"] * 0.5 + data["excused"] * 0.5
+            present_equivalent = int(data["present"]) + int(data["late"]) * 0.5 + int(data["excused"]) * 0.5
             data["rate"] = round(present_equivalent / total * 100, 1)
         else:
             data["rate"] = 0.0
@@ -69,10 +80,10 @@ async def get_attendance_distribution(
     result = await db.execute(query)
 
     distribution = AttendanceDistribution()
-    for row in result.all():
-        status_str = row.status.value.lower() if hasattr(row.status, "value") else str(row.status).lower()
+    for status, count_value in result.all():
+        status_str = _status_key(status)
         if hasattr(distribution, status_str):
-            setattr(distribution, status_str, row.count)
+            setattr(distribution, status_str, count_value)
 
     return distribution
 
@@ -108,7 +119,7 @@ async def get_student_attendance_history(db: AsyncSession, student_id: UUID, gro
     return history
 
 
-async def get_student_attendance_stats(db: AsyncSession, student_id: UUID, group_id: UUID) -> dict:
+async def get_student_attendance_stats(db: AsyncSession, student_id: UUID, group_id: UUID) -> AttendanceValueMap:
     """Получить статистику посещаемости студента."""
     query = (
         select(Attendance.status, func.count(Attendance.id).label("count"))
@@ -117,15 +128,16 @@ async def get_student_attendance_stats(db: AsyncSession, student_id: UUID, group
     )
     result = await db.execute(query)
 
-    stats = {"present": 0, "late": 0, "excused": 0, "absent": 0, "total": 0}
-    for row in result.all():
-        status_str = row.status.value.lower() if hasattr(row.status, "value") else str(row.status).lower()
-        stats[status_str] = row.count
-        stats["total"] += row.count
+    stats: AttendanceValueMap = {"present": 0, "late": 0, "excused": 0, "absent": 0, "total": 0, "rate": 0.0}
+    for status, count_value in result.all():
+        status_str = _status_key(status)
+        stats[status_str] = count_value
+        stats["total"] = int(stats["total"]) + count_value
 
-    if stats["total"] > 0:
-        present_equivalent = stats["present"] + stats["late"] * 0.5 + stats["excused"] * 0.5
-        stats["rate"] = round(present_equivalent / stats["total"] * 100, 1)
+    total = int(stats["total"])
+    if total > 0:
+        present_equivalent = int(stats["present"]) + int(stats["late"]) * 0.5 + int(stats["excused"]) * 0.5
+        stats["rate"] = round(present_equivalent / total * 100, 1)
     else:
         stats["rate"] = 0.0
 
@@ -153,10 +165,10 @@ async def get_attendance_by_subgroup(
         res = await db.execute(query)
 
         dist = AttendanceDistribution()
-        for row in res.all():
-            status_str = row.status.value.lower() if hasattr(row.status, "value") else str(row.status).lower()
+        for status, count_value in res.all():
+            status_str = _status_key(status)
             if hasattr(dist, status_str):
-                setattr(dist, status_str, row.count)
+                setattr(dist, status_str, count_value)
         result[str(subgroup)] = dist
 
     return result
@@ -213,21 +225,21 @@ async def get_attendance_trend(
     student_subgroups = {s.id: s.subgroup for s in students}
 
     # Группируем посещаемость по (дата, подгруппа)
-    date_subgroup_stats: dict[tuple, dict[str, int]] = defaultdict(
+    date_subgroup_stats: SubgroupAttendanceStatsMap = defaultdict(
         lambda: {"present": 0, "late": 0, "excused": 0, "absent": 0}
     )
 
-    for row in result.all():
-        status_str = row.status.value.lower() if hasattr(row.status, "value") else str(row.status).lower()
-        student_subgroup = student_subgroups.get(row.student_id)
+    for attendance_date, status, student_id, count_value in result.all():
+        status_str = _status_key(status)
+        student_subgroup = student_subgroups.get(student_id)
 
         # Для каждой записи посещаемости определяем к какому занятию она относится
         for lesson_date, lesson_subgroup in lesson_keys:
-            if row.date == lesson_date:
+            if attendance_date == lesson_date:
                 # Лекция (subgroup=None) - все студенты
                 # Лаба (subgroup=1 или 2) - только студенты этой подгруппы
                 if lesson_subgroup is None or lesson_subgroup == student_subgroup:
-                    date_subgroup_stats[(lesson_date, lesson_subgroup)][status_str] += row.count
+                    date_subgroup_stats[(lesson_date, lesson_subgroup)][status_str] += count_value
 
     # Формируем trend для всех занятий
     trend = []
@@ -277,164 +289,3 @@ async def get_full_attendance_stats(
         average_rate = 0.0
 
     return AttendanceStats(distribution=distribution, by_subgroup=by_subgroup, trend=trend, average_rate=average_rate)
-
-
-async def get_today_lessons_attendance(
-    db: AsyncSession, group_id: UUID, students: list[User], show_names: bool = True, target_date: date | None = None
-) -> list[TodayLessonAttendance]:
-    """Получить посещаемость по парам на указанную дату (по умолчанию сегодня)."""
-    check_date = target_date or today_msk()
-    student_ids = [s.id for s in students]
-    {s.id: s for s in students}
-
-    # Получаем занятия на эту дату
-    lessons_query = (
-        select(Lesson)
-        .where(Lesson.group_id == group_id, Lesson.date == check_date, Lesson.is_cancelled.is_(False))
-        .order_by(Lesson.lesson_number)
-    )
-    lessons_result = await db.execute(lessons_query)
-    lessons = lessons_result.scalars().all()
-
-    if not lessons:
-        return []
-
-    # Получаем посещаемость на эту дату
-    attendance_query = select(Attendance).where(
-        Attendance.group_id == group_id, Attendance.date == check_date, Attendance.student_id.in_(student_ids)
-    )
-    attendance_result = await db.execute(attendance_query)
-    attendance_records = attendance_result.scalars().all()
-
-    # Группируем посещаемость по (lesson_number, student_id)
-    att_map: dict[tuple, Attendance] = {}
-    for att in attendance_records:
-        key = (att.lesson_number, att.student_id)
-        att_map[key] = att
-
-    result = []
-    for lesson in lessons:
-        # Определяем студентов для этого занятия
-        if lesson.subgroup is None:
-            # Лекция — все студенты
-            relevant_students = students
-        else:
-            # Лаба/практика — только подгруппа
-            relevant_students = [s for s in students if s.subgroup == lesson.subgroup]
-
-        present, absent, late, excused = [], [], [], []
-
-        for student in relevant_students:
-            # Имя или ID
-            identifier = student.full_name if show_names else str(student.id)
-
-            att = att_map.get((lesson.lesson_number, student.id))
-            if att:
-                status = att.status.value.lower() if hasattr(att.status, "value") else str(att.status).lower()
-                if status == "present":
-                    present.append(identifier)
-                elif status == "late":
-                    late.append(identifier)
-                elif status == "excused":
-                    excused.append(identifier)
-                else:
-                    absent.append(identifier)
-            else:
-                # Нет записи — считаем отсутствующим
-                absent.append(identifier)
-
-        lesson_type_str = lesson.lesson_type.value if hasattr(lesson.lesson_type, "value") else str(lesson.lesson_type)
-
-        result.append(
-            TodayLessonAttendance(
-                date=lesson.date,
-                lesson_number=lesson.lesson_number,
-                lesson_type=lesson_type_str,
-                topic=lesson.topic,
-                subgroup=lesson.subgroup,
-                present=present,
-                absent=absent,
-                late=late,
-                excused=excused,
-            )
-        )
-
-    return result
-
-
-async def get_recent_lessons_history(
-    db: AsyncSession, group_id: UUID, students: list[User], limit: int = 10, semester_start_date: date | None = None
-) -> list["LessonHistoryItem"]:
-    """Получить историю последних занятий с посещаемостью."""
-
-    check_date = today_msk()
-    student_ids = [s.id for s in students]
-    {s.id: s for s in students}
-
-    # Получаем последние занятия (до сегодня включительно)
-    lessons_query = (
-        select(Lesson)
-        .where(Lesson.group_id == group_id, Lesson.date <= check_date, Lesson.is_cancelled.is_(False))
-        .order_by(Lesson.date.desc(), Lesson.lesson_number.desc())
-        .limit(limit * 2)  # Берём с запасом, потом отфильтруем
-    )
-    if semester_start_date:
-        lessons_query = lessons_query.where(Lesson.date >= semester_start_date)
-
-    lessons_result = await db.execute(lessons_query)
-    lessons = lessons_result.scalars().all()
-
-    if not lessons:
-        return []
-
-    # Получаем даты для запроса посещаемости
-    lesson_dates = list(set(l.date for l in lessons))
-
-    # Получаем посещаемость
-    attendance_query = select(Attendance).where(
-        Attendance.group_id == group_id, Attendance.date.in_(lesson_dates), Attendance.student_id.in_(student_ids)
-    )
-    attendance_result = await db.execute(attendance_query)
-    attendance_records = attendance_result.scalars().all()
-
-    # Группируем посещаемость по (date, lesson_number, student_id)
-    att_map: dict[tuple, Attendance] = {}
-    for att in attendance_records:
-        key = (att.date, att.lesson_number, att.student_id)
-        att_map[key] = att
-
-    result = []
-    for lesson in lessons[:limit]:
-        # Определяем студентов для этого занятия
-        if lesson.subgroup is None:
-            relevant_students = students
-        else:
-            relevant_students = [s for s in students if s.subgroup == lesson.subgroup]
-
-        present_count = 0
-        total_count = len(relevant_students)
-
-        for student in relevant_students:
-            att = att_map.get((lesson.date, lesson.lesson_number, student.id))
-            if att:
-                status = att.status.value.lower() if hasattr(att.status, "value") else str(att.status).lower()
-                if status in ("present", "late"):
-                    present_count += 1
-
-        attendance_rate = round(present_count / total_count * 100, 1) if total_count > 0 else 0.0
-        lesson_type_str = lesson.lesson_type.value if hasattr(lesson.lesson_type, "value") else str(lesson.lesson_type)
-
-        result.append(
-            LessonHistoryItem(
-                date=lesson.date,
-                lesson_number=lesson.lesson_number,
-                lesson_type=lesson_type_str,
-                topic=lesson.topic,
-                subgroup=lesson.subgroup,
-                attendance_rate=attendance_rate,
-                present_count=present_count,
-                total_count=total_count,
-            )
-        )
-
-    return result

@@ -44,9 +44,13 @@ disallow_untyped_defs = false
 exclude = ["alembic/", "tests/"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "app/tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "smoke: critical auth/session/audit regression checks for CI",
+    "integration: database-backed integration checks",
+]

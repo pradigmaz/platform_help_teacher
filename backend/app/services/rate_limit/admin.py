@@ -3,7 +3,7 @@
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import and_, desc, func, select
@@ -19,13 +19,42 @@ from .schemas import WarningListResponse, WarningRecord
 logger = logging.getLogger(__name__)
 
 
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _warning_to_record(warning: RateLimitWarning, users_map: dict[UUID, str]) -> WarningRecord:
+    return WarningRecord(
+        id=warning.id,
+        user_id=warning.user_id,
+        user_name=users_map.get(warning.user_id) if warning.user_id else None,
+        ip_address=warning.ip_address,
+        warning_level=warning.warning_level,
+        violation_count=warning.violation_count,
+        message=warning.message,
+        ban_until=warning.ban_until,
+        unbanned_at=warning.unbanned_at,
+        admin_notified=warning.admin_notified,
+        created_at=warning.created_at,
+    )
+
+
+async def _load_user_names(db: AsyncSession, warnings: list[RateLimitWarning]) -> dict[UUID, str]:
+    user_ids = [warning.user_id for warning in warnings if warning.user_id is not None]
+    if not user_ids:
+        return {}
+
+    users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+    return {user.id: user.full_name for user in users_result.scalars().all()}
+
+
 async def get_active_bans(
     db: AsyncSession,
     skip: int = 0,
     limit: int = 50,
 ) -> WarningListResponse:
     """Получить список активных банов."""
-    now = datetime.utcnow()
+    now = _utc_now()
 
     # Запрос активных банов
     query = (
@@ -53,29 +82,8 @@ async def get_active_bans(
     )
     total = await db.scalar(count_query) or 0
 
-    # Получаем имена пользователей
-    user_ids = [w.user_id for w in warnings if w.user_id]
-    users_map = {}
-    if user_ids:
-        users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
-        users_map = {u.id: u.full_name for u in users_result.scalars().all()}
-
-    items = [
-        WarningRecord(
-            id=w.id,
-            user_id=w.user_id,
-            user_name=users_map.get(w.user_id) if w.user_id else None,
-            ip_address=w.ip_address,
-            warning_level=w.warning_level,
-            violation_count=w.violation_count,
-            message=w.message,
-            ban_until=w.ban_until,
-            unbanned_at=w.unbanned_at,
-            admin_notified=w.admin_notified,
-            created_at=w.created_at,
-        )
-        for w in warnings
-    ]
+    users_map = await _load_user_names(db, list(warnings))
+    items = [_warning_to_record(warning, users_map) for warning in warnings]
 
     return WarningListResponse(items=items, total=total)
 
@@ -105,29 +113,8 @@ async def get_warnings_history(
     warnings = result.scalars().all()
     total = await db.scalar(count_query) or 0
 
-    # Получаем имена пользователей
-    user_ids = [w.user_id for w in warnings if w.user_id]
-    users_map = {}
-    if user_ids:
-        users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
-        users_map = {u.id: u.full_name for u in users_result.scalars().all()}
-
-    items = [
-        WarningRecord(
-            id=w.id,
-            user_id=w.user_id,
-            user_name=users_map.get(w.user_id) if w.user_id else None,
-            ip_address=w.ip_address,
-            warning_level=w.warning_level,
-            violation_count=w.violation_count,
-            message=w.message,
-            ban_until=w.ban_until,
-            unbanned_at=w.unbanned_at,
-            admin_notified=w.admin_notified,
-            created_at=w.created_at,
-        )
-        for w in warnings
-    ]
+    users_map = await _load_user_names(db, list(warnings))
+    items = [_warning_to_record(warning, users_map) for warning in warnings]
 
     return WarningListResponse(items=items, total=total)
 
@@ -144,7 +131,7 @@ async def unban_by_warning_id(
         return False
 
     # Обновляем запись в БД
-    warning.unbanned_at = datetime.utcnow()
+    warning.unbanned_at = _utc_now()
     warning.unbanned_by = admin_id
     warning.unban_reason = reason
 
@@ -180,7 +167,7 @@ async def unban_by_user_id(
     reason: str,
 ) -> int:
     """Разбанить все активные баны пользователя."""
-    now = datetime.utcnow()
+    now = _utc_now()
 
     # Находим активные баны
     result = await db.execute(

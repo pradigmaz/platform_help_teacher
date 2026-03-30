@@ -1,6 +1,7 @@
 """Сервис для работы с объявлениями и рассылкой уведомлений."""
 
 import logging
+from typing import TypeAlias
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,16 +12,17 @@ from app.models.user import User, UserRole
 from app.services.notification_service import _send_telegram, _send_vk
 
 logger = logging.getLogger(__name__)
+NotificationRecipient: TypeAlias = tuple[User, NotificationSettings | None]
 
 
-async def get_students_for_notification(db: AsyncSession) -> list[User]:
+async def get_students_for_notification(db: AsyncSession) -> list[NotificationRecipient]:
     """Получить студентов с настройками уведомлений."""
     result = await db.execute(
         select(User, NotificationSettings)
         .outerjoin(NotificationSettings, User.id == NotificationSettings.user_id)
         .where(User.role == UserRole.STUDENT)
     )
-    return list(result.all())
+    return [(user, settings) for user, settings in result.all()]
 
 
 async def send_announcement_to_students(db: AsyncSession, announcement: Announcement) -> dict:

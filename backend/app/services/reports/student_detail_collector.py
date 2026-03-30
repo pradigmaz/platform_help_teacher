@@ -1,0 +1,160 @@
+"""Helpers for collecting public student detail report data."""
+
+import logging
+from typing import TypedDict
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.attestation_settings import AttestationSettings, AttestationType
+from app.models.group_report import GroupReport
+from app.schemas.report import StudentDetailData
+from app.services.attestation.service import AttestationService
+
+from .activity_helpers import generate_recommendations, get_student_activity
+from .attendance_helpers import get_student_attendance_history, get_student_attendance_stats
+from .base_helpers import get_group, get_group_students, get_user
+from .labs_helpers import get_student_lab_submissions
+from .notes_helpers import get_student_notes
+from .semester_helpers import get_semester_info
+
+logger = logging.getLogger(__name__)
+
+
+class StudentComparisonStats(TypedDict):
+    average: float
+    rank: int
+    total: int
+
+
+async def collect_student_report_data(
+    db: AsyncSession,
+    report: GroupReport,
+    student_id: UUID,
+    attestation_type: str = "first",
+) -> StudentDetailData | None:
+    """Собрать детальные данные публичного отчёта по студенту."""
+    att_type = AttestationType.SECOND if attestation_type == "second" else AttestationType.FIRST
+
+    student = await get_user(db, student_id)
+    if not student or student.group_id != report.group_id:
+        return None
+
+    group = await get_group(db, report.group_id)
+    is_early, _, _, _ = await get_semester_info(db, att_type)
+
+    attestation_service = AttestationService(db)
+    try:
+        result = await attestation_service.calculate_student_score(
+            student_id=student_id,
+            group_id=report.group_id,
+            attestation_type=att_type,
+        )
+    except Exception as exc:
+        logger.error("Error calculating score for student %s: %s", student_id, exc)
+        result = None
+
+    attendance_history = None
+    att_stats: dict[str, int | float] = {}
+    if report.show_attendance:
+        attendance_history = await get_student_attendance_history(db, student_id, report.group_id)
+        att_stats = await get_student_attendance_stats(db, student_id, report.group_id)
+
+    lab_submissions = None
+    labs_completed = 0
+    labs_total = 0
+    if report.show_grades:
+        lab_submissions = await get_student_lab_submissions(db, student_id)
+        labs_completed = sum(1 for submission in lab_submissions if submission.is_submitted)
+        labs_total = len(lab_submissions)
+
+    activity_records = None
+    total_activity_points = 0.0
+    if report.show_grades:
+        activity_records = await get_student_activity(db, student_id)
+        total_activity_points = sum(activity.points for activity in activity_records)
+
+    notes = None
+    if report.show_notes:
+        notes_list = await get_student_notes(db, student_id, visible_only=True)
+        notes = [note.content for note in notes_list]
+
+    group_average = None
+    rank_in_group = None
+    total_in_group = None
+    if report.show_rating and result:
+        group_stats = await _get_group_comparison_stats(
+            db=db,
+            group_id=report.group_id,
+            student_id=student_id,
+            student_score=result.total_score,
+            attestation_type=att_type,
+        )
+        if group_stats is not None:
+            group_average = group_stats["average"]
+            rank_in_group = group_stats["rank"]
+            total_in_group = group_stats["total"]
+
+    is_passing = result.is_passing if result else False
+    recommendations = None
+    if not is_passing:
+        recommendations = generate_recommendations(result, att_stats, labs_completed, labs_total)
+
+    return StudentDetailData(
+        id=student_id,
+        name=student.full_name if report.show_names else None,
+        group_code=group.code if group else "",
+        total_score=result.total_score if result and report.show_grades else None,
+        lab_score=result.breakdown.labs_score if result and report.show_grades else None,
+        attendance_score=result.breakdown.attendance_score if result and report.show_grades else None,
+        activity_score=result.breakdown.activity_score if result and report.show_grades else None,
+        grade=result.grade if result and report.show_grades else None,
+        is_passing=is_passing if report.show_grades else None,
+        is_early_semester=is_early,
+        max_points=result.max_points if result else 100,
+        min_passing_points=result.min_passing_points if result else AttestationSettings.get_min_passing_points(att_type),
+        group_average_score=group_average,
+        rank_in_group=rank_in_group,
+        total_in_group=total_in_group,
+        attendance_rate=att_stats.get("rate"),
+        attendance_history=attendance_history,
+        present_count=int(att_stats.get("present", 0)),
+        absent_count=int(att_stats.get("absent", 0)),
+        late_count=int(att_stats.get("late", 0)),
+        excused_count=int(att_stats.get("excused", 0)),
+        total_lessons=int(att_stats.get("total", 0)),
+        labs_completed=labs_completed if report.show_grades else None,
+        labs_total=labs_total if report.show_grades else None,
+        lab_submissions=lab_submissions,
+        activity_records=activity_records,
+        total_activity_points=total_activity_points if report.show_grades else None,
+        notes=notes,
+        recommendations=recommendations,
+        needs_attention=not is_passing,
+    )
+
+
+async def _get_group_comparison_stats(
+    db: AsyncSession,
+    group_id: UUID,
+    student_id: UUID,
+    student_score: float,
+    attestation_type: AttestationType,
+) -> StudentComparisonStats | None:
+    """Получить статистику сравнения с группой."""
+    students = await get_group_students(db, group_id)
+
+    attestation_service = AttestationService(db)
+    results, _ = await attestation_service.calculate_group_scores_batch(
+        group_id=group_id,
+        attestation_type=attestation_type,
+        students=students,
+    )
+    if not results:
+        return None
+
+    scores = [result.total_score for result in results]
+    average = sum(scores) / len(scores)
+    sorted_scores = sorted(scores, reverse=True)
+    rank = sorted_scores.index(student_score) + 1 if student_score in sorted_scores else len(scores)
+    return {"average": round(average, 2), "rank": rank, "total": len(students)}

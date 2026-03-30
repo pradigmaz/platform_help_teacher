@@ -111,7 +111,7 @@ async def update_grade(
         raise HTTPException(status_code=404, detail=em.GRADE_NOT_FOUND)
 
     field_set = data.model_fields_set
-    next_grade = data.grade if "grade" in field_set else existing.grade
+    next_grade = data.grade if "grade" in field_set and data.grade is not None else existing.grade
     next_work_number = data.work_number if "work_number" in field_set else existing.work_number
     next_comment = data.comment if "comment" in field_set else existing.comment
 

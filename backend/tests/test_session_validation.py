@@ -26,6 +26,8 @@ from app.core.config import settings
 from app.models import User, UserRole
 from app.services import session_service
 
+pytestmark = pytest.mark.smoke
+
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -144,6 +146,7 @@ def valid_session_data(test_user):
 
 
 @pytest.mark.asyncio
+@pytest.mark.smoke
 async def test_get_current_user_with_valid_session(test_user, mock_db_session, valid_session_data):
     """
     Тест: Валидный JWT + валидная сессия → пользователь возвращается.
@@ -206,6 +209,7 @@ async def test_get_current_user_with_valid_session_logs_debug(test_user, mock_db
 
 
 @pytest.mark.asyncio
+@pytest.mark.smoke
 async def test_get_current_user_with_revoked_session(test_user, mock_db_session):
     """
     Тест: JWT валиден, но сессия отозвана → 401 "Session revoked".
