@@ -1,736 +1,198 @@
-#!/bin/bash
-# ========================================================
-# EDU PLATFORM - AUTO DEPLOY INSTALLER
-# ========================================================
-set -e
-
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+#!/usr/bin/env bash
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=lib/envfile.sh
+source "$SCRIPT_DIR/lib/envfile.sh"
+# shellcheck source=lib/prod_deploy.sh
+source "$SCRIPT_DIR/lib/prod_deploy.sh"
 
-# ============================================
-# FUNCTIONS
-# ============================================
-log_info() { echo -e "${GREEN}[✓]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[!]${NC} $1"; }
-log_error() { echo -e "${RED}[✗]${NC} $1"; }
-log_step() { echo -e "\n${BLUE}══════════════════════════════════════════════════════════${NC}"; echo -e "${BLUE}▶ $1${NC}"; }
-log_skip() { echo -e "${CYAN}[→]${NC} $1 (пропущено — уже настроено)"; }
+ENV_FILE="$(default_prod_env_file)"
+NON_INTERACTIVE=false
 
-# ============================================
-# LOAD EXISTING CONFIG
-# ============================================
-load_existing_env() {
-    if [ -f ".env" ]; then
-        log_info "Найден существующий .env — загружаю конфигурацию..."
-        source .env
-        EXISTING_ENV=true
-        
-        # Extract domain from FRONTEND_URL
-        if [ -n "$FRONTEND_URL" ]; then
-            DOMAIN=$(echo "$FRONTEND_URL" | sed -E 's|https?://||')
-            if [[ "$FRONTEND_URL" == https://* ]]; then
-                PROTOCOL="https"
-                USE_HTTPS=true
-            else
-                PROTOCOL="http"
-                USE_HTTPS=false
-            fi
-        fi
-        
-        # Check what's already configured
-        [ -n "$TELEGRAM_BOT_TOKEN" ] && HAS_TG_BOT=true || HAS_TG_BOT=false
-        [ -n "$VK_BOT_TOKEN" ] && HAS_VK_BOT=true || HAS_VK_BOT=false
-        
-        # Extract bot username from BOT_URL
-        if [ -n "$NEXT_PUBLIC_BOT_URL" ]; then
-            TELEGRAM_BOT_USERNAME=$(echo "$NEXT_PUBLIC_BOT_URL" | sed 's|https://t.me/||')
-            BOT_URL="$NEXT_PUBLIC_BOT_URL"
-        fi
-        
-        API_URL="$NEXT_PUBLIC_API_URL"
-    else
-        EXISTING_ENV=false
-    fi
+print_intro() {
+  cat <<EOF
+${BLUE}Интерактивная установка production-стека${NC}
+Скрипт соберёт основные параметры, обновит env-файл и запустит развёртывание.
+Для полностью автоматического запуска используйте: ./install.sh --env-file PATH --non-interactive
+EOF
 }
 
 ask() {
-    local prompt="$1"
-    local default="$2"
-    local var_name="$3"
-    
-    echo -ne "${CYAN}$prompt${NC}"
-    if [ -n "$default" ]; then
-        echo -n " [$default]"
-    fi
-    echo -n ": "
-    read user_input
-    
-    if [ -z "$user_input" ]; then
-        user_input="$default"
-    fi
-    
-    eval "$var_name=\"\$user_input\""
+  local prompt="$1"
+  local default="${2:-}"
+  local value
+  echo -ne "${CYAN}${prompt}${NC}"
+  [[ -n "$default" ]] && echo -n " [$default]"
+  echo -n ": "
+  read -r value
+  echo "${value:-$default}"
 }
 
 ask_yes_no() {
-    local prompt="$1"
-    local default="$2"
-    local var_name="$3"
-    
-    echo -ne "${CYAN}$prompt${NC} "
-    if [ "$default" = "y" ]; then
-        echo -n "[Y/n]: "
-    else
-        echo -n "[y/N]: "
-    fi
-    read answer
-    
-    if [ -z "$answer" ]; then
-        answer="$default"
-    fi
-    
-    if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
-        eval "$var_name=true"
-    else
-        eval "$var_name=false"
-    fi
+  local prompt="$1"
+  local default="$2"
+  local answer
+  echo -ne "${CYAN}${prompt}${NC} "
+  [[ "$default" == "y" ]] && echo -n "[Д/н]: " || echo -n "[д/Н]: "
+  read -r answer
+  answer="${answer:-$default}"
+  case "$answer" in
+    [YyДд]) return 0 ;;
+    [NnНн]) return 1 ;;
+    *) [[ "$default" == "y" ]] ;;
+  esac
 }
 
-validate_domain() {
-    local domain="$1"
-    # Reject IP addresses
-    if [[ "$domain" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        return 1
-    fi
-    # Basic domain validation
-    if [[ "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$ ]]; then
-        return 0
-    fi
-    return 1
-}
+parse_args() {
+  while (($# > 0)); do
+    case "$1" in
+      --env-file)
+        ENV_FILE="$2"
+        shift 2
+        ;;
+      --non-interactive)
+        NON_INTERACTIVE=true
+        shift
+        ;;
+      --help|-h)
+        cat <<EOF
+Использование: ./install.sh [--env-file PATH] [--non-interactive]
 
-validate_tg_token() {
-    local token="$1"
-    if [[ "$token" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]]; then
-        return 0
-    fi
-    return 1
-}
+  интерактивный режим:
+    задаёт вопросы, обновляет deploy/.env и запускает установку
 
-validate_number() {
-    local num="$1"
-    if [[ "$num" =~ ^[0-9]+$ ]]; then
-        return 0
-    fi
-    return 1
-}
-
-check_port() {
-    local port="$1"
-    if ss -tuln | grep -q ":$port "; then
-        return 1
-    fi
-    return 0
-}
-
-# ============================================
-# STEP 0: CONFIRMATION
-# ============================================
-log_step "Шаг 0/9: Подтверждение установки"
-
-# Load existing config first
-load_existing_env
-
-if [ "$EXISTING_ENV" = "true" ]; then
-    echo -e "${GREEN}Найдена существующая конфигурация:${NC}"
-    echo -e "  Домен: ${CYAN}$DOMAIN${NC}"
-    [ "$HAS_TG_BOT" = "true" ] && echo -e "  Telegram: ${CYAN}@$TELEGRAM_BOT_USERNAME${NC}"
-    [ "$HAS_VK_BOT" = "true" ] && echo -e "  VK: ${CYAN}группа $VK_GROUP_ID${NC}"
-    echo ""
-    ask_yes_no "Использовать существующую конфигурацию?" "y" "USE_EXISTING"
-    if [ "$USE_EXISTING" = "false" ]; then
-        EXISTING_ENV=false
-        # Backup old config
-        cp .env ".env.backup.$(date +%Y%m%d_%H%M%S)"
-    fi
-else
-    USE_EXISTING=false
-fi
-
-echo -e "${YELLOW}⚠️  Это установит Edu Platform.${NC}"
-if [ "$USE_EXISTING" = "true" ]; then
-    echo -e "${GREEN}   Будет использована существующая конфигурация.${NC}"
-else
-    echo -e "${YELLOW}   Существующие контейнеры edu-* будут остановлены.${NC}"
-fi
-echo ""
-echo -n "Введите 'INSTALL' для продолжения: "
-read CONFIRM
-if [ "$CONFIRM" != "INSTALL" ]; then
-    log_error "Установка отменена."
-    exit 1
-fi
-
-# Stop existing containers
-log_info "Остановка существующих контейнеров..."
-docker compose -f docker-compose.yml down 2>/dev/null || true
-docker compose down 2>/dev/null || true
-
-# ============================================
-# STEP 1: CHECK DEPENDENCIES
-# ============================================
-log_step "Шаг 1/9: Проверка зависимостей"
-
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then
-    log_warn "Запуск от root — swap и Docker будут настроены напрямую"
-    IS_ROOT=true
-else
-    IS_ROOT=false
-fi
-
-# Docker
-if ! command -v docker &> /dev/null; then
-    log_error "Docker не установлен!"
-    echo "Установка Docker..."
-    curl -fsSL https://get.docker.com | sudo sh
-    sudo usermod -aG docker $USER
-    log_warn "Перелогиньтесь и запустите скрипт снова!"
-    exit 0
-fi
-log_info "Docker: $(docker --version)"
-
-# Check Docker group
-if ! groups | grep -q docker; then
-    log_error "Пользователь не в группе docker!"
-    sudo usermod -aG docker $USER
-    log_warn "Перелогиньтесь и запустите скрипт снова!"
-    exit 0
-fi
-
-# Docker Compose
-if ! docker compose version &> /dev/null; then
-    log_error "Docker Compose не установлен!"
-    echo "Установите Docker Compose: https://docs.docker.com/compose/install/"
-    exit 1
-fi
-log_info "Docker Compose: $(docker compose version --short)"
-
-# OpenSSL
-if ! command -v openssl &> /dev/null; then
-    log_error "OpenSSL не установлен!"
-    exit 1
-fi
-log_info "OpenSSL: OK"
-
-# Check swap
-SWAP_SIZE=$(free -m | awk '/^Swap:/ {print $2}')
-if [ "$SWAP_SIZE" -lt 1024 ]; then
-    log_warn "Swap < 1GB (текущий: ${SWAP_SIZE}MB)"
-    ask_yes_no "Создать swap 2GB?" "y" "CREATE_SWAP"
-    if [ "$CREATE_SWAP" = "true" ]; then
-        log_info "Создание swap 2GB..."
-        if [ "$IS_ROOT" = "true" ]; then
-            fallocate -l 2G /swapfile
-            chmod 600 /swapfile
-            mkswap /swapfile
-            swapon /swapfile
-            echo '/swapfile none swap sw 0 0' >> /etc/fstab
-            sysctl vm.swappiness=10
-            echo 'vm.swappiness=10' >> /etc/sysctl.conf
-        else
-            sudo fallocate -l 2G /swapfile
-            sudo chmod 600 /swapfile
-            sudo mkswap /swapfile
-            sudo swapon /swapfile
-            echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-            sudo sysctl vm.swappiness=10
-            echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
-        fi
-        log_info "Swap создан: 2GB"
-    fi
-else
-    log_info "Swap: ${SWAP_SIZE}MB"
-fi
-
-# Check ports
-PORTS_BUSY=""
-for port in 80 443; do
-    if ! check_port $port; then
-        PORTS_BUSY="$PORTS_BUSY $port"
-    fi
-done
-if [ -n "$PORTS_BUSY" ]; then
-    log_warn "Порты заняты:$PORTS_BUSY"
-    echo "Освободите порты или измените конфигурацию."
-fi
-
-
-# ============================================
-# STEP 2: DOMAIN SETUP
-# ============================================
-log_step "Шаг 2/9: Настройка домена"
-
-if [ "$USE_EXISTING" = "true" ] && [ -n "$DOMAIN" ]; then
-    log_skip "Домен: $DOMAIN"
-else
-    echo -e "${YELLOW}┌─────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${YELLOW}│  ВАЖНО: Требуется домен (ngrok или собственный)            │${NC}"
-    echo -e "${YELLOW}│  IP-адреса НЕ поддерживаются!                              │${NC}"
-    echo -e "${YELLOW}│                                                             │${NC}"
-    echo -e "${YELLOW}│  Примеры:                                                   │${NC}"
-    echo -e "${YELLOW}│  • abc123.ngrok-free.app (бесплатный ngrok)                │${NC}"
-    echo -e "${YELLOW}│  • edu.example.com (собственный домен)                     │${NC}"
-    echo -e "${YELLOW}└─────────────────────────────────────────────────────────────┘${NC}"
-    echo ""
-
-    while true; do
-        echo -ne "${CYAN}Введите домен${NC}: "
-        read DOMAIN
-        
-        if [ -z "$DOMAIN" ]; then
-            log_error "Домен обязателен!"
-            continue
-        fi
-        
-        if ! validate_domain "$DOMAIN"; then
-            log_error "Неверный формат домена или введён IP-адрес!"
-            echo "Введите домен, например: myapp.ngrok-free.app"
-            continue
-        fi
-        
-        break
-    done
-
-    log_info "Домен: $DOMAIN"
-
-    # Determine protocol
-    if [[ "$DOMAIN" == *"ngrok"* ]]; then
-        PROTOCOL="https"
-        USE_HTTPS=false  # ngrok handles SSL
-        log_info "Ngrok домен → HTTPS автоматически"
-    else
-        ask_yes_no "Использовать HTTPS?" "y" "USE_HTTPS"
-        if [ "$USE_HTTPS" = "true" ]; then
-            PROTOCOL="https"
-        else
-            PROTOCOL="http"
-        fi
-    fi
-
-    FRONTEND_URL="${PROTOCOL}://${DOMAIN}"
-    API_URL="${PROTOCOL}://${DOMAIN}/api/v1"
-fi
-
-# ============================================
-# STEP 3: BOT SETUP
-# ============================================
-log_step "Шаг 3/9: Настройка мессенджеров"
-
-if [ "$USE_EXISTING" = "true" ] && { [ "$HAS_TG_BOT" = "true" ] || [ "$HAS_VK_BOT" = "true" ]; }; then
-    [ "$HAS_TG_BOT" = "true" ] && log_skip "Telegram бот: @$TELEGRAM_BOT_USERNAME"
-    [ "$HAS_VK_BOT" = "true" ] && log_skip "VK бот: группа $VK_GROUP_ID"
-else
-    echo -e "${YELLOW}┌─────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${YELLOW}│  Для авторизации нужен хотя бы ОДИН бот:                   │${NC}"
-    echo -e "${YELLOW}│  • Telegram бот (рекомендуется)                            │${NC}"
-    echo -e "${YELLOW}│  • VK бот (опционально)                                    │${NC}"
-    echo -e "${YELLOW}│                                                             │${NC}"
-    echo -e "${YELLOW}│  Гайды по созданию:                                        │${NC}"
-    echo -e "${YELLOW}│  • Telegram: docs/TELEGRAM_BOT_SETUP.md                    │${NC}"
-    echo -e "${YELLOW}│  • VK: docs/VK_BOT_SETUP.md                                │${NC}"
-    echo -e "${YELLOW}└─────────────────────────────────────────────────────────────┘${NC}"
-    echo ""
-
-    # --- Telegram Bot ---
-    HAS_TG_BOT=false
-    TELEGRAM_BOT_TOKEN=""
-    TELEGRAM_BOT_USERNAME=""
-    TELEGRAM_WEBHOOK_SECRET=""
-    TELEGRAM_WEBHOOK_URL=""
-    BOT_URL=""
-
-    ask_yes_no "Есть Telegram бот?" "y" "HAS_TG_BOT"
-
-    if [ "$HAS_TG_BOT" = "true" ]; then
-        while true; do
-            echo -ne "${CYAN}Токен бота (от @BotFather)${NC}: "
-            read TELEGRAM_BOT_TOKEN
-            if validate_tg_token "$TELEGRAM_BOT_TOKEN"; then
-                break
-            fi
-            log_error "Неверный формат токена! Пример: 123456789:ABCdefGHI..."
-        done
-        
-        echo -ne "${CYAN}Username бота (без @)${NC}: "
-        read TELEGRAM_BOT_USERNAME
-        
-        TELEGRAM_WEBHOOK_SECRET=$(openssl rand -hex 16)
-        TELEGRAM_WEBHOOK_URL="${PROTOCOL}://${DOMAIN}"
-        BOT_URL="https://t.me/${TELEGRAM_BOT_USERNAME}"
-        
-        log_info "Telegram бот настроен: @${TELEGRAM_BOT_USERNAME}"
-    fi
-
-    # --- VK Bot ---
-    HAS_VK_BOT=false
-    VK_BOT_TOKEN=""
-    VK_GROUP_ID=""
-
-    ask_yes_no "Есть VK бот?" "n" "HAS_VK_BOT"
-
-    if [ "$HAS_VK_BOT" = "true" ]; then
-        while true; do
-            echo -ne "${CYAN}ID группы VK${NC}: "
-            read VK_GROUP_ID
-            if validate_number "$VK_GROUP_ID"; then
-                break
-            fi
-            log_error "ID группы должен быть числом!"
-        done
-        
-        echo -ne "${CYAN}Токен группы VK${NC}: "
-        read VK_BOT_TOKEN
-        log_info "VK бот настроен: группа $VK_GROUP_ID"
-    fi
-
-    # --- Check at least one bot ---
-    if [ "$HAS_TG_BOT" = "false" ] && [ "$HAS_VK_BOT" = "false" ]; then
-        echo ""
-        log_error "ОШИБКА: Нужен хотя бы один бот для авторизации!"
-        echo ""
-        echo -e "${CYAN}Создайте Telegram бота:${NC}"
-        echo "1. Откройте @BotFather в Telegram"
-        echo "2. Отправьте /newbot"
-        echo "3. Следуйте инструкциям"
-        echo "4. Скопируйте токен"
-        echo ""
-        echo "Подробнее: docs/TELEGRAM_BOT_SETUP.md"
-        echo ""
-        echo "Затем запустите скрипт снова."
-        exit 1
-    fi
-fi
-
-# ============================================
-# STEP 4: ADMIN SETUP
-# ============================================
-log_step "Шаг 4/9: Настройка администратора"
-
-if [ "$USE_EXISTING" = "true" ] && [ -n "$FIRST_SUPERUSER_ID" ]; then
-    log_skip "Администратор: ID=$FIRST_SUPERUSER_ID"
-else
-    if [ "$HAS_TG_BOT" = "true" ]; then
-        echo "Узнать свой Telegram ID: @userinfobot"
-        while true; do
-            ask "Ваш Telegram ID" "" "FIRST_SUPERUSER_ID"
-            if validate_number "$FIRST_SUPERUSER_ID"; then
-                break
-            fi
-            log_error "ID должен быть числом!"
-        done
-    else
-        while true; do
-            ask "Ваш VK ID" "" "FIRST_SUPERUSER_ID"
-            if validate_number "$FIRST_SUPERUSER_ID"; then
-                break
-            fi
-            log_error "ID должен быть числом!"
-        done
-    fi
-
-    FIRST_SUPERUSER_USERNAME="admin"
-    log_info "Администратор: ID=$FIRST_SUPERUSER_ID"
-fi
-
-
-# ============================================
-# STEP 5: GENERATE SECRETS
-# ============================================
-log_step "Шаг 5/9: Генерация секретов"
-
-if [ "$USE_EXISTING" = "true" ] && [ -n "$SECRET_KEY" ]; then
-    log_skip "Секреты уже сгенерированы"
-else
-    # Database
-    POSTGRES_USER="edu_admin"
-    POSTGRES_PASSWORD=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)
-    POSTGRES_DB="edu_platform"
-
-    # MinIO
-    MINIO_ROOT_USER="minioadmin"
-    MINIO_ROOT_PASSWORD=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)
-    MINIO_BUCKET_NAME="edu-uploads"
-
-    # Security keys
-    SECRET_KEY=$(openssl rand -hex 32)
-    BACKUP_ENCRYPTION_KEY=$(openssl rand -hex 32)
-
-    log_info "Сгенерированы пароли и ключи:"
-    echo ""
-    echo -e "  ${CYAN}PostgreSQL:${NC}"
-    echo "    User: $POSTGRES_USER"
-    echo "    Password: $POSTGRES_PASSWORD"
-    echo ""
-    echo -e "  ${CYAN}MinIO:${NC}"
-    echo "    User: $MINIO_ROOT_USER"
-    echo "    Password: $MINIO_ROOT_PASSWORD"
-    echo ""
-    echo -e "${YELLOW}⚠️  СОХРАНИТЕ ЭТИ ДАННЫЕ! Они не будут показаны снова.${NC}"
-    echo ""
-fi
-
-# ============================================
-# STEP 6: GENERATE .ENV
-# ============================================
-log_step "Шаг 6/9: Генерация конфигурации"
-
-if [ "$USE_EXISTING" = "true" ]; then
-    log_skip ".env уже существует"
-else
-    cat > .env << EOF
-# ========================================
-# EDU PLATFORM CONFIGURATION
-# Generated: $(date)
-# ========================================
-
-# Database
-POSTGRES_USER=${POSTGRES_USER}
-POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-POSTGRES_DB=${POSTGRES_DB}
-
-# MinIO (S3-compatible storage)
-MINIO_ROOT_USER=${MINIO_ROOT_USER}
-MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
-
-# Backend Security
-SECRET_KEY=${SECRET_KEY}
-ENVIRONMENT=production
-LOG_LEVEL=INFO
-
-# Telegram Bot
-TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET}
-TELEGRAM_WEBHOOK_URL=${TELEGRAM_WEBHOOK_URL}
-
-# VK Bot
-VK_BOT_TOKEN=${VK_BOT_TOKEN}
-VK_GROUP_ID=${VK_GROUP_ID}
-
-# Redis
-REDIS_URL=redis://redis:6379/0
-
-# Backup Settings
-BACKUP_ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY}
-BACKUP_STORAGE_BUCKET=edu-backups
-BACKUP_RETENTION_DAYS=30
-
-# First Admin
-FIRST_SUPERUSER_ID=${FIRST_SUPERUSER_ID}
-FIRST_SUPERUSER_USERNAME=${FIRST_SUPERUSER_USERNAME}
-
-# Frontend URLs
-FRONTEND_FINGERPRINT_MODE=off
-FRONTEND_URL=${FRONTEND_URL}
-NEXT_PUBLIC_API_URL=${API_URL}
-NEXT_PUBLIC_BOT_URL=${BOT_URL}
+  неинтерактивный режим:
+    требует полностью заполненный env-файл и не задаёт вопросов
 EOF
-
-    log_info "Конфигурация сохранена в .env"
-fi
-
-# ============================================
-# STEP 7: SSL CERTIFICATE
-# ============================================
-log_step "Шаг 7/9: SSL сертификат"
-
-# Check if SSL cert already exists
-SSL_EXISTS=false
-if docker volume ls | grep -q "deploy_certbot_data"; then
-    # Check if cert files exist in volume
-    CERT_CHECK=$(docker run --rm -v deploy_certbot_data:/certs alpine sh -c "ls /certs/live/$DOMAIN/fullchain.pem 2>/dev/null && echo 'exists'" 2>/dev/null)
-    if [ "$CERT_CHECK" = "exists" ]; then
-        SSL_EXISTS=true
-    fi
-fi
-
-# SSL setup BEFORE nginx with full config
-if [ "$USE_HTTPS" = "true" ] && [[ "$DOMAIN" != *"ngrok"* ]]; then
-    if [ "$SSL_EXISTS" = "true" ]; then
-        log_skip "SSL сертификат для $DOMAIN уже существует"
-    else
-        log_info "Получение SSL сертификата (до запуска nginx)..."
-        
-        ask "Email для Let's Encrypt" "" "SSL_EMAIL"
-        
-        # Create directories for certbot
-        mkdir -p certbot-www certbot-data
-        
-        # Cleanup any leftover temp-nginx from previous runs
-        docker rm -f temp-nginx 2>/dev/null || true
-        
-        # Start temporary nginx for ACME challenge
-        log_info "Запуск временного nginx для проверки домена..."
-        
-        # Create nginx config for ACME challenge
-        cat > /tmp/acme-nginx.conf << 'NGINX_CONF'
-events { worker_connections 128; }
-http {
-    server {
-        listen 80;
-        server_name _;
-        location /.well-known/acme-challenge/ {
-            root /var/www/certbot;
-        }
-        location / {
-            return 404;
-        }
-    }
+        exit 0
+        ;;
+      *)
+        log_error "Неизвестная опция: $1"
+        exit 2
+        ;;
+    esac
+  done
 }
-NGINX_CONF
-        
-        # Create challenge directory
-        mkdir -p certbot-www/.well-known/acme-challenge
-        
-        docker run -d --name temp-nginx \
-            -p 80:80 \
-            -v "$(pwd)/certbot-www:/var/www/certbot:ro" \
-            -v "/tmp/acme-nginx.conf:/etc/nginx/nginx.conf:ro" \
-            nginx:alpine
-        
-        sleep 3
-        
-        # Get certificate
-        log_info "Запрос сертификата от Let's Encrypt..."
-        docker run --rm \
-            -v "$(pwd)/certbot-data:/etc/letsencrypt" \
-            -v "$(pwd)/certbot-www:/var/www/certbot" \
-            certbot/certbot certonly \
-            --webroot --webroot-path=/var/www/certbot \
-            -d "$DOMAIN" \
-            --email "$SSL_EMAIL" \
-            --agree-tos --non-interactive
-        
-        CERT_RESULT=$?
-        
-        # Stop temporary nginx
-        docker stop temp-nginx && docker rm temp-nginx
-        
-        if [ $CERT_RESULT -ne 0 ]; then
-            log_error "Не удалось получить SSL сертификат!"
-            echo "Проверьте:"
-            echo "  1. Домен $DOMAIN направлен на этот сервер"
-            echo "  2. Порт 80 открыт в firewall"
-            echo ""
-            ask_yes_no "Продолжить без SSL (HTTP only)?" "n" "CONTINUE_NO_SSL"
-            if [ "$CONTINUE_NO_SSL" = "false" ]; then
-                rm -rf certbot-www certbot-data
-                exit 1
-            fi
-            USE_HTTPS=false
-            PROTOCOL="http"
-            FRONTEND_URL="${PROTOCOL}://${DOMAIN}"
-            API_URL="${PROTOCOL}://${DOMAIN}/api/v1"
-        else
-            log_info "SSL сертификат получен!"
-            
-            # Copy certs to docker volume
-            log_info "Копирование сертификатов в Docker volume..."
-            docker volume create deploy_certbot_data 2>/dev/null || true
-            docker run --rm \
-                -v "$(pwd)/certbot-data:/source:ro" \
-                -v deploy_certbot_data:/dest \
-                alpine sh -c "cp -r /source/* /dest/"
-            
-            # Cleanup temp dirs
-            rm -rf certbot-www certbot-data
-        fi
-    fi
+
+print_config_summary() {
+  echo
+  echo "${BLUE}Проверьте параметры установки${NC}"
+  echo "Домен: ${DOMAIN}"
+  echo "Базовый URL: ${FRONTEND_URL}"
+  echo "API: ${NEXT_PUBLIC_API_URL}"
+  if [[ -n "${NEXT_PUBLIC_BOT_URL:-}" ]]; then
+    echo "Telegram-бот: ${NEXT_PUBLIC_BOT_URL}"
+  fi
+  if [[ -n "${VK_GROUP_ID:-}" ]]; then
+    echo "VK: настроен (group id ${VK_GROUP_ID})"
+  else
+    echo "VK: отключён"
+  fi
+  echo "Env-файл: ${ENV_FILE}"
+}
+
+collect_interactive_inputs() {
+  print_intro
+
+  if [[ -f "$ENV_FILE" ]] && ask_yes_no "Использовать существующий env-файл $ENV_FILE?" "y"; then
+    load_env_file "$ENV_FILE"
+    normalize_prod_env
+    log_info "Загружена текущая конфигурация из $ENV_FILE"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$ENV_FILE")"
+  if [[ -f "$ENV_FILE" ]]; then
+    cp "$ENV_FILE" "${ENV_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
+    log_info "Создана резервная копия текущего env-файла"
+  fi
+
+  DOMAIN="$(ask 'Домен проекта (ngrok или ваш домен)' "${DOMAIN:-}")"
+  if ! validate_domain "$DOMAIN"; then
+    log_error "Некорректный формат домена."
+    exit 2
+  fi
+
+  if [[ "$DOMAIN" == *ngrok* ]]; then
+    FRONTEND_URL="https://${DOMAIN}"
+  elif ask_yes_no "Использовать HTTPS?" "y"; then
+    FRONTEND_URL="https://${DOMAIN}"
+  else
+    FRONTEND_URL="http://${DOMAIN}"
+  fi
+  NEXT_PUBLIC_API_URL="${FRONTEND_URL}/api/v1"
+  TELEGRAM_WEBHOOK_URL="$FRONTEND_URL"
+
+  TELEGRAM_BOT_TOKEN="$(ask 'Токен Telegram-бота (обязательно)' "${TELEGRAM_BOT_TOKEN:-}")"
+  TELEGRAM_WEBHOOK_SECRET="${TELEGRAM_WEBHOOK_SECRET:-$(openssl rand -hex 16)}"
+  local bot_username
+  bot_username="$(ask 'Username Telegram-бота без @' "${TELEGRAM_BOT_USERNAME:-}")"
+  [[ -n "$bot_username" ]] && NEXT_PUBLIC_BOT_URL="https://t.me/${bot_username}"
+
+  if ask_yes_no "Настроить VK-бота?" "n"; then
+    VK_GROUP_ID="$(ask 'ID группы VK' "${VK_GROUP_ID:-}")"
+    VK_BOT_TOKEN="$(ask 'Токен VK-бота' "${VK_BOT_TOKEN:-}")"
+  else
+    VK_GROUP_ID=""
+    VK_BOT_TOKEN=""
+  fi
+
+  FIRST_SUPERUSER_ID="$(ask 'ID администратора в Telegram/VK' "${FIRST_SUPERUSER_ID:-}")"
+  POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-16)}"
+  MINIO_ROOT_USER="${MINIO_ROOT_USER:-minioadmin}"
+  MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-$(openssl rand -base64 16 | tr -d '=+/' | cut -c1-16)}"
+  SECRET_KEY="${SECRET_KEY:-$(openssl rand -hex 32)}"
+  BACKUP_ENCRYPTION_KEY="${BACKUP_ENCRYPTION_KEY:-$(openssl rand -hex 32)}"
+
+  if [[ "$FRONTEND_URL" == https://* && "$DOMAIN" != *ngrok* ]]; then
+    SSL_EMAIL="$(ask "Email для Let's Encrypt" "${SSL_EMAIL:-}")"
+  fi
+
+  validate_prod_env
+  print_config_summary
+  if ! ask_yes_no "Записать эти настройки и продолжить установку?" "y"; then
+    log_info "Установка отменена до записи конфигурации."
+    exit 0
+  fi
+  write_prod_env "$ENV_FILE"
+  log_info "Env-файл сохранён: $ENV_FILE"
+}
+
+run_install() {
+  load_env_file "$ENV_FILE"
+  validate_prod_env
+  check_prod_prereqs
+
+  log_step "Подготовка SSL"
+  ensure_ssl_certificate
+
+  log_step "Сборка и запуск стека"
+  build_and_start_prod "$ENV_FILE"
+
+  log_step "Проверка сервисов"
+  verify_prod_containers "$ENV_FILE"
+
+  log_step "Применение миграций"
+  run_prod_migrations
+
+  log_step "Инициализация MinIO"
+  init_minio_bucket
+
+  log_step "Установка завершена"
+  echo "Фронтенд: ${FRONTEND_URL}"
+  echo "Документация API: ${FRONTEND_URL}/api/docs"
+  [[ -n "${NEXT_PUBLIC_BOT_URL:-}" ]] && echo "Telegram-бот: ${NEXT_PUBLIC_BOT_URL}"
+  echo "Env-файл: $ENV_FILE"
+  prod_compose "$ENV_FILE" ps --format "table {{.Name}}\t{{.Status}}"
+}
+
+parse_args "$@"
+if [[ "$NON_INTERACTIVE" == true ]]; then
+  run_install
 else
-    if [[ "$DOMAIN" == *"ngrok"* ]]; then
-        log_info "Ngrok домен — SSL не требуется (ngrok предоставляет HTTPS)"
-    else
-        log_info "HTTP режим — SSL пропущен"
-    fi
+  collect_interactive_inputs
+  run_install
 fi
-
-log_step "Шаг 8/9: Сборка и запуск"
-
-log_info "Сборка Docker образов..."
-docker compose -f docker-compose.yml build
-
-log_info "Запуск контейнеров..."
-docker compose -f docker-compose.yml up -d
-
-echo ""
-echo "⏳ Ожидание запуска сервисов (30 сек)..."
-sleep 30
-
-# Check container status
-FAILED_CONTAINERS=""
-for container in edu-db-prod edu-redis-prod edu-minio-prod edu-backend-prod edu-frontend-prod; do
-    if ! docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
-        FAILED_CONTAINERS="$FAILED_CONTAINERS $container"
-    fi
-done
-
-if [ -n "$FAILED_CONTAINERS" ]; then
-    log_error "Не запустились контейнеры:$FAILED_CONTAINERS"
-    echo "Проверьте логи: docker compose -f docker-compose.yml logs"
-    exit 1
-fi
-
-log_info "Все контейнеры запущены"
-
-# Run migrations
-log_info "Применение миграций БД..."
-docker exec edu-backend-prod alembic upgrade head || log_warn "Migration warning"
-
-# Initialize MinIO bucket via mc client
-log_info "Инициализация MinIO бакетов..."
-docker run --rm --network deploy_backend-net \
-    -e MC_HOST_minio="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000" \
-    minio/mc mb --ignore-existing minio/${MINIO_BUCKET_NAME} 2>/dev/null || log_warn "MinIO init warning (bucket may already exist)"
-
-
-
-# ============================================
-# STEP 9: FINAL REPORT
-# ============================================
-log_step "Шаг 9/9: Готово!"
-
-echo ""
-echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║           УСТАНОВКА УСПЕШНО ЗАВЕРШЕНА!                     ║${NC}"
-echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "  ${CYAN}Frontend:${NC}      ${FRONTEND_URL}"
-echo -e "  ${CYAN}API Docs:${NC}      ${FRONTEND_URL}/api/docs"
-if [ -n "$BOT_URL" ]; then
-echo -e "  ${CYAN}Telegram Bot:${NC}  ${BOT_URL}"
-fi
-echo ""
-echo -e "${YELLOW}Учётные данные сохранены в .env${NC}"
-echo ""
-
-# Status check
-echo -e "${CYAN}Статус сервисов:${NC}"
-docker compose -f docker-compose.yml ps --format "table {{.Name}}\t{{.Status}}"
-echo ""
-
-# Useful commands
-echo -e "${CYAN}Полезные команды:${NC}"
-echo "  Логи:      docker compose -f docker-compose.yml logs -f"
-echo "  Рестарт:   docker compose -f docker-compose.yml restart"
-echo "  Остановка: docker compose -f docker-compose.yml down"
-echo ""
-
-log_info "Установка завершена!"

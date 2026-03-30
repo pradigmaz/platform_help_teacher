@@ -1,5 +1,5 @@
-# Использует .env.prod по умолчанию
-# Запуск: docker compose --env-file .env.prod up -d
+# Использует deploy/.env по умолчанию
+# Запуск: docker compose --env-file deploy/.env up -d
 
 x-docker-logging: &docker-logging
   driver: json-file
@@ -124,6 +124,8 @@ services:
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
+      BACKUP_STORAGE_BUCKET: ${BACKUP_STORAGE_BUCKET:-edu-backups}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
       FRONTEND_URL: ${FRONTEND_URL}
       FIRST_SUPERUSER_ID: ${FIRST_SUPERUSER_ID}
       FIRST_SUPERUSER_USERNAME: ${FIRST_SUPERUSER_USERNAME}
@@ -209,6 +211,8 @@ services:
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
       FIRST_SUPERUSER_ID: ${FIRST_SUPERUSER_ID}
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
+      BACKUP_STORAGE_BUCKET: ${BACKUP_STORAGE_BUCKET:-edu-backups}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
       ENVIRONMENT: production
     depends_on:
       db:
