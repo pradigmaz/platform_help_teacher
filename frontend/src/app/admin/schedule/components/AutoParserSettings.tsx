@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Settings, Clock, Save, Loader2, Play } from 'lucide-react';
-import type { ScheduleAutoParseResponse, ScheduleParserConfig, ScheduleParserConfigResponse } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,8 +13,8 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { toast } from '@/components/ui/sonner';
-import api from '@/lib/api';
+import { AUTO_PARSER_DAYS, useAutoParserSettings } from './useAutoParserSettings';
+
 interface AutoParserSettingsProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -24,126 +22,25 @@ interface AutoParserSettingsProps {
   onParsingChange?: (isParsing: boolean) => void;
 }
 
-const DAYS = [
-  { value: 0, label: 'Пн' },
-  { value: 1, label: 'Вт' },
-  { value: 2, label: 'Ср' },
-  { value: 3, label: 'Чт' },
-  { value: 4, label: 'Пт' },
-  { value: 5, label: 'Сб' },
-  { value: 6, label: 'Вс' },
-];
-
-const DEFAULT_CONFIG: ScheduleParserConfig = {
-  enabled: false,
-  teacher_name: 'Миронов Г.Д.',
-  days_of_week: [6],
-  run_time: '20:00',
-  parse_days_ahead: 14,
-};
-
 export function AutoParserSettings({ open, onOpenChange, onParseNow, onParsingChange }: AutoParserSettingsProps) {
-  const [config, setConfig] = useState<ScheduleParserConfig>(DEFAULT_CONFIG);
-  const [lastRunAt, setLastRunAt] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isParsing, setIsParsing] = useState(false);
-  const [parseResult, setParseResult] = useState<ScheduleAutoParseResponse | null>(null);
-  useEffect(() => {
-    if (open) {
-      loadConfig();
-      setParseResult(null);
-    }
-  }, [open]);
-
-  const loadConfig = async () => {
-    try {
-      const { data } = await api.get<ScheduleParserConfigResponse | null>('/admin/schedule/parser-config');
-      if (data) {
-        setConfig({
-          enabled: data.enabled,
-          teacher_name: data.teacher_name,
-          days_of_week: data.days_of_week || [6],
-          run_time: data.run_time,
-          parse_days_ahead: data.parse_days_ahead,
-        });
-        setLastRunAt(data.last_run_at);
-        return;
-      }
-      setConfig(DEFAULT_CONFIG);
-      setLastRunAt(null);
-    } catch {
-      setConfig(DEFAULT_CONFIG);
-      setLastRunAt(null);
-    }
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const { data } = await api.post<ScheduleParserConfigResponse>('/admin/schedule/parser-config', config);
-      setConfig({
-        enabled: data.enabled,
-        teacher_name: data.teacher_name,
-        days_of_week: data.days_of_week,
-        run_time: data.run_time,
-        parse_days_ahead: data.parse_days_ahead,
-      });
-      setLastRunAt(data.last_run_at);
-      toast.success('Настройки сохранены');
-      onOpenChange(false);
-    } catch {
-      toast.error('Ошибка сохранения');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleParseNow = async () => {
-    setIsParsing(true);
-    setParseResult(null);
-    onParsingChange?.(true);
-    try {
-      const { data } = await api.post<ScheduleAutoParseResponse>('/admin/schedule/parse-now');
-      setParseResult(data);
-      await loadConfig();
-      toast.success(`Создано ${data.lessons_created} занятий`);
-      onParseNow?.();
-    } catch (e: unknown) {
-      const error = e as { response?: { data?: { detail?: string } } };
-      toast.error(error?.response?.data?.detail || 'Ошибка парсинга');
-    } finally {
-      setIsParsing(false);
-      onParsingChange?.(false);
-    }
-  };
-
-  const toggleDay = (day: number) => {
-    const newDays = config.days_of_week.includes(day)
-      ? config.days_of_week.filter(d => d !== day)
-      : [...config.days_of_week, day].sort((a, b) => a - b);
-    
-    if (newDays.length > 0) {
-      setConfig({ ...config, days_of_week: newDays });
-    }
-  };
-
-  const formatLastRun = (dateStr?: string | null) => {
-    if (!dateStr) return 'Никогда';
-    const date = new Date(dateStr);
-    return date.toLocaleString('ru-RU', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getNextRunDays = () => {
-    return config.days_of_week
-      .map(d => DAYS.find(day => day.value === d)?.label)
-      .filter(Boolean)
-      .join(', ');
-  };
+  const {
+    config,
+    setConfig,
+    lastRunAt,
+    isSaving,
+    isParsing,
+    parseResult,
+    handleSave,
+    handleParseNow,
+    toggleDay,
+    formatLastRun,
+    getNextRunDays,
+  } = useAutoParserSettings({
+    open,
+    onOpenChange,
+    onParseNow,
+    onParsingChange,
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -181,7 +78,7 @@ export function AutoParserSettings({ open, onOpenChange, onParseNow, onParsingCh
           <div className="space-y-2">
             <Label>Дни запуска</Label>
             <div className="flex gap-1.5 justify-start">
-              {DAYS.map(day => (
+              {AUTO_PARSER_DAYS.map(day => (
                 <button
                   key={day.value}
                   type="button"
