@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Users, Key, BarChart3, Plus, Sparkles, ClipboardPaste, FileText, Users2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/sonner';
-import { GroupsAPI, GroupDetailResponse } from '@/lib/api';
 import { Command, CommandInput } from '@/components/ui/command';
 import { DotPattern } from '@/components/ui/dot-pattern';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,6 +20,7 @@ import {
   DeleteStudentDialog,
 } from './_components';
 import { GroupPageSkeleton } from './_components/GroupPageSkeleton';
+import { useGroupDetailPage } from './hooks/useGroupDetailPage';
 
 type Tab = 'students' | 'subgroups' | 'codes' | 'stats';
 
@@ -30,211 +29,46 @@ export default function GroupDetailPage() {
   const router = useRouter();
   const groupId = params.id as string;
 
-  const [group, setGroup] = useState<GroupDetailResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('students');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isRegeneratingGroupCode, setIsRegeneratingGroupCode] = useState(false);
-  const [studentToDelete, setStudentToDelete] = useState<{ id: string, name: string } | null>(null);
-  
-  // Activity Dialog State
-  const [activityDialog, setActivityDialog] = useState<{
-    open: boolean;
-    targetId: string;
-    targetName: string;
-    mode: 'group' | 'student';
-  }>({ open: false, targetId: '', targetName: '', mode: 'group' });
-
-  // Add Student Dialog State
-  const [addStudentDialog, setAddStudentDialog] = useState(false);
-  const [newStudentName, setNewStudentName] = useState('');
-  const [isAddingStudent, setIsAddingStudent] = useState(false);
-  
-  // Bulk Import State
-  const [showPasteModal, setShowPasteModal] = useState(false);
-  const [pasteText, setPasteText] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
-
-  // Subgroup State
-  const [subgroupModal, setSubgroupModal] = useState<{ open: boolean; subgroup: number | null }>({ open: false, subgroup: null });
-  const [subgroupText, setSubgroupText] = useState('');
-  const [isAssigningSubgroup, setIsAssigningSubgroup] = useState(false);
-  const [assignResult, setAssignResult] = useState<{ matched: number; not_found: string[] } | null>(null);
-
-  useEffect(() => {
-    loadGroup();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupId]);
-
-  const loadGroup = async () => {
-    try {
-      const data = await GroupsAPI.get(groupId);
-      setGroup(data);
-    } catch (e) {
-      toast.error('Ошибка загрузки данных группы');
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handlers
-  const handleGenerateCodes = async () => {
-    setIsGenerating(true);
-    try {
-      const result = await GroupsAPI.generateCodes(groupId);
-      toast.success(`Сгенерировано кодов: ${result.generated}`);
-      await loadGroup();
-    } catch {
-      toast.error('Ошибка при генерации кодов');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleRegenerateCode = async (userId: string) => {
-    try {
-      await GroupsAPI.regenerateUserCode(userId);
-      toast.success('Код обновлён');
-      await loadGroup();
-    } catch {
-      toast.error('Ошибка при регенерации кода');
-    }
-  };
-
-  const handleRegenerateGroupCode = async () => {
-    setIsRegeneratingGroupCode(true);
-    try {
-      await GroupsAPI.regenerateGroupInviteCode(groupId);
-      toast.success('Код группы обновлён');
-      await loadGroup();
-    } catch {
-      toast.error('Ошибка при обновлении кода');
-    } finally {
-      setIsRegeneratingGroupCode(false);
-    }
-  };
-
-  const handleDeleteStudent = async () => {
-    if (!studentToDelete) return;
-    try {
-      await GroupsAPI.removeStudent(groupId, studentToDelete.id);
-      toast.success('Студент удалён');
-      await loadGroup();
-    } catch {
-      toast.error('Ошибка при удалении');
-    } finally {
-      setStudentToDelete(null);
-    }
-  };
-
-  const handleDeleteStudentsBulk = async (ids: string[]) => {
-    try {
-      const result = await GroupsAPI.removeStudentsBulk(groupId, ids);
-      toast.success(`Удалено студентов: ${result.deleted}`);
-      await loadGroup();
-    } catch {
-      toast.error('Ошибка при удалении');
-    }
-  };
-
-  const handleAddStudent = async () => {
-    if (!newStudentName.trim()) {
-      toast.error('Введите ФИО студента');
-      return;
-    }
-    setIsAddingStudent(true);
-    try {
-      await GroupsAPI.addStudent(groupId, { full_name: newStudentName.trim() });
-      toast.success('Студент добавлен');
-      setNewStudentName('');
-      setAddStudentDialog(false);
-      await loadGroup();
-    } catch {
-      toast.error('Ошибка при добавлении студента');
-    } finally {
-      setIsAddingStudent(false);
-    }
-  };
-
-  const parseNames = (text: string): string[] => {
-    // Убираем пустые строки и trim каждую строку
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    const names: string[] = [];
-    for (const line of lines) {
-      // Убираем нумерацию в начале (1. или 1) или 1 )
-      const cleaned = line.replace(/^\d+[\.\)\s]+/, '').trim();
-      // Оставляем только буквы, пробелы и дефисы
-      const name = cleaned.replace(/[^\p{L}\s-]/gu, ' ').replace(/\s+/g, ' ').trim();
-      // Имя должно содержать минимум 2 слова (Фамилия Имя)
-      if (name && name.split(' ').length >= 2) {
-        names.push(name);
-      }
-    }
-    return names;
-  };
-
-  const handlePasteSubmit = async () => {
-    const names = parseNames(pasteText);
-    if (names.length === 0) {
-      toast.error('Не удалось распознать имена');
-      return;
-    }
-    setIsImporting(true);
-    try {
-      const result = await GroupsAPI.addStudentsBulk(groupId, names);
-      toast.success(`Добавлено студентов: ${result.added}`);
-      setPasteText('');
-      setShowPasteModal(false);
-      await loadGroup();
-    } catch {
-      toast.error('Ошибка при добавлении');
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const handleAssignSubgroup = async () => {
-    const names = parseNames(subgroupText);
-    if (names.length === 0) {
-      toast.error('Не удалось распознать имена');
-      return;
-    }
-    setIsAssigningSubgroup(true);
-    try {
-      const result = await GroupsAPI.assignSubgroup(groupId, subgroupModal.subgroup, names);
-      setAssignResult({ matched: result.matched, not_found: result.not_found });
-      if (result.not_found.length === 0) {
-        toast.success(`Назначено: ${result.matched} студентов`);
-        setSubgroupModal({ open: false, subgroup: null });
-        setSubgroupText('');
-        setAssignResult(null);
-      } else {
-        toast.warning(`Назначено: ${result.matched}, не найдено: ${result.not_found.length}`);
-      }
-      await loadGroup();
-    } catch {
-      toast.error('Ошибка при назначении подгруппы');
-    } finally {
-      setIsAssigningSubgroup(false);
-    }
-  };
-
-  const handleClearSubgroups = async () => {
-    try {
-      const result = await GroupsAPI.clearSubgroups(groupId);
-      toast.success(`Подгруппы убраны у ${result.cleared} студентов`);
-      await loadGroup();
-    } catch {
-      toast.error('Ошибка при очистке подгрупп');
-    }
-  };
-
-  const handleOpenGroupActivity = () => {
-    if (!group) return;
-    setActivityDialog({ open: true, targetId: group.id, targetName: group.name, mode: 'group' });
-  };
+  const {
+    group,
+    isLoading,
+    isGenerating,
+    isRegeneratingGroupCode,
+    handleGenerateCodes,
+    handleRegenerateCode,
+    handleRegenerateGroupCode,
+    studentToDelete,
+    setStudentToDelete,
+    handleDeleteStudent,
+    handleDeleteStudentsBulk,
+    activityDialog,
+    setActivityDialog,
+    openGroupActivityDialog,
+    addStudentDialog,
+    setAddStudentDialog,
+    newStudentName,
+    setNewStudentName,
+    isAddingStudent,
+    handleAddStudent,
+    showPasteModal,
+    setShowPasteModal,
+    pasteText,
+    setPasteText,
+    isImporting,
+    handlePasteSubmit,
+    subgroupModal,
+    setSubgroupModal,
+    subgroupText,
+    setSubgroupText,
+    isAssigningSubgroup,
+    assignResult,
+    handleAssignSubgroup,
+    handleClearSubgroups,
+    resetPasteModal,
+    resetSubgroupModal,
+  } = useGroupDetailPage(groupId);
 
   if (isLoading) return <GroupPageSkeleton />;
 
@@ -273,7 +107,7 @@ export default function GroupDetailPage() {
           <Button variant="outline" onClick={() => router.push(`/admin/groups/${groupId}/reports`)} className="gap-2">
             <FileText className="w-4 h-4" /> Отчёты
           </Button>
-          <Button onClick={handleOpenGroupActivity} className="gap-2">
+          <Button onClick={openGroupActivityDialog} className="gap-2">
             <Sparkles className="w-4 h-4" /> Активность
           </Button>
         </div>
@@ -378,7 +212,7 @@ export default function GroupDetailPage() {
         isImporting={isImporting}
         onTextChange={setPasteText}
         onSubmit={handlePasteSubmit}
-        onClose={() => { setShowPasteModal(false); setPasteText(''); }}
+        onClose={resetPasteModal}
       />
 
       <SubgroupModal
@@ -389,7 +223,7 @@ export default function GroupDetailPage() {
         assignResult={assignResult}
         onTextChange={setSubgroupText}
         onSubmit={handleAssignSubgroup}
-        onClose={() => { setSubgroupModal({ open: false, subgroup: null }); setSubgroupText(''); setAssignResult(null); }}
+        onClose={resetSubgroupModal}
       />
     </div>
   );
