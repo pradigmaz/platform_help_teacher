@@ -87,7 +87,10 @@ class AttendanceExportRow(BaseModel):
         default_factory=dict,
         description="Статистика: present_count, absent_count, late_count, excused_count, total",
     )
-    attendance_rate: float = Field(..., description="Процент посещаемости (0-100)")
+    attendance_rate: float = Field(
+        ...,
+        description="Процент посещаемости за период экспорта по shared report attendance metric (0-100)",
+    )
 
 
 class GradeExportRow(BaseModel):

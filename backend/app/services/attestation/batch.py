@@ -17,7 +17,14 @@ from app.models.lesson_grade import LessonGrade
 from app.models.student_transfer import StudentTransfer
 from app.models.user import User
 from app.schemas.attestation import AttestationResult, CalculationErrorInfo, ComponentBreakdown
-from app.services.attendance_slots import build_attendance_slot_filter, get_lesson_slot_sets, matches_attendance_slot
+from app.services.attendance_period import (
+    calculate_expected_lessons,
+    filter_attendance_records_to_lessons,
+    get_relevant_lessons_for_subgroup,
+    group_lessons_by_subgroup,
+    load_attendance_by_student_for_lessons,
+    load_period_lessons,
+)
 
 from .calculator import AttestationCalculator
 from .lab_progress import dedupe_lesson_grade_rows, dedupe_transfer_lab_grades
@@ -34,8 +41,6 @@ from .subject_scope import (
 from .submission_fallbacks import get_submission_grade_fallbacks_batch
 
 logger = logging.getLogger(__name__)
-
-
 class BatchScoreCalculator:
     """Калькулятор пакетных операций."""
 
@@ -74,9 +79,16 @@ class BatchScoreCalculator:
             return [], []
         students_loaded_at = perf_counter()
         student_ids = [student.id for student in students]
-        lessons = await self._get_lessons(group_id, settings, subject_scope.subject_id)
+        period_start, period_end = settings.get_effective_period()
+        lessons = await load_period_lessons(
+            self.db,
+            group_id=group_id,
+            period_start=period_start,
+            period_end=period_end,
+            subject_id=subject_scope.subject_id,
+        )
         lessons_loaded_at = perf_counter()
-        lessons_by_subgroup = self._group_lessons_by_subgroup(lessons)
+        lessons_by_subgroup = group_lessons_by_subgroup(lessons)
         lesson_grades_map = await self._get_lesson_grades_batch(
             student_ids, group_id, settings, subject_scope.subject_id
         )
@@ -89,7 +101,12 @@ class BatchScoreCalculator:
             subject_id=subject_scope.subject_id,
         )
         submission_fallbacks_at = perf_counter()
-        attendance_map = await self._get_attendance_batch(group_id, student_ids, settings, lessons)
+        attendance_map = await load_attendance_by_student_for_lessons(
+            self.db,
+            group_id=group_id,
+            student_ids=student_ids,
+            lessons=lessons,
+        )
         attendance_loaded_at = perf_counter()
         activity_map = await self._get_activity_batch(student_ids, attestation_type, subject_scope)
         activity_loaded_at = perf_counter()
@@ -123,29 +140,16 @@ class BatchScoreCalculator:
                     )
                 )
         calculated_at = perf_counter()
-
         logger.info(
-            "attestation.batch_timing group=%s type=%s students=%s settings=%.4fs scope=%.4fs students_q=%.4fs "
-            "lessons=%.4fs grades=%.4fs submission_fallbacks=%.4fs attendance=%.4fs activity=%.4fs "
-            "transfers=%.4fs calculate=%.4fs total=%.4fs",
-            group_id,
-            attestation_type,
-            len(students),
-            settings_loaded_at - total_started_at,
-            subject_scope_at - settings_loaded_at,
-            students_loaded_at - subject_scope_at,
-            lessons_loaded_at - students_loaded_at,
-            grades_loaded_at - lessons_loaded_at,
-            submission_fallbacks_at - grades_loaded_at,
-            attendance_loaded_at - submission_fallbacks_at,
-            activity_loaded_at - attendance_loaded_at,
-            transfers_loaded_at - activity_loaded_at,
-            calculated_at - transfers_loaded_at,
-            calculated_at - total_started_at,
+            "attestation.batch_timing group=%s type=%s students=%s settings=%.4fs scope=%.4fs students_q=%.4fs lessons=%.4fs grades=%.4fs submission_fallbacks=%.4fs attendance=%.4fs activity=%.4fs transfers=%.4fs calculate=%.4fs total=%.4fs",
+            group_id, attestation_type, len(students), settings_loaded_at - total_started_at,
+            subject_scope_at - settings_loaded_at, students_loaded_at - subject_scope_at,
+            lessons_loaded_at - students_loaded_at, grades_loaded_at - lessons_loaded_at,
+            submission_fallbacks_at - grades_loaded_at, attendance_loaded_at - submission_fallbacks_at,
+            activity_loaded_at - attendance_loaded_at, transfers_loaded_at - activity_loaded_at,
+            calculated_at - transfers_loaded_at, calculated_at - total_started_at,
         )
-
         return results, errors
-
     def _calculate_student(
         self,
         student: User,
@@ -159,19 +163,10 @@ class BatchScoreCalculator:
         subject_scope: AttestationSubjectScope,
     ) -> AttestationResult:
         subgroup = student.subgroup
-        if subgroup is not None:
-            relevant_lessons = lessons_by_subgroup.get(None, []) + lessons_by_subgroup.get(subgroup, [])
-        else:
-            relevant_lessons = lessons_by_subgroup.get(None, [])
-        lesson_ids, legacy_slots = get_lesson_slot_sets(relevant_lessons)
-        expected_lessons = max(len(relevant_lessons), settings.get_min_expected_lessons())
-
+        relevant_lessons = get_relevant_lessons_for_subgroup(lessons_by_subgroup, subgroup)
+        expected_lessons = calculate_expected_lessons(relevant_lessons, minimum=settings.get_min_expected_lessons())
         all_attendance = attendance_map.get(student.id, [])
-        attendance = [
-            record
-            for record in all_attendance
-            if matches_attendance_slot(record, lesson_ids=lesson_ids, legacy_slots=legacy_slots)
-        ]
+        attendance = filter_attendance_records_to_lessons(all_attendance, relevant_lessons)
         student_transfers = transfers_map.get(student.id, [])
         transfer_attendance = merge_transfer_attendance(student_transfers, subject_scope)
         transfer_lab_grades = dedupe_transfer_lab_grades(merge_transfer_lab_grades(student_transfers, subject_scope))
@@ -226,31 +221,6 @@ class BatchScoreCalculator:
                 bonus_blocked=bonus_blocked,
             ),
         )
-
-    async def _get_lessons(
-        self,
-        group_id: UUID,
-        settings: AttestationSettings,
-        subject_id: UUID | None,
-    ) -> list[Lesson]:
-        period_start, period_end = settings.get_effective_period()
-        query = (
-            select(Lesson)
-            .where(Lesson.group_id == group_id)
-            .where(Lesson.is_cancelled.is_(False))
-            .where(Lesson.date >= period_start)
-            .where(Lesson.date <= period_end)
-        )
-        query = apply_lesson_subject_scope(query, subject_id)
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
-
-    def _group_lessons_by_subgroup(self, lessons: list[Lesson]) -> dict[int | None, list[Lesson]]:
-        grouped: dict[int | None, list[Lesson]] = defaultdict(list)
-        for lesson in lessons:
-            grouped[lesson.subgroup].append(lesson)
-        return grouped
-
     async def _get_lesson_grades_batch(
         self,
         student_ids: list[UUID],
@@ -276,26 +246,10 @@ class BatchScoreCalculator:
             rows_by_student[grade.student_id].append((grade, grade_subject_id))
         return {student_id: dedupe_lesson_grade_rows(rows) for student_id, rows in rows_by_student.items()}
 
-    async def _get_attendance_batch(
-        self,
-        group_id: UUID,
-        student_ids: list[UUID],
-        settings: AttestationSettings,
-        lessons: list[Lesson],
-    ) -> dict[UUID, list[Attendance]]:
-        if not lessons:
-            return {}
-        slot_filter = build_attendance_slot_filter(lessons)
-        query = select(Attendance).where(
-            Attendance.group_id == group_id,
-            Attendance.student_id.in_(student_ids),
-            slot_filter,
+    async def _get_attendance_batch(self, group_id: UUID, student_ids: list[UUID], _settings: AttestationSettings, lessons: list[Lesson]) -> dict[UUID, list[Attendance]]:
+        return await load_attendance_by_student_for_lessons(
+            self.db, group_id=group_id, student_ids=student_ids, lessons=lessons
         )
-        result = await self.db.execute(query)
-        grouped: dict[UUID, list[Attendance]] = defaultdict(list)
-        for record in result.scalars().all():
-            grouped[record.student_id].append(record)
-        return grouped
 
     async def _get_activity_batch(
         self,

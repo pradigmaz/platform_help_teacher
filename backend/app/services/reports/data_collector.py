@@ -3,13 +3,10 @@
 
 Facade для агрегации данных из различных источников.
 
-Формула посещаемости в отчётах (этот модуль):
-    Использует сырые данные attendance без корректировки на EXCUSED.
-    EXCUSED включается в знаменатель (expected_lessons не уменьшается).
-
-Отличие от формулы аттестации (services/attestation/attendance_calculator.py):
-    В аттестации EXCUSED исключается из знаменателя (adjusted_expected = expected - excused).
-    TODO: унифицировать формулы отчётов и аттестации в будущем.
+Attendance contract v1:
+    - score и посещаемость студентов в отчётах считаются в окне выбранной аттестации
+    - attendance_rate остаётся presentation-метрикой (не score)
+    - lesson_history использует отдельную lesson-level метрику
 """
 
 import logging
@@ -23,11 +20,12 @@ from app.schemas.report import PublicReportData, StudentDetailData
 from app.services.attestation.service import AttestationService
 
 from .attendance_helpers import (
-    get_attendance_distribution,
-    get_full_attendance_stats,
-    get_group_attendance_stats,
+    build_attendance_distribution,
+    build_full_attendance_stats,
+    build_group_attendance_stats,
     get_recent_lessons_history,
     get_today_lessons_attendance,
+    load_group_attendance_snapshots,
 )
 from .base_helpers import get_filtered_teacher_contacts, get_group, get_group_students, get_user
 from .labs_helpers import calculate_grade_distribution, get_group_labs_stats, get_lab_progress
@@ -35,6 +33,7 @@ from .notes_helpers import get_students_notes
 from .report_builder import build_empty_report
 from .semester_helpers import get_semester_info, get_semester_start_date
 from .student_builder import process_students
+from .student_detail_collector import _get_group_comparison_stats as collect_group_comparison_stats
 from .student_detail_collector import collect_student_report_data
 
 logger = logging.getLogger(__name__)
@@ -69,6 +68,8 @@ class ReportDataCollector:
 
         # Получаем баллы аттестации
         attestation_service = AttestationService(self.db)
+        settings = await attestation_service.get_or_create_settings(att_type)
+        period_start, period_end = settings.get_effective_period()
         try:
             attestation_results, _ = await attestation_service.calculate_group_scores_batch(
                 group_id=report.group_id,
@@ -80,8 +81,19 @@ class ReportDataCollector:
             attestation_results = []
 
         results_map = {r.student_id: r for r in attestation_results}
-        attendance_data = await get_group_attendance_stats(self.db, report.group_id, students)
-        labs_data = await get_group_labs_stats(self.db, students)
+        attendance_lessons = []
+        attendance_snapshots = {}
+        attendance_data = {}
+        if report.show_attendance:
+            attendance_lessons, attendance_snapshots = await load_group_attendance_snapshots(
+                self.db,
+                report.group_id,
+                students,
+                period_start=period_start,
+                period_end=period_end,
+            )
+            attendance_data = build_group_attendance_stats(students, attendance_snapshots)
+        labs_data = await get_group_labs_stats(self.db, students, labs_count_override=settings.get_labs_count())
 
         notes_map = {}
         if report.show_notes:
@@ -106,17 +118,28 @@ class ReportDataCollector:
         has_subgroups = group.has_subgroups if group and hasattr(group, "has_subgroups") else False
 
         if report.show_attendance:
-            attendance_distribution = await get_attendance_distribution(
-                self.db, report.group_id, students, semester_start
+            attendance_distribution = build_attendance_distribution(attendance_snapshots)
+            lesson_history = await get_recent_lessons_history(
+                self.db,
+                report.group_id,
+                students,
+                limit=10,
+                period_start_date=period_start,
+                period_end_date=period_end,
             )
-            attendance_stats = await get_full_attendance_stats(
-                self.db, report.group_id, students, has_subgroups, semester_start
+            attendance_stats = build_full_attendance_stats(
+                lessons=attendance_lessons,
+                students=students,
+                snapshots=attendance_snapshots,
+                has_subgroups=has_subgroups,
             )
             today_lessons = await get_today_lessons_attendance(
-                self.db, report.group_id, students, show_names=report.show_names
-            )
-            lesson_history = await get_recent_lessons_history(
-                self.db, report.group_id, students, limit=10, semester_start_date=semester_start
+                self.db,
+                report.group_id,
+                students,
+                show_names=report.show_names,
+                period_start_date=period_start,
+                period_end_date=period_end,
             )
 
         lab_progress = None
@@ -169,3 +192,12 @@ class ReportDataCollector:
             student_id=student_id,
             attestation_type=attestation_type,
         )
+
+    async def _get_group_comparison_stats(
+        self,
+        group_id: UUID,
+        student_id: UUID,
+        student_score: float,
+        attestation_type: AttestationType,
+    ):
+        return await collect_group_comparison_stats(self.db, group_id, student_id, student_score, attestation_type)

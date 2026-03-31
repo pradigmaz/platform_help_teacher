@@ -6,16 +6,17 @@
     points_per_lesson = max_attendance / adjusted_expected
     score = (present * 1.0 + late * late_coef + absent * absent_coef) * points_per_lesson
 
-Отличие от формулы отчётов (services/reports/):
-    В отчётах EXCUSED включается в знаменатель (expected не уменьшается).
+Отличие от формулы отчётов:
+    Это intentional divergence attendance_contract_v1.
+    В отчётах EXCUSED остаётся report/export presentation-маркером, а не attestation score slot.
     Семантика "нет записи посещаемости" = 0 баллов, 0 штрафа (запись отсутствует → не считается).
-    TODO: унифицировать формулы аттестации и отчётов в будущем.
 """
 
 from dataclasses import dataclass
 
 from app.models.attendance import Attendance, AttendanceStatus
 from app.models.attestation_settings import AttestationSettings
+from app.services.attendance_contract import AttendanceCounts
 
 
 @dataclass
@@ -56,28 +57,11 @@ class AttendanceScoreCalculator:
         """
         max_score = settings.get_max_component_points(settings.attendance_weight)
 
-        # Подсчёт из текущих записей
-        present_count = 0
-        late_count = 0
-        excused_count = 0
-        absent_count = 0
-
-        for record in attendance_records:
-            if record.status == AttendanceStatus.PRESENT:
-                present_count += 1
-            elif record.status == AttendanceStatus.LATE:
-                late_count += 1
-            elif record.status == AttendanceStatus.EXCUSED:
-                excused_count += 1
-            elif record.status == AttendanceStatus.ABSENT:
-                absent_count += 1
-
-        # Добавляем данные из снапшотов переводов
-        if transfer_attendance:
-            present_count += transfer_attendance.get("present", 0)
-            late_count += transfer_attendance.get("late", 0)
-            excused_count += transfer_attendance.get("excused", 0)
-            absent_count += transfer_attendance.get("absent", 0)
+        counts = AttendanceCounts.from_records(attendance_records, transfer_attendance)
+        present_count = counts.present
+        late_count = counts.late
+        excused_count = counts.excused
+        absent_count = counts.absent
 
         total_classes = present_count + late_count + excused_count + absent_count
 
@@ -86,7 +70,6 @@ class AttendanceScoreCalculator:
         # adjusted_expected = expected_lessons - excused_count
         # Формула аттестации: score = effective / adjusted_expected * max
         # (отличие от отчётов: там EXCUSED включается в знаменатель)
-        # TODO: унифицировать формулы аттестации и отчётов
         if expected_lessons <= 0:
             points_per_lesson = 0.0
             ratio = 0.0
@@ -95,16 +78,22 @@ class AttendanceScoreCalculator:
             # Уменьшаем знаменатель на EXCUSED (уважительные пропуски не штрафуют)
             adjusted_expected = expected_lessons - excused_count
             if adjusted_expected <= 0:
-                adjusted_expected = expected_lessons  # защита от деления на 0
-            points_per_lesson = max_score / adjusted_expected
-            # Эффективная посещаемость с коэффициентами (EXCUSED не в числителе)
-            effective_attendance = (
-                present_count * 1.0 + late_count * settings.late_coef + absent_count * settings.absent_coef
-            )
-            score = effective_attendance * points_per_lesson
-            # Ratio — процент посещаемости без EXCUSED
-            counted = present_count + late_count + absent_count
-            ratio = effective_attendance / counted if counted > 0 else 0.0
+                adjusted_expected = 0
+            if adjusted_expected == 0 and excused_count > 0 and present_count == 0 and late_count == 0 and absent_count == 0:
+                score = max_score
+                ratio = 1.0
+            else:
+                if adjusted_expected <= 0:
+                    adjusted_expected = expected_lessons  # защита от деления на 0
+                points_per_lesson = max_score / adjusted_expected
+                # Эффективная посещаемость с коэффициентами (EXCUSED не в числителе)
+                effective_attendance = (
+                    present_count * 1.0 + late_count * settings.late_coef + absent_count * settings.absent_coef
+                )
+                score = effective_attendance * points_per_lesson
+                # Ratio — процент посещаемости без EXCUSED
+                counted = present_count + late_count + absent_count
+                ratio = effective_attendance / counted if counted > 0 else 0.0
 
         # Cap: минимум 0, максимум max_score
         score = max(0, min(score, max_score))

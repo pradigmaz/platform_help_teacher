@@ -7,13 +7,11 @@ from collections import defaultdict
 from datetime import UTC, date, datetime
 from uuid import UUID
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.attendance import Attendance, AttendanceStatus
 from app.models.group import Group
-from app.models.lesson import Lesson
 from app.models.lesson_grade import LessonGrade
 from app.models.user import User
 from app.schemas.export import (
@@ -22,6 +20,11 @@ from app.schemas.export import (
     JournalExportData,
     JournalExportMeta,
     LessonExportColumn,
+)
+from app.services.export.attendance_helpers import (
+    build_lesson_export_columns,
+    collect_attendance_rows,
+    load_export_lessons,
 )
 from app.services.reports.base_helpers import get_group, get_group_students
 
@@ -47,131 +50,9 @@ class ExportDataCollector:
             Список занятий для экспорта
         """
         logger.debug("Сбор занятий для группы %s за период %s - %s", group_id, start_date, end_date)
-
-        query = (
-            select(Lesson)
-            .where(
-                and_(
-                    Lesson.group_id == group_id,
-                    Lesson.date >= start_date,
-                    Lesson.date <= end_date,
-                    Lesson.is_cancelled.is_(False),
-                )
-            )
-            .order_by(Lesson.date, Lesson.lesson_number)
-        )
-
-        result = await self.db.execute(query)
-        lessons = list(result.scalars().all())
-
+        lessons = await load_export_lessons(self.db, group_id=group_id, start_date=start_date, end_date=end_date)
         logger.info("Найдено %d занятий для экспорта", len(lessons))
-
-        return [
-            LessonExportColumn(
-                lesson_id=lesson.id,
-                date=lesson.date,
-                lesson_number=lesson.lesson_number,
-                lesson_type=lesson.lesson_type.value,
-                topic=lesson.topic,
-                work_number=lesson.work_number,
-                subgroup=lesson.subgroup,
-            )
-            for lesson in lessons
-        ]
-
-    async def collect_attendance(
-        self, group_id: UUID, lesson_ids: list[UUID], students: list[User]
-    ) -> list[AttendanceExportRow]:
-        """
-        Собрать данные посещаемости.
-
-        Args:
-            group_id: ID группы
-            lesson_ids: Список ID занятий
-            students: Список студентов
-
-        Returns:
-            Список строк посещаемости для экспорта
-        """
-        if not lesson_ids or not students:
-            logger.debug("Нет занятий или студентов для сбора посещаемости")
-            return []
-
-        logger.debug("Сбор посещаемости для %d занятий и %d студентов", len(lesson_ids), len(students))
-
-        # Получаем все записи посещаемости
-        query = (
-            select(Attendance)
-            .options(selectinload(Attendance.lesson))
-            .where(
-                and_(
-                    Attendance.group_id == group_id,
-                    Attendance.lesson_id.in_(lesson_ids),
-                )
-            )
-        )
-
-        result = await self.db.execute(query)
-        attendance_records = list(result.scalars().all())
-
-        # Группируем по студентам
-        attendance_by_student: dict[UUID, list[Attendance]] = defaultdict(list)
-        for record in attendance_records:
-            attendance_by_student[record.student_id].append(record)
-
-        rows = []
-        for student in students:
-            student_attendance = attendance_by_student.get(student.id, [])
-
-            # Формируем attendance_by_date
-            attendance_by_date: dict[str, str] = {}
-            stats = {
-                "present_count": 0,
-                "absent_count": 0,
-                "late_count": 0,
-                "excused_count": 0,
-                "total": 0,
-            }
-
-            for record in student_attendance:
-                # Ключ: "{date}_{lesson_number}"
-                key = f"{record.date}_{record.lesson_number}"
-                attendance_by_date[key] = record.status.value
-
-                # Обновляем статистику
-                stats["total"] += 1
-                if record.status == AttendanceStatus.PRESENT:
-                    stats["present_count"] += 1
-                elif record.status == AttendanceStatus.ABSENT:
-                    stats["absent_count"] += 1
-                elif record.status == AttendanceStatus.LATE:
-                    stats["late_count"] += 1
-                elif record.status == AttendanceStatus.EXCUSED:
-                    stats["excused_count"] += 1
-
-            # Расчёт attendance_rate
-            if stats["total"] > 0:
-                attendance_rate = (
-                    (stats["present_count"] + stats["late_count"] * 0.5 + stats["excused_count"] * 0.5)
-                    / stats["total"]
-                    * 100
-                )
-            else:
-                attendance_rate = 0.0
-
-            rows.append(
-                AttendanceExportRow(
-                    student_id=student.id,
-                    student_name=student.full_name,
-                    subgroup=student.subgroup,
-                    attendance_by_date=attendance_by_date,
-                    stats=stats,
-                    attendance_rate=round(attendance_rate, 2),
-                )
-            )
-
-        logger.info("Собрано %d строк посещаемости", len(rows))
-        return rows
+        return build_lesson_export_columns(lessons)
 
     async def collect_grades(self, lesson_ids: list[UUID], students: list[User]) -> list[GradeExportRow]:
         """
@@ -297,7 +178,8 @@ class ExportDataCollector:
             raise ValueError(f"Группа {group_id} не найдена")
 
         students = await self.collect_students(group_id)
-        lessons = await self.collect_lessons(group_id, start_date, end_date)
+        lesson_models = await load_export_lessons(self.db, group_id=group_id, start_date=start_date, end_date=end_date)
+        lessons = build_lesson_export_columns(lesson_models)
 
         # Извлекаем ID занятий
         lesson_ids = [lesson.lesson_id for lesson in lessons]
@@ -307,7 +189,12 @@ class ExportDataCollector:
         grade_rows: list[GradeExportRow] = []
 
         if include_attendance:
-            attendance_rows = await self.collect_attendance(group_id, lesson_ids, students)
+            attendance_rows = await collect_attendance_rows(
+                self.db,
+                group_id=group_id,
+                lessons=lesson_models,
+                students=students,
+            )
 
         if include_grades:
             grade_rows = await self.collect_grades(lesson_ids, students)

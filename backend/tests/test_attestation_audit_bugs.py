@@ -11,22 +11,22 @@ import sys
 
 sys.path.insert(0, "/app")
 
-import pytest
-import pytest_asyncio
 from datetime import date, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
+
+from app.models.attendance import Attendance, AttendanceStatus
 from app.models.attestation_settings import (
-    AttestationSettings,
-    AttestationType,
     FIRST_ATTESTATION_WEEK,
     SECOND_ATTESTATION_WEEK,
+    AttestationSettings,
+    AttestationType,
 )
-from app.models.attendance import Attendance, AttendanceStatus
 from app.services.attestation.attendance_calculator import AttendanceScoreCalculator
 from app.services.attestation.settings import AttestationSettingsManager
-
 
 # ============================================================
 # P0-1: SECOND Fallback — должен бросать ValueError
@@ -105,11 +105,11 @@ class TestP02DoubleCount:
 
         Counterexample: _get_lesson_grades() вернул оценки из group_A и group_B.
         """
-        from app.services.attestation.student_score import StudentScoreCalculator
-        from app.models.lesson_grade import LessonGrade
         from app.models.lesson import Lesson
+        from app.models.lesson_grade import LessonGrade
+        from app.services.attestation.student_score import StudentScoreCalculator
 
-        group_a_id = uuid4()
+        uuid4()
         group_b_id = uuid4()
         student_id = uuid4()
 
@@ -142,7 +142,7 @@ class TestP02DoubleCount:
         )
 
         calculator = StudentScoreCalculator(mock_db)
-        grades = await calculator._get_lesson_grades(student_id, group_b_id, settings)
+        await calculator._get_lesson_grades(student_id, group_b_id, settings)
 
         # После фикса: только оценки из group_b_id
         # На нефиксированном коде: вернёт обе оценки (двойной подсчёт)
@@ -218,7 +218,7 @@ class TestP13CumulativePeriod:
 
         # После фикса: период должен быть накопительным (0-14 недель)
         # На нефиксированном коде: период только 8-14 недели
-        period_weeks = (period_end - period_start).days / 7
+        (period_end - period_start).days / 7
 
         assert period_start == semester_start, (
             f"Counterexample: labs_count={labs_count} (накопительно), "
@@ -250,8 +250,8 @@ class TestP15IsCancelledSinglePath:
 
         Counterexample: SQL запрос к attendance содержит дату отменённого занятия.
         """
-        from app.services.attestation.student_score import StudentScoreCalculator
         from app.models.lesson import Lesson
+        from app.services.attestation.student_score import StudentScoreCalculator
 
         group_id = uuid4()
         student_id = uuid4()
@@ -322,8 +322,8 @@ class TestP15IsCancelledSinglePath:
         и attendance запрашивается по обеим датам.
         После фикса: relevant_dates = {normal_date} только.
         """
-        from app.services.attestation.student_score import StudentScoreCalculator
         from app.models.lesson import Lesson
+        from app.services.attestation.student_score import StudentScoreCalculator
 
         group_id = uuid4()
         student_id = uuid4()
@@ -537,11 +537,10 @@ class TestP17Excused:
 
         max_score = settings.get_max_component_points(settings.attendance_weight)
 
-        # После фикса: adjusted_expected = 5 - 5 = 0 → fallback = 5, балл = 0/5 * max = 0
-        # Или: adjusted_expected = 0 → fallback, балл = max (если все EXCUSED = нет штрафа)
-        # Минимум: балл не должен быть 0 при всех EXCUSED
-        # На нефиксированном коде: effective = 0, score = 0
-        assert result.score >= 0, "Score не может быть отрицательным"
+        assert result.score == pytest.approx(max_score, rel=0.01), (
+            f"Counterexample: score={result.score}, max={max_score}. "
+            "При полностью EXCUSED-периоде студент не должен терять баллы за посещаемость."
+        )
 
 
 # ============================================================
@@ -567,8 +566,8 @@ class TestP18BatchPeriodFilter:
 
         Counterexample: SQL запрос не содержит slot-filter по lessons.
         """
-        from app.services.attestation.batch import BatchScoreCalculator
         from app.models.lesson import Lesson, LessonType
+        from app.services.attendance_period import load_attendance_by_student_for_lessons
 
         group_id = uuid4()
         student_ids = [uuid4(), uuid4()]
@@ -588,16 +587,12 @@ class TestP18BatchPeriodFilter:
         mock_result.scalars.return_value = mock_scalars
         mock_db.execute.return_value = mock_result
 
-        calculator = BatchScoreCalculator(mock_db)
-
-        settings = AttestationSettings(
-            attestation_type=AttestationType.FIRST,
-            labs_weight=70.0,
-            attendance_weight=20.0,
-            activity_reserve=10.0,
-            semester_start_date=date(2025, 9, 1),
+        await load_attendance_by_student_for_lessons(
+            mock_db,
+            group_id=group_id,
+            student_ids=student_ids,
+            lessons=[lesson],
         )
-        await calculator._get_attendance_batch(group_id, student_ids, settings, lessons=[lesson])
 
         # Проверяем SQL запрос
         executed_query = str(mock_db.execute.call_args[0][0]).lower()
@@ -634,8 +629,8 @@ class TestP19HardcodedFirst:
 
         Counterexample: calculate_group_scores_batch вызван с FIRST вместо SECOND.
         """
-        from app.services.reports.data_collector import ReportDataCollector
         from app.services.attestation.service import AttestationService
+        from app.services.reports.student_detail_collector import _get_group_comparison_stats
 
         group_id = uuid4()
         student_id = uuid4()
@@ -652,11 +647,9 @@ class TestP19HardcodedFirst:
         mock_att_result.total_score = 50.0
         mock_att_result.student_id = student_id
 
-        collector = ReportDataCollector(mock_db)
-
         with (
             patch(
-                "app.services.reports.data_collector.get_group_students",
+                "app.services.reports.student_detail_collector.get_group_students",
                 return_value=[mock_student],
             ),
             patch.object(
@@ -665,7 +658,7 @@ class TestP19HardcodedFirst:
                 return_value=([mock_att_result], []),
             ) as mock_batch,
         ):
-            await collector._get_group_comparison_stats(group_id, student_id, 50.0, AttestationType.SECOND)
+            await _get_group_comparison_stats(mock_db, group_id, student_id, 50.0, AttestationType.SECOND)
 
             # Проверяем с каким attestation_type был вызван batch
             assert mock_batch.called, "calculate_group_scores_batch не был вызван"
@@ -709,8 +702,9 @@ class TestP212ErrorHandling:
         """
         from fastapi import FastAPI
         from httpx import ASGITransport, AsyncClient
-        from app.api.v1.endpoints.student.attestation import router
+
         from app.api.deps import get_current_user, get_db
+        from app.api.v1.endpoints.student.attestation import router
         from app.services.attestation_service import AttestationService
 
         app = FastAPI()
@@ -757,8 +751,9 @@ class TestP212ErrorHandling:
         """
         from fastapi import FastAPI
         from httpx import ASGITransport, AsyncClient
-        from app.api.v1.endpoints.student.attestation import router
+
         from app.api.deps import get_current_user, get_db
+        from app.api.v1.endpoints.student.attestation import router
         from app.services.attestation_service import AttestationService
 
         app = FastAPI()

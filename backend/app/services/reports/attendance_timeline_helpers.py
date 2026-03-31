@@ -13,6 +13,7 @@ from app.models.attendance import Attendance
 from app.models.lesson import Lesson
 from app.models.user import User
 from app.schemas.report import LessonHistoryItem, TodayLessonAttendance
+from app.services.attendance_contract import calculate_lesson_attendance_rate
 from app.services.schedule_constants import today_msk
 
 AttendanceByLessonMap: TypeAlias = dict[tuple[int | None, UUID], Attendance]
@@ -29,9 +30,15 @@ async def get_today_lessons_attendance(
     students: list[User],
     show_names: bool = True,
     target_date: date | None = None,
+    period_start_date: date | None = None,
+    period_end_date: date | None = None,
 ) -> list[TodayLessonAttendance]:
     """Получить посещаемость по парам на указанную дату (по умолчанию сегодня)."""
     check_date = target_date or today_msk()
+    if period_start_date is not None and check_date < period_start_date:
+        return []
+    if period_end_date is not None and check_date > period_end_date:
+        return []
     student_ids = [student.id for student in students]
 
     lessons_query = (
@@ -106,10 +113,13 @@ async def get_recent_lessons_history(
     group_id: UUID,
     students: list[User],
     limit: int = 10,
-    semester_start_date: date | None = None,
+    period_start_date: date | None = None,
+    period_end_date: date | None = None,
 ) -> list[LessonHistoryItem]:
     """Получить историю последних занятий с посещаемостью."""
     check_date = today_msk()
+    if period_end_date is not None:
+        check_date = min(check_date, period_end_date)
     student_ids = [student.id for student in students]
 
     lessons_query = (
@@ -118,8 +128,8 @@ async def get_recent_lessons_history(
         .order_by(Lesson.date.desc(), Lesson.lesson_number.desc())
         .limit(limit * 2)
     )
-    if semester_start_date is not None:
-        lessons_query = lessons_query.where(Lesson.date >= semester_start_date)
+    if period_start_date is not None:
+        lessons_query = lessons_query.where(Lesson.date >= period_start_date)
 
     lessons_result = await db.execute(lessons_query)
     lessons = lessons_result.scalars().all()
@@ -152,7 +162,11 @@ async def get_recent_lessons_history(
             if attendance_entry is not None and _status_key(attendance_entry.status) in {"present", "late"}:
                 present_count += 1
 
-        attendance_rate = round(present_count / total_count * 100, 1) if total_count > 0 else 0.0
+        attendance_rate = calculate_lesson_attendance_rate(
+            present_count=present_count,
+            late_count=0,
+            total_count=total_count,
+        )
         lesson_type_str = lesson.lesson_type.value if hasattr(lesson.lesson_type, "value") else str(lesson.lesson_type)
         result.append(
             LessonHistoryItem(

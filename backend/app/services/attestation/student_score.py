@@ -17,10 +17,16 @@ from app.models.schedule import LessonType
 from app.models.student_transfer import StudentTransfer
 from app.models.user import User
 from app.schemas.attestation import AttestationResult, ComponentBreakdown
-from app.services.attendance_slots import build_attendance_slot_filter
+from app.services.attendance_period import (
+    calculate_expected_lessons,
+    filter_attendance_records_to_lessons,
+    get_relevant_lessons_for_subgroup,
+    group_lessons_by_subgroup,
+    load_attendance_by_student_for_lessons,
+    load_period_lessons,
+)
 
 from .calculator import AttestationCalculator
-from .helpers import filter_lessons_by_subgroup
 from .lab_progress import dedupe_lesson_grade_rows, dedupe_transfer_lab_grades
 from .settings import AttestationSettingsManager
 from .subject_scope import (
@@ -186,30 +192,25 @@ class StudentScoreCalculator:
         subject_id: UUID | None = None,
     ) -> list[Attendance]:
         period_start, period_end = settings.get_effective_period()
-        lessons_query = (
-            select(Lesson)
-            .where(Lesson.group_id == group_id)
-            .where(Lesson.is_cancelled.is_(False))
-            .where(Lesson.date >= period_start)
-            .where(Lesson.date <= period_end)
+        lessons = await load_period_lessons(
+            self.db,
+            group_id=group_id,
+            period_start=period_start,
+            period_end=period_end,
+            subject_id=subject_id,
         )
-        if subject_id:
-            lessons_query = lessons_query.where(Lesson.subject_id == subject_id)
-        lessons_query = filter_lessons_by_subgroup(lessons_query, subgroup)
-
-        lessons_result = await self.db.execute(lessons_query)
-        relevant_lessons = list(lessons_result.scalars().all())
+        lessons_by_subgroup = group_lessons_by_subgroup(lessons)
+        relevant_lessons = get_relevant_lessons_for_subgroup(lessons_by_subgroup, subgroup)
         if not relevant_lessons:
             return []
 
-        slot_filter = build_attendance_slot_filter(relevant_lessons)
-        att_query = select(Attendance).where(
-            Attendance.student_id == student_id,
-            Attendance.group_id == group_id,
-            slot_filter,
+        attendance_by_student = await load_attendance_by_student_for_lessons(
+            self.db,
+            group_id=group_id,
+            student_ids=[student_id],
+            lessons=relevant_lessons,
         )
-        result = await self.db.execute(att_query)
-        return list(result.scalars().all())
+        return filter_attendance_records_to_lessons(attendance_by_student.get(student_id, []), relevant_lessons)
 
     async def _get_activity_points(
         self,
@@ -245,21 +246,16 @@ class StudentScoreCalculator:
     ) -> int:
         """Получить ожидаемое количество занятий."""
         period_start, period_end = settings.get_effective_period()
-        query = (
-            select(func.count(Lesson.id))
-            .where(Lesson.group_id == group_id)
-            .where(Lesson.is_cancelled.is_(False))
-            .where(Lesson.date >= period_start)
-            .where(Lesson.date <= period_end)
+        lessons = await load_period_lessons(
+            self.db,
+            group_id=group_id,
+            period_start=period_start,
+            period_end=period_end,
+            subject_id=subject_id,
         )
-        if subject_id:
-            query = query.where(Lesson.subject_id == subject_id)
-        if subgroup:
-            query = query.where((Lesson.subgroup.is_(None)) | (Lesson.subgroup == subgroup))
-
-        result = await self.db.execute(query)
-        lessons_in_db = result.scalar() or 0
-        return max(lessons_in_db, settings.get_min_expected_lessons())
+        lessons_by_subgroup = group_lessons_by_subgroup(lessons)
+        relevant_lessons = get_relevant_lessons_for_subgroup(lessons_by_subgroup, subgroup)
+        return calculate_expected_lessons(relevant_lessons, minimum=settings.get_min_expected_lessons())
 
     async def _get_transfers_in_period(
         self,

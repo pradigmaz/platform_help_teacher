@@ -12,7 +12,11 @@ from app.schemas.report import StudentDetailData
 from app.services.attestation.service import AttestationService
 
 from .activity_helpers import generate_recommendations, get_student_activity
-from .attendance_helpers import get_student_attendance_history, get_student_attendance_stats
+from .attendance_helpers import (
+    build_student_attendance_history,
+    load_group_attendance_snapshots,
+    snapshot_to_stats,
+)
 from .base_helpers import get_group, get_group_students, get_user
 from .labs_helpers import get_student_lab_submissions
 from .notes_helpers import get_student_notes
@@ -44,6 +48,8 @@ async def collect_student_report_data(
     is_early, _, _, _ = await get_semester_info(db, att_type)
 
     attestation_service = AttestationService(db)
+    settings = await attestation_service.get_or_create_settings(att_type)
+    period_start, period_end = settings.get_effective_period()
     try:
         result = await attestation_service.calculate_student_score(
             student_id=student_id,
@@ -57,16 +63,28 @@ async def collect_student_report_data(
     attendance_history = None
     att_stats: dict[str, int | float] = {}
     if report.show_attendance:
-        attendance_history = await get_student_attendance_history(db, student_id, report.group_id)
-        att_stats = await get_student_attendance_stats(db, student_id, report.group_id)
+        attendance_lessons, attendance_snapshots = await load_group_attendance_snapshots(
+            db,
+            report.group_id,
+            [student],
+            period_start=period_start,
+            period_end=period_end,
+        )
+        student_snapshot = attendance_snapshots.get(student_id)
+        attendance_history = build_student_attendance_history(attendance_lessons, student_snapshot)
+        att_stats = snapshot_to_stats(student_snapshot)
 
     lab_submissions = None
     labs_completed = 0
     labs_total = 0
     if report.show_grades:
         lab_submissions = await get_student_lab_submissions(db, student_id)
-        labs_completed = sum(1 for submission in lab_submissions if submission.is_submitted)
-        labs_total = len(lab_submissions)
+        if result is not None:
+            labs_completed = result.breakdown.labs_count
+            labs_total = result.breakdown.labs_required
+        else:
+            labs_completed = sum(1 for submission in lab_submissions if submission.is_submitted)
+            labs_total = len(lab_submissions)
 
     activity_records = None
     total_activity_points = 0.0

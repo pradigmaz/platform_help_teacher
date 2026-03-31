@@ -1,291 +1,219 @@
-"""
-Хелперы для сбора данных посещаемости.
-"""
+"""Attendance helpers for public reports built on the shared attendance contract."""
 
-from collections import defaultdict
+from __future__ import annotations
+
 from datetime import date
 from typing import TypeAlias
 from uuid import UUID
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.attendance import Attendance
+from app.models.attendance import AttendanceStatus
 from app.models.lesson import Lesson
 from app.models.user import User
-from app.schemas.report import (
-    AttendanceDistribution,
-    AttendanceRecord,
-    LessonHistoryItem,
-    AttendanceStats,
-    DateAttendance,
+from app.schemas.report import AttendanceDistribution, AttendanceRecord, AttendanceStats, DateAttendance
+from app.services.attendance_contract import (
+    AttendanceCounts,
+    StudentAttendanceSnapshot,
+    build_student_attendance_snapshots,
+    calculate_lesson_attendance_rate,
+    calculate_report_attendance_rate,
+    lesson_key,
+    snapshot_to_report_stats,
 )
+from app.services.attendance_period import load_attendance_by_student_for_lessons, load_period_lessons
+
 from .attendance_timeline_helpers import get_recent_lessons_history, get_today_lessons_attendance
 
 AttendanceValueMap: TypeAlias = dict[str, int | float]
 StudentAttendanceStatsMap: TypeAlias = dict[UUID, AttendanceValueMap]
-SubgroupAttendanceStatsMap: TypeAlias = dict[tuple[date, int | None], dict[str, int]]
 
 
 def _status_key(status_value: object) -> str:
     return status_value.value.lower() if hasattr(status_value, "value") else str(status_value).lower()
 
 
-async def get_group_attendance_stats(
+async def load_group_attendance_snapshots(
     db: AsyncSession,
     group_id: UUID,
     students: list[User],
+    *,
+    period_start: date,
+    period_end: date,
+    subject_id: UUID | None = None,
+) -> tuple[list[Lesson], dict[UUID, StudentAttendanceSnapshot]]:
+    """Load relevant lessons and per-student attendance snapshots for a report period."""
+    lessons = await load_period_lessons(
+        db,
+        group_id=group_id,
+        period_start=period_start,
+        period_end=period_end,
+        subject_id=subject_id,
+    )
+    if not lessons or not students:
+        return lessons, {}
+
+    attendance_by_student = await load_attendance_by_student_for_lessons(
+        db,
+        group_id=group_id,
+        student_ids=[student.id for student in students],
+        lessons=lessons,
+    )
+    snapshots = build_student_attendance_snapshots(
+        students=students,
+        lessons=lessons,
+        attendance_records=[
+            record
+            for student_records in attendance_by_student.values()
+            for record in student_records
+        ],
+    )
+    return lessons, snapshots
+
+
+def snapshot_to_stats(snapshot: StudentAttendanceSnapshot | None) -> AttendanceValueMap:
+    return snapshot_to_report_stats(snapshot)
+
+
+def build_group_attendance_stats(
+    students: list[User],
+    snapshots: dict[UUID, StudentAttendanceSnapshot],
 ) -> StudentAttendanceStatsMap:
-    """Получить статистику посещаемости группы."""
-    student_ids = [s.id for s in students]
-
-    query = (
-        select(Attendance.student_id, Attendance.status, func.count(Attendance.id).label("count"))
-        .where(Attendance.group_id == group_id, Attendance.student_id.in_(student_ids))
-        .group_by(Attendance.student_id, Attendance.status)
-    )
-    result = await db.execute(query)
-
-    stats: defaultdict[UUID, AttendanceValueMap] = defaultdict(
-        lambda: {"present": 0, "late": 0, "excused": 0, "absent": 0, "total": 0, "rate": 0.0}
-    )
-    for student_id, status, count_value in result.all():
-        status_str = _status_key(status)
-        stats[student_id][status_str] = count_value
-        stats[student_id]["total"] = int(stats[student_id]["total"]) + count_value
-
-    for _student_id, data in stats.items():
-        total = int(data["total"])
-        if total > 0:
-            present_equivalent = int(data["present"]) + int(data["late"]) * 0.5 + int(data["excused"]) * 0.5
-            data["rate"] = round(present_equivalent / total * 100, 1)
-        else:
-            data["rate"] = 0.0
-
-    return dict(stats)
+    """Return per-student report attendance stats."""
+    return {student.id: snapshot_to_stats(snapshots.get(student.id)) for student in students}
 
 
-async def get_attendance_distribution(
-    db: AsyncSession, group_id: UUID, students: list[User], semester_start_date: date | None = None
+def build_attendance_distribution(
+    snapshots: dict[UUID, StudentAttendanceSnapshot],
 ) -> AttendanceDistribution:
-    """Получить распределение посещаемости группы."""
-    student_ids = [s.id for s in students]
-
-    query = select(Attendance.status, func.count(Attendance.id).label("count")).where(
-        Attendance.group_id == group_id, Attendance.student_id.in_(student_ids)
-    )
-    if semester_start_date:
-        query = query.where(Attendance.date >= semester_start_date)
-    query = query.group_by(Attendance.status)
-    result = await db.execute(query)
-
+    """Aggregate report attendance statuses across all student lesson slots."""
     distribution = AttendanceDistribution()
-    for status, count_value in result.all():
-        status_str = _status_key(status)
-        if hasattr(distribution, status_str):
-            setattr(distribution, status_str, count_value)
-
+    for snapshot in snapshots.values():
+        distribution.present += snapshot.counts.present
+        distribution.late += snapshot.counts.late
+        distribution.excused += snapshot.counts.excused
+        distribution.absent += snapshot.counts.absent
     return distribution
 
 
-async def get_student_attendance_history(db: AsyncSession, student_id: UUID, group_id: UUID) -> list[AttendanceRecord]:
-    """Получить историю посещаемости студента с деталями пар."""
-    query = (
-        select(Attendance)
-        .where(Attendance.student_id == student_id, Attendance.group_id == group_id)
-        .order_by(Attendance.date.desc())
-    )
-    result = await db.execute(query)
-    records = result.scalars().all()
-
-    history = []
-    for r in records:
-        status_str = r.status.value.lower() if hasattr(r.status, "value") else str(r.status).lower()
-        lesson_type_str = None
-        if r.lesson_type:
-            lesson_type_str = r.lesson_type.value if hasattr(r.lesson_type, "value") else str(r.lesson_type)
-
-        history.append(
-            AttendanceRecord(
-                date=r.date,
-                status=status_str,
-                lesson_topic=None,  # TODO: join с Lesson если нужен topic
-                lesson_number=r.lesson_number,
-                lesson_type=lesson_type_str,
-                subgroup=r.subgroup,
-            )
-        )
-
-    return history
-
-
-async def get_student_attendance_stats(db: AsyncSession, student_id: UUID, group_id: UUID) -> AttendanceValueMap:
-    """Получить статистику посещаемости студента."""
-    query = (
-        select(Attendance.status, func.count(Attendance.id).label("count"))
-        .where(Attendance.student_id == student_id, Attendance.group_id == group_id)
-        .group_by(Attendance.status)
-    )
-    result = await db.execute(query)
-
-    stats: AttendanceValueMap = {"present": 0, "late": 0, "excused": 0, "absent": 0, "total": 0, "rate": 0.0}
-    for status, count_value in result.all():
-        status_str = _status_key(status)
-        stats[status_str] = count_value
-        stats["total"] = int(stats["total"]) + count_value
-
-    total = int(stats["total"])
-    if total > 0:
-        present_equivalent = int(stats["present"]) + int(stats["late"]) * 0.5 + int(stats["excused"]) * 0.5
-        stats["rate"] = round(present_equivalent / total * 100, 1)
-    else:
-        stats["rate"] = 0.0
-
-    return stats
-
-
-async def get_attendance_by_subgroup(
-    db: AsyncSession, group_id: UUID, students: list[User]
+def build_attendance_by_subgroup(
+    students: list[User],
+    snapshots: dict[UUID, StudentAttendanceSnapshot],
 ) -> dict[str, AttendanceDistribution]:
-    """Получить распределение посещаемости по подгруппам."""
-    result = {}
-
+    """Aggregate report attendance distribution per subgroup."""
+    result: dict[str, AttendanceDistribution] = {}
     for subgroup in [1, 2]:
-        subgroup_students = [s for s in students if s.subgroup == subgroup]
-        if not subgroup_students:
-            result[str(subgroup)] = AttendanceDistribution()
-            continue
-
-        student_ids = [s.id for s in subgroup_students]
-        query = (
-            select(Attendance.status, func.count(Attendance.id).label("count"))
-            .where(Attendance.group_id == group_id, Attendance.student_id.in_(student_ids))
-            .group_by(Attendance.status)
-        )
-        res = await db.execute(query)
-
-        dist = AttendanceDistribution()
-        for status, count_value in res.all():
-            status_str = _status_key(status)
-            if hasattr(dist, status_str):
-                setattr(dist, status_str, count_value)
-        result[str(subgroup)] = dist
-
+        subgroup_distribution = AttendanceDistribution()
+        subgroup_students = [student for student in students if student.subgroup == subgroup]
+        for student in subgroup_students:
+            snapshot = snapshots.get(student.id)
+            if snapshot is None:
+                continue
+            subgroup_distribution.present += snapshot.counts.present
+            subgroup_distribution.late += snapshot.counts.late
+            subgroup_distribution.excused += snapshot.counts.excused
+            subgroup_distribution.absent += snapshot.counts.absent
+        result[str(subgroup)] = subgroup_distribution
     return result
 
 
-async def get_attendance_trend(
-    db: AsyncSession,
-    group_id: UUID,
+def build_full_attendance_stats(
+    *,
+    lessons: list[Lesson],
     students: list[User],
-    limit: int = 20,
-    semester_start_date: date | None = None,
-    subject_id: UUID | None = None,
-) -> list[DateAttendance]:
-    """Получить динамику посещаемости по датам занятий из расписания.
-
-    Возвращает данные с указанием подгруппы для каждого занятия:
-    - subgroup=None для лекций (все студенты)
-    - subgroup=1 или 2 для лабораторных
-    """
-    student_ids = [s.id for s in students]
-
-    # Получаем все занятия из расписания с подгруппами
-    lessons_query = (
-        select(Lesson.date, Lesson.subgroup, Lesson.lesson_type)
-        .where(Lesson.group_id == group_id, Lesson.is_cancelled.is_(False))
-        .order_by(Lesson.date.asc())
+    snapshots: dict[UUID, StudentAttendanceSnapshot],
+    has_subgroups: bool,
+) -> AttendanceStats:
+    """Build the full attendance stats payload from shared snapshots."""
+    distribution = build_attendance_distribution(snapshots)
+    average_rate = calculate_report_attendance_rate(
+        counts=snapshots_total_counts(snapshots),
+        expected_lessons=sum(snapshot.expected_lessons for snapshot in snapshots.values()),
     )
-    if semester_start_date:
-        lessons_query = lessons_query.where(Lesson.date >= semester_start_date)
-    if subject_id:
-        lessons_query = lessons_query.where(Lesson.subject_id == subject_id)
+    return AttendanceStats(
+        distribution=distribution,
+        by_subgroup=build_attendance_by_subgroup(students, snapshots) if has_subgroups else {},
+        trend=build_attendance_trend(lessons=lessons, students=students, snapshots=snapshots),
+        average_rate=average_rate,
+    )
 
-    lessons_result = await db.execute(lessons_query)
-    lessons = lessons_result.all()
 
-    if not lessons:
+def build_student_attendance_history(
+    lessons: list[Lesson],
+    snapshot: StudentAttendanceSnapshot | None,
+) -> list[AttendanceRecord]:
+    """Render period-aware attendance history from relevant lesson slots."""
+    if snapshot is None:
         return []
 
-    # Группируем занятия по (дата, подгруппа)
-    lesson_keys = [(l.date, l.subgroup) for l in lessons]
-    lesson_dates = list(set(l.date for l in lessons))
-
-    # Получаем посещаемость по этим датам
-    attendance_query = (
-        select(Attendance.date, Attendance.status, Attendance.student_id, func.count(Attendance.id).label("count"))
-        .where(
-            Attendance.group_id == group_id, Attendance.student_id.in_(student_ids), Attendance.date.in_(lesson_dates)
+    history: list[AttendanceRecord] = []
+    sorted_lessons = sorted(lessons, key=lambda lesson: (lesson.date, lesson.lesson_number or 0), reverse=True)
+    for lesson in sorted_lessons:
+        key = lesson_key(lesson)
+        status = snapshot.statuses_by_lesson_key.get(key, AttendanceStatus.ABSENT)
+        lesson_type_str = lesson.lesson_type.value if hasattr(lesson.lesson_type, "value") else str(lesson.lesson_type)
+        history.append(
+            AttendanceRecord(
+                date=lesson.date,
+                status=_status_key(status),
+                lesson_topic=lesson.topic,
+                lesson_number=lesson.lesson_number,
+                lesson_type=lesson_type_str,
+                subgroup=lesson.subgroup,
+            )
         )
-        .group_by(Attendance.date, Attendance.status, Attendance.student_id)
+    return history
+
+
+def snapshots_total_counts(snapshots: dict[UUID, StudentAttendanceSnapshot]) -> AttendanceCounts:
+    """Collapse snapshots into a single aggregate count set for rate calculations."""
+    total_present = 0
+    total_late = 0
+    total_excused = 0
+    total_absent = 0
+    for snapshot in snapshots.values():
+        total_present += snapshot.counts.present
+        total_late += snapshot.counts.late
+        total_excused += snapshot.counts.excused
+        total_absent += snapshot.counts.absent
+    return AttendanceCounts(
+        present=total_present,
+        late=total_late,
+        excused=total_excused,
+        absent=total_absent,
     )
-    result = await db.execute(attendance_query)
-
-    # Создаём маппинг студент -> подгруппа
-    student_subgroups = {s.id: s.subgroup for s in students}
-
-    # Группируем посещаемость по (дата, подгруппа)
-    date_subgroup_stats: SubgroupAttendanceStatsMap = defaultdict(
-        lambda: {"present": 0, "late": 0, "excused": 0, "absent": 0}
-    )
-
-    for attendance_date, status, student_id, count_value in result.all():
-        status_str = _status_key(status)
-        student_subgroup = student_subgroups.get(student_id)
-
-        # Для каждой записи посещаемости определяем к какому занятию она относится
-        for lesson_date, lesson_subgroup in lesson_keys:
-            if attendance_date == lesson_date:
-                # Лекция (subgroup=None) - все студенты
-                # Лаба (subgroup=1 или 2) - только студенты этой подгруппы
-                if lesson_subgroup is None or lesson_subgroup == student_subgroup:
-                    date_subgroup_stats[(lesson_date, lesson_subgroup)][status_str] += count_value
-
-    # Формируем trend для всех занятий
-    trend = []
-    unique_lessons = list(set(lesson_keys))
-    unique_lessons.sort(key=lambda x: (x[0], x[1] or 0))
-
-    for lesson_date, lesson_subgroup in unique_lessons[-limit:]:
-        stats = date_subgroup_stats.get(
-            (lesson_date, lesson_subgroup), {"present": 0, "late": 0, "excused": 0, "absent": 0}
-        )
-        total = sum(stats.values())
-        if total > 0:
-            present_eq = stats["present"] + stats["late"] * 0.5 + stats["excused"] * 0.5
-            rate = round(present_eq / total * 100, 1)
-        else:
-            rate = 0.0  # Занятие было, но посещаемость не отмечена
-        trend.append(DateAttendance(date=lesson_date.isoformat(), rate=rate, subgroup=lesson_subgroup))
-
-    return trend
 
 
-async def get_full_attendance_stats(
-    db: AsyncSession,
-    group_id: UUID,
+def build_attendance_trend(
+    *,
+    lessons: list[Lesson],
     students: list[User],
-    has_subgroups: bool = False,
-    semester_start_date: date | None = None,
-    subject_id: UUID | None = None,
-) -> AttendanceStats:
-    """Получить полную статистику посещаемости."""
-    distribution = await get_attendance_distribution(db, group_id, students, semester_start_date)
-
-    by_subgroup = {}
-    if has_subgroups:
-        by_subgroup = await get_attendance_by_subgroup(db, group_id, students)
-
-    trend = await get_attendance_trend(
-        db, group_id, students, semester_start_date=semester_start_date, subject_id=subject_id
-    )
-
-    # Средняя посещаемость
-    total = distribution.present + distribution.late + distribution.excused + distribution.absent
-    if total > 0:
-        present_eq = distribution.present + distribution.late * 0.5 + distribution.excused * 0.5
-        average_rate = round(present_eq / total * 100, 1)
-    else:
-        average_rate = 0.0
-
-    return AttendanceStats(distribution=distribution, by_subgroup=by_subgroup, trend=trend, average_rate=average_rate)
+    snapshots: dict[UUID, StudentAttendanceSnapshot],
+    limit: int = 20,
+) -> list[DateAttendance]:
+    """Build lesson-level attendance trend from shared snapshots."""
+    trend: list[DateAttendance] = []
+    sorted_lessons = sorted(lessons, key=lambda lesson: (lesson.date, lesson.lesson_number or 0))
+    for lesson in sorted_lessons[-limit:]:
+        key = lesson_key(lesson)
+        relevant_students = students if lesson.subgroup is None else [student for student in students if student.subgroup == lesson.subgroup]
+        present_count = 0
+        for student in relevant_students:
+            snapshot = snapshots.get(student.id)
+            if snapshot is None:
+                continue
+            status = snapshot.statuses_by_lesson_key.get(key, AttendanceStatus.ABSENT)
+            if status in {AttendanceStatus.PRESENT, AttendanceStatus.LATE}:
+                present_count += 1
+        trend.append(
+            DateAttendance(
+                date=lesson.date.isoformat(),
+                rate=calculate_lesson_attendance_rate(
+                    present_count=present_count,
+                    late_count=0,
+                    total_count=len(relevant_students),
+                ),
+                subgroup=lesson.subgroup,
+            )
+        )
+    return trend

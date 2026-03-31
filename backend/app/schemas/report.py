@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field
 from app.models.group_report import ReportType
 from app.schemas.user import PublicTeacherContacts
 
-
 # ============== Admin Schemas ==============
 
 
@@ -95,7 +94,10 @@ class PublicStudentData(BaseModel):
     is_passing: bool | None = None
 
     # Посещаемость (если show_attendance)
-    attendance_rate: float | None = Field(None, description="Процент посещаемости")
+    attendance_rate: float | None = Field(
+        None,
+        description="Period-aware attendance_rate в окне выбранной аттестации",
+    )
     present_count: int | None = None
     absent_count: int | None = None
     late_count: int | None = None
@@ -136,7 +138,7 @@ class AttendanceStats(BaseModel):
     distribution: AttendanceDistribution
     by_subgroup: dict[str, AttendanceDistribution] = Field(default_factory=dict)
     trend: list[DateAttendance] = Field(default_factory=list)
-    average_rate: float = 0.0
+    average_rate: float = Field(0.0, description="Средняя period-aware посещаемость студентов")
 
 
 class LabProgress(BaseModel):
@@ -171,7 +173,7 @@ class LessonHistoryItem(BaseModel):
     lesson_type: str = Field(description="lecture/practice/lab")
     topic: str | None = None
     subgroup: int | None = Field(None, description="Подгруппа (null = лекция)")
-    attendance_rate: float = Field(description="Процент посещаемости")
+    attendance_rate: float = Field(description="Lesson-level attendance_rate для конкретной пары")
     present_count: int = 0
     total_count: int = 0
 
@@ -300,7 +302,10 @@ class StudentDetailData(BaseModel):
     total_in_group: int | None = None
 
     # Посещаемость
-    attendance_rate: float | None = None
+    attendance_rate: float | None = Field(
+        None,
+        description="Period-aware attendance_rate в окне выбранной аттестации",
+    )
     attendance_history: list[AttendanceRecord] | None = None
     present_count: int | None = None
     absent_count: int | None = None
