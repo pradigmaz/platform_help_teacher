@@ -66,7 +66,7 @@ export function AttendanceDonut({ distribution, stats, hasSubgroups }: Attendanc
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Посещаемость</CardTitle>
+          <CardTitle className="text-base">Посещаемость за период</CardTitle>
           {hasSubgroups && (
             <Tabs value={selectedTab} onValueChange={setSelectedTab}>
               <TabsList className="h-8">
@@ -110,7 +110,7 @@ export function AttendanceDonut({ distribution, stats, hasSubgroups }: Attendanc
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
               <div className="text-2xl font-bold">{attendanceRate}%</div>
-              <div className="text-xs text-muted-foreground">средняя</div>
+              <div className="text-xs text-muted-foreground">за период</div>
             </div>
           </div>
         </div>
@@ -167,7 +167,7 @@ export function AttendanceTrend({ stats, hasSubgroups }: AttendanceTrendProps) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Динамика посещаемости</CardTitle>
+          <CardTitle className="text-base">Посещаемость по занятиям</CardTitle>
           {hasSubgroups && (
             <Tabs value={selectedTab} onValueChange={setSelectedTab}>
               <TabsList className="h-8">
@@ -212,7 +212,7 @@ export function AttendanceTrend({ stats, hasSubgroups }: AttendanceTrendProps) {
                   tickLine={false}
                 />
                 <Tooltip
-                  formatter={(value) => [`${value}%`, 'Посещаемость']}
+                  formatter={(value) => [`${value}%`, 'Занятие']}
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--card))',
                     border: '1px solid hsl(var(--border))',

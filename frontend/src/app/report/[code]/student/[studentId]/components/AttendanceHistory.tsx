@@ -79,10 +79,10 @@ export function AttendanceHistory({ history, stats }: AttendanceHistoryProps) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>История посещений</CardTitle>
+            <CardTitle>История посещений за период</CardTitle>
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Посещаемость:</span>
+            <span className="text-muted-foreground">Посещаемость за период:</span>
             <Badge variant="outline" className={cn(
               stats.rate >= 80 ? 'bg-green-500/10 text-green-600' :
               stats.rate >= 60 ? 'bg-yellow-500/10 text-yellow-600' :

@@ -129,6 +129,9 @@ export function PublicReportClient({ code }: PublicReportClientProps) {
           </TabsTrigger>
         </TabsList>
       </Tabs>
+      <p className="text-sm text-muted-foreground">
+        Показатели посещаемости считаются для выбранной аттестации, а история занятий показывает отдельный процент по каждому занятию.
+      </p>
       
       <ReportSummaryCards data={data} />
       

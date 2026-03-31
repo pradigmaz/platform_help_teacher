@@ -57,11 +57,11 @@ export function AttendanceHeatmap({ history, stats }: AttendanceHeatmapProps) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Посещаемость</CardTitle>
+            <CardTitle>Посещения за период</CardTitle>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              {stats.present + stats.late} из {stats.total} занятий
+              {stats.present + stats.late} из {stats.total} занятий в периоде
             </span>
             <Badge variant="outline" className={cn(
               stats.rate >= 80 ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' :

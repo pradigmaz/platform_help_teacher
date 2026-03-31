@@ -56,10 +56,12 @@ export interface PublicStudentData {
   subgroup?: number;
   total_score?: number;
   lab_score?: number;
+  /** Баллы компонента посещаемости из аттестационного расчёта. */
   attendance_score?: number;
   activity_score?: number;
   grade?: string;
   is_passing?: boolean;
+  /** Процент посещаемости за выбранный период аттестации. Не равен attendance_score. */
   attendance_rate?: number;
   present_count?: number;
   absent_count?: number;
@@ -88,6 +90,7 @@ export interface AttendanceStats {
   distribution: AttendanceDistribution;
   by_subgroup: Record<string, AttendanceDistribution>;
   trend: DateAttendance[];
+  /** Средний процент посещаемости за выбранный период. */
   average_rate: number;
 }
 
@@ -123,6 +126,7 @@ export interface LessonHistoryItem {
   lesson_type: string;
   topic?: string;
   subgroup?: number;
+  /** Процент присутствия на конкретном занятии. Это lesson-level metric, не student attendance rate. */
   attendance_rate: number;
   present_count: number;
   total_count: number;
@@ -190,6 +194,7 @@ export interface StudentDetailData {
   group_code: string;
   total_score?: number;
   lab_score?: number;
+  /** Баллы компонента посещаемости из аттестационного расчёта. */
   attendance_score?: number;
   activity_score?: number;
   grade?: string;
@@ -200,7 +205,9 @@ export interface StudentDetailData {
   group_average_score?: number;
   rank_in_group?: number;
   total_in_group?: number;
+  /** Процент посещаемости за выбранный период аттестации. */
   attendance_rate?: number;
+  /** История посещений только в пределах выбранного периода аттестации. */
   attendance_history?: AttendanceRecordPublic[];
   present_count?: number;
   absent_count?: number;

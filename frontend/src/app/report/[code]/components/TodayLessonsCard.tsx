@@ -116,7 +116,7 @@ function TodayLessonItem({ lesson, showNames }: { lesson: TodayLessonAttendance;
           )}
         </div>
         <span className="text-sm text-muted-foreground">
-          Посещаемость: <span className="font-medium">{attendanceRate}%</span>
+          На занятии: <span className="font-medium">{attendanceRate}%</span>
         </span>
       </div>
 

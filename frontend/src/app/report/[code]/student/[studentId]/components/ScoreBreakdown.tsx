@@ -4,7 +4,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Trophy, 
   FlaskConical, 
   CalendarCheck, 
   Sparkles,
@@ -169,11 +168,11 @@ export function ScoreBreakdown({ data }: ScoreBreakdownProps) {
         {data.attendance_score !== undefined && (
           <ComponentCard
             icon={<CalendarCheck className="h-5 w-5" />}
-            title="Посещаемость"
+            title="Баллы за посещаемость"
             score={data.attendance_score}
             color="emerald"
             details={data.attendance_rate !== undefined ? (
-              <span>{Math.round(data.attendance_rate)}% занятий</span>
+              <span>{Math.round(data.attendance_rate)}% занятий за период</span>
             ) : undefined}
           />
         )}

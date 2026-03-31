@@ -164,7 +164,7 @@ export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
                       className="-ml-3 h-12 text-lg font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/30"
                       onClick={() => handleSort('attendance')}
                     >
-                      📅 Посещаемость
+                      📅 Посещаемость за период
                       <SortIcon columnKey="attendance" sortKey={sortKey} sortOrder={sortOrder} />
                     </Button>
                   </TableHead>
