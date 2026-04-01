@@ -84,7 +84,6 @@ export function CodeBlockComponent({
   code,
   language,
   renderMode,
-  hideCodeForStudents = false,
   collapsed = false,
   caption = '',
 }: CodeBlockComponentProps) {

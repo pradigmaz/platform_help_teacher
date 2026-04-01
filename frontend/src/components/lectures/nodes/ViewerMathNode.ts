@@ -1,4 +1,4 @@
-import { type LexicalEditor, type EditorConfig, type NodeKey } from 'lexical';
+import { type NodeKey } from 'lexical';
 import { createElement, type JSX } from 'react';
 import { MathNode, type SerializedMathNode } from './MathNode';
 
@@ -22,7 +22,7 @@ export class ViewerMathNode extends MathNode {
     super(latex, displayMode, key);
   }
 
-  decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
+  decorate(): JSX.Element {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { MathViewerComponent } = require('../MathViewerComponent');
     return createElement(MathViewerComponent, {

@@ -1,7 +1,5 @@
 import {
   DecoratorNode,
-  type EditorConfig,
-  type LexicalEditor,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
@@ -107,7 +105,7 @@ export class CodeBlockNode extends DecoratorNode<JSX.Element> {
     };
   }
 
-  createDOM(config: EditorConfig): HTMLElement {
+  createDOM(): HTMLElement {
     const div = document.createElement('div');
     div.className = 'code-block-wrapper my-4';
     div.setAttribute('data-lexical-key', this.__key);
@@ -197,7 +195,7 @@ export class CodeBlockNode extends DecoratorNode<JSX.Element> {
     return this.__language === 'javascript' || this.__language === 'typescript';
   }
 
-  decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
+  decorate(): JSX.Element {
     // Динамический импорт компонента
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { CodeBlockComponent } = require('../CodeBlockComponent');

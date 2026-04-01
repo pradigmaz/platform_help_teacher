@@ -1,7 +1,5 @@
 import {
   DecoratorNode,
-  type EditorConfig,
-  type LexicalEditor,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
@@ -24,7 +22,7 @@ export class HorizontalRuleNode extends DecoratorNode<JSX.Element> {
     return new HorizontalRuleNode(node.__key);
   }
 
-  static importJSON(_serializedNode: SerializedHorizontalRuleNode): HorizontalRuleNode {
+  static importJSON(): HorizontalRuleNode {
     return $createHorizontalRuleNode();
   }
 
@@ -40,7 +38,7 @@ export class HorizontalRuleNode extends DecoratorNode<JSX.Element> {
     };
   }
 
-  createDOM(config: EditorConfig): HTMLElement {
+  createDOM(): HTMLElement {
     const div = document.createElement('div');
     div.className = 'horizontal-rule-wrapper my-6';
     return div;
@@ -58,7 +56,7 @@ export class HorizontalRuleNode extends DecoratorNode<JSX.Element> {
     return false;
   }
 
-  decorate(_editor: LexicalEditor, _config: EditorConfig): JSX.Element {
+  decorate(): JSX.Element {
     return createElement('hr', {
       className: 'my-6 border-t-2 border-border',
     });

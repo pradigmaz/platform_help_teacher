@@ -1,7 +1,7 @@
 'use client';
 'use no memo';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PublicReportAPI, PublicReportData, ApiError } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PinDialog } from './components/PinDialog';
@@ -30,7 +30,7 @@ export function PublicReportClient({ code }: PublicReportClientProps) {
   const [pinVerified, setPinVerified] = useState(false);
   const [attestationType, setAttestationType] = useState<AttestationType>('first');
 
-  const loadReport = async (attType: AttestationType = attestationType) => {
+  const loadReport = useCallback(async (attType: AttestationType = attestationType) => {
     console.log('[PublicReportClient:loadReport] Starting', { code, attType, pinVerified });
     setState({ status: 'loading' });
     try {
@@ -70,18 +70,17 @@ export function PublicReportClient({ code }: PublicReportClientProps) {
         });
       }
     }
-  };
+  }, [attestationType, code, pinVerified]);
 
   useEffect(() => {
-    loadReport();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, pinVerified]);
+    void loadReport();
+  }, [loadReport]);
 
   const handleAttestationChange = (value: string) => {
     const newType = value as AttestationType;
     console.log('[PublicReportClient:handleAttestationChange]', { from: attestationType, to: newType });
     setAttestationType(newType);
-    loadReport(newType);
+    void loadReport(newType);
   };
 
   const handlePinSuccess = () => {

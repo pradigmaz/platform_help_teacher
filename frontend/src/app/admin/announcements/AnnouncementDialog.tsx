@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -30,17 +30,11 @@ export function AnnouncementDialog({ open, onOpenChange, announcementId, onSucce
 
   const isEdit = !!announcementId;
 
-  useEffect(() => {
-    if (open && announcementId) {
-      loadAnnouncement();
-    } else if (open) {
-      setTitle('');
-      setContent('');
+  const loadAnnouncement = useCallback(async () => {
+    if (!announcementId) {
+      return;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, announcementId]);
 
-  const loadAnnouncement = async () => {
     setLoading(true);
     try {
       const { data } = await api.get(`/admin/announcements/${announcementId}`);
@@ -52,7 +46,16 @@ export function AnnouncementDialog({ open, onOpenChange, announcementId, onSucce
     } finally {
       setLoading(false);
     }
-  };
+  }, [announcementId, onOpenChange]);
+
+  useEffect(() => {
+    if (open && announcementId) {
+      void loadAnnouncement();
+    } else if (open) {
+      setTitle('');
+      setContent('');
+    }
+  }, [announcementId, loadAnnouncement, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

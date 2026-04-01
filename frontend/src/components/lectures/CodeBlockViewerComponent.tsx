@@ -7,7 +7,6 @@ import { useTheme } from 'next-themes';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Code, Copy, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { VisualizationSandbox } from './VisualizationSandbox';
 import type { CodeLanguage, RenderMode } from './nodes/CodeBlockNode';
 

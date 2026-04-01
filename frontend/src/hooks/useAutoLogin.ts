@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { AuthAPI, ApiError } from '@/lib/api';
@@ -74,46 +74,10 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
       }
       setCheckingAuth(false);
     };
-    checkAuth();
+    void checkAuth();
   }, [router]);
 
-  // Auto-login from URL fragment (#code=123456)
-  useEffect(() => {
-    if (checkingAuth || loginAttemptedRef.current) return;
-    
-    // Check fragment first (more secure), then query params (legacy)
-    const hash = typeof window !== 'undefined' ? window.location.hash : '';
-    const hashMatch = hash.match(/code=(\d{6})/);
-    const codeFromFragment = hashMatch ? hashMatch[1] : null;
-    
-    // Fallback to query params for backwards compatibility
-    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const queryCode = params?.get('code');
-    const codeFromQuery = queryCode && /^\d{6}$/.test(queryCode) ? queryCode : null;
-    
-    const code = codeFromFragment || codeFromQuery;
-    
-    if (code && code.length === 6) {
-      const autoLoginRememberDevice = false;
-      setOtp(code);
-      setRememberDevice(autoLoginRememberDevice);
-      loginAttemptedRef.current = true;
-      console.log('[Hook:useAutoLogin] Auto-login detected, forcing session-only cookies');
-      // Clear fragment/query from URL for security
-      if (typeof window !== 'undefined') {
-        const nextParams = new URLSearchParams(window.location.search);
-        nextParams.delete('code');
-        const nextSearch = nextParams.toString();
-        const nextUrl = nextSearch ? `${window.location.pathname}?${nextSearch}` : window.location.pathname;
-        window.history.replaceState({}, '', nextUrl);
-      }
-      const timer = setTimeout(() => login(code, autoLoginRememberDevice, true), 100);
-      return () => clearTimeout(timer);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkingAuth]);
-
-  const handleSuccessfulLogin = async (data: Awaited<ReturnType<typeof AuthAPI.login>>) => {
+  const handleSuccessfulLogin = useCallback(async (data: Awaited<ReturnType<typeof AuthAPI.login>>) => {
     console.log('[Hook:useAutoLogin] Login successful, updating store', { user: data.user });
     useAuthStore.getState().setUser(data.user);
 
@@ -136,9 +100,9 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
 
     router.push(targetPath);
     router.refresh();
-  };
+  }, [onSuccess, redirectTo, router]);
 
-  const login = async (code?: string, rememberDeviceOverride?: boolean, forceSessionCookieOverride?: boolean) => {
+  const login = useCallback(async (code?: string, rememberDeviceOverride?: boolean, forceSessionCookieOverride?: boolean) => {
     const otpCode = code || otp;
     const effectiveRememberDevice = rememberDeviceOverride ?? rememberDevice;
     const effectiveForceSessionCookie = forceSessionCookieOverride ?? false;
@@ -175,7 +139,44 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
       onError?.(message);
       setLoading(false);
     }
-  };
+  }, [handleSuccessfulLogin, onError, otp, rememberDevice]);
+
+  // Auto-login from URL fragment (#code=123456)
+  useEffect(() => {
+    if (checkingAuth || loginAttemptedRef.current) return;
+
+    // Check fragment first (more secure), then query params (legacy)
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    const hashMatch = hash.match(/code=(\d{6})/);
+    const codeFromFragment = hashMatch ? hashMatch[1] : null;
+
+    // Fallback to query params for backwards compatibility
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const queryCode = params?.get('code');
+    const codeFromQuery = queryCode && /^\d{6}$/.test(queryCode) ? queryCode : null;
+
+    const code = codeFromFragment || codeFromQuery;
+
+    if (code && code.length === 6) {
+      const autoLoginRememberDevice = false;
+      loginAttemptedRef.current = true;
+      console.log('[Hook:useAutoLogin] Auto-login detected, forcing session-only cookies');
+      // Clear fragment/query from URL for security
+      if (typeof window !== 'undefined') {
+        const nextParams = new URLSearchParams(window.location.search);
+        nextParams.delete('code');
+        const nextSearch = nextParams.toString();
+        const nextUrl = nextSearch ? `${window.location.pathname}?${nextSearch}` : window.location.pathname;
+        window.history.replaceState({}, '', nextUrl);
+      }
+      const timer = setTimeout(() => {
+        setOtp(code);
+        setRememberDevice(autoLoginRememberDevice);
+        void login(code, autoLoginRememberDevice, true);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [checkingAuth, login]);
 
   const devLogin = async () => {
     if (!canUseDevLogin) return;

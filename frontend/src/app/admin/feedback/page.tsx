@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,7 +35,7 @@ export default function FeedbackPage() {
   });
   const abortRef = useRef<AbortController | null>(null);
 
-  const fetchFeedbacks = async () => {
+  const fetchFeedbacks = useCallback(async () => {
     // Cancel previous request
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -54,24 +54,23 @@ export default function FeedbackPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchFeedbacks();
-    return () => abortRef.current?.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  const updateStatus = async (id: string, status: FeedbackStatus) => {
+  useEffect(() => {
+    void fetchFeedbacks();
+    return () => abortRef.current?.abort();
+  }, [fetchFeedbacks]);
+
+  const updateStatus = useCallback(async (id: string, status: FeedbackStatus) => {
     try {
       const response = responses[id];
       await api.patch(`/feedback/${id}`, { status, admin_response: response || undefined });
       toast.success('Статус обновлён');
-      fetchFeedbacks();
+      await fetchFeedbacks();
     } catch {
       toast.error('Ошибка обновления');
     }
-  };
+  }, [fetchFeedbacks, responses]);
 
   const openGallery = (feedbackId: string, attachments: Attachment[], initialIndex: number) => {
     setGalleryModal({

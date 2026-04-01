@@ -1,7 +1,5 @@
 import {
   DecoratorNode,
-  type EditorConfig,
-  type LexicalEditor,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
@@ -96,7 +94,7 @@ export class SnippetNode extends DecoratorNode<JSX.Element> {
     };
   }
 
-  createDOM(config: EditorConfig): HTMLElement {
+  createDOM(): HTMLElement {
     const div = document.createElement('div');
     div.className = 'snippet-wrapper my-4';
     return div;
@@ -146,7 +144,7 @@ export class SnippetNode extends DecoratorNode<JSX.Element> {
     return writable;
   }
 
-  decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
+  decorate(): JSX.Element {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { SnippetComponent } = require('../SnippetComponent');
     return createElement(SnippetComponent, {

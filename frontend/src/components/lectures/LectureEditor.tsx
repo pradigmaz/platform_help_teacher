@@ -27,19 +27,7 @@ import { LinkNode } from '@lexical/link';
 import { TableNode, TableCellNode, TableRowNode } from '@lexical/table';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
-import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
-import { 
-  BOLD_ITALIC_STAR, BOLD_ITALIC_UNDERSCORE, BOLD_STAR, BOLD_UNDERSCORE, 
-  ITALIC_STAR, ITALIC_UNDERSCORE, STRIKETHROUGH, HEADING, QUOTE, 
-  UNORDERED_LIST, ORDERED_LIST,
-} from '@lexical/markdown';
 import { ToolbarPreset, getPresetConfig } from './presets';
-
-const LECTURE_TRANSFORMERS = [
-  HEADING, QUOTE, UNORDERED_LIST, ORDERED_LIST,
-  BOLD_ITALIC_STAR, BOLD_ITALIC_UNDERSCORE, BOLD_STAR, BOLD_UNDERSCORE,
-  ITALIC_STAR, ITALIC_UNDERSCORE, STRIKETHROUGH,
-];
 
 const lectureNodes = [
   HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode,

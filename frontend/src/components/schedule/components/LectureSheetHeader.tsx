@@ -3,7 +3,6 @@
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { X, Calendar, BookOpen } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { GroupedLecture } from '../types';

@@ -2,7 +2,6 @@
 
 import Image from 'next/image';
 import { motion } from 'motion/react';
-import { cn } from '@/lib/utils';
 import type { ImageDimension } from './nodes/ImageNode';
 
 interface ImageViewerComponentProps {

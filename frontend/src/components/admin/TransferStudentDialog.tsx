@@ -33,7 +33,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { GroupsAPI, TransfersAPI } from '@/lib/api';
-import type { GroupResponse, TransferAttestationType } from '@/lib/api/types';
+import type { GroupResponse } from '@/lib/api/types';
 import { transferSchema, transferDefaults, type TransferFormValues } from './transfer-schema';
 
 interface TransferStudentDialogProps {

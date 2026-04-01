@@ -1,7 +1,5 @@
 import {
   DecoratorNode,
-  type EditorConfig,
-  type LexicalEditor,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
@@ -84,7 +82,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     };
   }
 
-  createDOM(config: EditorConfig): HTMLElement {
+  createDOM(): HTMLElement {
     const div = document.createElement('div');
     div.className = 'lecture-image-wrapper my-4';
     div.setAttribute('data-lexical-key', this.__key);
@@ -159,7 +157,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     return writable;
   }
 
-  decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
+  decorate(): JSX.Element {
     // Динамический импорт компонента
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { ImageComponent } = require('../ImageComponent');

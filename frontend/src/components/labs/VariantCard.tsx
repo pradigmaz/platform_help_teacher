@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { SerializedEditorState } from 'lexical';
 import { LectureEditor } from '@/components/lectures';
 import { Button } from '@/components/ui/button';

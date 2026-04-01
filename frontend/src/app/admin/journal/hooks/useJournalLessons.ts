@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import api from '@/lib/api';
@@ -62,16 +62,13 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const selectedGroupIdRef = useRef(selectedGroupId);
 
-  // Load lesson by ID from URL
   useEffect(() => {
-    if (lessonIdParam && !initialLoadDone) {
-      loadLessonById(lessonIdParam);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonIdParam, initialLoadDone]);
+    selectedGroupIdRef.current = selectedGroupId;
+  }, [selectedGroupId]);
 
-  const loadLessonById = async (lessonId: string) => {
+  const loadLessonById = useCallback(async (lessonId: string) => {
     try {
       const { data: lesson } = await api.get(`/admin/lessons/${lessonId}`);
       if (lesson) {
@@ -84,74 +81,69 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
       toast.error('Ошибка загрузки занятия');
       setInitialLoadDone(true);
     }
-  };
+  }, [setCurrentWeek, setSelectedGroupId, setSelectedSubjectId]);
+
+  // Load lesson by ID from URL
+  useEffect(() => {
+    if (lessonIdParam && !initialLoadDone) {
+      void loadLessonById(lessonIdParam);
+    }
+  }, [initialLoadDone, lessonIdParam, loadLessonById]);
 
   // Load groups on mount
   useEffect(() => {
-    loadGroups();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const loadGroups = async () => {
+      try {
+        const { data } = await api.get('/groups/');
+        setGroups(data);
+        if (data.length > 0 && !selectedGroupIdRef.current) {
+          setSelectedGroupId(data[0].id);
+        }
+      } catch {
+        toast.error('Ошибка загрузки групп');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const loadGroups = async () => {
+    void loadGroups();
+  }, [setSelectedGroupId]);
+
+  const loadSemesterSubjects = useCallback(async () => {
+    if (!selectedGroupId) {
+      return;
+    }
+
+    const semDates = getSemesterDates(selectedSemester);
     try {
-      const { data } = await api.get('/groups/');
-      setGroups(data);
-      if (data.length > 0 && !selectedGroupId) {
-        setSelectedGroupId(data[0].id);
+      const { data: semesterLessons } = await api.get('/admin/journal/lessons', {
+        params: {
+          group_id: selectedGroupId,
+          start_date: format(semDates.start, 'yyyy-MM-dd'),
+          end_date: format(semDates.end, 'yyyy-MM-dd'),
+        }
+      });
+
+      const subjectIds = new Set(
+        semesterLessons.map((lesson: Lesson) => lesson.subject_id).filter(Boolean)
+      );
+
+      const { data: allSubjects } = await api.get('/admin/subjects/');
+      const filtered = allSubjects.filter((subject: Subject) => subjectIds.has(subject.id));
+      setSubjects(filtered);
+
+      if (selectedSubjectId !== 'all' && !subjectIds.has(selectedSubjectId)) {
+        setSelectedSubjectId('all');
       }
     } catch {
-      toast.error('Ошибка загрузки групп');
-    } finally {
-      setIsLoading(false);
+      toast.error('Ошибка загрузки предметов семестра');
     }
-  };
-
-  // Stable keys for dependencies
-  const semesterKey = `${selectedSemester.academicYear}-${selectedSemester.semester}`;
-  const weekKey = `${format(weekStart, 'yyyy-MM-dd')}-${format(weekEnd, 'yyyy-MM-dd')}`;
+  }, [selectedGroupId, selectedSemester, selectedSubjectId, setSelectedSubjectId]);
 
   // Load subjects for current semester
   useEffect(() => {
-    if (!selectedGroupId) return;
-    
-    const loadSemesterSubjects = async () => {
-      const semDates = getSemesterDates(selectedSemester);
-      try {
-        const { data: semesterLessons } = await api.get('/admin/journal/lessons', {
-          params: {
-            group_id: selectedGroupId,
-            start_date: format(semDates.start, 'yyyy-MM-dd'),
-            end_date: format(semDates.end, 'yyyy-MM-dd'),
-          }
-        });
-        
-        const subjectIds = new Set(
-          semesterLessons.map((l: Lesson) => l.subject_id).filter(Boolean)
-        );
-        
-        const { data: allSubjects } = await api.get('/admin/subjects/');
-        const filtered = allSubjects.filter((s: Subject) => subjectIds.has(s.id));
-        setSubjects(filtered);
-        
-        if (selectedSubjectId !== 'all' && !subjectIds.has(selectedSubjectId)) {
-          setSelectedSubjectId('all');
-        }
-      } catch {
-        toast.error('Ошибка загрузки предметов семестра');
-      }
-    };
-    
-    loadSemesterSubjects();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroupId, semesterKey]);
-
-  // Load lessons and students
-  useEffect(() => {
-    if (selectedGroupId && (initialLoadDone || !lessonIdParam)) {
-      loadLessonsData();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroupId, selectedSubjectId, selectedLessonType, weekKey, attestationPeriod, semesterKey, initialLoadDone]);
+    void loadSemesterSubjects();
+  }, [loadSemesterSubjects]);
 
   const loadLessonsData = useCallback(async () => {
     if (!selectedGroupId) return null;
@@ -205,8 +197,23 @@ export function useJournalLessons(props: UseJournalLessonsProps): UseJournalLess
     } finally {
       setIsLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroupId, selectedSubjectId, selectedLessonType, weekKey, attestationPeriod, semesterKey]);
+  }, [
+    attestationPeriod,
+    getSemesterStart,
+    selectedGroupId,
+    selectedLessonType,
+    selectedSemester,
+    selectedSubjectId,
+    weekEnd,
+    weekStart,
+  ]);
+
+  // Load lessons and students
+  useEffect(() => {
+    if (selectedGroupId && (initialLoadDone || !lessonIdParam)) {
+      void loadLessonsData();
+    }
+  }, [initialLoadDone, lessonIdParam, loadLessonsData, selectedGroupId]);
 
   return {
     groups,

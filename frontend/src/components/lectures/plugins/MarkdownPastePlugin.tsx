@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $getRoot, $createParagraphNode, $getSelection, PASTE_COMMAND, COMMAND_PRIORITY_CRITICAL } from 'lexical';
+import { $getRoot, $getSelection, PASTE_COMMAND, COMMAND_PRIORITY_CRITICAL } from 'lexical';
 import { $createCodeBlockNode, type CodeLanguage } from '../nodes/CodeBlockNode';
 import { $createImageNode } from '../nodes/ImageNode';
 import { $createMathNode } from '../nodes/MathNode';

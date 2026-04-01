@@ -1,4 +1,4 @@
-import { type LexicalEditor, type EditorConfig, type NodeKey } from 'lexical';
+import { type NodeKey } from 'lexical';
 import { createElement, type JSX } from 'react';
 import { ImageNode, type ImageDimension, type SerializedImageNode } from './ImageNode';
 
@@ -43,7 +43,7 @@ export class ViewerImageNode extends ImageNode {
     super(src, altText, caption, width, height, key);
   }
 
-  decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
+  decorate(): JSX.Element {
     // Динамический импорт Viewer компонента
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { ImageViewerComponent } = require('../ImageViewerComponent');

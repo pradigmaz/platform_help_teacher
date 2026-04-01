@@ -84,7 +84,8 @@ export function MagicCard({
         className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
           background: useMotionTemplate`
-            radial-gradient(${gradientSize}px circle at ${mouseX}px ${mouseY}px, ${gradientColor}, transparent 100%)
+            radial-gradient(${gradientSize}px circle at ${mouseX}px ${mouseY}px, ${gradientColor}, transparent 100%),
+            linear-gradient(135deg, ${gradientFrom}, ${gradientTo})
           `,
           opacity: gradientOpacity,
         }}

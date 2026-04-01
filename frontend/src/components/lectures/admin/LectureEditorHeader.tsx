@@ -77,7 +77,7 @@ export function LectureEditorHeader({
         onLectureUpdate({ ...lecture, is_published: true, public_code: result.public_code });
         toast.success('Лекция опубликована');
       }
-    } catch (error) {
+    } catch {
       toast.error('Ошибка публикации');
     } finally {
       setIsPublishing(false);
@@ -102,7 +102,7 @@ export function LectureEditorHeader({
       await LecturesAPI.delete(lecture.id);
       toast.success('Лекция удалена');
       router.push('/admin/lectures');
-    } catch (error) {
+    } catch {
       toast.error('Ошибка удаления');
       setIsDeleting(false);
     }

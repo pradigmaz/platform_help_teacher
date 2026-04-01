@@ -1,4 +1,4 @@
-import { type LexicalEditor, type EditorConfig, type NodeKey } from 'lexical';
+import { type NodeKey } from 'lexical';
 import { createElement, type JSX } from 'react';
 import { CodeBlockNode, type CodeLanguage, type RenderMode, type SerializedCodeBlockNode } from './CodeBlockNode';
 
@@ -41,7 +41,7 @@ export class ViewerCodeBlockNode extends CodeBlockNode {
     super(code, language, renderMode, key);
   }
 
-  decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
+  decorate(): JSX.Element {
     // Динамический импорт Viewer компонента
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { CodeBlockViewerComponent } = require('../CodeBlockViewerComponent');

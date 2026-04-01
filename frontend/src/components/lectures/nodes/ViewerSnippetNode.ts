@@ -1,4 +1,4 @@
-import { type LexicalEditor, type EditorConfig, type NodeKey } from 'lexical';
+import { type NodeKey } from 'lexical';
 import { createElement, type JSX } from 'react';
 import { SnippetNode, type SnippetLanguage, type SerializedSnippetNode } from './SnippetNode';
 
@@ -40,7 +40,7 @@ export class ViewerSnippetNode extends SnippetNode {
     super(code, language, caption, showLineNumbers, key);
   }
 
-  decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
+  decorate(): JSX.Element {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { CodeSnippet } = require('@/components/ui/code-snippet');
     return createElement(CodeSnippet, {

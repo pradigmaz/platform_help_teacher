@@ -36,7 +36,7 @@ function updateSnapshot(nextSnapshot: NotificationBellSnapshot) {
   emit();
 }
 
-async function loadAnnouncements(force = false) {
+async function loadAnnouncements() {
   if (inFlightLoad) {
     return inFlightLoad;
   }
@@ -71,7 +71,7 @@ function subscribe(listener: () => void) {
   if (subscriberCount === 1) {
     void loadAnnouncements();
     poller = setInterval(() => {
-      void loadAnnouncements(true);
+      void loadAnnouncements();
     }, POLL_INTERVAL_MS);
   }
 

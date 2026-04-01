@@ -1,7 +1,5 @@
 import {
   DecoratorNode,
-  type EditorConfig,
-  type LexicalEditor,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
@@ -50,7 +48,7 @@ export class MathNode extends DecoratorNode<JSX.Element> {
     };
   }
 
-  createDOM(config: EditorConfig): HTMLElement {
+  createDOM(): HTMLElement {
     const tag = this.__displayMode ? 'div' : 'span';
     const element = document.createElement(tag);
     element.className = this.__displayMode ? 'math-block my-4' : 'math-inline';
@@ -89,7 +87,7 @@ export class MathNode extends DecoratorNode<JSX.Element> {
     return this.__displayMode ? `$$${this.__latex}$$` : `$${this.__latex}$`;
   }
 
-  decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
+  decorate(): JSX.Element {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { MathComponent } = require('../MathComponent');
     return createElement(MathComponent, {

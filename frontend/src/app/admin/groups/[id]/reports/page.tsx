@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Eye, EyeOff, Link2, BarChart3, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,10 +26,7 @@ export default function GroupReportsPage() {
   const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadData(); }, [groupId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [groupData, reportsData] = await Promise.all([GroupsAPI.get(groupId), ReportsAPI.list()]);
       setGroup(groupData);
@@ -39,9 +36,13 @@ export default function GroupReportsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [groupId]);
 
-  const handleDeleteReport = async () => {
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const handleDeleteReport = useCallback(async () => {
     if (!reportToDelete) return;
     try {
       await ReportsAPI.delete(reportToDelete.id);
@@ -49,9 +50,9 @@ export default function GroupReportsPage() {
       await loadData();
     } catch { toast.error('Ошибка при удалении'); }
     finally { setReportToDelete(null); }
-  };
+  }, [loadData, reportToDelete]);
 
-  const handleRegenerateCode = async (reportId: string) => {
+  const handleRegenerateCode = useCallback(async (reportId: string) => {
     setRegeneratingId(reportId);
     try {
       await ReportsAPI.regenerate(reportId);
@@ -59,7 +60,7 @@ export default function GroupReportsPage() {
       await loadData();
     } catch { toast.error('Ошибка'); }
     finally { setRegeneratingId(null); }
-  };
+  }, [loadData]);
 
   const getReportTypeBadge = (type: string): React.ReactNode => {
     switch (type) {

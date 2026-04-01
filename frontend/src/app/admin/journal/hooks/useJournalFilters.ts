@@ -1,7 +1,7 @@
 'use client';
 'use no memo';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { startOfWeek, addDays, getDay, addWeeks } from 'date-fns';
 import { SEMESTER_MONTHS } from '@/lib/academic-constants';
 import { useSemesterInfo, getSemesterDates as getSemesterDatesFromHook } from '@/hooks/useSemesterInfo';
@@ -98,20 +98,20 @@ export function useJournalFilters(): UseJournalFiltersReturn {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   // Суббота = Пн + 5 дней (как в расписании, без воскресенья)
   const weekEnd = addDays(weekStart, 5);
-  const currentSemesterInfo = { academicYear, semester };
+  const currentSemesterInfo = useMemo(() => ({ academicYear, semester }), [academicYear, semester]);
   const isCurrentSemesterSelected =
     selectedSemester.academicYear === academicYear && selectedSemester.semester === semester;
 
   // Обёртка для getSemesterDates с учётом semesterStartDate
-  const getSemesterDatesWithApi = (sem: SemesterInfo) => {
+  const getSemesterDatesWithApi = useCallback((sem: SemesterInfo) => {
     return getSemesterDates(sem, semesterStartDate, currentSemesterInfo);
-  };
+  }, [currentSemesterInfo, semesterStartDate]);
 
   // Semester start for attestation periods
-  const getSemesterStart = () => {
+  const getSemesterStart = useCallback(() => {
     const dates = getSemesterDatesWithApi(selectedSemester);
     return dates.start;
-  };
+  }, [getSemesterDatesWithApi, selectedSemester]);
 
   // Reset week to semester start when semester changes
   // Но только если текущая неделя реально вне семестра (не при первой загрузке)
@@ -129,8 +129,7 @@ export function useJournalFilters(): UseJournalFiltersReturn {
     } else if (currentWeek < semDates.start || currentWeek > semDates.end) {
       setCurrentWeek(semDates.start);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSemester, semesterStartDate, semesterLoading]);
+  }, [currentWeek, getSemesterDatesWithApi, selectedSemester, semesterLoading]);
 
   return {
     selectedGroupId,

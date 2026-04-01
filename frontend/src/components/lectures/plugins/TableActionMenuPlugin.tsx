@@ -13,7 +13,6 @@ import {
   $insertTableColumn__EXPERIMENTAL,
   $deleteTableRow__EXPERIMENTAL,
   $deleteTableColumn__EXPERIMENTAL,
-  TableCellNode,
 } from '@lexical/table';
 import { $findMatchingParent } from '@lexical/utils';
 import {

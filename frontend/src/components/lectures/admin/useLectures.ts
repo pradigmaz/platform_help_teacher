@@ -26,7 +26,7 @@ export function useLectures() {
       ]);
       setLectures(lecturesData);
       setSubjects(subjectsData);
-    } catch (error) {
+    } catch {
       toast.error('Ошибка загрузки данных');
     } finally {
       setLoading(false);
@@ -72,7 +72,7 @@ export function useLectures() {
       await LecturesAPI.delete(id);
       toast.success('Лекция удалена');
       fetchData();
-    } catch (error) {
+    } catch {
       toast.error('Ошибка удаления');
     }
   }, [fetchData]);
@@ -84,7 +84,7 @@ export function useLectures() {
       await navigator.clipboard.writeText(`${window.location.origin}/lectures/view/${result.public_code}`);
       toast.info('Ссылка скопирована');
       fetchData();
-    } catch (error) {
+    } catch {
       toast.error('Ошибка публикации');
     }
   }, [fetchData]);
@@ -94,7 +94,7 @@ export function useLectures() {
       await LecturesAPI.unpublish(id);
       toast.success('Публикация отменена');
       fetchData();
-    } catch (error) {
+    } catch {
       toast.error('Ошибка');
     }
   }, [fetchData]);
@@ -115,7 +115,7 @@ export function useLectures() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success('PDF скачан');
-    } catch (error) {
+    } catch {
       toast.error('Ошибка экспорта PDF');
     }
   }, []);
