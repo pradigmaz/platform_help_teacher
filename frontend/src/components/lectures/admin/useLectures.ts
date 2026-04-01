@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import LecturesAPI, { LectureListResponse, SubjectBrief } from '@/lib/lectures-api';
 import api from '@/lib/api';
+import { downloadMarkdownFile, lexicalToMarkdown } from '@/lib/utils/lexical-markdown';
 
 interface Subject {
   id: string;
@@ -120,6 +121,17 @@ export function useLectures() {
     }
   }, []);
 
+  const handleExportMarkdown = useCallback(async (id: string, title: string) => {
+    try {
+      const lecture = await LecturesAPI.get(id);
+      const markdown = lexicalToMarkdown(lecture.content);
+      downloadMarkdownFile(title, markdown || `# ${title}`);
+      toast.success('Markdown скачан');
+    } catch {
+      toast.error('Ошибка экспорта Markdown');
+    }
+  }, []);
+
   return {
     lectures,
     subjects,
@@ -134,5 +146,6 @@ export function useLectures() {
     handleUnpublish,
     handleCopyLink,
     handleExportPdf,
+    handleExportMarkdown,
   };
 }

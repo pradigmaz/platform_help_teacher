@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,11 +17,11 @@ import {
   Link2, 
   Link2Off, 
   Download,
+  FileText,
   Copy,
   ExternalLink,
   GraduationCap
 } from 'lucide-react';
-import { MagicCard } from '@/components/ui/magic-card';
 import type { LectureListResponse } from '@/lib/lectures-api';
 
 interface LectureCardProps {
@@ -30,6 +31,7 @@ interface LectureCardProps {
   onUnpublish: (id: string) => void;
   onCopyLink: (code: string) => void;
   onExportPdf: (id: string, title: string) => void;
+  onExportMarkdown: (id: string, title: string) => void;
 }
 
 export function LectureCard({
@@ -39,19 +41,19 @@ export function LectureCard({
   onUnpublish,
   onCopyLink,
   onExportPdf,
+  onExportMarkdown,
 }: LectureCardProps) {
   const router = useRouter();
 
   return (
-    <MagicCard 
-      className="cursor-pointer group h-full" 
-      gradientColor={lecture.is_published ? '#22c55e20' : '#8b5cf620'}
+    <Card
+      className="group h-full cursor-pointer border-border/60 bg-card/95 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg hover:bg-accent/10"
     >
       <div className="p-5 h-full flex flex-col">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
             <h3 
-              className="font-semibold text-lg truncate hover:text-primary transition-colors cursor-pointer"
+              className="cursor-pointer truncate text-lg font-semibold transition-colors group-hover:text-primary"
               onClick={() => router.push(`/admin/lectures/${lecture.id}`)}
             >
               {lecture.title}
@@ -94,6 +96,9 @@ export function LectureCard({
               <DropdownMenuItem onClick={() => onExportPdf(lecture.id, lecture.title)}>
                 <Download className="mr-2 h-4 w-4" /> Экспорт PDF
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExportMarkdown(lecture.id, lecture.title)}>
+                <FileText className="mr-2 h-4 w-4" /> Скачать Markdown
+              </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => onDelete(lecture.id, lecture.title)}
                 className="text-destructive focus:text-destructive"
@@ -122,6 +127,6 @@ export function LectureCard({
           )}
         </div>
       </div>
-    </MagicCard>
+    </Card>
   );
 }

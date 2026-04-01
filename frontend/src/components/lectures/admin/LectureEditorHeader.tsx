@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import type { SerializedEditorState } from 'lexical';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import {
   Check,
   Loader2,
   FileDown,
+  FileText,
   Trash2,
   Eye,
   EyeOff,
@@ -36,6 +38,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { LecturesAPI, type LectureResponse } from '@/lib/lectures-api';
+import { downloadMarkdownFile, lexicalToMarkdown } from '@/lib/utils/lexical-markdown';
 
 type PreviewMode = 'off' | 'split' | 'full';
 
@@ -47,6 +50,7 @@ interface LectureEditorHeaderProps {
   previewMode: PreviewMode;
   onTogglePreview: () => void;
   onLectureUpdate: (lecture: LectureResponse) => void;
+  content: SerializedEditorState | null;
 }
 
 export function LectureEditorHeader({
@@ -57,6 +61,7 @@ export function LectureEditorHeader({
   previewMode,
   onTogglePreview,
   onLectureUpdate,
+  content,
 }: LectureEditorHeaderProps) {
   const router = useRouter();
   const [isPublishing, setIsPublishing] = useState(false);
@@ -106,6 +111,12 @@ export function LectureEditorHeader({
       toast.error('Ошибка удаления');
       setIsDeleting(false);
     }
+  };
+
+  const handleMarkdownDownload = () => {
+    const markdown = lexicalToMarkdown(content);
+    downloadMarkdownFile(title || 'lecture', markdown || `# ${title || 'Lecture'}`);
+    toast.success('Markdown скачан');
   };
 
   const publicUrl = lecture?.public_code 
@@ -180,6 +191,18 @@ export function LectureEditorHeader({
             {lecture.is_published ? 'Снять с публикации' : 'Опубликовать'}
           </Button>
         )}
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="sm" onClick={handleMarkdownDownload} className="gap-1.5">
+              <FileText className="h-4 w-4" />
+              Markdown
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Скачать лекцию в .md</p>
+          </TooltipContent>
+        </Tooltip>
 
         {!isNew && lecture && (
           <Tooltip>

@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { BlurFade } from '@/components/ui/blur-fade';
-import { MagicCard } from '@/components/ui/magic-card';
 import { BorderBeam } from '@/components/ui/border-beam';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { Sparkles } from '@/components/ui/sparkles';
@@ -27,6 +26,7 @@ export default function AdminLecturesPage() {
     handleUnpublish,
     handleCopyLink,
     handleExportPdf,
+    handleExportMarkdown,
   } = useLectures();
 
   const handleCreate = async (title: string, subjectId: string | null) => {
@@ -76,54 +76,51 @@ export default function AdminLecturesPage() {
       {/* Stats by Subject */}
       <BlurFade delay={0.15}>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          <MagicCard 
-            className={`cursor-pointer transition-all ${!selectedSubjectId ? 'ring-2 ring-primary' : ''}`}
-            gradientColor="#8b5cf620"
+          <Card
+            className={`cursor-pointer border-border/60 bg-card/95 shadow-sm transition-all hover:border-border hover:shadow-md ${!selectedSubjectId ? 'ring-2 ring-primary' : ''}`}
             onClick={() => setSelectedSubjectId(null)}
           >
             <div className="p-4 text-center">
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+              <div className="text-2xl font-bold text-foreground">
                 <NumberTicker value={filteredLectures.length} />
               </div>
               <div className="text-xs text-muted-foreground mt-1 font-medium">Все лекции</div>
             </div>
-          </MagicCard>
+          </Card>
 
           {subjects.map((subject) => {
             const count = lecturesBySubject[subject.id]?.lectures.length || 0;
             const isSelected = selectedSubjectId === subject.id;
             return (
-              <MagicCard 
+              <Card
                 key={subject.id}
-                className={`cursor-pointer transition-all ${isSelected ? 'ring-2 ring-primary' : ''}`}
-                gradientColor="#3b82f620"
+                className={`cursor-pointer border-border/60 bg-card/95 shadow-sm transition-all hover:border-border hover:shadow-md ${isSelected ? 'ring-2 ring-primary' : ''}`}
                 onClick={() => setSelectedSubjectId(isSelected ? null : subject.id)}
               >
                 <div className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  <div className="text-2xl font-bold text-foreground">
                     <NumberTicker value={count} />
                   </div>
                   <div className="text-xs text-muted-foreground mt-1 font-medium truncate" title={subject.name}>
                     {subject.code || subject.name.slice(0, 10)}
                   </div>
                 </div>
-              </MagicCard>
+              </Card>
             );
           })}
 
           {lecturesBySubject['none']?.lectures.length > 0 && (
-            <MagicCard 
-              className={`cursor-pointer transition-all ${selectedSubjectId === 'none' ? 'ring-2 ring-primary' : ''}`}
-              gradientColor="#71717a20"
+            <Card
+              className={`cursor-pointer border-border/60 bg-card/95 shadow-sm transition-all hover:border-border hover:shadow-md ${selectedSubjectId === 'none' ? 'ring-2 ring-primary' : ''}`}
               onClick={() => setSelectedSubjectId(selectedSubjectId === 'none' ? null : 'none')}
             >
               <div className="p-4 text-center">
-                <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">
+                <div className="text-2xl font-bold text-foreground">
                   <NumberTicker value={lecturesBySubject['none'].lectures.length} />
                 </div>
                 <div className="text-xs text-muted-foreground mt-1 font-medium">Без предмета</div>
               </div>
-            </MagicCard>
+            </Card>
           )}
         </div>
       </BlurFade>
@@ -153,6 +150,7 @@ export default function AdminLecturesPage() {
                   onUnpublish={handleUnpublish}
                   onCopyLink={handleCopyLink}
                   onExportPdf={handleExportPdf}
+                  onExportMarkdown={handleExportMarkdown}
                 />
               </BlurFade>
             ))}

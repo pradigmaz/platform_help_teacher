@@ -120,6 +120,7 @@ export default function LectureEditorPage() {
           previewMode={previewMode}
           onTogglePreview={togglePreview}
           onLectureUpdate={setLecture}
+          content={previewContent}
         />
 
         <div className={cn(
