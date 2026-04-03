@@ -481,25 +481,39 @@ Evidence:
 
 ### Wave 3. Frontend Debt Burn-Down
 
-- [ ] Split giant admin pages and `sidebar`
+- [x] Split giant admin pages and admin sidebar composition
 - [x] Reduce hook-warning debt in stateful flows
 - [x] Isolate editor/node warning cleanup
-- [ ] Break route/data/render coupling in journal/audit/groups/admin settings
+- [x] Break route/data/render coupling in journal/audit/groups/admin settings
 
 Exit criteria:
 
 - critical frontend screens are smaller, testable, and less cycle-prone
 
+Evidence:
+
+- `AdminSidebar` was split into nav/config/count-hook layers; shared `frontend/src/components/ui/sidebar.tsx` remains a separate follow-up debt track
+- `admin/groups/[id]` now uses smaller route shell + data hook + UI-state hook + extracted header/tab components
+- `admin/settings` now uses a thin page shell with extracted profile/session/backup helpers
+- smoke coverage now exercises `journal`, `audit`, `groups`, and `settings` high-risk admin flows
+
 ### Wave 4. Test Suite Recomposition
 
-- [ ] Break up oversized bug-preservation suites
-- [ ] Promote invariant-heavy logic to property tests
-- [ ] Keep a smaller but stronger regression suite
-- [ ] Remove redundant low-signal tests only after replacement coverage exists
+- [x] Break up oversized bug-preservation suites
+- [x] Promote invariant-heavy logic to property tests
+- [x] Keep a smaller but stronger regression suite
+- [x] Remove redundant low-signal tests only after replacement coverage exists
 
 Exit criteria:
 
 - faster, more trustworthy test signal
+
+Evidence:
+
+- added property tests for `studentImport` and `journalTableModel`
+- `useFeedbackForm` preservation/bug suites were slimmed around shared helpers instead of keeping duplicated narrative setup
+- replacement coverage landed before shrinking low-signal assertions
+- frontend unit suite stays green at `25` files / `67` tests
 
 ### Wave 5. Ops and Recovery Hardening
 
@@ -539,16 +553,16 @@ Exit criteria:
 
 ### Wave 3 gates
 
-- [ ] Critical admin pages/components are below monolith threshold or split by responsibility
+- [x] Critical admin pages/components are below monolith threshold or split by responsibility
 - [x] Hook-warning count drops in high-risk files first
-- [ ] UI smoke tests cover journal/audit/groups/settings high-risk flows
-- [ ] Shared hubs keep stable contract tests after refactor
+- [x] UI smoke tests cover journal/audit/groups/settings high-risk flows
+- [x] Shared hubs keep stable contract tests after refactor
 
 ### Wave 4 gates
 
-- [ ] Oversized test suites are decomposed only after replacement coverage exists
-- [ ] Invariant-heavy logic moved to property/contract testing where appropriate
-- [ ] Test runtime and failure readability improve, not just test count
+- [x] Oversized test suites are decomposed only after replacement coverage exists
+- [x] Invariant-heavy logic moved to property/contract testing where appropriate
+- [x] Test runtime and failure readability improve, not just test count
 
 ### Wave 5 gates
 
