@@ -1,137 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2, Settings2, User, Database, LogOut } from 'lucide-react';
-import { toast } from 'sonner';
-import api, { AdminAPI, ContactVisibility, RelinkTelegramResponse, LinkVkResponse } from '@/lib/api';
-import type { AdminProfile } from '@/lib/api/admin';
+import { Loader2, User, Database } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  ContactsCard,
-  TelegramCard,
-  VkCard,
-  VisibilityInfoCard,
   BackupTab,
-  type ContactFieldKey,
 } from './components';
+import { ProfileSettingsTab } from './components/ProfileSettingsTab';
+import { SettingsPageHeader } from './components/SettingsPageHeader';
+import { StudentSessionResetCard } from './components/StudentSessionResetCard';
+import { useAdminProfileSettings } from './hooks/useAdminProfileSettings';
+import { useStudentSessionReset } from './hooks/useStudentSessionReset';
 
 export default function AdminSettingsPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [profile, setProfile] = useState<AdminProfile | null>(null);
-  const [contacts, setContacts] = useState<Record<ContactFieldKey, string>>({
-    telegram: '', vk: '', max: '',
-  });
-  const [visibility, setVisibility] = useState<Record<ContactFieldKey, ContactVisibility>>({
-    telegram: 'none', vk: 'none', max: 'none',
-  });
+  const profileSettings = useAdminProfileSettings();
+  const sessionReset = useStudentSessionReset();
 
-  // Telegram relink state
-  const [relinkDialogOpen, setRelinkDialogOpen] = useState(false);
-  const [relinkData, setRelinkData] = useState<RelinkTelegramResponse | null>(null);
-  const [relinkLoading, setRelinkLoading] = useState(false);
-
-  // VK link state
-  const [vkDialogOpen, setVkDialogOpen] = useState(false);
-  const [vkData, setVkData] = useState<LinkVkResponse | null>(null);
-  const [vkLoading, setVkLoading] = useState(false);
-
-  // Revoke sessions state
-  const [revokeLoading, setRevokeLoading] = useState(false);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [profileData, contactsData] = await Promise.all([
-          AdminAPI.getProfile(),
-          AdminAPI.getContacts(),
-        ]);
-        setProfile(profileData);
-        setContacts({
-          telegram: contactsData.contacts.telegram || '',
-          vk: contactsData.contacts.vk || '',
-          max: contactsData.contacts.max || '',
-        });
-        setVisibility({
-          telegram: contactsData.visibility.telegram || 'none',
-          vk: contactsData.visibility.vk || 'none',
-          max: contactsData.visibility.max || 'none',
-        });
-      } catch (error) {
-        console.error('Failed to load data:', error);
-        toast.error('Ошибка загрузки данных');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, []);
-
-  const handleRelinkTelegram = async () => {
-    setRelinkLoading(true);
-    try {
-      const data = await AdminAPI.relinkTelegram();
-      setRelinkData(data);
-      setRelinkDialogOpen(true);
-    } catch {
-      toast.error('Ошибка получения кода перепривязки');
-    } finally {
-      setRelinkLoading(false);
-    }
-  };
-
-  const handleLinkVk = async () => {
-    setVkLoading(true);
-    try {
-      const data = await AdminAPI.linkVk();
-      setVkData(data);
-      setVkDialogOpen(true);
-    } catch {
-      toast.error('Ошибка получения кода привязки ВК');
-    } finally {
-      setVkLoading(false);
-    }
-  };
-
-  const handleRevokeAllStudentSessions = async () => {
-    if (!confirm('Выкинуть ВСЕХ студентов из всех сессий? Им придётся заново авторизоваться.')) {
-      return;
-    }
-    setRevokeLoading(true);
-    try {
-      const { data } = await api.post('/admin/impersonate/sessions/revoke-all-students');
-      toast.success(`Выкинуто ${data.sessions_revoked} сессий у ${data.students_count} студентов`);
-    } catch {
-      toast.error('Ошибка при выкидывании сессий');
-    } finally {
-      setRevokeLoading(false);
-    }
-  };
-
-  const handleContactChange = (key: ContactFieldKey, value: string) => {
-    setContacts(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleVisibilityChange = (key: ContactFieldKey, value: ContactVisibility) => {
-    setVisibility(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await AdminAPI.updateContacts({ contacts, visibility });
-      toast.success('Контакты сохранены');
-    } catch (error) {
-      console.error('Failed to save contacts:', error);
-      toast.error(error instanceof Error ? error.message : 'Ошибка сохранения контактов');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (isLoading) {
+  if (profileSettings.isLoading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -144,18 +28,7 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-8 max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Settings2 className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Настройки</h1>
-            <p className="text-muted-foreground">Управление профилем и системой</p>
-          </div>
-        </div>
-      </div>
+      <SettingsPageHeader />
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 bg-neutral-100 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800 p-1">
@@ -170,71 +43,33 @@ export default function AdminSettingsPage() {
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
-          <ContactsCard
-            contacts={contacts}
-            visibility={visibility}
-            isSaving={isSaving}
-            onContactChange={handleContactChange}
-            onVisibilityChange={handleVisibilityChange}
-            onSave={handleSave}
-          />
-
-          <VisibilityInfoCard />
-
-          <TelegramCard
-            profile={profile}
-            relinkData={relinkData}
-            relinkDialogOpen={relinkDialogOpen}
-            relinkLoading={relinkLoading}
-            onRelink={handleRelinkTelegram}
-            onDialogChange={setRelinkDialogOpen}
-          />
-
-          <VkCard
-            profile={profile}
-            vkData={vkData}
-            vkDialogOpen={vkDialogOpen}
-            vkLoading={vkLoading}
-            onLink={handleLinkVk}
-            onRefreshCode={handleLinkVk}
-            onDialogChange={setVkDialogOpen}
+          <ProfileSettingsTab
+            profile={profileSettings.profile}
+            contacts={profileSettings.contacts}
+            visibility={profileSettings.visibility}
+            isSaving={profileSettings.isSaving}
+            relinkData={profileSettings.relinkData}
+            relinkDialogOpen={profileSettings.relinkDialogOpen}
+            relinkLoading={profileSettings.relinkLoading}
+            vkData={profileSettings.vkData}
+            vkDialogOpen={profileSettings.vkDialogOpen}
+            vkLoading={profileSettings.vkLoading}
+            onContactChange={profileSettings.handleContactChange}
+            onVisibilityChange={profileSettings.handleVisibilityChange}
+            onSave={profileSettings.handleSave}
+            onRelink={profileSettings.handleRelinkTelegram}
+            onRelinkDialogChange={profileSettings.setRelinkDialogOpen}
+            onLinkVk={profileSettings.handleLinkVk}
+            onVkDialogChange={profileSettings.setVkDialogOpen}
           />
         </TabsContent>
 
         <TabsContent value="backup">
           <BackupTab />
-          
-          {/* Временная кнопка для выкидывания студентов */}
-          <Card className="mt-6 border-destructive/50">
-            <CardHeader>
-              <CardTitle className="text-destructive flex items-center gap-2">
-                <LogOut className="h-5 w-5" />
-                Сброс сессий студентов
-              </CardTitle>
-              <CardDescription>
-                Выкинуть всех студентов из всех сессий. Используйте для очистки сессий на общих компьютерах.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                variant="destructive" 
-                onClick={handleRevokeAllStudentSessions}
-                disabled={revokeLoading}
-              >
-                {revokeLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Выкидываем...
-                  </>
-                ) : (
-                  <>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Выкинуть всех студентов
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+          <StudentSessionResetCard
+            revokeLoading={sessionReset.revokeLoading}
+            onRevoke={sessionReset.handleRevokeAllStudentSessions}
+          />
         </TabsContent>
       </Tabs>
     </div>
