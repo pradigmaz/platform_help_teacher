@@ -7,9 +7,9 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Optional
+from typing import cast
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from app.services.schedule_constants import LESSON_TYPE_TEXT_MAP, TIME_TO_LESSON_NUMBER
 
@@ -135,12 +135,12 @@ class ScheduleHtmlParser:
 
         return ParseResult(lessons=lessons, is_empty=len(lessons) == 0)
 
-    def _find_schedule_container(self, soup) -> Optional:
+    def _find_schedule_container(self, soup: BeautifulSoup) -> Tag | BeautifulSoup | None:
         """Fix #18: Найти контейнер расписания с fallback стратегиями"""
         # Стратегия 1: div.table (основная)
         container = soup.find("div", class_="table")
         if container:
-            return container
+            return cast(Tag, container)
 
         # Стратегия 2: div с таблицами внутри
         for div in soup.find_all("div"):
@@ -148,25 +148,25 @@ class ScheduleHtmlParser:
                 tables = div.find_all("table")
                 if len(tables) >= 1:
                     logger.warning("Using fallback: found div with tables")
-                    return div
+                    return cast(Tag, div)
 
         # Стратегия 3: body если есть таблицы
         if soup.find("table"):
             logger.warning("Using fallback: searching in body")
-            return soup.body or soup
+            return cast(Tag | BeautifulSoup, soup.body or soup)
 
         return None
 
-    def _find_day_blocks(self, table_div) -> list:
+    def _find_day_blocks(self, table_div: Tag | BeautifulSoup) -> list[Tag]:
         """Найти блоки дней в HTML с fallback"""
-        day_blocks = []
+        day_blocks: list[Tag] = []
 
         # Стратегия 1: div с margin-bottom: 25px
         for child in table_div.children:
             if hasattr(child, "name") and child.name == "div":
                 style = child.get("style", "")
                 if "margin-bottom" in style:
-                    day_blocks.append(child)
+                    day_blocks.append(cast(Tag, child))
 
         if day_blocks:
             return day_blocks
@@ -174,7 +174,7 @@ class ScheduleHtmlParser:
         # Стратегия 2: div содержащие strong (дату) и table
         for div in table_div.find_all("div", recursive=False):
             if div.find("strong") and div.find("table"):
-                day_blocks.append(div)
+                day_blocks.append(cast(Tag, div))
 
         return day_blocks
 

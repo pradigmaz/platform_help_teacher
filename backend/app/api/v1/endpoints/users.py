@@ -35,7 +35,12 @@ async def create_user(
     Create new user.
     SECURITY: Only admins can create users manually.
     """
-    logger.info(f"[users:create_user] Admin {current_user.id} creating user with social_id={user_in.social_id}")
+    logger.info(
+        "[users:create_user] Admin %s creating user telegram_id=%s vk_id=%s",
+        current_user.id,
+        user_in.telegram_id,
+        user_in.vk_id,
+    )
     return await user_service.create_user(db, user_in)
 
 

@@ -8,6 +8,8 @@ asyncio.run() / asyncio.new_event_loop() в prefork вызывает "Event loop
 
 import logging
 import traceback
+from datetime import datetime
+from typing import TypedDict, cast
 
 from sqlalchemy import select
 
@@ -22,7 +24,17 @@ logger = logging.getLogger(__name__)
 RETRY_DELAYS = [60, 300, 900]
 
 
-def _get_backup_settings_sync() -> dict:
+class BackupRuntimeSettings(TypedDict):
+    enabled: bool
+    retention_days: int
+    max_backups: int
+    schedule_hour: int
+    schedule_minute: int
+    notify_on_success: bool
+    notify_on_failure: bool
+
+
+def _get_backup_settings_sync() -> BackupRuntimeSettings:
     """Fetch backup settings from database (sync version)."""
     from app.models.backup_settings import BackupSettings
 
@@ -54,7 +66,7 @@ def _get_backup_settings_sync() -> dict:
 
 def _is_backup_due(schedule_hour: int, schedule_minute: int) -> bool:
     """Check whether the scheduled backup should run in the current minute."""
-    now = now_msk()
+    now = cast(datetime, now_msk())
     return now.hour == schedule_hour and now.minute == schedule_minute
 
 
@@ -66,7 +78,7 @@ def _cleanup_with_limits_sync(service, retention_days: int, max_backups: int) ->
     deleted = 0
 
     # 1. Delete by retention period
-    deleted += service.cleanup_old_backups_sync(retention_days)
+    deleted += cast(int, service.cleanup_old_backups_sync(retention_days))
 
     # 2. Delete excess backups beyond max_backups limit
     backups = service.list_backups_sync()
@@ -99,7 +111,13 @@ def create_scheduled_backup(self):
     Использует синхронные операции для совместимости с prefork worker.
     """
     logger.info("=== SCHEDULED BACKUP TASK STARTED ===")
-    db_settings = {
+    db_settings: BackupRuntimeSettings = {
+        "enabled": True,
+        "retention_days": 30,
+        "max_backups": 10,
+        "schedule_hour": 17,
+        "schedule_minute": 0,
+        "notify_on_success": False,
         "notify_on_failure": True,
     }
 
@@ -175,7 +193,7 @@ def create_scheduled_backup(self):
 @celery_app.task(
     name="app.tasks.backup_tasks.cleanup_old_backups", bind=True, max_retries=3, acks_late=True, soft_time_limit=120
 )
-def cleanup_old_backups(self, retention_days: int = None, max_backups: int = None):
+def cleanup_old_backups(self, retention_days: int | None = None, max_backups: int | None = None):
     """
     Cleanup old backups beyond retention period and max count.
     Uses DB settings if parameters not provided.

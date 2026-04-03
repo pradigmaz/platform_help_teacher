@@ -86,7 +86,7 @@ def generate_grades_csv(data: JournalExportData) -> str:
     headers = ["ФИО", "Подгруппа"]
 
     # Собираем уникальные ключи работ
-    work_keys = set()
+    work_keys: set[str] = set()
     for row_data in data.grade_rows:
         work_keys.update(row_data.grades_by_work.keys())
 

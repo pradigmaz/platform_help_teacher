@@ -42,7 +42,7 @@ class AttendanceScoreCalculator:
         attendance_records: list[Attendance],
         settings: AttestationSettings,
         expected_lessons: int,
-        transfer_attendance: dict = None,
+        transfer_attendance: dict[str, int] | None = None,
     ) -> AttendanceScoreResult:
         """
         Расчёт баллов за посещаемость.

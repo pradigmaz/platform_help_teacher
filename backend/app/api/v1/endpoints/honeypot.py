@@ -5,6 +5,7 @@ Honeypot Endpoints — ловушки для сканеров и скрипт-к
 """
 
 import logging
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request
 from starlette.responses import JSONResponse
@@ -81,7 +82,6 @@ async def _trigger_honeypot(request: Request, path: str) -> JSONResponse:
     # Если детектор не забанил (нет Redis), баним вручную
     if result.strike_level != StrikeLevel.BANNED:
         import json
-        from datetime import datetime
 
         from app.core.redis import get_redis
         from app.services.security_monitor.constants import BAN_DURATION, REDIS_SECURITY_BAN, REDIS_STRIKE_COUNT
@@ -98,7 +98,7 @@ async def _trigger_honeypot(request: Request, path: str) -> JSONResponse:
             await redis.expire(count_key, BAN_DURATION)
 
             detail = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "url": path,
                 "attack_type": AttackType.HONEYPOT.value,
                 "description": "Honeypot trap triggered",

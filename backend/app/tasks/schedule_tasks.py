@@ -6,10 +6,13 @@ Celery tasks для автопарсинга расписания.
 """
 
 import logging
-from datetime import datetime, timedelta
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.celery_app import celery_app
 from app.core.time_constants import TELEGRAM_SEND_TIMEOUT_SECONDS
@@ -26,19 +29,24 @@ DEFAULT_PARSE_DAYS_AHEAD = 14
 RETRY_DELAYS = [60, 300, 900]  # 1min, 5min, 15min
 
 
-def _get_all_enabled_configs_sync(db) -> list[ScheduleParserConfig]:
+def _stat_int(stats: Mapping[str, int | list[str]], key: str) -> int:
+    value = stats.get(key, 0)
+    return value if isinstance(value, int) else 0
+
+
+def _get_all_enabled_configs_sync(db: Session) -> list[ScheduleParserConfig]:
     """Синхронная версия get_all_enabled_configs для Celery"""
     result = db.execute(select(ScheduleParserConfig).where(ScheduleParserConfig.enabled))
     return list(result.scalars().all())
 
 
-def _get_user_by_id_sync(db, user_id: UUID) -> User | None:
+def _get_user_by_id_sync(db: Session, user_id: UUID) -> User | None:
     """Синхронная версия get_user_by_id для Celery"""
     result = db.execute(select(User).where(User.id == user_id))
-    return result.scalar_one_or_none()
+    return cast(User | None, result.scalar_one_or_none())
 
 
-def _create_history_sync(db, teacher_id: UUID, config_id: UUID | None = None) -> ParseHistory:
+def _create_history_sync(db: Session, teacher_id: UUID, config_id: UUID | None = None) -> ParseHistory:
     """Синхронная версия create_history для Celery"""
     history = ParseHistory(teacher_id=teacher_id, config_id=config_id, status="running")
     db.add(history)
@@ -46,23 +54,25 @@ def _create_history_sync(db, teacher_id: UUID, config_id: UUID | None = None) ->
     return history
 
 
-def _complete_history_sync(db, history_id: UUID, stats: dict, error: str | None = None):
+def _complete_history_sync(
+    db: Session, history_id: UUID, stats: Mapping[str, int | list[str]], error: str | None = None
+) -> None:
     """Синхронная версия complete_history для Celery"""
     result = db.execute(select(ParseHistory).where(ParseHistory.id == history_id))
     history = result.scalar_one_or_none()
     if not history:
         return
 
-    history.finished_at = datetime.utcnow()
+    history.finished_at = datetime.now(UTC)
     history.status = "failed" if error else "success"
-    history.lessons_created = stats.get("lessons_created", 0)
-    history.lessons_updated = stats.get("lessons_updated", 0)
-    history.lessons_skipped = stats.get("lessons_skipped", 0)
-    history.conflicts_created = stats.get("conflicts_created", 0)
+    history.lessons_created = _stat_int(stats, "lessons_created")
+    history.lessons_updated = _stat_int(stats, "lessons_updated")
+    history.lessons_skipped = _stat_int(stats, "lessons_skipped")
+    history.conflicts_created = _stat_int(stats, "conflicts_created")
     history.error_message = error
 
 
-def _has_running_history_sync(db, config_id: UUID) -> bool:
+def _has_running_history_sync(db: Session, config_id: UUID) -> bool:
     """Проверить, есть ли уже выполняющийся парсинг для конфига."""
     result = db.execute(
         select(ParseHistory).where(ParseHistory.config_id == config_id, ParseHistory.status == "running").limit(1)
@@ -70,7 +80,7 @@ def _has_running_history_sync(db, config_id: UUID) -> bool:
     return result.scalar_one_or_none() is not None
 
 
-def _mark_config_run_success_sync(db, config_id: UUID):
+def _mark_config_run_success_sync(db: Session, config_id: UUID) -> None:
     """Обновить время последнего успешного запуска конфига."""
     result = db.execute(select(ScheduleParserConfig).where(ScheduleParserConfig.id == config_id))
     config = result.scalar_one_or_none()
@@ -78,11 +88,11 @@ def _mark_config_run_success_sync(db, config_id: UUID):
         config.last_run_at = datetime.now(MSK_TZ).replace(tzinfo=None)
 
 
-def _send_notification_sync(user: User, message: str):
+def _send_notification_sync(user: User, message: str) -> None:
     """Синхронная отправка уведомлений (через requests)"""
     import os
 
-    import requests
+    import requests  # type: ignore[import-untyped]
 
     if user.telegram_id:
         try:
@@ -106,15 +116,17 @@ def _send_notification_sync(user: User, message: str):
             logger.error(f"Failed to send VK notification: {e}")
 
 
-def _format_parse_result(stats: dict, conflicts_count: int) -> str:
+def _format_parse_result(stats: Mapping[str, int | list[str]], conflicts_count: int) -> str:
     """Форматировать результат парсинга"""
     lines = ["📅 Автопарсинг расписания завершён\n"]
 
-    if stats.get("lessons_created", 0) > 0:
-        lines.append(f"✅ Создано занятий: {stats['lessons_created']}")
+    lessons_created = _stat_int(stats, "lessons_created")
+    if lessons_created > 0:
+        lines.append(f"✅ Создано занятий: {lessons_created}")
 
-    if stats.get("lessons_skipped", 0) > 0:
-        lines.append(f"⏭ Без изменений: {stats['lessons_skipped']}")
+    lessons_skipped = _stat_int(stats, "lessons_skipped")
+    if lessons_skipped > 0:
+        lines.append(f"⏭ Без изменений: {lessons_skipped}")
 
     if conflicts_count > 0:
         lines.append(f"\n⚠️ Обнаружено конфликтов: {conflicts_count}")
@@ -133,10 +145,10 @@ def parse_schedule_task(
     self,
     teacher_name: str,
     days_ahead: int = DEFAULT_PARSE_DAYS_AHEAD,
-    teacher_id: str = None,
+    teacher_id: str | None = None,
     notify: bool = True,
-    config_id: str = None,
-):
+    config_id: str | None = None,
+) -> dict[str, Any]:
     """
     Task для парсинга расписания конкретного преподавателя.
 
@@ -174,7 +186,7 @@ def parse_schedule_task(
                 if notify and teacher_id:
                     user = _get_user_by_id_sync(db, UUID(teacher_id))
                     if user:
-                        message = _format_parse_result(stats, stats.get("conflicts_created", 0))
+                        message = _format_parse_result(stats, _stat_int(stats, "conflicts_created"))
                         _send_notification_sync(user, message)
 
                 return stats
@@ -208,6 +220,7 @@ def check_all_schedules():
     Вызывается каждые 15 минут через Celery Beat.
     Использует синхронную сессию для совместимости с prefork worker.
     """
+    configs: Sequence[ScheduleParserConfig] = []
     with SyncSessionLocal() as db:
         configs = _get_all_enabled_configs_sync(db)
 
@@ -224,10 +237,10 @@ def check_all_schedules():
                     config.teacher_name, config.parse_days_ahead, str(config.teacher_id), True, str(config.id)
                 )
 
-    return {"checked": len(configs) if "configs" in dir() else 0}
+    return {"checked": len(configs)}
 
 
-def _should_run(config, now: datetime, current_day: int) -> bool:
+def _should_run(config: ScheduleParserConfig, now: datetime, current_day: int) -> bool:
     """Проверить, нужно ли запускать парсинг для конфига"""
     if current_day not in config.days_of_week:
         return False

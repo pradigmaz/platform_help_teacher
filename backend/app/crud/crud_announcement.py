@@ -1,6 +1,6 @@
 """CRUD операции для объявлений."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -63,7 +63,7 @@ class CRUDAnnouncement:
     async def publish(self, db: AsyncSession, announcement: Announcement) -> Announcement:
         """Опубликовать объявление."""
         announcement.is_draft = False
-        announcement.published_at = datetime.utcnow()
+        announcement.published_at = datetime.now(UTC)
         await db.commit()
         await db.refresh(announcement)
         return announcement

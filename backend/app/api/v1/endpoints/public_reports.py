@@ -98,7 +98,7 @@ async def verify_report_pin(
         )
 
     if not report.pin_hash:
-        return PinVerifyResponse(success=True, message="No PIN required")
+        return PinVerifyResponse(success=True, message="No PIN required", retry_after=None)
 
     service = ReportService(db)
     if service.verify_pin(pin_data.pin, report.pin_hash):
@@ -114,7 +114,7 @@ async def verify_report_pin(
 
         logger.info("PIN verified for report %s from %s", code, client_ip)
 
-        return PinVerifyResponse(success=True, message="PIN verified")
+        return PinVerifyResponse(success=True, message="PIN verified", retry_after=None)
 
     attempts_left = await report_pin_service.increment_attempts(code, client_ip)
 
@@ -136,6 +136,7 @@ async def verify_report_pin(
         success=False,
         message="Invalid PIN",
         attempts_left=attempts_left,
+        retry_after=None,
     )
 
 

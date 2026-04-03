@@ -106,7 +106,10 @@ async def add_students_bulk(
         await db.commit()
         for s in added_students:
             await db.refresh(s)
-        return BulkStudentsResponse(added=len(added_students), students=added_students)
+        return BulkStudentsResponse(
+            added=len(added_students),
+            students=[schemas.StudentInGroupResponse.model_validate(student) for student in added_students],
+        )
     except SQLAlchemyError as e:
         await db.rollback()
         logger.error(f"Error bulk adding students: {e}")

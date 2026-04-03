@@ -6,7 +6,7 @@ Pydantic схемы для публичных отчётов.
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.group_report import ReportType
 from app.schemas.user import PublicTeacherContacts
@@ -64,8 +64,7 @@ class ReportResponse(BaseModel):
     created_at: datetime
     url: str = Field(description="Полная ссылка на отчёт")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReportListResponse(BaseModel):
@@ -381,8 +380,7 @@ class ReportViewRecord(BaseModel):
     ip_address: str
     user_agent: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReportViewsResponse(BaseModel):

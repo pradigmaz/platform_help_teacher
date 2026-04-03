@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -36,7 +37,7 @@ class _GradeRow:
 def _is_better_grade(
     candidate_grade: int, candidate_created_at: datetime | None, current: _GradeRow | LessonGrade
 ) -> bool:
-    current_created_at = getattr(current, "created_at", None)
+    current_created_at = cast(datetime | None, getattr(current, "created_at", None))
     if candidate_grade != current.grade:
         return candidate_grade > current.grade
 
@@ -174,14 +175,15 @@ class StudentLabService:
             )
         )
         rows = result.all()
-        subject_by_grade_id = {grade.id: subject_id for grade, subject_id in rows}
+        subject_by_grade_id = {grade.id: subject_id for grade, subject_id in rows if subject_id is not None}
         grades_by_subject: dict[UUID, dict[int, LessonGrade]] = {}
         for g in dedupe_lesson_grade_rows(rows):
             subject_id = subject_by_grade_id[g.id]
             if subject_id not in grades_by_subject:
                 grades_by_subject[subject_id] = {}
             subj_grades = grades_by_subject[subject_id]
-            subj_grades[g.work_number] = g
+            if g.work_number is not None:
+                subj_grades[g.work_number] = g
         return grades_by_subject
 
     async def get_student_position(self, db: AsyncSession, user: User) -> int | None:
@@ -203,6 +205,8 @@ class StudentLabService:
         """Проверить доступность лабы (предыдущая сдана)."""
         if lab.number == 1 or not lab.is_sequential:
             return True
+        if lab.subject_id is None:
+            return True
         prev_lab = await find_active_lab_by_subject_and_number(db, lab.subject_id, lab.number - 1, published_only=True)
         if not prev_lab:
             return True
@@ -215,6 +219,8 @@ class StudentLabService:
         )
         previous_submission = prev_sub.scalar_one_or_none()
         journal_grades_by_subject = await self.get_user_journal_grades_by_subject(db, user_id)
+        if prev_lab.subject_id is None:
+            return resolve_lab_acceptance(previous_submission, None)[0]
         previous_journal_grade = journal_grades_by_subject.get(prev_lab.subject_id, {}).get(prev_lab.number)
         return resolve_lab_acceptance(previous_submission, previous_journal_grade)[0]
 

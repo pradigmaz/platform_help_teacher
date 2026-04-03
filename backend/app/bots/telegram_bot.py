@@ -19,6 +19,13 @@ dp = Dispatcher()
 router = Router()
 
 
+def _extract_sender(message: types.Message) -> types.User | None:
+    sender = message.from_user
+    if sender is None:
+        logger.warning("Telegram message without sender metadata received")
+    return sender
+
+
 @router.message(CommandStart())
 async def command_start_handler(message: types.Message, command: CommandObject) -> None:
     """
@@ -26,9 +33,14 @@ async def command_start_handler(message: types.Message, command: CommandObject) 
     Только приветствие и генерация OTP для авторизованных.
     Диплинки (/start CODE) перенаправляют на /code.
     """
-    social_id = message.from_user.id
-    full_name = message.from_user.full_name
-    username = message.from_user.username
+    sender = _extract_sender(message)
+    if sender is None:
+        await message.answer("Не удалось определить отправителя сообщения.")
+        return
+
+    social_id = sender.id
+    full_name = sender.full_name
+    username = sender.username
     args = command.args  # Диплинк аргументы
 
     logger.info(f"Received /start from user {social_id} ({username}), deeplink={'yes' if args else 'no'}")
@@ -62,9 +74,14 @@ async def command_code_handler(message: types.Message, command: CommandObject) -
     Обработка команды /code <CODE>.
     Ввод инвайт-кодов, relink-кодов и т.д.
     """
-    social_id = message.from_user.id
-    full_name = message.from_user.full_name
-    username = message.from_user.username
+    sender = _extract_sender(message)
+    if sender is None:
+        await message.answer("Не удалось определить отправителя сообщения.")
+        return
+
+    social_id = sender.id
+    full_name = sender.full_name
+    username = sender.username
     code = command.args
 
     code_hint = f"{code[:2]}***{code[-2:]}" if code and len(code) > 4 else "***"
@@ -98,7 +115,12 @@ async def command_schedule_handler(message: types.Message) -> None:
     """
     Расписание преподавателя.
     """
-    social_id = message.from_user.id
+    sender = _extract_sender(message)
+    if sender is None:
+        await message.answer("Не удалось определить отправителя сообщения.")
+        return
+
+    social_id = sender.id
 
     try:
         async with AsyncSessionLocal() as db:
@@ -115,9 +137,16 @@ async def text_message_handler(message: types.Message) -> None:
     """
     Обработка текстовых сообщений (FSM диалоги).
     """
-    social_id = message.from_user.id
-    username = message.from_user.username
     text = message.text
+    sender = _extract_sender(message)
+    if sender is None:
+        await message.answer("Не удалось определить отправителя сообщения.")
+        return
+    if text is None:
+        return
+
+    social_id = sender.id
+    username = sender.username
 
     try:
         async with AsyncSessionLocal() as db:

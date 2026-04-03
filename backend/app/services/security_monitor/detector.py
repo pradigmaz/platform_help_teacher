@@ -11,7 +11,7 @@ Security Detector — детекция атак и управление стра
 import hashlib
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Optional
 from uuid import UUID
 
@@ -187,7 +187,7 @@ class SecurityDetector:
                     is_suspicious=True,
                     strike_level=StrikeLevel.BANNED,
                     message=MESSAGES[StrikeLevel.BANNED],
-                    ban_until=datetime.utcnow() + timedelta(seconds=ttl) if ttl else None,
+                    ban_until=datetime.now(UTC) + timedelta(seconds=ttl) if ttl else None,
                 )
             # Сохраняем fingerprint → user mapping
             if fp_hash:
@@ -206,7 +206,7 @@ class SecurityDetector:
                         is_suspicious=True,
                         strike_level=StrikeLevel.BANNED,
                         message=MESSAGES[StrikeLevel.BANNED],
-                        ban_until=datetime.utcnow() + timedelta(seconds=ttl) if ttl else None,
+                        ban_until=datetime.now(UTC) + timedelta(seconds=ttl) if ttl else None,
                     )
                 effective_user_id = linked_user_id
 
@@ -218,7 +218,7 @@ class SecurityDetector:
                     is_suspicious=True,
                     strike_level=StrikeLevel.BANNED,
                     message=MESSAGES[StrikeLevel.BANNED],
-                    ban_until=datetime.utcnow() + timedelta(seconds=ttl) if ttl else None,
+                    ban_until=datetime.now(UTC) + timedelta(seconds=ttl) if ttl else None,
                 )
 
         # Определяем identifier для страйков
@@ -277,7 +277,7 @@ class SecurityDetector:
 
         # Сохраняем детали
         detail = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "url": url[:500],
             "attack_type": attack.attack_type.value,
             "description": attack.description,
@@ -288,7 +288,7 @@ class SecurityDetector:
         # Определяем уровень
         if count >= MAX_STRIKES:
             level = StrikeLevel.BANNED
-            ban_until = datetime.utcnow() + timedelta(seconds=BAN_DURATION)
+            ban_until = datetime.now(UTC) + timedelta(seconds=BAN_DURATION)
 
             # Банить по user_id (основной механизм)
             if user_id:

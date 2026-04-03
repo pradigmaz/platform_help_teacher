@@ -5,9 +5,9 @@ HTML санитизация для защиты от XSS.
 
 import html
 import logging
-from typing import Any
+from typing import Any, cast
 
-import bleach
+import bleach  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ ALLOWED_STYLES = [
 ALLOWED_PROTOCOLS = ["http", "https", "mailto", "tel"]
 
 
-def sanitize_html(html: str) -> str:
+def sanitize_html(raw_html: str) -> str:
     """
     Очищает HTML от потенциально опасного контента.
 
@@ -125,23 +125,23 @@ def sanitize_html(html: str) -> str:
     Returns:
         Очищенный HTML
     """
-    if not html:
-        return html
+    if not raw_html:
+        return raw_html
 
     try:
         cleaned = bleach.clean(
-            html,
+            raw_html,
             tags=ALLOWED_TAGS,
             attributes=ALLOWED_ATTRIBUTES,
             protocols=ALLOWED_PROTOCOLS,
             strip=True,  # Удалять запрещённые теги, а не экранировать
             strip_comments=True,
         )
-        return cleaned
+        return cast(str, cleaned)
     except Exception as e:
         logger.error(f"HTML sanitization failed: {e}")
         # В случае ошибки — экранируем всё
-        return bleach.clean(html, tags=[], strip=True)
+        return cast(str, bleach.clean(raw_html, tags=[], strip=True))
 
 
 def sanitize_lexical_content(content: dict[str, Any]) -> dict[str, Any]:
@@ -160,7 +160,7 @@ def sanitize_lexical_content(content: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(content, dict):
         return content
 
-    result = {}
+    result: dict[str, Any] = {}
 
     for key, value in content.items():
         if key == "text" and isinstance(value, str):
@@ -204,7 +204,7 @@ def strip_all_html(text: str) -> str:
     """Полностью удаляет весь HTML, оставляя только текст."""
     if not text:
         return text
-    return bleach.clean(text, tags=[], strip=True)
+    return cast(str, bleach.clean(text, tags=[], strip=True))
 
 
 def fix_escaped_entities(content: dict[str, Any]) -> dict[str, Any]:
@@ -224,7 +224,7 @@ def fix_escaped_entities(content: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(content, dict):
         return content
 
-    result = {}
+    result: dict[str, Any] = {}
     for key, value in content.items():
         if key == "text" and isinstance(value, str):
             result[key] = html.unescape(value)

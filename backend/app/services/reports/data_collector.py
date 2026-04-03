@@ -14,10 +14,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.lesson import Lesson
 from app.models.attestation_settings import AttestationSettings, AttestationType
 from app.models.group_report import GroupReport, ReportType
 from app.schemas.report import PublicReportData, StudentDetailData
 from app.services.attestation.service import AttestationService
+from app.services.attendance_contract import StudentAttendanceSnapshot
 
 from .attendance_helpers import (
     build_attendance_distribution,
@@ -81,8 +83,8 @@ class ReportDataCollector:
             attestation_results = []
 
         results_map = {r.student_id: r for r in attestation_results}
-        attendance_lessons = []
-        attendance_snapshots = {}
+        attendance_lessons: list[Lesson] = []
+        attendance_snapshots: dict[UUID, StudentAttendanceSnapshot] = {}
         attendance_data = {}
         if report.show_attendance:
             attendance_lessons, attendance_snapshots = await load_group_attendance_snapshots(

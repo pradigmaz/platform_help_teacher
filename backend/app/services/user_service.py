@@ -36,16 +36,24 @@ class UserService:
             Созданный пользователь
 
         Raises:
-            HTTPException: Если пользователь с таким social_id уже существует
+            HTTPException: Если пользователь с таким Telegram/VK ID уже существует
             HTTPException: При ошибке БД
         """
-        logger.info(f"[UserService:create_user] Creating user with social_id={user_in.social_id}")
+        logger.info(
+            "[UserService:create_user] Creating user with telegram_id=%s vk_id=%s",
+            user_in.telegram_id,
+            user_in.vk_id,
+        )
 
         # 1. Проверка существования пользователя
-        existing_user = await crud_user.get_by_social_id(db, user_in.social_id)
-        if existing_user:
-            logger.warning(f"[UserService:create_user] User with social_id={user_in.social_id} already exists")
-            raise HTTPException(status_code=400, detail="User with this social ID already exists")
+        if user_in.telegram_id is not None:
+            existing_telegram = await db.execute(select(models.User).where(models.User.telegram_id == user_in.telegram_id))
+            if existing_telegram.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail="User with this Telegram ID already exists")
+        if user_in.vk_id is not None:
+            existing_vk = await db.execute(select(models.User).where(models.User.vk_id == user_in.vk_id))
+            if existing_vk.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail="User with this VK ID already exists")
 
         # 2. Поиск группы по коду (если указан)
         group_id = None
@@ -62,7 +70,8 @@ class UserService:
         try:
             # 3. Создание пользователя
             user = models.User(
-                social_id=user_in.social_id,
+                telegram_id=user_in.telegram_id,
+                vk_id=user_in.vk_id,
                 full_name=user_in.full_name,
                 username=user_in.username,
                 role=user_in.role,

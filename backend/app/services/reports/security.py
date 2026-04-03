@@ -6,8 +6,15 @@
 
 import secrets
 import string
+import warnings
 
-from passlib.context import CryptContext
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message="'crypt' is deprecated and slated for removal in Python 3.13",
+        category=DeprecationWarning,
+    )
+    from passlib.context import CryptContext
 
 # Контекст для хеширования PIN-кодов
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -42,7 +49,7 @@ def hash_pin(pin: str) -> str:
     Returns:
         str: bcrypt хеш PIN-кода
     """
-    return pwd_context.hash(pin)
+    return str(pwd_context.hash(pin))
 
 
 def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
@@ -56,4 +63,4 @@ def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
     Returns:
         bool: True если PIN верный
     """
-    return pwd_context.verify(plain_pin, hashed_pin)
+    return bool(pwd_context.verify(plain_pin, hashed_pin))

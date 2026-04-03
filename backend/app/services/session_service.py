@@ -6,6 +6,7 @@ Tracks active sessions per user and allows revocation.
 import json
 import logging
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from app.core.config import settings
@@ -307,9 +308,11 @@ async def get_session_owner(session_id: str) -> str | None:
 
     try:
         parsed = json.loads(data)
+        if not isinstance(parsed, dict):
+            return None
         user_id = parsed.get("user_id")
         logger.debug(f"[SessionService:get_session_owner] Session {session_id[:8]}... belongs to user {user_id}")
-        return user_id
+        return user_id if isinstance(user_id, str) else None
     except json.JSONDecodeError:
         logger.error(f"[SessionService:get_session_owner] Failed to decode session data for {session_id[:8]}...")
         return None

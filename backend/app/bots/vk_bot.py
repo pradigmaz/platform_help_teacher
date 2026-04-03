@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Глобальные объекты VK
 vk_session = None
 vk = None
-longpoll = None
+longpoll: VkBotLongPoll | None = None
 _task = None
 _running = False
 
@@ -135,6 +135,8 @@ async def handle_message(user_id: int, text: str):
 def _poll_once():
     """Один цикл опроса Long Poll (синхронный)."""
     global longpoll
+    if longpoll is None:
+        return None
     try:
         for event in longpoll.listen():
             if event.type == VkBotEventType.MESSAGE_NEW:

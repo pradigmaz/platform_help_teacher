@@ -4,11 +4,14 @@
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from app.models.attestation_settings import AttestationSettings
 from app.models.lesson_grade import LessonGrade
 
 from .lab_progress import get_lesson_grade_subject_key, is_completed_lab_grade
+
+ExternalGradePayload = dict[str, Any]
 
 
 @dataclass
@@ -27,10 +30,14 @@ class LabScoreCalculator:
     """Калькулятор баллов за лабораторные (автобалансировка)"""
 
     @staticmethod
-    def _pick_external_grade(transfer_grade: dict | None, submission_grade: dict | None) -> tuple[str, dict] | None:
+    def _pick_external_grade(
+        transfer_grade: ExternalGradePayload | None,
+        submission_grade: ExternalGradePayload | None,
+    ) -> tuple[str, ExternalGradePayload] | None:
         if transfer_grade is None and submission_grade is None:
             return None
         if transfer_grade is None:
+            assert submission_grade is not None
             return "submission", submission_grade
         if submission_grade is None:
             return "transfer", transfer_grade
@@ -51,8 +58,8 @@ class LabScoreCalculator:
         self,
         lesson_grades: list[LessonGrade],
         settings: AttestationSettings,
-        transfer_grades: list[dict] = None,
-        submission_grades: list[dict] = None,
+        transfer_grades: list[ExternalGradePayload] | None = None,
+        submission_grades: list[ExternalGradePayload] | None = None,
     ) -> LabScoreResult:
         """
         Расчёт баллов за лабораторные.
@@ -76,10 +83,10 @@ class LabScoreCalculator:
         total_score = 0.0
         completed_labs = 0
         needs_rework = 0
-        details = []
+        details: list[dict[str, Any]] = []
         normalized_current: dict[tuple[str, int], LessonGrade] = {}
-        normalized_transfer: dict[tuple[str, int], dict] = {}
-        normalized_submission: dict[tuple[str, int], dict] = {}
+        normalized_transfer: dict[tuple[str, int], ExternalGradePayload] = {}
+        normalized_submission: dict[tuple[str, int], ExternalGradePayload] = {}
 
         # Обрабатываем текущие оценки
         for grade in lesson_grades:
@@ -119,13 +126,13 @@ class LabScoreCalculator:
 
             if current_grade is not None and not use_transfer:
                 grade_value = current_grade.grade
-                lesson_id = str(current_grade.lesson_id)
+                lesson_id: str | None = str(current_grade.lesson_id)
                 source = "journal"
                 subject_id = getattr(current_grade, "lab_subject_id", None)
             elif external_grade is not None:
                 source, grade_payload = external_grade
                 grade_value = int(grade_payload.get("grade", 0))
-                lesson_id = grade_payload.get("lesson_id")
+                lesson_id = str(grade_payload.get("lesson_id")) if grade_payload.get("lesson_id") is not None else None
                 subject_id = grade_payload.get("subject_id")
             else:
                 continue

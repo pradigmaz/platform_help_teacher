@@ -228,7 +228,8 @@ async def upload_lecture_image(
         raise HTTPException(status_code=400, detail="Размер файла превышает 10MB")
 
     # Генерируем уникальный путь для хранения
-    file_ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    filename = file.filename or ""
+    file_ext = filename.split(".")[-1] if "." in filename else "jpg"
     storage_path = f"lectures/{lecture_id}/{uuid4()}.{file_ext}"
 
     try:

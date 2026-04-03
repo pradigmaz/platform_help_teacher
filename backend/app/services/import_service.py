@@ -3,7 +3,6 @@ import io
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-import pandas as pd
 from docx import Document
 from fastapi import HTTPException, UploadFile
 
@@ -37,6 +36,8 @@ class SmartImportService:
     @classmethod
     async def parse_file(cls, file: UploadFile) -> list[dict]:
         content = await file.read()
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="Имя файла отсутствует")
         filename = file.filename.lower()
 
         loop = asyncio.get_event_loop()
@@ -63,6 +64,8 @@ class SmartImportService:
 
     @classmethod
     def _parse_excel(cls, content: bytes, filename: str) -> list[dict]:
+        import pandas as pd
+
         try:
             if filename.endswith(".csv"):
                 df = pd.read_csv(io.BytesIO(content))

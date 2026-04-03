@@ -1,5 +1,6 @@
 """Traceable deadline context objects shared by visibility and attestation paths."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -16,7 +17,7 @@ class DeadlineContext:
 def build_deadline_context_for_visibility(
     *,
     lab_number: int,
-    ordered_lessons: list[tuple[int | None, object, int]],
+    ordered_lessons: Sequence[tuple[int | None, object, int]],
     lab_id: UUID | None,
     extensions_map: dict[UUID, int],
     excused_lab_numbers: set[int],

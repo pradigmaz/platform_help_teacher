@@ -2,7 +2,7 @@ import unicodedata
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models import UserRole  # Импортируем Enum из моделей
 
@@ -50,8 +50,7 @@ class UserResponse(BaseModel):
     invite_code: str | None = None
     onboarding_completed: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserUpdate(BaseModel):
@@ -75,8 +74,7 @@ class StudentInGroup(BaseModel):
     invite_code: str | None = None
     is_active: bool = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============ Teacher Contacts Schemas ============

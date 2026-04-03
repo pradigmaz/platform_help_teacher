@@ -6,7 +6,7 @@ from datetime import date
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.schedule import DayOfWeek, LessonType, WeekParity
 from app.schemas.schedule_parser import ScheduleConflictResponse
@@ -50,8 +50,7 @@ class ScheduleItemResponse(ScheduleItemBase):
     group_id: UUID
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # === Lesson ===
@@ -91,8 +90,7 @@ class LessonResponse(LessonBase):
     subject_name: str | None = None
     group_name: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ScheduleAttendanceUpdate(BaseModel):

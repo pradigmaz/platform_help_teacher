@@ -43,8 +43,10 @@ async def create_announcement(
         db, title=data.title, content=data.content, created_by=current_user.id
     )
     # Reload with author
-    announcement = await crud_announcement.get(db, announcement.id)
-    return _to_response(announcement)
+    reloaded_announcement = await crud_announcement.get(db, announcement.id)
+    if reloaded_announcement is None:
+        raise HTTPException(status_code=404, detail="Объявление не найдено")
+    return _to_response(reloaded_announcement)
 
 
 @router.get("/{announcement_id}", response_model=AnnouncementResponse)

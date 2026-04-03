@@ -2,7 +2,7 @@
 CRUD для истории парсинга
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -28,7 +28,7 @@ async def complete_history(
     if not history:
         return None
 
-    history.finished_at = datetime.utcnow()
+    history.finished_at = datetime.now(UTC)
     history.status = "failed" if error else "success"
     history.lessons_created = stats.get("lessons_created", 0)
     history.lessons_updated = stats.get("lessons_updated", 0)

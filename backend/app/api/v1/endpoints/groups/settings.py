@@ -37,7 +37,7 @@ async def update_lab_settings(
         if lab_settings.labs_count is not None:
             group.labs_count = lab_settings.labs_count
         if lab_settings.grading_scale is not None:
-            group.grading_scale = lab_settings.grading_scale
+            setattr(group, "grading_scale", lab_settings.grading_scale)
         if lab_settings.default_max_grade is not None:
             group.default_max_grade = lab_settings.default_max_grade
 

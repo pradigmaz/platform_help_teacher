@@ -147,7 +147,7 @@ async def delete_lab(
         raise HTTPException(status_code=404, detail=em.LAB_NOT_FOUND)
     await lab_service.soft_delete(db, lab)
     await _invalidate_labs_cache()
-    return {"status": "deleted"}
+    return schemas.DeleteResponse(status="deleted")
 
 
 @router.post("/labs/{lab_id}/publish", response_model=PublishLabResponse)

@@ -3,6 +3,7 @@ Security Monitor Middleware — детекция атак в реальном в
 """
 
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
 
@@ -34,7 +35,7 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
     # Пути, которые не проверяем
     SKIP_PATHS = {"/health", "/metrics", "/docs", "/openapi.json", "/redoc"}
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         path = request.url.path
 
         # Пропускаем служебные эндпоинты
@@ -62,7 +63,7 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
             except Exception:
                 pass
 
-        response = None  # Отслеживаем, был ли вызван call_next
+        response: Response | None = None  # Отслеживаем, был ли вызван call_next
 
         try:
             # Проверяем ДО выполнения запроса

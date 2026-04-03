@@ -47,14 +47,14 @@ async def get_stats(
     )
     total_lectures = lectures_result.scalar() or 0
 
-    return {
-        "total_users": total_users,
-        "total_groups": total_groups,
-        "total_students": total_students,
-        "total_lectures": total_lectures,
-        "active_labs": active_labs,
-        "total_submissions": 0,
-    }
+    return StatsResponse(
+        total_users=total_users,
+        total_groups=total_groups,
+        total_students=total_students,
+        total_lectures=total_lectures,
+        active_labs=active_labs,
+        total_submissions=0,
+    )
 
 
 @router.get("/students/{student_id}", response_model=StudentProfileOut)

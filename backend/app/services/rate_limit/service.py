@@ -4,7 +4,7 @@
 
 import hashlib
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -85,7 +85,7 @@ class RateLimitService:
 
         if ban_data:
             ttl = await redis.ttl(ban_key)
-            ban_until = datetime.utcnow() + timedelta(seconds=ttl) if ttl > 0 else None
+            ban_until = datetime.now(UTC) + timedelta(seconds=ttl) if ttl > 0 else None
             return ActiveBanInfo(
                 is_banned=True,
                 ban_until=ban_until,
@@ -99,7 +99,7 @@ class RateLimitService:
             ban_data = await redis.get(ban_key)
             if ban_data:
                 ttl = await redis.ttl(ban_key)
-                ban_until = datetime.utcnow() + timedelta(seconds=ttl) if ttl > 0 else None
+                ban_until = datetime.now(UTC) + timedelta(seconds=ttl) if ttl > 0 else None
                 return ActiveBanInfo(
                     is_banned=True,
                     ban_until=ban_until,

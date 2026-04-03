@@ -133,7 +133,7 @@ async def read_student_activities(
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER] and str(current_user.id) != student_id:
         raise HTTPException(status_code=403, detail=em.NOT_ENOUGH_PERMISSIONS)
 
-    activities = await crud_activity.get_by_student(db, student_id=student_id)
+    activities = await crud_activity.get_by_student(db, student_id=UUID(student_id))
     return activities
 
 
@@ -150,7 +150,7 @@ async def update_activity(
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(status_code=403, detail=em.NOT_ENOUGH_PERMISSIONS)
 
-    activity = await crud_activity.get(db, id=activity_id)
+    activity = await crud_activity.get(db, id=UUID(activity_id))
     if not activity:
         raise HTTPException(status_code=404, detail=em.ACTIVITY_NOT_FOUND)
 
@@ -170,7 +170,7 @@ async def delete_activity(
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
         raise HTTPException(status_code=403, detail=em.NOT_ENOUGH_PERMISSIONS)
 
-    activity = await crud_activity.delete(db, id=activity_id)
+    activity = await crud_activity.delete(db, id=UUID(activity_id))
     if not activity:
         raise HTTPException(status_code=404, detail=em.ACTIVITY_NOT_FOUND)
 

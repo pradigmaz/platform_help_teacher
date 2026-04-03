@@ -5,8 +5,8 @@
 import contextlib
 import functools
 import logging
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import Request
@@ -36,7 +36,7 @@ def audit_action(
             ...
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
             # Ищем Request в аргументах
@@ -65,11 +65,12 @@ def audit_action(
     return decorator
 
 
-def _find_request(args: tuple, kwargs: dict) -> Request | None:
+def _find_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Request | None:
     """Найти объект Request в аргументах функции."""
     # Проверяем kwargs
-    if "request" in kwargs:
-        return kwargs["request"]
+    request = kwargs.get("request")
+    if isinstance(request, Request):
+        return request
 
     # Проверяем args
     for arg in args:

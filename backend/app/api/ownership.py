@@ -102,7 +102,7 @@ def check_student_access(student_id: UUID, user: User, allow_teacher: bool = Tru
     raise OwnershipError("student data")
 
 
-async def check_group_access(group_id: UUID, user: User, db: AsyncSession = None) -> bool:
+async def check_group_access(group_id: UUID, user: User, db: AsyncSession | None = None) -> bool:
     """
     Проверяет доступ к группе.
 

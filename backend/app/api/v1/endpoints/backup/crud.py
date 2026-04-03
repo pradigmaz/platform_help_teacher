@@ -40,7 +40,7 @@ router = APIRouter()
 @audit_action(ActionType.BACKUP_CREATE, EntityType.BACKUP)
 async def create_backup(
     request: Request,
-    data: BackupCreate = None,
+    data: BackupCreate | None = None,
     current_user: User = Depends(get_current_active_superuser),
     service: BackupService = Depends(get_backup_service),
 ):

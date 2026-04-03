@@ -1,5 +1,6 @@
 """Shared read model for traceable deadline state."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
@@ -34,7 +35,7 @@ class DeadlineTrace:
 
 def resolve_effective_deadline_date(
     *,
-    ordered_lessons: list[tuple[int | None, date]],
+    ordered_lessons: Sequence[tuple[int | None, date]],
     lab_number: int,
     effective_deadline_lessons: int | None,
 ) -> date | None:

@@ -8,7 +8,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -38,10 +38,9 @@ class QueueItemResponse(BaseModel):
     lab_number: int
     lab_title: str
     variant_number: int | None
-    ready_at: datetime
+    ready_at: datetime | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LabQueueResponse(BaseModel):
@@ -105,8 +104,7 @@ class SubmissionDetailResponse(BaseModel):
     max_allowed_grade: int = 5  # Максимальная оценка с учётом дедлайна (2-5)
     deadline_trace: SubmissionDeadlineTraceResponse | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 def _serialize_deadline_trace(trace: DeadlineTrace | None) -> SubmissionDeadlineTraceResponse | None:

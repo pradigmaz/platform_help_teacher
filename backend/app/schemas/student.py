@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class StudentLabSubmission(BaseModel):
@@ -49,5 +49,4 @@ class StudentProfileOut(BaseModel):
     labs: list[StudentLabSubmission] = []
     stats: StudentStats = StudentStats()
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

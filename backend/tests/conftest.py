@@ -27,7 +27,7 @@ async def mock_db() -> AsyncGenerator[AsyncMock, None]:
 def sample_group() -> models.Group:
     """Sample group for testing."""
     from uuid import uuid4
-    from datetime import datetime
+    from datetime import UTC, datetime
     
     group = models.Group(
         id=uuid4(),
@@ -39,7 +39,7 @@ def sample_group() -> models.Group:
         default_max_grade=10,
         is_archived=False,
     )
-    group.created_at = datetime.utcnow()
+    group.created_at = datetime.now(UTC)
     return group
 
 

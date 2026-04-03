@@ -43,6 +43,7 @@ class LessonSheetService:
                 db=db,
                 lesson=lesson,
                 payload=LessonSheetSaveRequest(
+                    lesson_work_number=None,
                     status=payload.status,
                     attendance_updates=item.attendance_updates,
                     grade_updates=[],

@@ -43,8 +43,8 @@ async def get_current_user(request: Request, db: Annotated[AsyncSession, Depends
 
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
+        raw_user_id = payload.get("sub")
+        if raw_user_id is None:
             logger.warning(f"Auth failed: no 'sub' in token | path={path} | ip={client_ip}")
             request.state.auth_error_reason = "invalid_token_no_sub"
             raise HTTPException(
@@ -52,6 +52,7 @@ async def get_current_user(request: Request, db: Annotated[AsyncSession, Depends
                 detail="Invalid token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        user_id = str(raw_user_id)
 
         # Track impersonation for audit
         impersonated_by = payload.get("impersonated_by")

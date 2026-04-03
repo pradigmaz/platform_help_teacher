@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.group import GradingScale
 
@@ -24,8 +24,7 @@ class StudentInGroupResponse(BaseModel):
     subgroup: Literal[1, 2] | None = None
     is_active: bool = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Обновление студента
@@ -84,8 +83,7 @@ class GroupResponse(BaseModel):
     default_max_grade: int | None = None
     has_subgroups: bool = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Детальный ответ группы со студентами
@@ -102,5 +100,4 @@ class GroupDetailResponse(BaseModel):
     default_max_grade: int | None = None
     has_subgroups: bool = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

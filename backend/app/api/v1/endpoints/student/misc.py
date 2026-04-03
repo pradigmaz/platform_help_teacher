@@ -1,8 +1,10 @@
 """Student misc endpoints - contacts, semesters."""
 
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
@@ -11,6 +13,21 @@ from app.models.group import Group
 from app.models.user import User
 
 router = APIRouter()
+
+
+async def _get_group_teacher(db: AsyncSession, group_id: UUID) -> User | None:
+    from app.models.teacher_subject import TeacherSubjectAssignment
+
+    result = await db.execute(
+        select(User)
+        .join(TeacherSubjectAssignment, TeacherSubjectAssignment.teacher_id == User.id)
+        .where(
+            TeacherSubjectAssignment.group_id == group_id,
+            TeacherSubjectAssignment.is_active.is_(True),
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
 
 
 @router.get("/teacher/contacts")
@@ -26,10 +43,10 @@ async def get_teacher_contacts(
         return {"contacts": None}
 
     group = await db.get(Group, current_user.group_id)
-    if not group or not group.teacher_id:
+    if not group:
         return {"contacts": None}
 
-    teacher = await db.get(User, group.teacher_id)
+    teacher = await _get_group_teacher(db, group.id)
     if not teacher:
         return {"contacts": None}
 
@@ -67,11 +84,11 @@ async def get_available_semesters(
     group = await db.get(Group, current_user.group_id)
     hide_previous = True
 
-    if group and group.teacher_id:
-        teacher = await db.get(User, group.teacher_id)
+    if group:
+        teacher = await _get_group_teacher(db, group.id)
         if teacher:
-            settings = teacher.teacher_settings or {}
-            hide_previous = settings.get("hide_previous_semester", True)
+            teacher_settings = teacher.teacher_settings or {}
+            hide_previous = teacher_settings.get("hide_previous_semester", True)
 
     # Используем async версию для получения семестра из настроек
     current_year, current_sem = await get_current_semester_from_settings(db)

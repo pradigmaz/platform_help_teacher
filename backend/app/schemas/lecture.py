@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.constants import LECTURE_MAX_IMAGES_RESPONSE
 
@@ -36,8 +36,7 @@ class LectureImageResponse(BaseModel):
     size_bytes: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SubjectBrief(BaseModel):
@@ -45,8 +44,7 @@ class SubjectBrief(BaseModel):
     name: str
     code: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LectureCreate(BaseModel):
@@ -100,8 +98,7 @@ class LectureResponse(BaseModel):
     images: list[LectureImageResponse] = Field(default_factory=list)
     images_total: int | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="after")
     def limit_images(self):
@@ -121,8 +118,7 @@ class LectureListResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PublicLinkResponse(BaseModel):

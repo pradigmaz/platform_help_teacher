@@ -130,7 +130,9 @@ def build_student_attendance_snapshots(
             relevant_lessons.extend(subgroup_lessons.get(student.subgroup, ()))
 
         key_by_id = {lesson.id: lesson_key(lesson) for lesson in relevant_lessons}
-        key_by_slot = {(lesson.date, lesson.lesson_number): lesson_key(lesson) for lesson in relevant_lessons}
+        key_by_slot: dict[LessonSlot, str] = {
+            (lesson.date, lesson.lesson_number): lesson_key(lesson) for lesson in relevant_lessons
+        }
         statuses_by_lesson_key = {lesson_key(lesson): AttendanceStatus.ABSENT for lesson in relevant_lessons}
         lesson_ids, legacy_slots = get_lesson_slot_sets(relevant_lessons)
 

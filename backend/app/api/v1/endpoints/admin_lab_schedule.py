@@ -38,7 +38,7 @@ class ScheduleSlot(BaseModel):
 class AttachmentBlockInfo(BaseModel):
     """Информация о блокировке привязки."""
 
-    blocking_lab_number: int
+    blocking_lab_number: int | None
     can_attach_from: date | None
     message: str
 

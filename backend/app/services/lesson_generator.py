@@ -3,6 +3,7 @@
 """
 
 import logging
+from typing import cast
 from datetime import date, timedelta
 from uuid import UUID
 
@@ -83,7 +84,7 @@ class LessonGenerator:
                 lesson = await lesson_crud.get_or_create(
                     db,
                     group_id=group_id,
-                    schedule_item_id=item.id,
+                    schedule_item_id=cast(UUID, item.id),
                     date=current,
                     lesson_number=item.lesson_number,
                     lesson_type=item.lesson_type,

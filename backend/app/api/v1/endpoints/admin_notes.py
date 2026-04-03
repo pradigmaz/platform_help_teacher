@@ -25,7 +25,7 @@ async def get_notes(
 ):
     """Получить заметки для сущности."""
     notes = await crud_note.get_by_entity(db, entity_type.value, entity_id)
-    return NotesListResponse(notes=notes, count=len(notes))
+    return NotesListResponse(notes=[NoteResponse.model_validate(note) for note in notes], count=len(notes))
 
 
 @router.post("/batch")

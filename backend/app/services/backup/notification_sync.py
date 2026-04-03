@@ -5,7 +5,7 @@ Synchronous backup notifications for Celery workers.
 import logging
 from pathlib import Path
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 from app.core.config import settings
 from app.core.time_constants import BACKUP_UPLOAD_TIMEOUT_SECONDS, TELEGRAM_NOTIFICATION_TIMEOUT_SECONDS
@@ -88,14 +88,14 @@ def notify_backup_failure_sync(
     if not telegram_id or not settings.TELEGRAM_BOT_TOKEN:
         return NotificationResult(success=False, error="No admin Telegram ID or bot token configured")
 
-    payload = {"chat_id": telegram_id, "text": f"❌ Ошибка создания бэкапа\n\n{error[:500]}"}
+    message_text = f"❌ Ошибка создания бэкапа\n\n{error[:500]}"
     if traceback_text:
-        payload["text"] += "\n\nПолный traceback сохранён в логах worker."
+        message_text += "\n\nПолный traceback сохранён в логах worker."
 
     try:
         response = requests.post(
             f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage",
-            json=payload,
+            json={"chat_id": telegram_id, "text": message_text},
             timeout=TELEGRAM_NOTIFICATION_TIMEOUT_SECONDS,
         )
         if response.status_code == 200:

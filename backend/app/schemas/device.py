@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DeviceBase(BaseModel):
@@ -49,8 +49,7 @@ class DeviceResponse(DeviceBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DevicePublicResponse(BaseModel):
@@ -64,8 +63,7 @@ class DevicePublicResponse(BaseModel):
     is_trusted: bool
     confirmed_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DeviceListResponse(BaseModel):

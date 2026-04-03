@@ -104,7 +104,7 @@ async def get_audit_logs(
             user_agent=log.user_agent,
             fingerprint=log.fingerprint,
             created_at=log.created_at,
-            suspicion=suspicions.get(log.id).to_dict() if log.id in suspicions else None,
+                suspicion=suspicions[log.id].to_dict() if log.id in suspicions and suspicions[log.id] is not None else None,
         )
         for log in logs
     ]

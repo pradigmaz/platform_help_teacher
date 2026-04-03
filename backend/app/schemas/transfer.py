@@ -4,7 +4,7 @@ from datetime import date
 from enum import Enum
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AttestationType(str, Enum):
@@ -56,8 +56,7 @@ class TransferResponse(BaseModel):
     activity_points: float
     created_at: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Краткая информация о переводе для списка
@@ -70,8 +69,7 @@ class TransferSummary(BaseModel):
     transfer_date: date
     attestation_type: AttestationType
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Список переводов студента

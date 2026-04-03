@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import Response
 from fastapi_csrf_protect import CsrfProtect
 from pydantic_settings import BaseSettings
@@ -6,7 +8,7 @@ from app.core.config import settings
 
 # Конфиг CSRF
 CSRF_COOKIE_KEY = "fastapi-csrf-token"
-CSRF_COOKIE_SAMESITE = "lax"
+CSRF_COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
 CSRF_COOKIE_SECURE = settings.ENVIRONMENT == "production"
 CSRF_COOKIE_HTTPONLY = False  # JS должен читать cookie
 CSRF_COOKIE_PATH = "/"
@@ -15,7 +17,7 @@ CSRF_COOKIE_DOMAIN: str | None = settings.COOKIE_DOMAIN
 
 class CsrfSettings(BaseSettings):
     secret_key: str = settings.SECRET_KEY
-    cookie_samesite: str = CSRF_COOKIE_SAMESITE
+    cookie_samesite: Literal["lax", "strict", "none"] = CSRF_COOKIE_SAMESITE
     cookie_secure: bool = CSRF_COOKIE_SECURE
     cookie_httponly: bool = CSRF_COOKIE_HTTPONLY
     cookie_path: str = CSRF_COOKIE_PATH
@@ -26,7 +28,7 @@ class CsrfSettings(BaseSettings):
 
 
 @CsrfProtect.load_config
-def get_csrf_config():
+def get_csrf_config() -> CsrfSettings:
     return CsrfSettings()
 
 

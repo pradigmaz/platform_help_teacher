@@ -64,7 +64,7 @@ def _apply_header_style(cell) -> None:
     cell.border = THIN_BORDER
 
 
-def _apply_cell_style(cell, status: str = None) -> None:
+def _apply_cell_style(cell, status: str | None = None) -> None:
     """Применить стиль к ячейке данных."""
     cell.alignment = CELL_ALIGNMENT
     cell.border = THIN_BORDER
@@ -171,7 +171,7 @@ def generate_grades_sheet(wb: Workbook, data: JournalExportData) -> None:
     headers = ["№", "ФИО", "Подгр."]
 
     # Собираем уникальные ключи работ из всех строк
-    work_keys = set()
+    work_keys: set[str] = set()
     for row_data in data.grade_rows:
         work_keys.update(row_data.grades_by_work.keys())
 
@@ -270,7 +270,7 @@ def generate_summary_sheet(wb: Workbook, data: JournalExportData) -> None:
     # Средняя оценка группы
     grades_with_avg = [r for r in data.grade_rows if r.average_grade is not None]
     if grades_with_avg:
-        avg_grade = sum(r.average_grade for r in grades_with_avg) / len(grades_with_avg)
+        avg_grade = sum(r.average_grade for r in grades_with_avg if r.average_grade is not None) / len(grades_with_avg)
         info_rows.append(("Средняя оценка:", f"{avg_grade:.2f}"))
 
     # Записываем данные

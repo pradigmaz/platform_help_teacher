@@ -1,6 +1,7 @@
 """Accepted submission fallbacks for attestation lab scoring."""
 
 from collections import defaultdict
+from typing import cast as type_cast
 from uuid import UUID
 
 from sqlalchemy import Date, cast, func, or_, select
@@ -61,7 +62,8 @@ async def get_student_submission_grade_fallbacks(
     """Load accepted submissions that can fill missing journal grades."""
     query = _build_submission_fallback_query(Submission.user_id == student_id, group_id, settings, subject_id)
     result = await db.execute(query)
-    return dedupe_submission_lab_grades(result.all())
+    rows = type_cast(list[tuple[Submission, UUID | None, int | None]], result.all())
+    return dedupe_submission_lab_grades(rows)
 
 
 async def get_submission_grade_fallbacks_batch(
@@ -79,7 +81,8 @@ async def get_submission_grade_fallbacks_batch(
     result = await db.execute(query)
 
     rows_by_student: dict[UUID, list[tuple[Submission, UUID | None, int | None]]] = defaultdict(list)
-    for submission, row_subject_id, work_number in result.all():
+    rows = type_cast(list[tuple[Submission, UUID | None, int | None]], result.all())
+    for submission, row_subject_id, work_number in rows:
         rows_by_student[submission.user_id].append((submission, row_subject_id, work_number))
 
     return {student_id: dedupe_submission_lab_grades(rows) for student_id, rows in rows_by_student.items()}

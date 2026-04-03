@@ -17,6 +17,7 @@ from app.schemas.schedule import (
     ScheduleParseStatusResponse,
     ScheduleViewResponse,
 )
+from app.schemas.schedule_parser import ScheduleConflictResponse
 
 router = APIRouter()
 
@@ -36,7 +37,7 @@ async def get_schedule_view(
 
     return ScheduleViewResponse(
         parse_status=parse_status,
-        conflicts=conflicts,
+        conflicts=[ScheduleConflictResponse.model_validate(conflict) for conflict in conflicts],
         lessons=[
             LessonResponse(
                 id=row.id,

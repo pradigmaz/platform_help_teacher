@@ -2,7 +2,9 @@
 
 import json
 import logging
+from collections.abc import Mapping
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -20,24 +22,26 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _parse_device_info(device_payload: dict | str | None) -> DeviceInfo:
+def _parse_device_info(device_payload: dict[str, Any] | str | None) -> DeviceInfo:
     """Parse device info from stored device summary or legacy fingerprint JSON."""
     if not device_payload:
         return DeviceInfo()
 
-    raw_payload = device_payload
+    raw_payload: dict[str, Any] | str | None = device_payload
     if not isinstance(device_payload, dict):
         try:
-            raw_payload = json.loads(device_payload)
+            decoded = json.loads(device_payload)
+            raw_payload = decoded if isinstance(decoded, dict) else device_payload
         except (json.JSONDecodeError, TypeError):
             raw_payload = device_payload
 
-    if isinstance(raw_payload, dict) and isinstance(raw_payload.get("browser"), str):
-        screen = raw_payload.get("screen") if isinstance(raw_payload.get("screen"), dict) else {}
+    if isinstance(raw_payload, Mapping) and isinstance(raw_payload.get("browser"), str):
+        raw_screen = raw_payload.get("screen")
+        screen = raw_screen if isinstance(raw_screen, Mapping) else {}
         width = screen.get("width")
         height = screen.get("height")
         return DeviceInfo(
-            platform=raw_payload.get("platform"),
+            platform=raw_payload.get("platform") if isinstance(raw_payload.get("platform"), str) else None,
             browser=raw_payload.get("browser") or raw_payload.get("userAgent"),
             screen=f"{width}×{height}" if width and height else None,
         )

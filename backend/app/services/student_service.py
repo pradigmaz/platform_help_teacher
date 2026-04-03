@@ -25,7 +25,7 @@ class StudentService:
 
         # Получаем группу студента
         group_name = None
-        group_students = []
+        group_students: list[User] = []
         if student.group_id:
             group_result = await self.db.execute(select(Group).where(Group.id == student.group_id))
             group = group_result.scalar_one_or_none()
@@ -35,16 +35,16 @@ class StudentService:
             students_result = await self.db.execute(
                 select(User).where(User.group_id == student.group_id, User.role == "student")
             )
-            group_students = students_result.scalars().all()
+            group_students = list(students_result.scalars().all())
 
         # Получаем все лабы
         labs_result = await self.db.execute(select(Lab).order_by(Lab.created_at.desc()))
-        labs = labs_result.scalars().all()
+        labs = list(labs_result.scalars().all())
 
         # Получаем сдачи студента из submissions
         subs_result = await self.db.execute(select(Submission).where(Submission.user_id == student_id))
         submissions = subs_result.scalars().all()
-        subs_map = {sub.lab_id: sub for sub in submissions}
+        subs_map: dict[UUID, Submission] = {sub.lab_id: sub for sub in submissions}
 
         # Получаем оценки из lesson_grades (журнал)
         grades_map = await self._get_lesson_grades_map(student_id)
@@ -143,7 +143,7 @@ class StudentService:
         """
         Расчет статистики по лабам.
         """
-        labs_data = []
+        labs_data: list[StudentLabSubmission] = []
         stats = StudentStats()
         stats.labs_total = len(labs)
 

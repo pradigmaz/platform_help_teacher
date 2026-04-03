@@ -1,7 +1,8 @@
 import logging
 from contextlib import asynccontextmanager, suppress
+from typing import Callable, cast
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -120,7 +121,10 @@ app = FastAPI(
 
 # Rate Limiting
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(
+    RateLimitExceeded,
+    cast(Callable[[Request, Exception], Response], _rate_limit_exceeded_handler),
+)
 
 
 # CSRF Protection

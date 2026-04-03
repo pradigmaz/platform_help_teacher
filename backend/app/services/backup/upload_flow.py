@@ -5,6 +5,7 @@ Helpers for backup upload and offsite mirroring.
 import asyncio
 import logging
 from pathlib import Path
+from typing import cast
 
 from .remote_storage import BackupStorage
 from .storage_utils import BackupMetadata
@@ -24,7 +25,7 @@ async def annotate_offsite_presence(
         return_exceptions=True,
     )
     for backup, status in zip(backups, statuses, strict=False):
-        backup.offsite_present = False if isinstance(status, Exception) else status
+        backup.offsite_present = False if isinstance(status, BaseException) else cast(bool, status)
     return backups
 
 

@@ -77,7 +77,7 @@ class GroupService:
 
     async def _generate_unique_invite_codes_batch(self, count: int) -> list[str]:
         """Генерирует уникальные коды пачкой."""
-        unique_codes = set()
+        unique_codes: set[str] = set()
         attempts = 0
         max_attempts = 10
 
@@ -88,7 +88,7 @@ class GroupService:
 
             # Check existance in DB
             result = await self.db.execute(select(models.User.invite_code).where(models.User.invite_code.in_(batch)))
-            existing_codes = set(result.scalars().all())
+            existing_codes = {code for code in result.scalars().all() if code is not None}
 
             # Add only non-existing
             available = batch - existing_codes

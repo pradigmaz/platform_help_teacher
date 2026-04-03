@@ -3,6 +3,7 @@
 """
 
 import logging
+from typing import Any, cast
 from datetime import date, timedelta
 
 from app.services.external_api import ExternalAPIError, kis_client
@@ -112,17 +113,17 @@ class SyncScheduleParser:
 
     def fetch_schedule(self, teacher_name: str, target_date: date) -> str:
         """Получить HTML расписания на дату (синхронно)"""
-        import requests
+        import requests  # type: ignore[import-untyped]
         from tenacity import retry, stop_after_attempt, wait_exponential
 
         url = f"{self._base_url}/schedule"
         params = {"teacher": teacher_name, "date": target_date.isoformat()}
 
         @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
-        def _fetch():
+        def _fetch() -> str:
             response = requests.get(url, params=params, timeout=self._timeout)
             response.raise_for_status()
-            return response.text
+            return cast(str, response.text)
 
         try:
             return _fetch()
@@ -163,7 +164,9 @@ class SyncScheduleParser:
                 unique.append(lesson)
         return unique
 
-    def parse_and_import_sync(self, db, teacher_name: str, start_date: date, end_date: date) -> dict:
+    def parse_and_import_sync(
+        self, db: Any, teacher_name: str, start_date: date, end_date: date
+    ) -> dict[str, int | list[str]]:
         """
         Парсинг и импорт расписания в БД (синхронно).
         Упрощённая версия для Celery tasks.
@@ -176,19 +179,16 @@ class SyncScheduleParser:
 
         parsed_lessons = self.parse_range(teacher_name, start_date, end_date)
 
-        stats = {
-            "total_parsed": len(parsed_lessons),
-            "groups_created": 0,
-            "lessons_created": 0,
-            "lessons_updated": 0,
-            "lessons_skipped": 0,
-            "conflicts_created": 0,
-            "groups": set(),
-        }
+        group_names: set[str] = set()
+        groups_created = 0
+        lessons_created = 0
+        lessons_updated = 0
+        lessons_skipped = 0
+        conflicts_created = 0
 
         for parsed in parsed_lessons:
             for group_name in parsed.groups:
-                stats["groups"].add(group_name)
+                group_names.add(group_name)
 
                 # Получаем или создаём группу
                 result = db.execute(select(Group).where(Group.name == group_name))
@@ -199,7 +199,7 @@ class SyncScheduleParser:
                     group = Group(name=group_name, code=code)
                     db.add(group)
                     db.flush()
-                    stats["groups_created"] += 1
+                    groups_created += 1
 
                 # Проверяем существование занятия
                 existing = db.execute(
@@ -212,7 +212,7 @@ class SyncScheduleParser:
                 ).scalar_one_or_none()
 
                 if existing:
-                    stats["lessons_skipped"] += 1
+                    lessons_skipped += 1
                     continue
 
                 lesson = Lesson(
@@ -224,11 +224,18 @@ class SyncScheduleParser:
                     lesson_type=LessonType(parsed.lesson_type) if parsed.lesson_type else LessonType.LECTURE,
                 )
                 db.add(lesson)
-                stats["lessons_created"] += 1
+                lessons_created += 1
 
         db.commit()
-        stats["groups"] = list(stats["groups"])
-        return stats
+        return {
+            "total_parsed": len(parsed_lessons),
+            "groups_created": groups_created,
+            "lessons_created": lessons_created,
+            "lessons_updated": lessons_updated,
+            "lessons_skipped": lessons_skipped,
+            "conflicts_created": conflicts_created,
+            "groups": list(group_names),
+        }
 
 
 # Синхронный singleton

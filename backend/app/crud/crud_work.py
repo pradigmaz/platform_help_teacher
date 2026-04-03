@@ -1,6 +1,7 @@
 """CRUD операции для модели Work."""
 
 import logging
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -21,7 +22,7 @@ class CRUDWork:
         work_type: WorkType,
         max_grade: int = 10,
         description: str | None = None,
-        deadline: str | None = None,
+        deadline: datetime | None = None,
         s3_key: str | None = None,
     ) -> Work:
         db_obj = Work(
@@ -62,7 +63,7 @@ class CRUDWork:
         title: str | None = None,
         description: str | None = None,
         max_grade: int | None = None,
-        deadline: str | None = None,
+        deadline: datetime | None = None,
         s3_key: str | None = None,
     ) -> Work:
         if title is not None:

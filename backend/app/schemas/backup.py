@@ -5,7 +5,7 @@ Pydantic schemas for backup API.
 import re
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # Security: Only allow safe backup key format
 SAFE_BACKUP_KEY_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,100}\.enc$")
@@ -45,8 +45,7 @@ class BackupInfo(BaseModel):
     created_with_current_key: bool | None = None
     offsite_present: bool | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BackupListResponse(BaseModel):
@@ -127,8 +126,7 @@ class BackupSettingsSchema(BaseModel):
     notify_on_success: bool = False
     notify_on_failure: bool = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BackupSettingsUpdate(BaseModel):

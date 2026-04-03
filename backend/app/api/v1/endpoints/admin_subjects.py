@@ -3,10 +3,11 @@ API endpoints для управления предметами.
 """
 
 import logging
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -33,8 +34,7 @@ class SubjectResponse(BaseModel):
     description: str | None
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TeacherSubjectResponse(BaseModel):
@@ -112,10 +112,10 @@ async def get_teacher_subjects(
     for a in assignments:
         result.append(
             TeacherSubjectResponse(
-                id=a.id,
-                subject_id=a.subject_id,
+                id=cast(UUID, a.id),
+                subject_id=cast(UUID, a.subject_id),
                 subject_name=a.subject.name if a.subject else "Unknown",
-                group_id=a.group_id,
+                group_id=cast(UUID | None, a.group_id),
                 group_name=a.group.name if a.group else None,
                 semester=a.semester,
                 is_active=a.is_active,

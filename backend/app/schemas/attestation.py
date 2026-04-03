@@ -6,7 +6,7 @@ Pydantic схемы для API аттестации.
 from datetime import UTC, date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.attestation_settings import AttestationType
 from app.schemas.group import GroupResponse
@@ -121,8 +121,7 @@ class AttestationSettingsResponse(AttestationSettingsBase):
     calculated_period_start: date | None = Field(default=None)
     calculated_period_end: date | None = Field(default=None)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============== Calculation Result Schemas ==============
@@ -198,8 +197,7 @@ class AttestationResultResponse(AttestationResult):
 
     calculated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class GroupAttestationResponse(BaseModel):

@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GradingScale(str, Enum):
@@ -15,8 +15,7 @@ class LabSettingsResponse(BaseModel):
     default_max_grade: int
     is_configured: bool = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LabSettingsUpdate(BaseModel):

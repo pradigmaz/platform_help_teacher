@@ -10,7 +10,7 @@ from app.core.limiter import limiter
 from app.models.lab import Lab
 from app.models.submission import Submission
 from app.models.user import User
-from app.schemas.lab import LabResponse
+from app.schemas.lab import LabResponse, SubmissionDTO
 from app.services.lab_service import lab_service
 
 router = APIRouter()
@@ -58,7 +58,8 @@ async def get_labs_with_status(
     response = []
     for lab in labs:
         lab_dto = LabResponse.model_validate(lab)
-        lab_dto.my_submission = subs_map.get(lab.id)
+        submission = subs_map.get(lab.id)
+        lab_dto.my_submission = SubmissionDTO.model_validate(submission) if submission is not None else None
         response.append(lab_dto)
 
     return response

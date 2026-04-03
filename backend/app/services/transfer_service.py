@@ -22,6 +22,7 @@ from app.models import (
 from app.models.attestation_settings import AttestationType
 from app.models.schedule import LessonType
 from app.schemas.transfer import (
+    AttestationType as TransferAttestationType,
     AttendanceSnapshot,
     LabGradeSnapshot,
     StudentTransfersResponse,
@@ -316,7 +317,7 @@ class TransferService:
                     to_group_name=t.to_group.name if t.to_group else None,
                     to_subgroup=t.to_subgroup,
                     transfer_date=t.transfer_date,
-                    attestation_type=t.attestation_type.value,
+                    attestation_type=TransferAttestationType(t.attestation_type.value),
                 )
                 for t in transfers
             ],

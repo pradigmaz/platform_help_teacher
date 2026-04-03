@@ -1,5 +1,6 @@
 import contextlib
 import logging
+from typing import Any, cast
 
 from aioboto3 import Session
 from fastapi import HTTPException
@@ -11,7 +12,7 @@ from app.utils.file_validation import validate_filename, validate_magic_bytes
 logger = logging.getLogger(__name__)
 
 
-def validate_file(filename: str, content_type: str = None, content: bytes = None) -> str:
+def validate_file(filename: str, content_type: str | None = None, content: bytes | None = None) -> str | None:
     """
     Validate file extension, MIME type, and magic bytes.
 
@@ -75,9 +76,9 @@ class StorageService:
     async def create_presigned_upload_url(
         self,
         object_name: str,
-        content_type: str = None,
-        content: bytes = None,
-        max_size: int = None,
+        content_type: str | None = None,
+        content: bytes | None = None,
+        max_size: int | None = None,
     ) -> str:
         """
         Генерирует ссылку для загрузки файла (PUT).
@@ -96,7 +97,7 @@ class StorageService:
         )
         validate_file(filename_only, content_type, content)
 
-        params = {"Bucket": self.bucket, "Key": object_name}
+        params: dict[str, Any] = {"Bucket": self.bucket, "Key": object_name}
 
         # Добавляем ContentType для enforcement в S3/MinIO
         if content_type:
@@ -113,7 +114,7 @@ class StorageService:
                 ExpiresIn=self.expiry,
             )
         logger.info(f"[Attachment] Presigned URL generated successfully for: {object_name}")
-        return url
+        return cast(str, url)
 
     async def create_presigned_download_url(self, object_name: str) -> str:
         """Генерирует ссылку для скачивания (GET)"""
@@ -126,7 +127,7 @@ class StorageService:
                     ExpiresIn=self.expiry,
                 )
                 logger.info(f"[Attachment] Presigned download URL generated successfully for: {object_name}")
-                return url
+                return cast(str, url)
             except Exception as e:
                 logger.error(f"[Attachment] Failed to generate download URL for {object_name}: {e}")
                 raise

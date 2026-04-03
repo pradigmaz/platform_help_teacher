@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.crud_subject import get_or_create_assignment_from_schedule, get_or_create_subject
 from app.models.group import Group
+from app.models.user import User
 from app.services.lesson_importer import LessonImporter
 from app.services.schedule_parser import ParsedLesson, get_parser
 from app.services.semester_utils import detect_semester_end, find_teacher, get_semester
@@ -106,12 +107,12 @@ class ScheduleImportService:
     async def _process_lesson(
         self,
         parsed: ParsedLesson,
-        teacher: object | None,
+        teacher: User | None,
         semester: str,
         smart_update: bool,
         stats: dict,
         group_parsed_keys: dict,
-    ):
+    ) -> None:
         """Обработать одно занятие"""
         subject_id = None
         if parsed.subject:

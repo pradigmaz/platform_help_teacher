@@ -1,6 +1,7 @@
 import logging
 
 from redis import asyncio as aioredis
+from redis.asyncio.connection import ConnectionPool
 
 from app.core.config import settings
 from app.core.time_constants import (
@@ -12,7 +13,7 @@ from app.core.time_constants import (
 
 logger = logging.getLogger(__name__)
 
-redis_pool = None
+redis_pool: ConnectionPool | None = None
 
 
 async def get_redis() -> aioredis.Redis:

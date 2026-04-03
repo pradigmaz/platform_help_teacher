@@ -25,8 +25,8 @@ class AttestationCalculator:
         self,
         lesson_grades: list[LessonGrade],
         settings: AttestationSettings,
-        transfer_grades: list[dict] = None,
-        submission_grades: list[dict] = None,
+        transfer_grades: list[dict] | None = None,
+        submission_grades: list[dict] | None = None,
     ) -> LabScoreResult:
         """Расчёт баллов за лабораторные (с учётом снапшотов переводов)"""
         return self._lab_calc.calculate(lesson_grades, settings, transfer_grades, submission_grades)
@@ -36,7 +36,7 @@ class AttestationCalculator:
         attendance_records: list[Attendance],
         settings: AttestationSettings,
         expected_lessons: int,
-        transfer_attendance: dict = None,
+        transfer_attendance: dict[str, int] | None = None,
     ) -> AttendanceScoreResult:
         """Расчёт баллов за посещаемость (фиксированные баллы за занятие)"""
         return self._attendance_calc.calculate(attendance_records, settings, expected_lessons, transfer_attendance)
@@ -114,10 +114,10 @@ class AttestationCalculator:
             is_last = i == len(sorted_grades) - 1
             if is_last:
                 if min_val <= score <= max_val:
-                    return grade_name
+                    return str(grade_name)
             else:
                 if min_val <= score < max_val:
-                    return grade_name
+                    return str(grade_name)
 
         if score > attestation_type.max_points:
             return "отл"

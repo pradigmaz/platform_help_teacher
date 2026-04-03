@@ -76,7 +76,7 @@ async def export_audit_logs(
             if not logs:
                 break
 
-            users_map = await _load_users_map(db, logs)
+            users_map = await _load_users_map(db, list(logs))
 
             for log in logs:
                 record = {

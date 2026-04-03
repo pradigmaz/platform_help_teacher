@@ -1,6 +1,7 @@
 """Расчёт видимости и дедлайнов лаб по расписанию."""
 
 import logging
+from collections.abc import Sequence
 from datetime import date
 from uuid import UUID
 
@@ -96,13 +97,13 @@ async def calculate_visibility_for_subject(
 def _calculate_single_lab_visibility(
     lab_number: int,
     lab_dates: dict[int, tuple[date, date]],
-    ordered_lessons: list[tuple[int, date, int]],
+    ordered_lessons: Sequence[tuple[int | None, date, int]],
     labs_deadlines: dict[int, tuple],
     labs_ids: dict[int, UUID],
     extensions_map: dict[UUID, int],
     excused_lab_numbers: set[int],
     today: date,
-    ordered_lessons_for_trace: list[tuple[int | None, date]] | None = None,
+    ordered_lessons_for_trace: Sequence[tuple[int | None, date]] | None = None,
 ) -> LabVisibilityInfo:
     """Рассчитать видимость и дедлайны для одной лабы."""
     dates = lab_dates.get(lab_number)

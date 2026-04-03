@@ -5,6 +5,7 @@ Remote storage abstraction for encrypted backups.
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from aioboto3 import Session
 
@@ -146,7 +147,7 @@ class BackupStorage:
         object_metadata: dict[str, str] | None,
         delete_on_failure: bool,
     ) -> None:
-        upload_kwargs = {"Filename": str(local_path), "Bucket": self.bucket, "Key": remote_key}
+        upload_kwargs: dict[str, Any] = {"Filename": str(local_path), "Bucket": self.bucket, "Key": remote_key}
         if object_metadata:
             upload_kwargs["ExtraArgs"] = {"Metadata": normalize_object_metadata(object_metadata)}
         await client.upload_file(**upload_kwargs)
@@ -173,7 +174,7 @@ class BackupStorage:
         verify: bool,
         object_metadata: dict[str, str] | None,
     ) -> None:
-        upload_kwargs = {"Filename": str(local_path), "Bucket": self.bucket, "Key": remote_key}
+        upload_kwargs: dict[str, Any] = {"Filename": str(local_path), "Bucket": self.bucket, "Key": remote_key}
         if object_metadata:
             upload_kwargs["ExtraArgs"] = {"Metadata": normalize_object_metadata(object_metadata)}
         client.upload_file(**upload_kwargs)

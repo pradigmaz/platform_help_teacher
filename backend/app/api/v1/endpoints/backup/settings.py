@@ -31,6 +31,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _serialize_backup_settings(settings_model: BackupSettings | None) -> BackupSettingsSchema:
+    if settings_model is None:
+        return BackupSettingsSchema(
+            enabled=True,
+            schedule_hour=17,
+            schedule_minute=0,
+            retention_days=30,
+            max_backups=10,
+            notify_on_success=False,
+            notify_on_failure=True,
+        )
+
+    return BackupSettingsSchema(
+        enabled=settings_model.enabled,
+        schedule_hour=settings_model.schedule_hour,
+        schedule_minute=settings_model.schedule_minute,
+        retention_days=settings_model.retention_days,
+        max_backups=settings_model.max_backups,
+        notify_on_success=settings_model.notify_on_success,
+        notify_on_failure=settings_model.notify_on_failure,
+    )
+
+
 @router.get("/settings", response_model=BackupSettingsSchema)
 async def get_backup_settings(
     current_user: User = Depends(get_current_active_superuser),
@@ -39,11 +62,7 @@ async def get_backup_settings(
     """Get current backup settings."""
     result = await db.execute(select(BackupSettings).where(BackupSettings.id == 1))
     db_settings = result.scalar_one_or_none()
-
-    if not db_settings:
-        return BackupSettingsSchema()
-
-    return BackupSettingsSchema.model_validate(db_settings)
+    return _serialize_backup_settings(db_settings)
 
 
 @router.put("/settings", response_model=BackupSettingsSchema)
@@ -68,7 +87,7 @@ async def update_backup_settings(
     await db.refresh(db_settings)
 
     logger.info(f"Backup settings updated by {current_user.id}: {update_data}")
-    return BackupSettingsSchema.model_validate(db_settings)
+    return _serialize_backup_settings(db_settings)
 
 
 def _merge_health_status(current: str, new_status: str) -> str:

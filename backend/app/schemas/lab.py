@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.constants import (
     LAB_CONTENT_MAX_SIZE_BYTES,
@@ -37,8 +37,7 @@ class SubmissionDTO(BaseModel):
     s3_key: str | None = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # === Lab Create/Update Schemas ===
@@ -150,8 +149,7 @@ class LabOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LabResponse(BaseModel):
@@ -166,8 +164,7 @@ class LabResponse(BaseModel):
     s3_key: str | None = None
     my_submission: SubmissionDTO | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LabDetailResponse(BaseModel):
@@ -194,8 +191,7 @@ class LabDetailResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PublishLabResponse(BaseModel):

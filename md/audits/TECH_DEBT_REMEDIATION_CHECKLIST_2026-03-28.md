@@ -463,14 +463,21 @@ Exit criteria:
 
 ### Wave 2. Backend Debt Burn-Down
 
-- [ ] Refactor `rate_limit` typing/orchestration cluster
-- [ ] Refactor report aggregation formula and helper split
-- [ ] Start backup/restore service decomposition
-- [ ] Reduce top mypy clusters by root cause
+- [x] Refactor `rate_limit` typing/orchestration cluster
+- [x] Refactor report aggregation formula and helper split
+- [x] Start backup/restore service decomposition
+- [x] Reduce top mypy clusters by root cause
 
 Exit criteria:
 
-- top backend hotspots stop dominating both type debt and future change risk
+- [x] top backend hotspots stop dominating both type debt and future change risk
+
+Evidence:
+
+- `backend/app` passes `mypy` cleanly (`0` errors)
+- mypy regression gate reports `0 tracked errors, 0 regressions`
+- `mypy-baseline.txt` was refreshed to a zero-error baseline
+- warning-gated backend smoke/contract slice passes with `123 passed` under `-W error::DeprecationWarning`
 
 ### Wave 3. Frontend Debt Burn-Down
 

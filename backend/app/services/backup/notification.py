@@ -9,6 +9,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Protocol
 
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
@@ -20,6 +21,18 @@ from app.core.config import settings
 from .notification_templates import build_backup_caption, build_recovery_code_message
 
 logger = logging.getLogger(__name__)
+
+
+class _VkUploadProtocol(Protocol):
+    def document_message(self, file_path: str, *, title: str, peer_id: int) -> dict[str, Any]: ...
+
+
+class _VkMessagesProtocol(Protocol):
+    def send(self, *, peer_id: int, message: str, attachment: str, random_id: int) -> Any: ...
+
+
+class _VkApiProtocol(Protocol):
+    messages: _VkMessagesProtocol
 
 
 @dataclass
@@ -38,8 +51,8 @@ class BackupNotificationService:
     def __init__(self):
         self._bot: Bot | None = None
         self._vk_session = None
-        self._vk_api = None
-        self._vk_upload = None
+        self._vk_api: _VkApiProtocol | None = None
+        self._vk_upload: _VkUploadProtocol | None = None
 
     @property
     def bot(self) -> Bot:
@@ -113,6 +126,12 @@ class BackupNotificationService:
         try:
             import vk_api.utils
 
+            vk_upload = self._vk_upload
+            vk_api_client = self._vk_api
+            if vk_upload is None or vk_api_client is None:
+                logger.warning("VK bot is not fully initialized")
+                return False
+
             caption = (
                 "🔐 Резервная копия БД\n\n"
                 f"📦 {backup_name}\n"
@@ -122,12 +141,12 @@ class BackupNotificationService:
             loop = asyncio.get_event_loop()
             document = await loop.run_in_executor(
                 None,
-                lambda: self._vk_upload.document_message(str(file_path), title=backup_name, peer_id=admin_vk_id),
+                lambda: vk_upload.document_message(str(file_path), title=backup_name, peer_id=admin_vk_id),
             )
             attachment = f"doc{document['doc']['owner_id']}_{document['doc']['id']}"
             await loop.run_in_executor(
                 None,
-                lambda: self._vk_api.messages.send(
+                lambda: vk_api_client.messages.send(
                     peer_id=admin_vk_id,
                     message=caption,
                     attachment=attachment,

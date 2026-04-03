@@ -6,6 +6,7 @@ IP Ban Middleware — временная блокировка IP после мн
 """
 
 import logging
+from collections.abc import Awaitable, Callable
 from uuid import UUID
 
 import jwt
@@ -32,7 +33,7 @@ class IPBanMiddleware(BaseHTTPMiddleware):
     4. Добавляем warning header если нужно
     """
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         ip = self._get_client_ip(request)
 
         if not ip:
@@ -43,7 +44,7 @@ class IPBanMiddleware(BaseHTTPMiddleware):
 
         service = get_rate_limit_service()
 
-        response = None
+        response: Response | None = None
         response_received = False
 
         try:
@@ -86,7 +87,7 @@ class IPBanMiddleware(BaseHTTPMiddleware):
                 logger.error(f"IPBanMiddleware error: {e}")
 
             # Если response уже получен — возвращаем его, иначе вызываем call_next
-            if response_received:
+            if response_received and response is not None:
                 return response
             return await call_next(request)
 

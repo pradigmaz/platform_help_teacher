@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 from datetime import date
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, false, or_, tuple_
@@ -26,7 +27,7 @@ def get_lesson_slot_sets(lessons: Iterable[Lesson]) -> tuple[set[UUID], set[Less
 def build_attendance_slot_filter(lessons: Iterable[Lesson]):
     """Return a SQLAlchemy filter matching attendance for the provided lessons."""
     lesson_ids, legacy_slots = get_lesson_slot_sets(lessons)
-    filters = []
+    filters: list[Any] = []
 
     if lesson_ids:
         filters.append(Attendance.lesson_id.in_(list(lesson_ids)))

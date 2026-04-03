@@ -5,6 +5,7 @@ Security: Защита от file upload attacks.
 
 import logging
 from pathlib import Path
+from typing import cast
 
 import magic
 from fastapi import HTTPException
@@ -74,8 +75,9 @@ def validate_magic_bytes(content: bytes, claimed_mime: str | None = None) -> str
         raise HTTPException(status_code=400, detail=em.FILE_TOO_SMALL)
 
     # Используем python-magic для определения типа
+    detected_mime: str | None
     try:
-        detected_mime = magic.from_buffer(content[:8192], mime=True)
+        detected_mime = cast(str, magic.from_buffer(content[:8192], mime=True))
     except Exception as e:
         logger.warning(f"Magic detection failed: {e}")
         # Fallback на ручную проверку сигнатур

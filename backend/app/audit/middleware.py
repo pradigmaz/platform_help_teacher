@@ -5,7 +5,7 @@ Middleware для автоматического сбора аудит-данн�
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from uuid import UUID, uuid4
 
 import jwt
@@ -68,7 +68,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
     Действия преподавателей/админов логируются отдельно (admin paths).
     """
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Проверяем, нужно ли логировать этот путь
         if not should_audit(request.url.path):
             return await call_next(request)

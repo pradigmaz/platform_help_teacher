@@ -3,13 +3,14 @@
 """
 
 import logging
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bots.telegram_bot import bot
-from app.models.user import User
+from app.models.user import User, UserRole
 
 from .constants import MESSAGES, WarningLevel
 from .models import RateLimitWarning
@@ -32,7 +33,7 @@ async def notify_admins_about_violation(
         # Получаем админов с telegram_id
         result = await db.execute(
             select(User).where(
-                User.is_superuser,
+                User.role == UserRole.ADMIN,
                 User.telegram_id.isnot(None),
             )
         )
@@ -70,8 +71,11 @@ async def notify_admins_about_violation(
         # Отправляем всем админам
         sent = False
         for admin in admins:
+            telegram_id = admin.telegram_id
+            if telegram_id is None:
+                continue
             try:
-                await bot.send_message(chat_id=admin.telegram_id, text=message)
+                await bot.send_message(chat_id=telegram_id, text=message)
                 sent = True
                 logger.info(f"Rate limit notification sent to admin {admin.id}")
             except Exception as e:
@@ -97,12 +101,11 @@ async def record_warning_to_db(
     """
     Записывает предупреждение в БД и отправляет уведомление если нужно.
     """
-    from datetime import datetime, timedelta
 
     try:
         ban_until = None
         if ban_duration > 0:
-            ban_until = datetime.utcnow() + timedelta(seconds=ban_duration)
+            ban_until = datetime.now(UTC) + timedelta(seconds=ban_duration)
 
         warning = RateLimitWarning(
             user_id=user_id,

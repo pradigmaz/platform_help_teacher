@@ -4,18 +4,22 @@ Requirements: 6.1, 6.2, 6.3, 6.4, 6.5
 """
 
 import logging
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
-# Условный импорт Playwright (может отсутствовать в dev)
-try:
-    from playwright.async_api import Browser, Page, async_playwright
+if TYPE_CHECKING:
+    from playwright.async_api import Browser, Page
 
+# Условный импорт Playwright (может отсутствовать в dev)
+playwright_factory: Callable[[], Any] | None = None
+try:
+    from playwright.async_api import async_playwright as imported_async_playwright
+
+    playwright_factory = imported_async_playwright
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
-    async_playwright = None
-    Browser = None
-    Page = None
 
 from app.core.config import settings
 from app.core.constants import (
@@ -43,8 +47,11 @@ class PDFService:
                 "Playwright не установлен. PDF экспорт недоступен в dev режиме. Используйте production Docker образ."
             )
 
+        if playwright_factory is None:
+            raise RuntimeError("Playwright factory is unavailable")
+
         if self._browser is None or not self._browser.is_connected():
-            playwright = await async_playwright().start()
+            playwright = await playwright_factory().start()
             self._browser = await playwright.chromium.launch(
                 headless=True,
                 args=[
@@ -66,9 +73,11 @@ class PDFService:
         try:
             redis = await get_redis()
             key = self._cache_key(lecture_id, updated_at_hash)
-            cached = await redis.get(key)
+            cached = cast(str | bytes | None, await redis.get(key))
             if cached:
                 logger.info(f"PDF cache hit for lecture {lecture_id}")
+                if isinstance(cached, bytes):
+                    return cached
                 return cached.encode("latin-1")  # Redis decode_responses=True
         except Exception as e:
             logger.warning(f"Redis cache get failed: {e}")
@@ -139,7 +148,7 @@ class PDFService:
         finally:
             await page.close()
 
-    async def close(self):
+    async def close(self) -> None:
         """Закрывает браузер."""
         if self._browser and self._browser.is_connected():
             await self._browser.close()

@@ -1,13 +1,18 @@
 """Feedback model for bug reports and suggestions."""
 
 import enum
-from uuid import uuid4
+from datetime import datetime
+from typing import TYPE_CHECKING
+from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.feedback_attachment import FeedbackAttachment
+    from app.models.user import User
 
 
 class FeedbackType(str, enum.Enum):
@@ -25,26 +30,30 @@ class FeedbackStatus(str, enum.Enum):
 class Feedback(Base, TimestampMixin):
     __tablename__ = "feedback"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    type = Column(
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    type: Mapped[FeedbackType] = mapped_column(
         Enum(FeedbackType, name="feedbacktype", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
     )
-    title = Column(String(200), nullable=False)
-    description = Column(Text, nullable=False)
-    status = Column(
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[FeedbackStatus] = mapped_column(
         Enum(FeedbackStatus, name="feedbackstatus", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=FeedbackStatus.NEW,
         nullable=False,
     )
 
     # User who submitted
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    user = relationship("User", backref="feedbacks")
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user: Mapped["User"] = relationship("User", backref="feedbacks")
 
     # Admin response
-    admin_response = Column(Text, nullable=True)
-    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    admin_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Attachments
-    attachments = relationship("FeedbackAttachment", back_populates="feedback", cascade="all, delete-orphan")
+    attachments: Mapped[list["FeedbackAttachment"]] = relationship(
+        "FeedbackAttachment",
+        back_populates="feedback",
+        cascade="all, delete-orphan",
+    )

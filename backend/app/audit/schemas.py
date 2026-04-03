@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AuditContext(BaseModel):
@@ -42,8 +42,7 @@ class AuditContext(BaseModel):
     fingerprint: dict[str, Any] | None = None
     extra_data: dict[str, Any] | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AuditLogCreate(BaseModel):
@@ -102,8 +101,7 @@ class AuditLogResponse(BaseModel):
     created_at: datetime
     suspicion: dict[str, Any] | None = None  # Подозрение на анонимный запрос
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AuditLogListResponse(BaseModel):
