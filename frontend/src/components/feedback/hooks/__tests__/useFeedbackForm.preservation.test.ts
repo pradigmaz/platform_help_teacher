@@ -35,35 +35,7 @@ import { toast } from 'sonner';
 import api from '@/lib/api';
 import { ApiError } from '@/lib/api/client';
 import { useFeedbackForm } from '../useFeedbackForm';
-
-// --- Helpers ---
-
-import type { UploadResult } from '../../types';
-
-interface AttachmentsMock {
-  uploadAll: (feedbackId: string) => Promise<UploadResult>;
-  retryUpload: (feedbackId: string, failedFiles: File[]) => Promise<UploadResult>;
-  clearFiles: () => void;
-  getFailedFiles: () => File[];
-  uploadInProgress: boolean;
-}
-
-function makeAttachments(overrides?: Partial<AttachmentsMock>): AttachmentsMock {
-  return {
-    uploadAll: vi.fn().mockResolvedValue({ failed: 0, total: 0 }) as unknown as AttachmentsMock['uploadAll'],
-    retryUpload: vi.fn().mockResolvedValue({ failed: 0, total: 0 }) as unknown as AttachmentsMock['retryUpload'],
-    clearFiles: vi.fn(),
-    getFailedFiles: vi.fn().mockReturnValue([]) as unknown as AttachmentsMock['getFailedFiles'],
-    uploadInProgress: false,
-    ...overrides,
-  };
-}
-
-const validFormValues = {
-  title: 'Test feedback',
-  description: 'Test description',
-  category: 'bug',
-};
+import { makeAttachments, validFormValues } from './useFeedbackForm.test-helpers';
 
 // --- Tests ---
 
@@ -124,12 +96,11 @@ describe('Preservation: non-cancelled requests behave as before', () => {
     expect(submitResult!.feedbackCreated).toBe(true);
   });
 
-  /**
-   * TC3: Server error 500 → toast.error with server message
-   */
-  it('TC3: server error 500 → toast.error with server message', async () => {
-    const serverError = new ApiError(500, 'Internal Server Error');
-    (api.post as ReturnType<typeof vi.fn>).mockRejectedValue(serverError);
+  it.each([
+    ['TC3', new ApiError(500, 'Internal Server Error')],
+    ['TC4', new ApiError(429, 'Too many requests. Please try again later.')],
+  ])('%s: failed submit keeps toast.error behavior', async (_caseId, error) => {
+    (api.post as ReturnType<typeof vi.fn>).mockRejectedValue(error);
 
     const attachments = makeAttachments();
     const { result } = renderHook(() => useFeedbackForm({ attachments }));
@@ -141,32 +112,7 @@ describe('Preservation: non-cancelled requests behave as before', () => {
 
     expect(toast.error).toHaveBeenCalledWith(
       'Не удалось отправить фидбэк',
-      expect.objectContaining({ description: 'Internal Server Error' }),
-    );
-    expect(toast.success).not.toHaveBeenCalled();
-    expect(submitResult!.feedbackCreated).toBe(false);
-  });
-
-  /**
-   * TC4: Rate limit 429 → toast.error with rate limit message
-   */
-  it('TC4: rate limit 429 → toast.error with rate limit message', async () => {
-    const rateLimitError = new ApiError(429, 'Too many requests. Please try again later.');
-    (api.post as ReturnType<typeof vi.fn>).mockRejectedValue(rateLimitError);
-
-    const attachments = makeAttachments();
-    const { result } = renderHook(() => useFeedbackForm({ attachments }));
-
-    let submitResult: Awaited<ReturnType<typeof result.current.handleSubmit>>;
-    await act(async () => {
-      submitResult = await result.current.handleSubmit(validFormValues as never);
-    });
-
-    expect(toast.error).toHaveBeenCalledWith(
-      'Не удалось отправить фидбэк',
-      expect.objectContaining({
-        description: 'Too many requests. Please try again later.',
-      }),
+      expect.objectContaining({ description: error.message }),
     );
     expect(toast.success).not.toHaveBeenCalled();
     expect(submitResult!.feedbackCreated).toBe(false);

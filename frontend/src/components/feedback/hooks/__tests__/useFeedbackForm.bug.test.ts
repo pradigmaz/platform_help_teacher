@@ -41,24 +41,7 @@ vi.mock('@hookform/resolvers/zod', () => ({
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { useFeedbackForm } from '../useFeedbackForm';
-
-// --- Helpers ---
-
-function makeAttachments() {
-  return {
-    uploadAll: vi.fn().mockResolvedValue({ failed: 0, total: 0 }),
-    retryUpload: vi.fn().mockResolvedValue({ failed: 0, total: 0 }),
-    clearFiles: vi.fn(),
-    getFailedFiles: vi.fn().mockReturnValue([]),
-    uploadInProgress: false,
-  };
-}
-
-const validFormValues = {
-  title: 'Test feedback',
-  description: 'Test description',
-  category: 'bug',
-};
+import { makeAttachments, validFormValues } from './useFeedbackForm.test-helpers';
 
 // --- Tests ---
 
