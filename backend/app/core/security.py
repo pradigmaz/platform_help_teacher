@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from typing import Union
+from typing import Union, cast
 from uuid import UUID
 
 import jwt  # PyJWT
@@ -36,4 +36,4 @@ def create_access_token(
         to_encode["impersonated_by"] = str(impersonated_by)
 
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
+    return cast(str, encoded_jwt)

@@ -4,6 +4,7 @@ Celery tasks для обслуживания аудит-логов.
 
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from sqlalchemy import delete, func, select, text
 
@@ -18,6 +19,11 @@ AUDIT_RETENTION_DAYS = 365
 
 # Retry delays for failed tasks (1min, 5min, 15min)
 RETRY_DELAYS = [60, 300, 900]
+
+
+def _affected_row_count(result: object) -> int:
+    rowcount = cast(object, getattr(result, "rowcount", None))
+    return rowcount if isinstance(rowcount, int) else 0
 
 
 @celery_app.task(
@@ -58,7 +64,7 @@ def cleanup_old_audit_logs(self, retention_days: int = AUDIT_RETENTION_DAYS) -> 
                         )
                     )
                     result = db.execute(delete_query)
-                    deleted = result.rowcount
+                    deleted = _affected_row_count(result)
                     db.commit()
 
                     total_deleted += deleted

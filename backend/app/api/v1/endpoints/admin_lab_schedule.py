@@ -2,6 +2,7 @@
 
 import logging
 from datetime import date, timedelta
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -24,6 +25,11 @@ router = APIRouter()
 
 SCHEDULE_LOOKAHEAD_DAYS = 14
 ATTACHABLE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
+
+
+def _affected_row_count(result: object) -> int:
+    rowcount = cast(object, getattr(result, "rowcount", None))
+    return rowcount if isinstance(rowcount, int) else 0
 
 
 class ScheduleSlot(BaseModel):
@@ -225,12 +231,13 @@ async def attach_to_lessons(
         .values(work_number=lab.number)
     )
     result = await db.execute(stmt)
+    attached_count = _affected_row_count(result)
     await _sync_lab_origin_lesson(db, lab)
     await db.commit()
 
-    logger.info(f"Admin {admin.id} attached lab {lab.number} to {result.rowcount} lessons")
+    logger.info(f"Admin {admin.id} attached lab {lab.number} to {attached_count} lessons")
 
-    return AttachResponse(attached_count=result.rowcount)
+    return AttachResponse(attached_count=attached_count)
 
 
 @router.post("/{lab_id}/detach", response_model=AttachResponse)
@@ -258,9 +265,10 @@ async def detach_from_lessons(
         .values(work_number=None)
     )
     result = await db.execute(stmt)
+    detached_count = _affected_row_count(result)
     await _sync_lab_origin_lesson(db, lab)
     await db.commit()
 
-    logger.info(f"Admin {admin.id} detached lab {lab.number} from {result.rowcount} lessons")
+    logger.info(f"Admin {admin.id} detached lab {lab.number} from {detached_count} lessons")
 
-    return AttachResponse(attached_count=result.rowcount)
+    return AttachResponse(attached_count=detached_count)

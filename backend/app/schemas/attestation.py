@@ -112,10 +112,10 @@ class AttestationSettingsResponse(AttestationSettingsBase):
     # Фиксированные значения
     max_points: int = Field(description="Максимум баллов (фикс)")
     min_passing_points: int = Field(description="Минимум для зачёта (фикс)")
-    grade_scale: dict[str, tuple] = Field(default=None, description="Шкала оценок")
+    grade_scale: dict[str, tuple] | None = Field(default=None, description="Шкала оценок")
 
     # Превью расчёта
-    score_preview: list[ScorePreview] = Field(default=None, description="Превью баллов")
+    score_preview: list[ScorePreview] | None = Field(default=None, description="Превью баллов")
 
     # Вычисленные периоды
     calculated_period_start: date | None = Field(default=None)

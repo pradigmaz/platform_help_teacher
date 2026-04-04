@@ -2,7 +2,7 @@
 
 import logging
 from datetime import UTC, datetime, timezone
-from typing import Optional
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
@@ -12,6 +12,11 @@ from app.models.device import Device
 from app.schemas.device import DeviceCreate, DeviceUpdate
 
 logger = logging.getLogger(__name__)
+
+
+def _affected_row_count(result: object) -> int:
+    rowcount = cast(object, getattr(result, "rowcount", None))
+    return rowcount if isinstance(rowcount, int) else 0
 
 
 async def create(
@@ -139,6 +144,6 @@ async def bulk_delete_by_user(
     result = await db.execute(delete(Device).where(Device.user_id == user_id))
     await db.flush()
 
-    count = result.rowcount
+    count = _affected_row_count(result)
     logger.info(f"[CRUD:bulk_delete] Deleted {count} devices for user_id={user_id}")
     return count

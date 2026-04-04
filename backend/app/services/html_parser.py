@@ -163,10 +163,10 @@ class ScheduleHtmlParser:
 
         # Стратегия 1: div с margin-bottom: 25px
         for child in table_div.children:
-            if hasattr(child, "name") and child.name == "div":
+            if isinstance(child, Tag) and child.name == "div":
                 style = child.get("style", "")
                 if "margin-bottom" in style:
-                    day_blocks.append(cast(Tag, child))
+                    day_blocks.append(child)
 
         if day_blocks:
             return day_blocks
@@ -197,7 +197,7 @@ class ScheduleHtmlParser:
                 text = html.unescape(content.strip())
                 if text:
                     info_lines.append(text)
-            elif hasattr(content, "name") and content.name != "br":
+            elif isinstance(content, Tag) and content.name != "br":
                 text = html.unescape(content.get_text(strip=True))
                 if text:
                     info_lines.append(text)
