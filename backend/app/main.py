@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Callable
 from contextlib import asynccontextmanager, suppress
-from typing import Callable, cast
+from typing import cast
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError

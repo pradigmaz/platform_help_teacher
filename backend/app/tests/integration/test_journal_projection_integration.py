@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import select
 
 from app.db.session import AsyncSessionLocal
-from app.models import Group, Lab, Lesson, LessonType, Submission, SubmissionStatus, Subject, User, UserRole
+from app.models import Group, Lab, Lesson, LessonType, Subject, Submission, SubmissionStatus, User, UserRole
 from app.services.journal_grade_service import JournalGradeWriteService
 
 pytestmark = pytest.mark.integration

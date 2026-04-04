@@ -228,24 +228,24 @@ async def test_group_report_attendance_uses_selected_attestation_period(mock_db)
     collector = ReportDataCollector(mock_db)
 
     with (
-        patch("app.services.reports.data_collector.get_group", new=AsyncMock(return_value=SimpleNamespace(code="IT-11", name="ИТ-11", has_subgroups=False))),
-        patch("app.services.reports.data_collector.get_user", new=AsyncMock(return_value=None)),
-        patch("app.services.reports.data_collector.get_group_students", new=AsyncMock(return_value=[student])),
-        patch("app.services.reports.data_collector.get_semester_info", new=AsyncMock(return_value=(False, 35, 20, True))),
-        patch("app.services.reports.data_collector.get_semester_start_date", new=AsyncMock(return_value=period_start)),
-        patch("app.services.reports.data_collector.get_group_labs_stats", new=AsyncMock(return_value={})),
-        patch("app.services.reports.data_collector.process_students", return_value=([], 0, 0, 0)),
+        patch("app.services.reports.group_report_collector.get_group", new=AsyncMock(return_value=SimpleNamespace(code="IT-11", name="ИТ-11", has_subgroups=False))),
+        patch("app.services.reports.group_report_collector.get_user", new=AsyncMock(return_value=None)),
+        patch("app.services.reports.group_report_collector.get_group_students", new=AsyncMock(return_value=[student])),
+        patch("app.services.reports.group_report_collector.get_semester_info", new=AsyncMock(return_value=(False, 35, 20, True))),
+        patch("app.services.reports.group_report_collector.get_semester_start_date", new=AsyncMock(return_value=period_start)),
+        patch("app.services.reports.group_report_collector.get_group_labs_stats", new=AsyncMock(return_value={})),
+        patch("app.services.reports.group_report_collector.process_students", return_value=([], 0, 0, 0)),
         patch("app.services.attestation.service.AttestationService.get_or_create_settings", new=AsyncMock(return_value=settings)),
         patch("app.services.attestation.service.AttestationService.calculate_group_scores_batch", new=AsyncMock(return_value=([], []))),
-        patch("app.services.reports.data_collector.load_group_attendance_snapshots", new=AsyncMock(return_value=([], {}))) as load_snapshots_mock,
-        patch("app.services.reports.data_collector.build_group_attendance_stats", return_value={}),
-        patch("app.services.reports.data_collector.build_attendance_distribution", return_value=AttendanceDistribution()),
+        patch("app.services.reports.group_report_collector.load_group_attendance_snapshots", new=AsyncMock(return_value=([], {}))) as load_snapshots_mock,
+        patch("app.services.reports.group_report_collector.build_group_attendance_stats", return_value={}),
+        patch("app.services.reports.group_report_collector.build_attendance_distribution", return_value=AttendanceDistribution()),
         patch(
-            "app.services.reports.data_collector.build_full_attendance_stats",
+            "app.services.reports.group_report_collector.build_full_attendance_stats",
             return_value=AttendanceStats(distribution=AttendanceDistribution(), by_subgroup={}, trend=[], average_rate=0.0),
         ),
-        patch("app.services.reports.data_collector.get_recent_lessons_history", new=AsyncMock(return_value=[])) as history_mock,
-        patch("app.services.reports.data_collector.get_today_lessons_attendance", new=AsyncMock(return_value=[])) as today_mock,
+        patch("app.services.reports.group_report_collector.get_recent_lessons_history", new=AsyncMock(return_value=[])) as history_mock,
+        patch("app.services.reports.group_report_collector.get_today_lessons_attendance", new=AsyncMock(return_value=[])) as today_mock,
     ):
         result = await collector.get_group_report_data(report, attestation_type="first")
 

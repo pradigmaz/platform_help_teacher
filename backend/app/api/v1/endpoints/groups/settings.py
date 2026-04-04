@@ -34,12 +34,14 @@ async def update_lab_settings(
         raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
 
     try:
-        if lab_settings.labs_count is not None:
-            group.labs_count = lab_settings.labs_count
-        if lab_settings.grading_scale is not None:
-            setattr(group, "grading_scale", lab_settings.grading_scale)
-        if lab_settings.default_max_grade is not None:
-            group.default_max_grade = lab_settings.default_max_grade
+        field_updates = {
+            "labs_count": lab_settings.labs_count,
+            "grading_scale": lab_settings.grading_scale,
+            "default_max_grade": lab_settings.default_max_grade,
+        }
+        for field_name, value in field_updates.items():
+            if value is not None:
+                setattr(group, field_name, value)
 
         await db.commit()
         await db.refresh(group)

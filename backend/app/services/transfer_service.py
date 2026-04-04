@@ -22,13 +22,15 @@ from app.models import (
 from app.models.attestation_settings import AttestationType
 from app.models.schedule import LessonType
 from app.schemas.transfer import (
-    AttestationType as TransferAttestationType,
     AttendanceSnapshot,
     LabGradeSnapshot,
     StudentTransfersResponse,
     TransferRequest,
     TransferResponse,
     TransferSummary,
+)
+from app.schemas.transfer import (
+    AttestationType as TransferAttestationType,
 )
 from app.services.attendance_slots import build_attendance_slot_filter, get_lesson_slot_sets, matches_attendance_slot
 from app.services.attestation.lab_progress import dedupe_lesson_grade_rows

@@ -3,8 +3,8 @@
 """
 
 import logging
-from typing import Any, cast
 from datetime import date, timedelta
+from typing import Any, cast
 
 from app.services.external_api import ExternalAPIError, kis_client
 from app.services.html_parser import ParsedLesson, ScheduleHtmlParser

@@ -15,8 +15,8 @@ if "aioboto3" not in sys.modules:
     aioboto3_stub.Session = Session
     sys.modules["aioboto3"] = aioboto3_stub
 
-from app.services.backup.restore_service import RestoreService
 from app.services.backup.dump_runner import PostgresConnectionConfig
+from app.services.backup.restore_service import RestoreService
 
 pytestmark = pytest.mark.integration
 

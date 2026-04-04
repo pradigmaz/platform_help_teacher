@@ -108,7 +108,8 @@ async def update(
     for field, value in update_data.items():
         setattr(device, field, value)
 
-    setattr(device, "updated_at", datetime.now(UTC))
+    timestamp_field = "updated_at"
+    setattr(device, timestamp_field, datetime.now(UTC))
 
     await db.flush()
     await db.refresh(device)

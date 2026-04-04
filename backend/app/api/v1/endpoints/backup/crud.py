@@ -25,8 +25,11 @@ from app.schemas.backup import (
     validate_backup_key,
 )
 from app.services.backup.backup_service import BackupService
-from app.services.backup.restore_service import RestoreService
-from app.services.backup.restore_service import VERIFY_STATUS_RECOVERY_CODE_REQUIRED, VERIFY_STATUS_VALID
+from app.services.backup.restore_service import (
+    VERIFY_STATUS_RECOVERY_CODE_REQUIRED,
+    VERIFY_STATUS_VALID,
+    RestoreService,
+)
 from app.services.backup.upload_flow import mirror_backup_upload
 
 from .deps import get_backup_service, get_restore_service

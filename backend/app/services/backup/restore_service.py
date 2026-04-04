@@ -20,10 +20,6 @@ from .encryption import (
 )
 from .remote_storage import BackupStorage, get_offsite_storage
 from .results import (
-    RestoreResult,
-    VerifyResult,
-    build_restore_result,
-    build_verify_result,
     VERIFY_STATUS_ARCHIVE_CORRUPTED,
     VERIFY_STATUS_DECRYPTION_FAILED,
     VERIFY_STATUS_DOWNLOAD_FAILED,
@@ -32,6 +28,10 @@ from .results import (
     VERIFY_STATUS_INVALID_RECOVERY_CODE,
     VERIFY_STATUS_RECOVERY_CODE_REQUIRED,
     VERIFY_STATUS_VALID,
+    RestoreResult,
+    VerifyResult,
+    build_restore_result,
+    build_verify_result,
 )
 
 logger = logging.getLogger(__name__)
