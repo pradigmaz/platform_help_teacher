@@ -51,9 +51,11 @@ describe('journalTableModel property tests', () => {
         fc.uniqueArray(lessonArb, { selector: (lesson) => lesson.id, minLength: 1, maxLength: 20 }),
         fc.dictionary(fc.uuid(), fc.constantFrom('PRESENT', 'LATE', 'ABSENT', 'EXCUSED')),
         (lessons, statuses) => {
-          const attendance = Object.fromEntries(
-            lessons.map((lesson) => [lesson.id, statuses.student ? { student: statuses.student } : {}])
-          );
+          const attendance: Record<string, Record<string, string>> = {};
+          const studentStatus = statuses.student;
+          for (const lesson of lessons) {
+            attendance[lesson.id] = studentStatus ? { student: studentStatus } : {};
+          }
           const percentage = calculateAttendancePercentage(lessons, attendance, 'student');
           if (percentage === null) {
             expect(percentage).toBeNull();

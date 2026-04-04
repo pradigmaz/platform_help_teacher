@@ -25,22 +25,25 @@ Mode: research only, no code edits in this document
 
 ## Baseline Facts
 
-- Полный backend CI-эквивалент сейчас зелёный по `ruff` и `pytest`.
+- Полный локальный backend baseline на 2026-04-04 зелёный по `ruff`, regression-only `mypy`, raw `mypy` и smoke suite.
 - `backend`:
-  - `491 passed`
-  - tracked `mypy` baseline artifact currently records `383 errors in 106 files`; regression gate is blocking, full raw `mypy app` is still not blocking
+  - tracked `mypy` baseline artifact is effectively at `0 tracked errors`
+  - raw `mypy app` локально зелёный
+  - smoke suite: `50 passed, 561 deselected`
+  - integration suite требует реальный PostgreSQL/Redis; локально без сервисов первый DB-backed test уходит в timeout
 - `frontend`:
-  - `tsc`, `build`, `npm audit` проходят
-  - `eslint` зелёный по exit code, но остаётся `76 warnings`
-- Security checks в CI не блокируют merge:
-  - `mypy app || true`
-  - `pip-audit ... || true`
-  - `npm audit ... || true`
+  - `tsc`, unit tests и `npm audit --audit-level=high` проходят
+  - `eslint` локально зелёный без warning debt
+  - production `build` и browser smoke локально зелёные прямо в рабочем дереве
+  - старый foreign-owned `frontend/.next` выведен из рабочего пути в ignored backup, поэтому build parity восстановлен; на диске остались только ignored legacy artifacts
+- Security checks в CI сейчас блокируют merge:
+  - `pip-audit -r backend/requirements.txt --ignore-vuln PYSEC-2024-62`
+  - `npm audit --audit-level=high`
 - Migration check проверяет только дубли номеров миграций, а не schema parity и не rollback safety.
 - RMU quality summary:
-  - `1233` нарушений
-  - `780` violating files
-  - статус quality-index: `stale`
+  - `573` нарушений
+  - `432` violating files
+  - статус quality-index: `ready`
 
 ## Agent Scorecard
 
@@ -85,6 +88,10 @@ Mode: research only, no code edits in this document
      - `backend/app/services/pdf_service.py`
 
 ### Frontend warning debt by pattern
+
+Progress update 2026-04-04:
+
+- локальный `eslint` сейчас зелёный без warning debt; кластеры ниже сохраняются как исторический контекст исходного аудита, а не как текущий open count
 
 1. `react-hooks/exhaustive-deps` в stateful admin/data hooks.
    - Evidence:
@@ -316,8 +323,14 @@ Progress update 2026-04-01:
 
 - admin `groups/[id]`, `journal`, `audit/security`, and `activity` flows were split into thin containers, focused hooks, and presentational subcomponents
 - shared pure helpers/view-model modules were extracted for student import parsing, journal table derivations, security tab mapping, and activity grouping; targeted Vitest coverage was added for the new pure modules
-- follow-up refactors also reduced `schedule` and `settings/backup` admin flows below the local monolith threshold, so the remaining large `sidebar.tsx` UI primitive is no longer a blocker for this admin-specific item
-- verification passed for targeted frontend tests, `npx tsc --noEmit`, and linting of the touched frontend surface; `npm run build` remained blocked by a local permission issue on `frontend/.next`, not by the refactor itself
+- follow-up refactors also reduced `schedule` and `settings/backup` admin flows below the local monolith threshold
+- verification passed for targeted frontend tests, `npx tsc --noEmit`, linting, repo-local `npm run build`, and repo-local browser smoke after rotating the stale foreign-owned `.next` tree into an ignored backup path
+
+Progress update 2026-04-04:
+
+- shared `frontend/src/components/ui/sidebar.tsx` was split into focused `sidebar-context`, `sidebar-layout`, `sidebar-structure`, `sidebar-menu`, and constants modules
+- the public `sidebar.tsx` surface is now a thin export barrel (`31` lines) instead of a monolith
+- the largest extracted sidebar module stays below the local hard split threshold (`269` lines)
 
 Definition of done:
 
@@ -418,7 +431,7 @@ Definition of done:
 
 Evidence:
 
-- RMU quality status: `stale`
+- RMU quality status is refreshed and now reports `ready`
 
 Problem:
 
@@ -426,7 +439,7 @@ Problem:
 
 Checklist:
 
-- [ ] Refresh quality index after each debt wave
+- [x] Refresh quality index after each debt wave
 - [ ] Store before/after snapshots per wave
 - [ ] Track line-count and warning-count deltas as explicit KPIs
 
@@ -492,7 +505,7 @@ Exit criteria:
 
 Evidence:
 
-- `AdminSidebar` was split into nav/config/count-hook layers; shared `frontend/src/components/ui/sidebar.tsx` remains a separate follow-up debt track
+- `AdminSidebar` was split into nav/config/count-hook layers, and the shared `frontend/src/components/ui/sidebar.tsx` follow-up debt track is now closed by the dedicated sidebar module split
 - `admin/groups/[id]` now uses smaller route shell + data hook + UI-state hook + extracted header/tab components
 - `admin/settings` now uses a thin page shell with extracted profile/session/backup helpers
 - smoke coverage now exercises `journal`, `audit`, `groups`, and `settings` high-risk admin flows
@@ -530,7 +543,7 @@ Exit criteria:
 
 ### Wave 0 gates
 
-- [ ] Current counts captured:
+- [x] Current counts captured:
   - `mypy` total errors and top 20 files
   - ESLint warnings by file and by rule family
   - RMU hotspots snapshot
@@ -546,10 +559,10 @@ Exit criteria:
 
 ### Wave 2 gates
 
-- [ ] Top backend hotspot files are split or responsibility-reduced
-- [ ] `mypy` error count drops materially in top root-cause clusters
-- [ ] No backend contract regressions in smoke/integration suites
-- [ ] Report vs attestation invariants explicitly tested
+- [x] Top backend hotspot files are split or responsibility-reduced
+- [x] `mypy` error count drops materially in top root-cause clusters
+- [x] No backend contract regressions in smoke/integration suites
+- [x] Report vs attestation invariants explicitly tested
 
 ### Wave 3 gates
 
@@ -587,10 +600,10 @@ Exit criteria:
 
 ## Next Actionable Starting Set
 
-- [ ] Create a tracked debt baseline doc with current counts
+- [x] Create a debt baseline doc with current counts
 - [x] Add one backend smoke suite for auth/session/audit
-- [ ] Add one frontend smoke suite for admin journal and audit
-- [ ] Refactor `backend/app/services/rate_limit/admin.py`
-- [ ] Refactor `backend/app/services/reports/data_collector.py`
-- [ ] Split `frontend/src/app/admin/journal/components/JournalTable.tsx`
-- [ ] Split `frontend/src/components/ui/sidebar.tsx`
+- [x] Add one frontend smoke suite for admin journal and audit
+- [x] Refactor `backend/app/services/rate_limit/admin.py`
+- [x] Refactor `backend/app/services/reports/data_collector.py`
+- [x] Split `frontend/src/app/admin/journal/components/JournalTable.tsx`
+- [x] Split `frontend/src/components/ui/sidebar.tsx`

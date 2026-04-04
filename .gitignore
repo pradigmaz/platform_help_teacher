@@ -45,6 +45,12 @@ md/
 !README.md
 !frontend/README.md
 !docs/*.md
+!md/
+md/*
+!md/audits/
+md/audits/*
+!md/audits/TECH_DEBT_REMEDIATION_CHECKLIST_2026-03-28.md
+!md/audits/TECH_DEBT_BASELINE_2026-04-04.md
 
 # Temp/scratch files
 *.html

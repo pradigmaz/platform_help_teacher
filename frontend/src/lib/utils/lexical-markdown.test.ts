@@ -1,4 +1,5 @@
 import type { SerializedEditorState } from 'lexical';
+import { describe, expect, it } from 'vitest';
 
 import { lexicalToMarkdown } from './lexical-markdown';
 
