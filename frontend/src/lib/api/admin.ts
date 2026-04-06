@@ -1,5 +1,6 @@
 import { api } from './client';
 import { buildAuthFingerprintHeaders } from './fingerprint-auth';
+import { clearSingleFlight, runSingleFlight } from '../single-flight';
 import type {
   TeacherContactsData,
   TeacherContactsUpdate,
@@ -17,10 +18,30 @@ export interface AdminProfile {
   onboarding_completed: boolean;
 }
 
+export interface AdminStats {
+  total_users: number;
+  total_students: number;
+  total_groups: number;
+  total_lectures?: number;
+  active_labs: number;
+}
+
 export const AdminAPI = {
   getProfile: async (): Promise<AdminProfile> => {
     const { data } = await api.get<AdminProfile>('/users/me');
     return data;
+  },
+
+  getStats: async (options?: { force?: boolean }): Promise<AdminStats> => {
+    const key = 'admin:stats';
+    if (options?.force) {
+      clearSingleFlight(key);
+    }
+
+    return runSingleFlight(key, async () => {
+      const { data } = await api.get<AdminStats>('/admin/stats');
+      return data;
+    });
   },
 
   getContacts: async (): Promise<TeacherContactsData> => {

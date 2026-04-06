@@ -1,15 +1,20 @@
 import { api } from './client';
 import type { GroupResponse, GroupDetailResponse, GroupCreate, StudentImport } from './types';
+import { runSingleFlight } from '../single-flight';
 
 export const GroupsAPI = {
   list: async () => {
-    const { data } = await api.get<GroupResponse[]>('/groups/');
-    return data;
+    return runSingleFlight('groups:list', async () => {
+      const { data } = await api.get<GroupResponse[]>('/groups/');
+      return data;
+    });
   },
 
   get: async (id: string) => {
-    const { data } = await api.get<GroupDetailResponse>(`/groups/${id}`);
-    return data;
+    return runSingleFlight(`groups:get:${id}`, async () => {
+      const { data } = await api.get<GroupDetailResponse>(`/groups/${id}`);
+      return data;
+    });
   },
 
   parseFile: async (file: File) => {

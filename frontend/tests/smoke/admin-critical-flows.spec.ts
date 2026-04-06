@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
 import {
   installAdminShellMocks,
+  mockAdminGroupsList,
   mockAdminAuditPage,
   mockAdminGroupDetail,
+  mockAdminStudentPage,
   mockAdminJournalView,
   mockAdminSettingsPage,
 } from './support';
@@ -57,4 +59,42 @@ test('renders admin settings profile and backup tabs', async ({ page }) => {
 
   await expect(page.getByText('Автоматическое резервное копирование')).toBeVisible();
   await expect(page.getByText('Резервные копии')).toBeVisible();
+});
+
+test('navigates groups to student without repeated admin shell bootstrap', async ({ page }) => {
+  let usersMeRequests = 0;
+  let feedbackCountRequests = 0;
+
+  page.on('request', (request) => {
+    const url = request.url();
+    if (url.includes('/api/v1/users/me')) {
+      usersMeRequests += 1;
+    }
+    if (url.includes('/api/v1/feedback/count/new')) {
+      feedbackCountRequests += 1;
+    }
+  });
+
+  await installAdminShellMocks(page);
+  await mockAdminGroupsList(page);
+  await mockAdminGroupDetail(page);
+  await mockAdminStudentPage(page);
+
+  await page.goto('/admin/groups');
+
+  await expect(page.getByRole('heading', { name: 'Учебные группы' })).toBeVisible();
+  await page.getByRole('link', { name: /Управление группой/i }).click({ force: true });
+
+  await expect(page).toHaveURL('/admin/groups/group-1');
+  await expect(page.getByRole('heading', { name: 'Smoke Group' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Smoke Student' }).click();
+
+  await expect(page).toHaveURL('/admin/students/student-1');
+  await expect(page.getByRole('heading', { name: 'Профиль студента' })).toBeVisible();
+  await expect(page.getByText('Smoke activity')).toBeVisible();
+  await expect(page.getByText('Smoke Lab')).toBeVisible();
+
+  expect(usersMeRequests).toBe(1);
+  expect(feedbackCountRequests).toBe(1);
 });

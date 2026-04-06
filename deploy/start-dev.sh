@@ -26,7 +26,7 @@ Usage: ./start-dev.sh [--build|--no-build] [--clean-next]
   --build      Force image rebuild before startup.
   --no-build   Start quickly without rebuilding images.
   --fast       Alias for --no-build.
-  --clean-next Remove frontend/.next before startup.
+  --clean-next Remove frontend .next caches before startup.
 Default mode is auto and rebuilds when dev images are older than
 their dependency manifests or Dockerfiles.
 EOF
@@ -90,13 +90,29 @@ should_rebuild_images() {
 }
 
 reset_next_cache() {
-  local cache_dir="$ROOT_DIR/frontend/.next"
-  if [[ ! -d "$cache_dir" ]]; then
-    echo "Frontend cache is already clean."
-    return 0
+  local host_cache_dir="$ROOT_DIR/frontend/.next"
+  local cleaned_any=false
+
+  if [[ -d "$host_cache_dir" ]]; then
+    if rm -rf "$host_cache_dir" 2>/dev/null; then
+      echo "Removed frontend host .next cache."
+      cleaned_any=true
+    else
+      echo "Skipped frontend host .next cache cleanup due to permissions."
+    fi
   fi
-  rm -rf "$cache_dir"
-  echo "Removed frontend/.next cache."
+
+  if docker_is_ready; then
+    "${compose[@]}" stop frontend >/dev/null 2>&1 || true
+    "${compose[@]}" run --rm --no-deps frontend sh -lc \
+      'rm -rf /app/.next/* /app/.next/.[!.]* /app/.next/..?* 2>/dev/null || true'
+    echo "Removed frontend container .next cache."
+    cleaned_any=true
+  fi
+
+  if [[ "$cleaned_any" == false ]]; then
+    echo "Frontend cache is already clean."
+  fi
 }
 
 start_docker_daemon() {

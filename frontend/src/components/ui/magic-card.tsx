@@ -22,8 +22,8 @@ export function MagicCard({
   gradientSize = 200,
   gradientColor = "#262626",
   gradientOpacity = 0.8,
-  gradientFrom = "#9E7AFF",
-  gradientTo = "#FE8BBB",
+  gradientFrom,
+  gradientTo,
   onClick,
 }: MagicCardProps) {
   const mouseX = useMotionValue(-gradientSize)
@@ -70,6 +70,10 @@ export function MagicCard({
     }
   }, [reset])
 
+  const background = useMotionTemplate`
+    radial-gradient(${gradientSize}px circle at ${mouseX}px ${mouseY}px, ${gradientColor}, transparent 100%)${gradientFrom && gradientTo ? `, linear-gradient(135deg, ${gradientFrom}, ${gradientTo})` : ""}
+  `
+
   return (
     <div
       className={cn("group relative rounded-2xl", className)}
@@ -83,10 +87,7 @@ export function MagicCard({
       <motion.div
         className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
-          background: useMotionTemplate`
-            radial-gradient(${gradientSize}px circle at ${mouseX}px ${mouseY}px, ${gradientColor}, transparent 100%),
-            linear-gradient(135deg, ${gradientFrom}, ${gradientTo})
-          `,
+          background,
           opacity: gradientOpacity,
         }}
       />

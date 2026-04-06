@@ -98,6 +98,7 @@ def test_student_service_calculate_stats_uses_normalized_progress():
             rejected_lab.id: rejected_submission,
         },
         grades_map=journal_grades,
+        include_details=True,
     )
 
     assert stats.labs_accepted == 1
@@ -109,3 +110,53 @@ def test_student_service_calculate_stats_uses_normalized_progress():
         pending_lab.id: SubmissionStatus.READY.value,
         rejected_lab.id: SubmissionStatus.REJECTED.value,
     }
+
+
+def test_student_service_calculate_stats_skips_lab_payload_for_shell_mode():
+    service = StudentService(db=None)
+    subject_id = uuid4()
+    accepted_lab = _build_lab(1, subject_id)
+
+    accepted_submission = Submission(
+        id=uuid4(),
+        user_id=uuid4(),
+        lab_id=accepted_lab.id,
+        status=SubmissionStatus.ACCEPTED,
+        is_manual=True,
+        grade=5,
+    )
+
+    labs_data, stats = service._calculate_stats(
+        labs=[accepted_lab],
+        subs_map={accepted_lab.id: accepted_submission},
+        grades_map={},
+        include_details=False,
+    )
+
+    assert labs_data == []
+    assert stats.labs_total == 1
+    assert stats.labs_accepted == 1
+    assert stats.points_earned == 5
+    assert stats.points_max == 5
+
+
+def test_student_service_apply_group_ranking_calculates_place_and_percentile():
+    service = StudentService(db=None)
+    student_id = uuid4()
+    higher_student_id = uuid4()
+    lower_student_id = uuid4()
+    stats = service._calculate_stats([], {}, {}, include_details=False)[1]
+
+    service._apply_group_ranking(
+        stats,
+        [
+            (higher_student_id, 10),
+            (student_id, 7),
+            (lower_student_id, 3),
+        ],
+        student_id,
+    )
+
+    assert stats.group_total == 3
+    assert stats.group_rank == 2
+    assert stats.group_percentile == 50.0

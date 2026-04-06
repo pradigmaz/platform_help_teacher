@@ -208,6 +208,134 @@ export async function mockAdminGroupDetail(page: Page): Promise<void> {
   });
 }
 
+export async function mockAdminGroupsList(page: Page): Promise<void> {
+  await page.route('**/api/v1/groups/', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          id: 'group-1',
+          name: 'Smoke Group',
+          code: 'SMOKE-01',
+          students_count: 1,
+          has_subgroups: true,
+        },
+      ]),
+    });
+  });
+}
+
+export async function mockAdminStudentPage(page: Page): Promise<void> {
+  await page.route('**/api/v1/admin/students/student-1?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'student-1',
+        full_name: 'Smoke Student',
+        username: 'smoke_student',
+        telegram_id: null,
+        vk_id: null,
+        group_name: 'Smoke Group',
+        group_id: 'group-1',
+        is_active: true,
+        created_at: '2026-04-03T10:00:00Z',
+        labs: [],
+        stats: {
+          labs_total: 1,
+          labs_submitted: 1,
+          labs_accepted: 1,
+          labs_rejected: 0,
+          labs_pending: 0,
+          labs_overdue: 0,
+          points_earned: 5,
+          points_max: 5,
+          points_percent: 100,
+          group_rank: 1,
+          group_total: 1,
+          group_percentile: null,
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/v1/admin/students/student-1/labs', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          lab_id: 'lab-1',
+          lab_title: 'Smoke Lab',
+          status: 'ACCEPTED',
+          normalized_status: 'ACCEPTED',
+          grade: 5,
+          max_grade: 5,
+          deadline_5_lessons: 1,
+          deadline_4_lessons: null,
+          submitted_at: '2026-04-03T10:00:00Z',
+          feedback: null,
+          is_overdue: false,
+        },
+      ]),
+    });
+  });
+
+  await page.route('**/api/v1/admin/activities/student/student-1', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          id: 'activity-1',
+          student_id: 'student-1',
+          points: 2,
+          description: 'Smoke activity',
+          attestation_type: 'first',
+          subject_id: null,
+          is_active: true,
+          batch_id: null,
+          created_by_id: 'admin-1',
+          created_at: '2026-04-03T10:00:00Z',
+          updated_at: '2026-04-03T10:00:00Z',
+        },
+      ]),
+    });
+  });
+
+  await page.route('**/api/v1/admin/audit/user/student-1?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 'audit-1',
+            user_id: 'student-1',
+            user_name: 'Smoke Student',
+            actor_role: 'student',
+            action_type: 'view',
+            entity_type: null,
+            entity_id: null,
+            method: 'GET',
+            path: '/dashboard',
+            response_status: 200,
+            duration_ms: 12,
+            ip_address: '127.0.0.1',
+            ip_forwarded: null,
+            user_agent: 'Playwright',
+            created_at: '2026-04-03T10:00:00Z',
+          },
+        ],
+        total: 1,
+        skip: 0,
+        limit: 20,
+      }),
+    });
+  });
+}
+
 export async function mockAdminJournalView(page: Page): Promise<void> {
   await page.route('**/api/v1/admin/journal/view**', async (route) => {
     await route.fulfill({

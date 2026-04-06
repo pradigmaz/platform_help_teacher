@@ -6,11 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "start:smoke": "next start --hostname 127.0.0.1 --port ${PLAYWRIGHT_TEST_PORT:-3100}",
+    "start:smoke": "node ./scripts/start-smoke.mjs",
     "lint": "eslint",
     "test": "npm run test:unit",
     "test:unit": "vitest --run",
     "test:smoke": "playwright test --config=playwright.config.ts",
+    "test:smoke:perf": "playwright test tests/smoke/admin-critical-flow.perf.spec.ts --config=playwright.config.ts",
+    "perf:admin:live": "node ./scripts/live-admin-flow-perf.mjs",
     "generate-types": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/schema.d.ts"
   },
   "dependencies": {

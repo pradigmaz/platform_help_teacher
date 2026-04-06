@@ -153,6 +153,7 @@ services:
     volumes:
       - ../frontend:/app
       - /app/node_modules
+      - frontend_next_cache:/app/.next
     command: npm run dev
     networks:
       - backend-net
@@ -271,6 +272,7 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  frontend_next_cache:
 
 networks:
   backend-net:

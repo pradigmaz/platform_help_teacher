@@ -2,7 +2,7 @@
 
 import { FlaskConical, Calendar } from 'lucide-react';
 import { BlurFade } from '@/components/ui/blur-fade';
-import { MagicCard } from '@/components/ui/magic-card';
+import { MetricCard } from '@/components/ui/metric-card';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { AnimatedCircularProgress } from '@/components/ui/animated-circular-progress';
 
@@ -16,7 +16,7 @@ export function StatsCards({ completedLabs, plannedLabs, progressPercent }: Stat
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <BlurFade delay={0.15}>
-        <MagicCard className="cursor-pointer group" gradientColor="#8b5cf620">
+        <MetricCard tint="purple" className="cursor-pointer group">
           <div className="p-6 text-center relative overflow-hidden">
             <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity">
               <FlaskConical className="w-12 h-12 text-purple-500" />
@@ -26,11 +26,11 @@ export function StatsCards({ completedLabs, plannedLabs, progressPercent }: Stat
             </div>
             <div className="text-sm text-muted-foreground mt-1 font-medium">Создано лаб</div>
           </div>
-        </MagicCard>
+        </MetricCard>
       </BlurFade>
 
       <BlurFade delay={0.2}>
-        <MagicCard className="cursor-pointer group" gradientColor="#3b82f620">
+        <MetricCard tint="blue" className="cursor-pointer group">
           <div className="p-6 text-center relative overflow-hidden">
             <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity">
               <Calendar className="w-12 h-12 text-blue-500" />
@@ -40,11 +40,11 @@ export function StatsCards({ completedLabs, plannedLabs, progressPercent }: Stat
             </div>
             <div className="text-sm text-muted-foreground mt-1 font-medium">Запланировано</div>
           </div>
-        </MagicCard>
+        </MetricCard>
       </BlurFade>
 
       <BlurFade delay={0.25}>
-        <MagicCard className="cursor-pointer group" gradientColor="#22c55e20">
+        <MetricCard tint="green" className="cursor-pointer group">
           <div className="p-6 flex items-center justify-center gap-4">
             <AnimatedCircularProgress
               value={progressPercent}
@@ -59,7 +59,7 @@ export function StatsCards({ completedLabs, plannedLabs, progressPercent }: Stat
               <div className="text-sm text-muted-foreground">Прогресс</div>
             </div>
           </div>
-        </MagicCard>
+        </MetricCard>
       </BlurFade>
     </div>
   );

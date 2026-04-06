@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend
 
-## Getting Started
-
-First, run the development server:
+## Local Run
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Dev server starts on the standard Next.js port unless `PORT` is overridden.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+For Docker-based local development, `deploy/docker-compose.dev.yml` mounts `.next` into a named volume. This isolates build cache from the host workspace and avoids stale lock/owner issues after switching between container and local runs.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Performance Debugging
 
-## Learn More
+Set `NEXT_PUBLIC_PERF_DEBUG=1` to emit request timing logs from the shared axios client. This is intended for local diagnostics of admin flows such as `groups -> group -> student`.
 
-To learn more about Next.js, take a look at the following resources:
+Example:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+NEXT_PUBLIC_PERF_DEBUG=1 npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The logger records:
 
-## Deploy on Vercel
+- request method
+- request URL
+- response status
+- duration in milliseconds
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Smoke Tests
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Run the admin smoke suite with:
+
+```bash
+npm run build
+npm run test:smoke
+```
+
+`test:smoke` starts the production build through `scripts/start-smoke.mjs`, which prepares the standalone output for Playwright by linking required static assets before booting the server.
+
+## Related Backend Perf Flags
+
+The frontend perf flow added matching backend flags for local profiling:
+
+- `API_SLOW_ROUTE_MS`
+- `SQL_SLOW_QUERY_MS`
+
+When these are greater than `0`, backend logs will report slow HTTP routes and SQL queries.

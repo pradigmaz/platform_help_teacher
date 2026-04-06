@@ -8,8 +8,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-
 from app import models, schemas
 from app.api import deps
 from app.core import error_messages as em
@@ -78,17 +76,21 @@ async def read_group(
     current_user: models.User = Depends(deps.get_current_teacher),
 ) -> Any:
     """Детали группы."""
-    query = select(models.Group).options(selectinload(models.Group.users)).where(models.Group.id == group_id)
-    result = await db.execute(query)
+    result = await db.execute(select(models.Group).where(models.Group.id == group_id))
     group = result.scalar_one_or_none()
 
     if not group:
         raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
 
-    students = group.users
+    students_query = select(models.User).where(
+        models.User.group_id == group_id,
+        models.User.role == "student",
+    )
     if active_only:
-        students = [u for u in students if u.is_active]
-    students = sorted(students, key=lambda u: u.full_name)
+        students_query = students_query.where(models.User.is_active.is_(True))
+    students_query = students_query.order_by(models.User.full_name)
+    students_result = await db.execute(students_query)
+    students = list(students_result.scalars().all())
 
     return {
         "id": group.id,

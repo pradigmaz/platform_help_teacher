@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import axiosRetry from 'axios-retry';
 import qs from 'qs';
+import logger from '@/lib/logger';
 
 // --- Custom Error Class ---
 export class ApiError extends Error {
@@ -50,6 +51,11 @@ function formatApiDetail(detail: unknown): string {
 
 // --- Axios Configuration ---
 const baseURL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+const perfDebugEnabled = process.env.NEXT_PUBLIC_PERF_DEBUG === '1';
+
+type RequestMetadata = {
+  startTime: number;
+};
 
 // Валидация URL для защиты от SSRF (CVE-2025-27152)
 function isValidRelativeUrl(url: string | undefined): boolean {
@@ -73,6 +79,10 @@ export const api = axios.create({
 
 // Защита от SSRF + автоматическое добавление CSRF токена
 api.interceptors.request.use(async (config) => {
+  const requestConfig = config as typeof config & { metadata?: RequestMetadata };
+  if (perfDebugEnabled) {
+    requestConfig.metadata = { startTime: performance.now() };
+  }
   if (!isValidRelativeUrl(config.url)) {
     return Promise.reject(new ApiError(400, 'Invalid URL: absolute URLs are not allowed'));
   }
@@ -149,8 +159,36 @@ export function resetCsrfToken(): void {
 
 // Response interceptor
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (perfDebugEnabled) {
+      const requestConfig = response.config as typeof response.config & { metadata?: RequestMetadata };
+      const startTime = requestConfig.metadata?.startTime;
+      if (startTime !== undefined) {
+        logger.debug('api_request_complete', {
+          component: 'api',
+          action: response.config.method?.toUpperCase() ?? 'GET',
+          url: response.config.url,
+          status: response.status,
+          durationMs: Math.round(performance.now() - startTime),
+        });
+      }
+    }
+    return response;
+  },
   async (error: AxiosError<{ detail: unknown }>) => {
+    if (perfDebugEnabled && error.config) {
+      const requestConfig = error.config as typeof error.config & { metadata?: RequestMetadata };
+      const startTime = requestConfig.metadata?.startTime;
+      if (startTime !== undefined) {
+        logger.debug('api_request_failed', {
+          component: 'api',
+          action: error.config.method?.toUpperCase() ?? 'GET',
+          url: error.config.url,
+          status: error.response?.status ?? 0,
+          durationMs: Math.round(performance.now() - startTime),
+        });
+      }
+    }
     if (axios.isCancel(error)) {
       return Promise.reject(error);
     }

@@ -1,4 +1,5 @@
 import logging
+import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager, suppress
 from typing import cast
@@ -119,6 +120,27 @@ app = FastAPI(
     openapi_url=_openapi_url,
     redoc_url=None,  # Отключаем ReDoc везде
 )
+
+
+@app.middleware("http")
+async def slow_route_logger(request: Request, call_next):
+    threshold_ms = settings.API_SLOW_ROUTE_MS
+    if threshold_ms <= 0:
+        return await call_next(request)
+
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start_time) * 1000
+    if duration_ms >= threshold_ms:
+        logger.warning(
+            "slow_route method=%s path=%s status=%s duration_ms=%.1f threshold_ms=%s",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+            threshold_ms,
+        )
+    return response
 
 # Rate Limiting
 app.state.limiter = limiter

@@ -3,7 +3,7 @@
 import { CheckCircle, Clock, Flame, Target } from 'lucide-react';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { BlurFade } from '@/components/ui/blur-fade';
-import { MagicCard } from '@/components/ui/magic-card';
+import { MetricCard } from '@/components/ui/metric-card';
 import { StudentStats } from './types';
 
 interface Props {
@@ -14,7 +14,7 @@ export function StudentStatsCards({ stats }: Props) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <BlurFade delay={0.3}>
-        <MagicCard className="cursor-pointer group" gradientColor="#22c55e20">
+        <MetricCard tint="green" className="cursor-pointer group">
           <div className="p-6 text-center relative overflow-hidden">
             <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity">
               <CheckCircle className="w-12 h-12 text-green-500 dark:text-green-400" />
@@ -24,11 +24,11 @@ export function StudentStatsCards({ stats }: Props) {
             </div>
             <div className="text-sm text-muted-foreground mt-1 font-medium">Сдано</div>
           </div>
-        </MagicCard>
+        </MetricCard>
       </BlurFade>
       
       <BlurFade delay={0.35}>
-        <MagicCard className="cursor-pointer group" gradientColor="#eab30820">
+        <MetricCard tint="yellow" className="cursor-pointer group">
           <div className="p-6 text-center relative overflow-hidden">
             <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity">
               <Clock className="w-12 h-12 text-yellow-500 dark:text-yellow-400" />
@@ -38,11 +38,11 @@ export function StudentStatsCards({ stats }: Props) {
             </div>
             <div className="text-sm text-muted-foreground mt-1 font-medium">На проверке</div>
           </div>
-        </MagicCard>
+        </MetricCard>
       </BlurFade>
       
       <BlurFade delay={0.4}>
-        <MagicCard className="cursor-pointer group" gradientColor="#f9731620">
+        <MetricCard tint="orange" className="cursor-pointer group">
           <div className="p-6 text-center relative overflow-hidden">
             <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity">
               <Flame className="w-12 h-12 text-orange-500 dark:text-orange-400" />
@@ -52,11 +52,11 @@ export function StudentStatsCards({ stats }: Props) {
             </div>
             <div className="text-sm text-muted-foreground mt-1 font-medium">Долги</div>
           </div>
-        </MagicCard>
+        </MetricCard>
       </BlurFade>
       
       <BlurFade delay={0.45}>
-        <MagicCard className="cursor-pointer group" gradientColor="#3b82f620">
+        <MetricCard tint="blue" className="cursor-pointer group">
           <div className="p-6 text-center relative overflow-hidden">
             <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity">
               <Target className="w-12 h-12 text-blue-500 dark:text-blue-400" />
@@ -66,7 +66,7 @@ export function StudentStatsCards({ stats }: Props) {
             </div>
             <div className="text-sm text-muted-foreground mt-1 font-medium">Успеваемость</div>
           </div>
-        </MagicCard>
+        </MetricCard>
       </BlurFade>
     </div>
   );

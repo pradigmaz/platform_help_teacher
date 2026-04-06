@@ -26,17 +26,14 @@ export const useAuthStore = create<AuthState>()(
         isLoading: true,
 
         setUser: (user) => {
-          console.log('[Store:useAuthStore] setUser called', { user });
           set({ user, isAuthenticated: !!user, isLoading: false });
         },
 
         setLoading: (isLoading) => {
-          console.log('[Store:useAuthStore] setLoading called', { isLoading });
           set({ isLoading });
         },
 
         logout: () => {
-          console.log('[Store:useAuthStore] logout called');
           set({ user: null, isAuthenticated: false, isLoading: false });
         },
       }),

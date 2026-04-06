@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,9 +9,11 @@ import { toast } from 'sonner';
 import { BlurFade } from '@/components/ui/blur-fade';
 import dynamic from 'next/dynamic';
 import api from '@/lib/api';
+import { runSingleFlight } from '@/lib/single-flight';
 import { StudentActivitiesList } from '@/components/admin/StudentActivitiesList';
 import { StudentAuditHistory } from '@/components/admin/StudentAuditHistory';
 import {
+  LabSubmission,
   StudentProfile,
   StudentProfileCard,
   StudentStatsCards,
@@ -31,18 +33,66 @@ export default function StudentProfilePage() {
   const studentId = params.id as string;
   
   const [student, setStudent] = useState<StudentProfile | null>(null);
+  const [labs, setLabs] = useState<LabSubmission[]>([]);
+  const [labsLoading, setLabsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resettingTelegram, setResettingTelegram] = useState(false);
   const [resettingVk, setResettingVk] = useState(false);
+  const requestIdRef = useRef(0);
+
+  const fetchStudentProfile = useCallback(async (requestId = requestIdRef.current) => {
+    const data = await runSingleFlight(`admin-student-profile:${studentId}`, async () => {
+      const response = await api.get<StudentProfile>(`/admin/students/${studentId}`, {
+        params: { include_labs: false },
+      });
+      return response.data;
+    });
+    if (requestIdRef.current === requestId) {
+      setStudent(data);
+      setError(null);
+    }
+    return data;
+  }, [studentId]);
+
+  const fetchStudentLabs = useCallback(
+    async ({ requestId = requestIdRef.current, silent = false }: { requestId?: number; silent?: boolean } = {}) => {
+      if (requestIdRef.current === requestId) {
+        setLabsLoading(true);
+      }
+
+      try {
+        const data = await runSingleFlight(`admin-student-labs:${studentId}`, async () => {
+          const response = await api.get<LabSubmission[]>(`/admin/students/${studentId}/labs`);
+          return response.data;
+        });
+        if (requestIdRef.current === requestId) {
+          setLabs(data);
+        }
+        return data;
+      } catch (error) {
+        if (requestIdRef.current === requestId) {
+          setLabs([]);
+          if (!silent) {
+            toast.error('Не удалось загрузить лабораторные работы');
+          }
+        }
+        throw error;
+      } finally {
+        if (requestIdRef.current === requestId) {
+          setLabsLoading(false);
+        }
+      }
+    },
+    [studentId],
+  );
 
   const handleResetTelegram = async () => {
     try {
       setResettingTelegram(true);
       await api.post(`/admin/students/${studentId}/reset-telegram`);
       toast.success('Telegram отвязан');
-      const { data } = await api.get<StudentProfile>(`/admin/students/${studentId}`);
-      setStudent(data);
+      await fetchStudentProfile();
     } catch {
       toast.error('Ошибка при сбросе Telegram');
     } finally {
@@ -55,8 +105,7 @@ export default function StudentProfilePage() {
       setResettingVk(true);
       await api.post(`/admin/students/${studentId}/reset-social?platform=vk`);
       toast.success('VK отвязан');
-      const { data } = await api.get<StudentProfile>(`/admin/students/${studentId}`);
-      setStudent(data);
+      await fetchStudentProfile();
     } catch {
       toast.error('Ошибка при сбросе VK');
     } finally {
@@ -65,23 +114,58 @@ export default function StudentProfilePage() {
   };
 
   const refreshStudent = async () => {
-    const { data } = await api.get<StudentProfile>(`/admin/students/${studentId}`);
-    setStudent(data);
+    const requestId = ++requestIdRef.current;
+    await fetchStudentProfile(requestId);
+    await fetchStudentLabs({ requestId, silent: true }).catch(() => {
+      toast.error('Не удалось обновить лабораторные работы');
+    });
   };
 
   useEffect(() => {
-    const fetchStudent = async () => {
+    const requestId = ++requestIdRef.current;
+
+    setLoading(true);
+    setError(null);
+    setStudent(null);
+    setLabs([]);
+    setLabsLoading(true);
+
+    const loadStudent = async () => {
       try {
-        const { data } = await api.get<StudentProfile>(`/admin/students/${studentId}`);
-        setStudent(data);
+        await fetchStudentProfile(requestId);
       } catch {
-        setError('Не удалось загрузить данные студента');
+        if (requestIdRef.current === requestId) {
+          setStudent(null);
+          setLabs([]);
+          setError('Не удалось загрузить данные студента');
+          setLabsLoading(false);
+        }
+        return;
       } finally {
-        setLoading(false);
+        if (requestIdRef.current === requestId) {
+          setLoading(false);
+        }
       }
     };
-    fetchStudent();
-  }, [studentId]);
+
+    const loadLabs = async () => {
+      await fetchStudentLabs({ requestId, silent: true });
+    };
+
+    void (async () => {
+      await loadStudent();
+      if (requestIdRef.current !== requestId) {
+        return;
+      }
+      await loadLabs().catch(() => undefined);
+    })();
+
+    return () => {
+      if (requestIdRef.current === requestId) {
+        requestIdRef.current += 1;
+      }
+    };
+  }, [fetchStudentLabs, fetchStudentProfile]);
 
   if (loading) {
     return (
@@ -159,7 +243,7 @@ export default function StudentProfilePage() {
       </BlurFade>
 
       <BlurFade delay={0.6}>
-        <StudentLabsList labs={student.labs} />
+        <StudentLabsList labs={labs} isLoading={labsLoading} />
       </BlurFade>
     </div>
   );

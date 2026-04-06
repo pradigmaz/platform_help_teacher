@@ -83,8 +83,6 @@ export function TransferStudentDialog({
   };
 
   const handleSubmit = async (values: TransferFormValues) => {
-    console.log('[TransferStudentDialog:handleSubmit] Starting transfer', { studentId, values });
-    
     setSubmitting(true);
     try {
       await TransfersAPI.transfer(studentId, {
@@ -100,11 +98,9 @@ export function TransferStudentDialog({
           values.toSubgroup !== 'none' ? ` (подгруппа ${values.toSubgroup})` : ''
         }`
       );
-      console.log('[TransferStudentDialog:handleSubmit] Transfer successful');
       setOpen(false);
       onSuccess?.();
-    } catch (e) {
-      console.error('[TransferStudentDialog:handleSubmit] Transfer failed', e);
+    } catch {
       toast.error('Ошибка при переводе');
     } finally {
       setSubmitting(false);

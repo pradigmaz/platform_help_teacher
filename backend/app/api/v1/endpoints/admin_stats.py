@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +9,7 @@ from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models import Group, Lab, User
 from app.models.lecture import Lecture
-from app.schemas import StatsResponse, StudentProfileOut
+from app.schemas import StatsResponse, StudentLabSubmission, StudentProfileOut
 from app.services.student_service import StudentService
 
 router = APIRouter()
@@ -60,17 +60,32 @@ async def get_stats(
 @router.get("/students/{student_id}", response_model=StudentProfileOut)
 async def get_student_profile(
     student_id: UUID,
+    include_labs: bool = Query(default=True),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Получить профиль студента с его лабораторными работами и статистикой."""
     service = StudentService(db)
-    profile = await service.get_profile(student_id)
+    profile = await service.get_profile(student_id, include_labs=include_labs)
 
     if not profile:
         raise HTTPException(status_code=404, detail="Student not found")
 
     return profile
+
+
+@router.get("/students/{student_id}/labs", response_model=list[StudentLabSubmission])
+async def get_student_labs(
+    student_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """Получить список лабораторных студента отдельно от shell-профиля."""
+    service = StudentService(db)
+    labs = await service.get_labs(student_id)
+    if labs is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return labs
 
 
 @router.post("/students/{student_id}/reset-social")

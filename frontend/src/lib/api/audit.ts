@@ -2,6 +2,7 @@
  * API для работы с аудитом действий.
  */
 import api from './client';
+import { runSingleFlight } from '../single-flight';
 
 export interface SuspicionMatch {
   has_suspicion: boolean;
@@ -113,10 +114,12 @@ export const AuditAPI = {
    * Получить логи конкретного пользователя.
    */
   async getUserLogs(userId: string, skip = 0, limit = 50): Promise<AuditLogListResponse> {
-    const { data } = await api.get<AuditLogListResponse>(
-      `/admin/audit/user/${userId}?skip=${skip}&limit=${limit}`
-    );
-    return data;
+    return runSingleFlight(`audit:user:${userId}:${skip}:${limit}`, async () => {
+      const { data } = await api.get<AuditLogListResponse>(
+        `/admin/audit/user/${userId}?skip=${skip}&limit=${limit}`
+      );
+      return data;
+    });
   },
 
   /**

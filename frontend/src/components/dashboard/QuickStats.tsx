@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MagicCard } from '@/components/ui/magic-card';
+import { MetricCard } from '@/components/ui/metric-card';
 import { Progress } from '@/components/ui/progress';
 import { SlidingNumber } from '@/components/animate-ui/primitives/texts/sliding-number';
 import { Effects } from '@/components/animate-ui/primitives/effects/effect';
@@ -65,7 +65,7 @@ export function QuickStats({ labs, attendance, attestation, isLoading }: QuickSt
     <Effects fade slide={{ direction: 'up', offset: 30 }} holdDelay={100} inView inViewOnce>
       {/* Labs Card */}
       <Link href="/dashboard/labs">
-        <MagicCard gradientColor="#8b5cf620" className="cursor-pointer hover:scale-[1.02] transition-transform">
+        <MetricCard tint="purple" className="cursor-pointer">
           <div className="p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-purple-500/10">
@@ -87,12 +87,12 @@ export function QuickStats({ labs, attendance, attestation, isLoading }: QuickSt
               {labSummaryText}
             </p>
           </div>
-        </MagicCard>
+        </MetricCard>
       </Link>
 
       {/* Attendance Card */}
       <Link href="/dashboard/attendance">
-        <MagicCard gradientColor="#3b82f620" className="cursor-pointer hover:scale-[1.02] transition-transform">
+        <MetricCard tint="blue" className="cursor-pointer">
           <div className="p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-blue-500/10">
@@ -120,11 +120,11 @@ export function QuickStats({ labs, attendance, attestation, isLoading }: QuickSt
               <p className="text-sm text-muted-foreground">Нет данных</p>
             )}
           </div>
-        </MagicCard>
+        </MetricCard>
       </Link>
 
       {/* Deadline Card */}
-      <MagicCard gradientColor="#f9731620" className="cursor-pointer hover:scale-[1.02] transition-transform">
+      <MetricCard tint="orange" className="cursor-pointer">
         <div className="p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 rounded-lg bg-orange-500/10">
@@ -146,7 +146,7 @@ export function QuickStats({ labs, attendance, attestation, isLoading }: QuickSt
             <p className="text-sm text-muted-foreground">Нет активных дедлайнов</p>
           )}
         </div>
-      </MagicCard>
+      </MetricCard>
     </Effects>
   );
 }
@@ -155,13 +155,13 @@ function QuickStatsSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {[1, 2, 3].map(i => (
-        <MagicCard key={i} gradientColor="#71717a20">
+        <MetricCard key={i} tint="neutral">
           <div className="p-5 animate-pulse">
             <div className="h-5 w-20 bg-muted rounded mb-3" />
             <div className="h-8 w-16 bg-muted rounded mb-2" />
             <div className="h-1.5 bg-muted rounded" />
           </div>
-        </MagicCard>
+        </MetricCard>
       ))}
     </div>
   );

@@ -1,4 +1,5 @@
 import { api } from './client';
+import { runSingleFlight } from '../single-flight';
 import type {
   AttestationType,
   ActivityCreate,
@@ -23,8 +24,10 @@ export const ActivitiesAPI = {
   },
 
   getByStudent: async (studentId: string) => {
-    const { data } = await api.get<ActivityResponse[]>(`/admin/activities/student/${studentId}`);
-    return data;
+    return runSingleFlight(`activities:student:${studentId}`, async () => {
+      const { data } = await api.get<ActivityResponse[]>(`/admin/activities/student/${studentId}`);
+      return data;
+    });
   },
 
   update: async (id: string, payload: ActivityUpdate) => {

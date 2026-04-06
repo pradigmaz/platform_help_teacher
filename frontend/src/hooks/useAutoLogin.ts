@@ -78,7 +78,6 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
   }, [router]);
 
   const handleSuccessfulLogin = useCallback(async (data: Awaited<ReturnType<typeof AuthAPI.login>>) => {
-    console.log('[Hook:useAutoLogin] Login successful, updating store', { user: data.user });
     useAuthStore.getState().setUser(data.user);
 
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -160,7 +159,6 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
     if (code && code.length === 6) {
       const autoLoginRememberDevice = false;
       loginAttemptedRef.current = true;
-      console.log('[Hook:useAutoLogin] Auto-login detected, forcing session-only cookies');
       // Clear fragment/query from URL for security
       if (typeof window !== 'undefined') {
         const nextParams = new URLSearchParams(window.location.search);

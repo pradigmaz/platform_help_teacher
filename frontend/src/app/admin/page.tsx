@@ -10,45 +10,28 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { BentoCard, BentoGrid } from '@/components/ui/bento-grid';
-import { MagicCard } from '@/components/ui/magic-card';
+import { MetricCard } from '@/components/ui/metric-card';
 
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { useTheme } from 'next-themes';
 import { toast } from '@/components/ui/sonner';
 import { useAdminSession } from '@/components/admin/AdminSessionProvider';
-
-interface DashboardStats {
-  total_users: number;
-  total_students: number;
-  total_groups: number;
-  total_lectures?: number;
-  active_labs: number;
-}
+import { AdminAPI, type AdminStats as DashboardStats } from '@/lib/api/admin';
 
 export default function AdminPanel() {
   const { user, isLoading: sessionLoading } = useAdminSession();
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { theme } = useTheme();
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (options?: { force?: boolean }) => {
     setIsRefreshing(true);
     try {
-      const response = await fetch('/api/v1/admin/stats', {
-        credentials: 'include'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      } else {
-        toast.error('Ошибка при загрузке статистики');
-      }
-    } catch (error) {
+      const data = await AdminAPI.getStats(options);
+      setStats(data);
+    } catch {
       toast.error('Ошибка при загрузке статистики');
-      console.error('Failed to fetch stats:', error);
       setStats({
         total_users: 0,
         total_students: 0,
@@ -94,6 +77,7 @@ export default function AdminPanel() {
       name: "Групп",
       value: stats?.total_groups ?? 0,
       icon: GraduationCap,
+      tint: "cyan" as const,
       color: "text-cyan-500",
       description: "Учебных групп"
     },
@@ -101,6 +85,7 @@ export default function AdminPanel() {
       name: "Студентов",
       value: stats?.total_students ?? 0,
       icon: Users,
+      tint: "blue" as const,
       color: "text-blue-500",
       description: "Всего в системе"
     },
@@ -108,6 +93,7 @@ export default function AdminPanel() {
       name: "Лекций",
       value: stats?.total_lectures ?? 0,
       icon: BookOpen,
+      tint: "green" as const,
       color: "text-green-500",
       description: "Учебных материалов"
     },
@@ -115,6 +101,7 @@ export default function AdminPanel() {
       name: "Лабораторных",
       value: stats?.active_labs ?? 0,
       icon: FlaskConical,
+      tint: "purple" as const,
       color: "text-purple-500",
       description: "Заданий создано"
     }
@@ -154,7 +141,7 @@ export default function AdminPanel() {
           </p>
         </div>
         <Button 
-          onClick={fetchStats}
+          onClick={() => void fetchStats({ force: true })}
           disabled={isRefreshing}
           className="rounded-xl"
         >
@@ -166,10 +153,10 @@ export default function AdminPanel() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat, idx) => (
-          <MagicCard
+          <MetricCard
             key={idx}
+            tint={stat.tint}
             className="p-6 flex flex-col justify-between"
-            gradientColor={theme === 'dark' ? "rgba(158, 122, 255, 0.15)" : "rgba(158, 122, 255, 0.08)"}
           >
             <div>
               <div className="flex justify-between items-start mb-4">
@@ -186,7 +173,7 @@ export default function AdminPanel() {
               <span className="h-1 w-1 rounded-full bg-primary/50" />
               {stat.description}
             </p>
-          </MagicCard>
+          </MetricCard>
         ))}
       </div>
 

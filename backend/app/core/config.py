@@ -148,6 +148,8 @@ class Settings(BaseSettings):
     BACKUP_ENCRYPTION_KEY: str = Field(default="", repr=False)
     BACKUP_STORAGE_BUCKET: str = "edu-backups"
     BACKUP_RETENTION_DAYS: int = DEFAULT_BACKUP_RETENTION_DAYS
+    API_SLOW_ROUTE_MS: int = 0
+    SQL_SLOW_QUERY_MS: int = 0
 
     @field_validator("BACKUP_ENCRYPTION_KEY")
     @classmethod

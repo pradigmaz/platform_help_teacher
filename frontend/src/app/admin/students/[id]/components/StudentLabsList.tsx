@@ -4,6 +4,7 @@ import { Calendar, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BlurFade } from '@/components/ui/blur-fade';
+import { Skeleton } from '@/components/ui/skeleton';
 import { LabSubmission } from './types';
 
 const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
@@ -16,9 +17,10 @@ const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode; labe
 
 interface Props {
   labs: LabSubmission[];
+  isLoading?: boolean;
 }
 
-export function StudentLabsList({ labs }: Props) {
+export function StudentLabsList({ labs, isLoading = false }: Props) {
   return (
     <Card>
       <CardHeader>
@@ -28,7 +30,13 @@ export function StudentLabsList({ labs }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {labs.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-20 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : labs.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">Нет лабораторных работ</p>
         ) : (
           <div className="space-y-3">
