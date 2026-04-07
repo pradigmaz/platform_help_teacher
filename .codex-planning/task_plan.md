@@ -157,10 +157,10 @@
 
 ## Риски
 
-- В текущем `ScheduleViewResponse` нет summary вообще; без backend-расширения фронт будет вынужден делать дорогие дополнительные запросы.
-- `admin/groups/{group_id}/students` сейчас не возвращает `subgroup`; для lesson summary это может быть недостаточно, если использовать именно этот endpoint.
-- grouped lecture собирается как набор обычных `Lesson` по `(date, lesson_number, subject_id)`, поэтому summary нужно агрегировать поверх нескольких `lesson_id`, а не пытаться считать по одной сущности.
-- Текущее визуальное определение `past` в `ScheduleGrid` основано на `isPast(date)` и не учитывает время окончания пары в текущий день; для твоего сценария этого недостаточно.
+- Закрыто: `ScheduleViewResponse` расширен серверным `summary` для `lessons` и `grouped_lectures`, поэтому фронту не нужны дополнительные attendance-запросы.
+- Закрыто: summary-calculator не использует `admin/groups/{group_id}/students`; expected-count считается напрямую по backend-данным студентов с учётом `subgroup`.
+- Закрыто: grouped lecture summary агрегируется поверх всех внутренних `lesson_id` с дедупликацией по `student_id`.
+- Закрыто: `ScheduleGrid` переведён на slot-aware temporal logic по МСК и времени окончания пары; локальная логика `isPast(date)` для определения прошедшего слота убрана.
 
 ## Порядок реализации
 

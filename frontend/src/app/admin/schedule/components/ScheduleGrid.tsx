@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { format, addDays, startOfWeek, isToday, isPast } from 'date-fns';
+import { format, addDays, startOfWeek } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { LESSON_TIMES, WEEKDAYS } from '@/lib/schedule-constants';
@@ -19,9 +19,49 @@ interface ScheduleGridProps {
 }
 
 const SCHEDULE_GRID_TEMPLATE = 'grid-cols-[72px_repeat(6,minmax(0,1fr))]';
+const MSK_DATE_FORMATTER = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Europe/Moscow',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const MSK_TIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Moscow',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+export function getMskNowSnapshot(now: Date = new Date()) {
+  return {
+    date: MSK_DATE_FORMATTER.format(now),
+    time: MSK_TIME_FORMATTER.format(now),
+  };
+}
+
+export function isScheduleSlotPast(slotDate: string, slotNumber: number, now = getMskNowSnapshot()) {
+  if (slotDate < now.date) {
+    return true;
+  }
+  if (slotDate > now.date) {
+    return false;
+  }
+
+  const lessonTime = LESSON_TIMES[slotNumber];
+  if (!lessonTime) {
+    return false;
+  }
+
+  return now.time > lessonTime.end;
+}
+
+function isScheduleDayPast(dayDate: string, now = getMskNowSnapshot()) {
+  return dayDate < now.date;
+}
 
 export function ScheduleGrid({ lessons, groupedLectures = [], currentWeek, onLessonClick, onLectureClick, onLessonAction }: ScheduleGridProps) {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+  const nowSnapshot = getMskNowSnapshot();
   
   // Генерируем даты недели (Пн-Сб)
   const weekDates = useMemo(() => {
@@ -74,8 +114,9 @@ export function ScheduleGrid({ lessons, groupedLectures = [], currentWeek, onLes
             Пара
           </div>
           {weekDates.map((date, index) => {
-            const today = isToday(date);
-            const past = isPast(date) && !today;
+            const dateStr = format(date, 'yyyy-MM-dd');
+            const today = dateStr === nowSnapshot.date;
+            const past = isScheduleDayPast(dateStr, nowSnapshot);
 
             return (
               <div
@@ -133,8 +174,8 @@ export function ScheduleGrid({ lessons, groupedLectures = [], currentWeek, onLes
                 const key = `${dateStr}-${slotNumber}`;
                 const cellLessons = lessonsBySlot.get(key) || [];
                 const cellLectures = lecturesBySlot.get(key) || [];
-                const today = isToday(date);
-                const past = isPast(date) && !today;
+                const today = dateStr === nowSnapshot.date;
+                const past = isScheduleSlotPast(dateStr, slotNumber, nowSnapshot);
                 const hasContent = cellLessons.length > 0 || cellLectures.length > 0;
 
                 return (
