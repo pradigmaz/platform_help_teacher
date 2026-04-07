@@ -60,5 +60,9 @@ async def get_announcements(
     current_user: User = Depends(get_current_user),
 ) -> list[AnnouncementListResponse]:
     """Получить опубликованные объявления."""
+    notification_settings = await crud_notification_settings.get_or_create(db, current_user.id)
+    if not notification_settings.channel_web or not notification_settings.notify_announcements:
+        return []
+
     announcements = await crud_announcement.get_published(db, skip=skip, limit=limit)
     return [AnnouncementListResponse.model_validate(a) for a in announcements]

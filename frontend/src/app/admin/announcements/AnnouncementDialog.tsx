@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import api from '@/lib/api';
+import { AdminAnnouncementsAPI } from '@/lib/api/admin-announcements';
 
 interface AnnouncementDialogProps {
   open: boolean;
@@ -37,11 +37,11 @@ export function AnnouncementDialog({ open, onOpenChange, announcementId, onSucce
 
     setLoading(true);
     try {
-      const { data } = await api.get(`/admin/announcements/${announcementId}`);
+      const data = await AdminAnnouncementsAPI.get(announcementId);
       setTitle(data.title);
       setContent(data.content);
-    } catch {
-      toast.error('Ошибка загрузки');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка загрузки');
       onOpenChange(false);
     } finally {
       setLoading(false);
@@ -72,16 +72,16 @@ export function AnnouncementDialog({ open, onOpenChange, announcementId, onSucce
     setSaving(true);
     try {
       if (isEdit) {
-        await api.put(`/admin/announcements/${announcementId}`, { title, content });
+        await AdminAnnouncementsAPI.update(announcementId, { title, content });
         toast.success('Сохранено');
       } else {
-        await api.post('/admin/announcements', { title, content });
+        await AdminAnnouncementsAPI.create({ title, content });
         toast.success('Черновик создан');
       }
       onSuccess();
       onOpenChange(false);
-    } catch {
-      toast.error('Ошибка сохранения');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка сохранения');
     } finally {
       setSaving(false);
     }

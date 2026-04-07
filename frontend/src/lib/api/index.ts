@@ -18,6 +18,12 @@ export { ScheduleAPI } from './schedule';
 export { JournalAPI } from './journal';
 export { ReportsAPI, PublicReportAPI } from './reports';
 export { AdminAPI } from './admin';
+export { AdminAnnouncementsAPI } from './admin-announcements';
+export type {
+  AdminAnnouncement,
+  AnnouncementDeliveryStats,
+  AnnouncementSendStatus,
+} from './admin-announcements';
 export { TransfersAPI } from './transfers';
 export { AuditAPI } from './audit';
 export type { AuditLog, AuditLogListResponse, AuditStats, AuditFilters } from './audit';

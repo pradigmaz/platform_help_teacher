@@ -18,7 +18,12 @@ celery_app = Celery(
     "edu_platform",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=["app.tasks.schedule_tasks", "app.tasks.backup_tasks", "app.tasks.audit_tasks"],
+    include=[
+        "app.tasks.schedule_tasks",
+        "app.tasks.backup_tasks",
+        "app.tasks.audit_tasks",
+        "app.tasks.announcement_tasks",
+    ],
 )
 
 celery_app.conf.update(

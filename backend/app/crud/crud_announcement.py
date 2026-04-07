@@ -3,11 +3,11 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.announcement import Announcement
+from app.models.announcement import Announcement, AnnouncementSendStatus
 
 
 class CRUDAnnouncement:
@@ -25,16 +25,18 @@ class CRUDAnnouncement:
         query = select(Announcement).options(selectinload(Announcement.author))
         if not include_drafts:
             query = query.where(Announcement.is_draft.is_(False))
-        query = query.order_by(Announcement.created_at.desc()).offset(skip).limit(limit)
+        effective_created_at = func.coalesce(Announcement.published_at, Announcement.created_at)
+        query = query.order_by(effective_created_at.desc(), Announcement.created_at.desc()).offset(skip).limit(limit)
         result = await db.execute(query)
         return list(result.scalars().all())
 
     async def get_published(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> list[Announcement]:
         """Получить опубликованные объявления (для студентов)."""
+        effective_created_at = func.coalesce(Announcement.published_at, Announcement.created_at)
         result = await db.execute(
             select(Announcement)
             .where(Announcement.is_draft.is_(False))
-            .order_by(Announcement.published_at.desc())
+            .order_by(effective_created_at.desc(), Announcement.created_at.desc())
             .offset(skip)
             .limit(limit)
         )
@@ -64,6 +66,30 @@ class CRUDAnnouncement:
         """Опубликовать объявление."""
         announcement.is_draft = False
         announcement.published_at = datetime.now(UTC)
+        await db.commit()
+        await db.refresh(announcement)
+        return announcement
+
+    async def mark_send_enqueued(self, db: AsyncSession, announcement: Announcement, sent_by: UUID) -> Announcement:
+        """Пометить объявление как поставленное в очередь на отправку."""
+        announcement.send_status = AnnouncementSendStatus.SENDING
+        announcement.send_started_at = datetime.now(UTC)
+        announcement.sent_by = sent_by
+        announcement.delivery_error = None
+        announcement.delivery_stats = None
+        await db.commit()
+        await db.refresh(announcement)
+        return announcement
+
+    async def mark_send_enqueue_failed(
+        self, db: AsyncSession, announcement: Announcement, sent_by: UUID, error_message: str
+    ) -> Announcement:
+        """Зафиксировать ошибку постановки отправки в очередь."""
+        announcement.send_status = AnnouncementSendStatus.FAILED
+        announcement.send_started_at = None
+        announcement.sent_by = sent_by
+        announcement.delivery_error = error_message[:1000]
+        announcement.delivery_stats = None
         await db.commit()
         await db.refresh(announcement)
         return announcement
