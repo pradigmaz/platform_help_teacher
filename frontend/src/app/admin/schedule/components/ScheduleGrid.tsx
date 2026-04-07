@@ -18,6 +18,8 @@ interface ScheduleGridProps {
   onLessonAction?: (lessonId: string, action: 'cancel' | 'end_early' | 'restore') => void;
 }
 
+const SCHEDULE_GRID_TEMPLATE = 'grid-cols-[72px_repeat(6,minmax(0,1fr))]';
+
 export function ScheduleGrid({ lessons, groupedLectures = [], currentWeek, onLessonClick, onLectureClick, onLessonAction }: ScheduleGridProps) {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   
@@ -64,10 +66,10 @@ export function ScheduleGrid({ lessons, groupedLectures = [], currentWeek, onLes
   const slotsToShow = activeSlots.length > 0 ? activeSlots : [1, 2, 3, 4];
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card shadow-sm">
+    <div className="w-full overflow-x-auto rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card shadow-sm">
       <div className="min-w-[700px]">
         {/* Header: дни недели */}
-        <div className="grid grid-cols-[80px_repeat(6,1fr)] border-b border-zinc-300 dark:border-zinc-700">
+        <div className={cn('grid border-b border-zinc-300 dark:border-zinc-700', SCHEDULE_GRID_TEMPLATE)}>
           <div className="p-3 text-xs font-medium text-muted-foreground text-center border-r border-zinc-300 dark:border-zinc-700">
             Пара
           </div>
@@ -79,7 +81,7 @@ export function ScheduleGrid({ lessons, groupedLectures = [], currentWeek, onLes
               <div
                 key={index}
                 className={cn(
-                  'p-3 text-center border-r border-zinc-300 dark:border-zinc-700 last:border-r-0',
+                  'min-w-0 p-3 text-center border-r border-zinc-300 dark:border-zinc-700 last:border-r-0',
                   today && 'bg-primary/10 dark:bg-primary/20',
                   past && 'opacity-50'
                 )}
@@ -107,7 +109,8 @@ export function ScheduleGrid({ lessons, groupedLectures = [], currentWeek, onLes
             <div 
               key={slotNumber} 
               className={cn(
-                'grid grid-cols-[80px_repeat(6,1fr)]',
+                'grid',
+                SCHEDULE_GRID_TEMPLATE,
                 slotIndex < slotsToShow.length - 1 && 'border-b border-zinc-300 dark:border-zinc-700'
               )}
             >
@@ -138,14 +141,14 @@ export function ScheduleGrid({ lessons, groupedLectures = [], currentWeek, onLes
                   <div
                     key={dayIndex}
                     className={cn(
-                      'min-h-[100px] p-1.5 border-r border-zinc-300 dark:border-zinc-700 last:border-r-0',
+                      'min-h-[100px] min-w-0 p-1.5 border-r border-zinc-300 dark:border-zinc-700 last:border-r-0',
                       today && 'bg-primary/5 dark:bg-primary/10',
                       past && 'bg-zinc-50 dark:bg-muted/30',
                       !hasContent && 'group'
                     )}
                   >
                     {hasContent ? (
-                      <div className="flex flex-col gap-1 items-stretch">
+                      <div className="flex min-w-0 flex-col gap-1 items-stretch">
                         {/* Grouped lectures */}
                         {cellLectures.map((lecture, idx) => (
                           <LectureCard

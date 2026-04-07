@@ -4,6 +4,7 @@ import { Download, Settings, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { LessonSheet, LectureSheet, type LessonSheetData } from '@/components/schedule';
 import { NotesProvider } from '@/components/notes';
 import { 
@@ -159,7 +160,9 @@ function SchedulePageContent() {
 export default function SchedulePage() {
   return (
     <NotesProvider>
-      <SchedulePageContent />
+      <TooltipProvider delayDuration={150}>
+        <SchedulePageContent />
+      </TooltipProvider>
     </NotesProvider>
   );
 }

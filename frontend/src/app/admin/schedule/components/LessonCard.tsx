@@ -1,6 +1,7 @@
 'use client';
 
 import { Users, MoreHorizontal, XCircle, Clock, BookOpen, RotateCcw } from 'lucide-react';
+import type { LessonAttendanceSummaryResponse } from '@/lib/api/types/schedule';
 import { cn } from '@/lib/utils';
 import { LESSON_TYPE_CONFIG } from '@/lib/schedule-constants';
 import { NoteButton } from '@/components/notes';
@@ -12,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { ScheduleAttendanceBadge } from './ScheduleAttendanceBadge';
 
 export interface LessonData {
   id: string;
@@ -26,6 +28,7 @@ export interface LessonData {
   ended_early?: boolean;
   group_id?: string;
   group_name?: string | null;
+  summary?: LessonAttendanceSummaryResponse | null;
 }
 
 interface LessonCardProps {
@@ -44,7 +47,7 @@ export function LessonCard({ lesson, onClick, onAction }: LessonCardProps) {
   return (
     <div
       className={cn(
-        'relative rounded-md border-l-4 p-2.5 transition-all cursor-pointer',
+        'relative min-w-0 rounded-md border-l-4 p-2.5 transition-all cursor-pointer',
         'hover:shadow-lg hover:scale-[1.02]',
         'border border-transparent',
         isCancelled && 'bg-red-100 dark:bg-red-900/40 border-l-red-500 opacity-70',
@@ -54,7 +57,7 @@ export function LessonCard({ lesson, onClick, onAction }: LessonCardProps) {
       onClick={onClick}
     >
       {/* Header: группа + меню */}
-      <div className="flex items-start justify-between gap-1">
+      <div className="flex min-w-0 items-start justify-between gap-1">
         <span className={cn(
           'font-bold text-sm truncate flex-1',
           isCancelled && 'line-through text-red-700 dark:text-red-300',
@@ -102,7 +105,7 @@ export function LessonCard({ lesson, onClick, onAction }: LessonCardProps) {
       </div>
 
       {/* Тип + подгруппа */}
-      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+      <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
         <span className={cn(
           'text-[10px] font-semibold px-2 py-0.5 rounded',
           isCancelled && 'bg-red-500 text-white',
@@ -111,6 +114,7 @@ export function LessonCard({ lesson, onClick, onAction }: LessonCardProps) {
         )}>
           {isCancelled ? 'Отменено' : isEndedEarly ? 'Отпустил' : config.label}
         </span>
+        <ScheduleAttendanceBadge summary={lesson.summary} />
         {lesson.subgroup && (
           <span className={cn(
             'text-[10px] font-medium flex items-center gap-0.5',

@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.schedule import DayOfWeek, LessonType, WeekParity
 from app.schemas.schedule_parser import ScheduleConflictResponse
 
+AttendanceSummaryState = Literal["hidden", "not_applicable", "unmarked", "partial", "complete"]
+
 # === ScheduleItem ===
 
 
@@ -79,6 +81,13 @@ class LessonUpdate(BaseModel):
     ended_early: bool | None = None
 
 
+class LessonAttendanceSummaryResponse(BaseModel):
+    state: AttendanceSummaryState
+    marked_count: int = 0
+    expected_count: int = 0
+    is_past: bool
+
+
 class LessonResponse(LessonBase):
     id: UUID
     group_id: UUID
@@ -89,6 +98,7 @@ class LessonResponse(LessonBase):
     ended_early: bool = False
     subject_name: str | None = None
     group_name: str | None = None
+    summary: LessonAttendanceSummaryResponse | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -156,6 +166,13 @@ class GroupedLectureGroupResponse(BaseModel):
     lesson_id: UUID
 
 
+class GroupedLectureAttendanceSummaryResponse(BaseModel):
+    state: AttendanceSummaryState
+    marked_count: int = 0
+    expected_count: int = 0
+    is_past: bool
+
+
 class GroupedLectureResponse(BaseModel):
     date: date
     lesson_number: int
@@ -165,6 +182,7 @@ class GroupedLectureResponse(BaseModel):
     is_cancelled: bool = False
     ended_early: bool = False
     groups: list[GroupedLectureGroupResponse]
+    summary: GroupedLectureAttendanceSummaryResponse | None = None
 
 
 class ScheduleParseStatusResponse(BaseModel):

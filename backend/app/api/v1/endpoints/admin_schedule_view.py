@@ -18,6 +18,10 @@ from app.schemas.schedule import (
     ScheduleViewResponse,
 )
 from app.schemas.schedule_parser import ScheduleConflictResponse
+from app.services.schedule_attendance_summary import (
+    grouped_lecture_item_key,
+    schedule_attendance_summary_service,
+)
 
 router = APIRouter()
 
@@ -34,6 +38,11 @@ async def get_schedule_view(
 
     lesson_rows = await _get_non_lecture_lessons(db, start_date, end_date)
     grouped_lectures = await crud_lesson.get_grouped_lectures(db, start_date, end_date)
+    summary_result = await schedule_attendance_summary_service.build(
+        db,
+        regular_lessons=lesson_rows,
+        grouped_lecture_items=grouped_lectures,
+    )
 
     return ScheduleViewResponse(
         parse_status=parse_status,
@@ -55,6 +64,7 @@ async def get_schedule_view(
                 ended_early=row.ended_early,
                 subject_name=row.subject.name if row.subject else None,
                 group_name=row.group.name if row.group else None,
+                summary=summary_result.lesson_summaries.get(row.id),
             )
             for row in lesson_rows
         ],
@@ -65,8 +75,8 @@ async def get_schedule_view(
                 subject_id=item["subject_id"],
                 subject_name=item["subject_name"],
                 topic=item["topic"],
-                is_cancelled=item["is_cancelled"],
-                ended_early=item["ended_early"],
+                is_cancelled=summary_result.grouped_lecture_summaries[grouped_lecture_item_key(item)].is_cancelled,
+                ended_early=summary_result.grouped_lecture_summaries[grouped_lecture_item_key(item)].ended_early,
                 groups=[
                     GroupedLectureGroupResponse(
                         id=group["id"],
@@ -75,6 +85,7 @@ async def get_schedule_view(
                     )
                     for group in item["groups"]
                 ],
+                summary=summary_result.grouped_lecture_summaries[grouped_lecture_item_key(item)].summary,
             )
             for item in grouped_lectures
         ],

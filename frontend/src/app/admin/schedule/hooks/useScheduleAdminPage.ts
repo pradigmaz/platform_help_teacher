@@ -69,6 +69,7 @@ export function useScheduleAdminPage() {
             ended_early: lesson.ended_early,
             group_id: lesson.group_id,
             group_name: lesson.group_name ?? null,
+            summary: lesson.summary ?? null,
           }))
         );
         setGroupedLectures(
@@ -81,6 +82,7 @@ export function useScheduleAdminPage() {
             is_cancelled: lecture.is_cancelled,
             ended_early: lecture.ended_early,
             groups: lecture.groups,
+            summary: lecture.summary ?? null,
           }))
         );
         setConflicts(data.conflicts);

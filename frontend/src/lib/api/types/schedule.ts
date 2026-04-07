@@ -1,6 +1,21 @@
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
 export type LessonType = 'lecture' | 'practice' | 'lab';
 export type WeekParity = 'odd' | 'even';
+export type AttendanceSummaryState = 'hidden' | 'not_applicable' | 'unmarked' | 'partial' | 'complete';
+
+export interface LessonAttendanceSummaryResponse {
+  state: AttendanceSummaryState;
+  marked_count: number;
+  expected_count: number;
+  is_past: boolean;
+}
+
+export interface GroupedLectureAttendanceSummaryResponse {
+  state: AttendanceSummaryState;
+  marked_count: number;
+  expected_count: number;
+  is_past: boolean;
+}
 
 export interface ScheduleItemCreate {
   day_of_week: DayOfWeek;
@@ -80,6 +95,7 @@ export interface LessonResponse {
   ended_early: boolean;
   subject_name?: string | null;
   group_name?: string | null;
+  summary?: LessonAttendanceSummaryResponse | null;
 }
 
 export interface GenerateLessonsResponse {
@@ -157,6 +173,7 @@ export interface GroupedLectureResponse {
   is_cancelled: boolean;
   ended_early: boolean;
   groups: GroupedLectureGroup[];
+  summary?: GroupedLectureAttendanceSummaryResponse | null;
 }
 
 export interface ScheduleParseStatusResponse {

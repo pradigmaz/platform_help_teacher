@@ -1,3 +1,8 @@
+import type {
+  GroupedLectureAttendanceSummaryResponse,
+  LessonAttendanceSummaryResponse,
+} from '@/lib/api/types/schedule';
+
 // Types for LessonSheet and related components
 
 export interface Student {
@@ -20,6 +25,7 @@ export interface LessonData {
   ended_early?: boolean;
   group_id?: string;
   group_name?: string;
+  summary?: LessonAttendanceSummaryResponse | null;
 }
 
 export interface GroupWithStudents {
@@ -72,4 +78,5 @@ export interface GroupedLecture {
   is_cancelled: boolean;
   ended_early?: boolean;
   groups: LectureGroup[];
+  summary?: GroupedLectureAttendanceSummaryResponse | null;
 }

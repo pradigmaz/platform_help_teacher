@@ -21,6 +21,7 @@ function AdminLayoutContent({
   const { user, isLoading, refetch } = useAdminSession();
   const router = useRouter();
   const pathname = usePathname();
+  const isWideAdminPage = pathname === "/admin/schedule" || pathname.startsWith("/admin/schedule/");
   const [showFioDialog, setShowFioDialog] = React.useState(false);
 
   // Проверка onboarding после загрузки
@@ -79,7 +80,13 @@ function AdminLayoutContent({
         </header>
         <main className="flex-1 transition-all duration-300 overflow-y-auto">
           <BlurFade delay={0.1} duration={0.5}>
-            <div className="container mx-auto p-4 lg:p-8">
+            <div
+              className={cn(
+                isWideAdminPage
+                  ? "w-full max-w-none px-4 py-4 lg:px-6 lg:py-8 xl:px-8"
+                  : "container mx-auto p-4 lg:p-8"
+              )}
+            >
               <ApiErrorBoundary>
                 {children}
               </ApiErrorBoundary>

@@ -4,6 +4,7 @@ import { Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NoteButton } from '@/components/notes';
 import type { GroupedLecture } from '@/components/schedule';
+import { ScheduleAttendanceBadge } from './ScheduleAttendanceBadge';
 
 interface LectureCardProps {
   lecture: GroupedLecture;
@@ -44,7 +45,7 @@ export function LectureCard({ lecture, onClick }: LectureCardProps) {
     <div
       onClick={onClick}
       className={cn(
-        'relative rounded-md border-l-4 p-2.5 cursor-pointer',
+        'relative min-w-0 rounded-md border-l-4 p-2.5 cursor-pointer',
         'hover:shadow-lg hover:scale-[1.02]',
         'border border-transparent',
         'transition-all duration-300 ease-in-out',
@@ -54,7 +55,7 @@ export function LectureCard({ lecture, onClick }: LectureCardProps) {
       )}
     >
       {/* Header: группы + заметки */}
-      <div className="flex items-start justify-between gap-1">
+      <div className="flex min-w-0 items-start justify-between gap-1">
         <span className={cn(
           'font-bold text-sm truncate flex-1',
           isCancelled && 'line-through text-red-700 dark:text-red-300',
@@ -75,7 +76,7 @@ export function LectureCard({ lecture, onClick }: LectureCardProps) {
       </div>
 
       {/* Тип + кол-во групп */}
-      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+      <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
         <span className={cn(
           'text-[10px] font-semibold px-2 py-0.5 rounded',
           isCancelled && 'bg-red-500 text-white',
@@ -84,6 +85,7 @@ export function LectureCard({ lecture, onClick }: LectureCardProps) {
         )}>
           {isCancelled ? 'Отменено' : isEndedEarly ? 'Отпустил' : 'Лекция'}
         </span>
+        <ScheduleAttendanceBadge summary={lecture.summary} />
         <span className={cn(
           'text-[10px] font-medium flex items-center gap-0.5',
           isCancelled ? 'text-red-600 dark:text-red-300' : 
