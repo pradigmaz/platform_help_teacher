@@ -1,4 +1,5 @@
 import { api, publicApi } from './client';
+import { runSingleFlight } from '../single-flight';
 import type {
   ReportCreate,
   ReportUpdate,
@@ -10,15 +11,29 @@ import type {
   StudentDetailData,
 } from './types';
 
+type ReportListParams = {
+  groupId?: string;
+  includeInactive?: boolean;
+};
+
 export const ReportsAPI = {
   create: async (payload: ReportCreate) => {
     const { data } = await api.post<Report>('/admin/reports', payload);
     return data;
   },
 
-  list: async () => {
-    const { data } = await api.get<ReportListResponse>('/admin/reports');
-    return data;
+  list: async (params: ReportListParams = {}) => {
+    const groupId = params.groupId ?? 'all';
+    const includeInactive = params.includeInactive ?? false;
+    return runSingleFlight(`reports:list:${groupId}:inactive:${includeInactive}`, async () => {
+      const { data } = await api.get<ReportListResponse>('/admin/reports', {
+        params: {
+          group_id: params.groupId,
+          include_inactive: includeInactive,
+        },
+      });
+      return data;
+    });
   },
 
   get: async (id: string) => {
@@ -47,9 +62,10 @@ export const ReportsAPI = {
 };
 
 export const PublicReportAPI = {
-  getReport: async (code: string, attestation: 'first' | 'second' = 'first') => {
+  getReport: async (code: string, attestation: 'first' | 'second' = 'first', signal?: AbortSignal) => {
     const { data } = await publicApi.get<PublicReportData>(
-      `/public/report/${code}?attestation=${attestation}`
+      `/public/report/${code}?attestation=${attestation}`,
+      { signal }
     );
     return data;
   },

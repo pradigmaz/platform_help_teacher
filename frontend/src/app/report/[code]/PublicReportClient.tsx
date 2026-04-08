@@ -1,8 +1,9 @@
 'use client';
 'use no memo';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PublicReportAPI, PublicReportData, ApiError } from '@/lib/api';
+import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PinDialog } from './components/PinDialog';
 import { ReportHeader } from './components/ReportHeader';
@@ -27,22 +28,49 @@ type PageState =
 
 export function PublicReportClient({ code }: PublicReportClientProps) {
   const [state, setState] = useState<PageState>({ status: 'loading' });
-  const [pinVerified, setPinVerified] = useState(false);
+  const [isReloading, setIsReloading] = useState(false);
   const [attestationType, setAttestationType] = useState<AttestationType>('first');
+  const requestIdRef = useRef(0);
+  const loadedDataRef = useRef<PublicReportData | null>(null);
 
-  const loadReport = useCallback(async (attType: AttestationType = attestationType) => {
-    console.log('[PublicReportClient:loadReport] Starting', { code, attType, pinVerified });
-    setState({ status: 'loading' });
+  const loadReport = useCallback(async (
+    attType: AttestationType,
+    options: { preserveData?: boolean; signal?: AbortSignal } = {},
+  ) => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    const preserveData = options.preserveData ?? false;
+
+    if (preserveData && loadedDataRef.current) {
+      setIsReloading(true);
+    } else {
+      setState({ status: 'loading' });
+    }
+
     try {
-      const data = await PublicReportAPI.getReport(code, attType);
-      console.log('[PublicReportClient:loadReport] Success', { dataKeys: Object.keys(data) });
+      const data = await PublicReportAPI.getReport(code, attType, options.signal);
+      if (requestId !== requestIdRef.current || options.signal?.aborted) {
+        return;
+      }
+      loadedDataRef.current = data;
       setState({ status: 'loaded', data });
     } catch (err) {
-      console.error('[PublicReportClient:loadReport] Error:', err);
+      if (requestId !== requestIdRef.current || options.signal?.aborted) {
+        return;
+      }
+
       if (err instanceof ApiError) {
         if (err.status === 401) {
           setState({ status: 'pin_required' });
-        } else if (err.status === 404) {
+          return;
+        }
+
+        if (preserveData && loadedDataRef.current) {
+          toast.error(err.message || 'Ошибка загрузки отчёта');
+          return;
+        }
+
+        if (err.status === 404) {
           setState({ 
             status: 'error', 
             error: 'Отчёт не найден', 
@@ -63,29 +91,37 @@ export function PublicReportClient({ code }: PublicReportClientProps) {
           });
         }
       } else {
+        if (preserveData && loadedDataRef.current) {
+          toast.error('Ошибка загрузки отчёта');
+          return;
+        }
         setState({ 
           status: 'error', 
           error: 'Ошибка загрузки отчёта', 
           errorType: 'generic' 
         });
       }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsReloading(false);
+      }
     }
-  }, [attestationType, code, pinVerified]);
+  }, [code]);
 
   useEffect(() => {
-    void loadReport();
-  }, [loadReport]);
+    const controller = new AbortController();
+    const preserveData = loadedDataRef.current !== null;
+    void loadReport(attestationType, { preserveData, signal: controller.signal });
+    return () => controller.abort();
+  }, [attestationType, loadReport]);
 
   const handleAttestationChange = (value: string) => {
     const newType = value as AttestationType;
-    console.log('[PublicReportClient:handleAttestationChange]', { from: attestationType, to: newType });
     setAttestationType(newType);
-    void loadReport(newType);
   };
 
   const handlePinSuccess = () => {
-    console.log('[PublicReportClient:handlePinSuccess] PIN verified');
-    setPinVerified(true);
+    void loadReport(attestationType);
   };
 
   // Loading state
@@ -128,6 +164,9 @@ export function PublicReportClient({ code }: PublicReportClientProps) {
           </TabsTrigger>
         </TabsList>
       </Tabs>
+      {isReloading && (
+        <p className="text-sm text-muted-foreground">Обновляем данные для выбранной аттестации...</p>
+      )}
       <p className="text-sm text-muted-foreground">
         Показатели посещаемости считаются для выбранной аттестации, а история занятий показывает отдельный процент по каждому занятию.
       </p>

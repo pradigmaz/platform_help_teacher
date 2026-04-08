@@ -2,6 +2,10 @@ import { api } from './client';
 import type { GroupResponse, GroupDetailResponse, GroupCreate, StudentImport } from './types';
 import { runSingleFlight } from '../single-flight';
 
+type GroupGetOptions = {
+  includeStudents?: boolean;
+};
+
 export const GroupsAPI = {
   list: async () => {
     return runSingleFlight('groups:list', async () => {
@@ -10,9 +14,14 @@ export const GroupsAPI = {
     });
   },
 
-  get: async (id: string) => {
-    return runSingleFlight(`groups:get:${id}`, async () => {
-      const { data } = await api.get<GroupDetailResponse>(`/groups/${id}`);
+  get: async (id: string, options: GroupGetOptions = {}) => {
+    const includeStudents = options.includeStudents ?? true;
+    return runSingleFlight(`groups:get:${id}:students:${includeStudents}`, async () => {
+      const { data } = await api.get<GroupDetailResponse>(`/groups/${id}`, {
+        params: {
+          include_students: includeStudents,
+        },
+      });
       return data;
     });
   },

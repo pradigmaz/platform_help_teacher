@@ -14,6 +14,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { CreateReportDialog } from './components/CreateReportDialog';
 import { ReportLinkCopy } from './components/ReportLinkCopy';
 
+function sortReportsByCreatedAt(reports: Report[]): Report[] {
+  return reports.slice().sort((left, right) => right.created_at.localeCompare(left.created_at));
+}
+
 export default function GroupReportsPage() {
   const params = useParams();
   const router = useRouter();
@@ -26,11 +30,15 @@ export default function GroupReportsPage() {
   const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
+  const loadInitialData = useCallback(async () => {
+    setIsLoading(true);
     try {
-      const [groupData, reportsData] = await Promise.all([GroupsAPI.get(groupId), ReportsAPI.list()]);
+      const [groupData, reportsData] = await Promise.all([
+        GroupsAPI.get(groupId, { includeStudents: false }),
+        ReportsAPI.list({ groupId }),
+      ]);
       setGroup(groupData);
-      setReports(reportsData.reports.filter(r => r.group_id === groupId));
+      setReports(sortReportsByCreatedAt(reportsData.reports));
     } catch {
       toast.error('Ошибка загрузки данных');
     } finally {
@@ -39,28 +47,30 @@ export default function GroupReportsPage() {
   }, [groupId]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    void loadInitialData();
+  }, [loadInitialData]);
 
   const handleDeleteReport = useCallback(async () => {
     if (!reportToDelete) return;
     try {
       await ReportsAPI.delete(reportToDelete.id);
       toast.success('Отчёт деактивирован');
-      await loadData();
+      setReports((currentReports) => currentReports.filter((report) => report.id !== reportToDelete.id));
     } catch { toast.error('Ошибка при удалении'); }
     finally { setReportToDelete(null); }
-  }, [loadData, reportToDelete]);
+  }, [reportToDelete]);
 
   const handleRegenerateCode = useCallback(async (reportId: string) => {
     setRegeneratingId(reportId);
     try {
-      await ReportsAPI.regenerate(reportId);
+      const updatedReport = await ReportsAPI.regenerate(reportId);
+      setReports((currentReports) => sortReportsByCreatedAt(currentReports.map((report) => (
+        report.id === reportId ? updatedReport : report
+      ))));
       toast.success('Код обновлён');
-      await loadData();
     } catch { toast.error('Ошибка'); }
     finally { setRegeneratingId(null); }
-  }, [loadData]);
+  }, []);
 
   const getReportTypeBadge = (type: string): React.ReactNode => {
     switch (type) {
@@ -149,7 +159,15 @@ export default function GroupReportsPage() {
         </CardContent>
       </Card>
 
-      <CreateReportDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} groupId={groupId} onSuccess={() => { setCreateDialogOpen(false); loadData(); }} />
+      <CreateReportDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        groupId={groupId}
+        onSuccess={(createdReport) => {
+          setCreateDialogOpen(false);
+          setReports((currentReports) => sortReportsByCreatedAt([createdReport, ...currentReports]));
+        }}
+      />
 
       <AlertDialog open={!!reportToDelete} onOpenChange={(open) => !open && setReportToDelete(null)}>
         <AlertDialogContent>

@@ -64,6 +64,10 @@ backend/*.html
 # Root level junk
 scripts/
 !backend/scripts/
+!frontend/scripts/
+frontend/scripts/*
+!frontend/scripts/start-smoke.mjs
+!frontend/scripts/live-reports-flow-perf.mjs
 
 # Deploy scripts (Windows only)
 *.ps1

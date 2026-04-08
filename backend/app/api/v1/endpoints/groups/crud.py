@@ -72,6 +72,7 @@ async def create_group(
 async def read_group(
     group_id: UUID,
     active_only: bool = Query(default=True, description="Только активные студенты"),
+    include_students: bool = Query(default=True, description="Включать студентов в ответ"),
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(deps.get_current_teacher),
 ) -> Any:
@@ -82,15 +83,17 @@ async def read_group(
     if not group:
         raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
 
-    students_query = select(models.User).where(
-        models.User.group_id == group_id,
-        models.User.role == "student",
-    )
-    if active_only:
-        students_query = students_query.where(models.User.is_active.is_(True))
-    students_query = students_query.order_by(models.User.full_name)
-    students_result = await db.execute(students_query)
-    students = list(students_result.scalars().all())
+    students: list[models.User] = []
+    if include_students:
+        students_query = select(models.User).where(
+            models.User.group_id == group_id,
+            models.User.role == "student",
+        )
+        if active_only:
+            students_query = students_query.where(models.User.is_active.is_(True))
+        students_query = students_query.order_by(models.User.full_name)
+        students_result = await db.execute(students_query)
+        students = list(students_result.scalars().all())
 
     return {
         "id": group.id,
@@ -102,6 +105,7 @@ async def read_group(
         "labs_count": group.labs_count,
         "grading_scale": group.grading_scale,
         "default_max_grade": group.default_max_grade,
+        "has_subgroups": group.has_subgroups,
     }
 
 

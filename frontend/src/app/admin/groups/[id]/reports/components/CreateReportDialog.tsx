@@ -8,14 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
-import { ReportsAPI, ReportType } from '@/lib/api';
+import { ReportsAPI, Report, ReportType } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 
 interface CreateReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   groupId: string;
-  onSuccess: () => void;
+  onSuccess: (report: Report) => void;
 }
 
 export function CreateReportDialog({ open, onOpenChange, groupId, onSuccess }: CreateReportDialogProps) {
@@ -48,7 +48,7 @@ export function CreateReportDialog({ open, onOpenChange, groupId, onSuccess }: C
 
     setIsLoading(true);
     try {
-      await ReportsAPI.create({
+      const createdReport = await ReportsAPI.create({
         group_id: groupId,
         report_type: reportType,
         expires_in_days: expiresInDays !== 'none' ? parseInt(expiresInDays) : null,
@@ -61,7 +61,7 @@ export function CreateReportDialog({ open, onOpenChange, groupId, onSuccess }: C
       });
       toast.success('Отчёт создан');
       resetForm();
-      onSuccess();
+      onSuccess(createdReport);
     } catch {
       toast.error('Ошибка при создании отчёта');
     } finally {
