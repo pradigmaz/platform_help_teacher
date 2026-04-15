@@ -1,18 +1,42 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { IconTarget, IconBook, IconCode, IconQuestionMark } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 import { LabData, LabVariant, LabEditorProps, LabQuestion, createVariant, createQuestion, normalizeVariant, normalizeQuestion } from './types';
 import { HeaderTab } from './HeaderTab';
-import { TheoryTab } from './TheoryTab';
-import { PracticeTab } from './PracticeTab';
-import { QuestionsTab } from './QuestionsTab';
 import { LabStyleProvider, useLabStyle } from './LabStyleContext';
 
 const DEFAULT_FORMATTING = '1. Тема и цель работы\n2. Краткая теория\n3. Код решения\n4. Скриншоты результатов\n5. Ответы на контрольные вопросы';
+
+function EditorTabSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn("space-y-4", className)}>
+      <Skeleton className="h-10 w-56" />
+      <Skeleton className="h-24 rounded-xl" />
+      <Skeleton className="h-[420px] rounded-xl" />
+    </div>
+  );
+}
+
+const TheoryTab = dynamic(() => import('./TheoryTab').then((module) => module.TheoryTab), {
+  ssr: false,
+  loading: () => <EditorTabSkeleton />,
+});
+
+const PracticeTab = dynamic(() => import('./PracticeTab').then((module) => module.PracticeTab), {
+  ssr: false,
+  loading: () => <EditorTabSkeleton />,
+});
+
+const QuestionsTab = dynamic(() => import('./QuestionsTab').then((module) => module.QuestionsTab), {
+  ssr: false,
+  loading: () => <EditorTabSkeleton className="min-h-[420px]" />,
+});
 
 function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
   const { style, setFontSize, setLineHeight } = useLabStyle();
@@ -134,38 +158,46 @@ function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
           <TabsTrigger value="questions" className="gap-2"><IconQuestionMark className="h-4 w-4" />Вопросы</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="header"><HeaderTab data={data} updateField={updateField} /></TabsContent>
+        <TabsContent value="header">
+          <HeaderTab data={data} updateField={updateField} />
+        </TabsContent>
         <TabsContent value="theory">
-          <TheoryTab 
-            content={data.theory_content} 
-            onChange={(c) => updateField('theory_content', c)}
-            onFontSizeChange={setFontSize}
-            onLineHeightChange={setLineHeight}
-          />
+          {activeTab === 'theory' ? (
+            <TheoryTab 
+              content={data.theory_content} 
+              onChange={(c) => updateField('theory_content', c)}
+              onFontSizeChange={setFontSize}
+              onLineHeightChange={setLineHeight}
+            />
+          ) : null}
         </TabsContent>
         <TabsContent value="practice">
-          <PracticeTab
-            practiceContent={data.practice_content}
-            variants={data.variants}
-            onPracticeChange={(c) => updateField('practice_content', c)}
-            onSetVariantsCount={setVariantsCount}
-            onUpdateVariant={updateVariant}
-            onRemoveVariant={removeVariant}
-            onMoveVariant={moveVariant}
-            externalFontSize={style.fontSize}
-            externalLineHeight={style.lineHeight}
-          />
+          {activeTab === 'practice' ? (
+            <PracticeTab
+              practiceContent={data.practice_content}
+              variants={data.variants}
+              onPracticeChange={(c) => updateField('practice_content', c)}
+              onSetVariantsCount={setVariantsCount}
+              onUpdateVariant={updateVariant}
+              onRemoveVariant={removeVariant}
+              onMoveVariant={moveVariant}
+              externalFontSize={style.fontSize}
+              externalLineHeight={style.lineHeight}
+            />
+          ) : null}
         </TabsContent>
         <TabsContent value="questions">
-          <QuestionsTab 
-            questions={data.questions} 
-            onAdd={addQuestion} 
-            onUpdate={updateQuestion} 
-            onRemove={removeQuestion}
-            onMove={moveQuestion}
-            externalFontSize={style.fontSize}
-            externalLineHeight={style.lineHeight}
-          />
+          {activeTab === 'questions' ? (
+            <QuestionsTab 
+              questions={data.questions} 
+              onAdd={addQuestion} 
+              onUpdate={updateQuestion} 
+              onRemove={removeQuestion}
+              onMove={moveQuestion}
+              externalFontSize={style.fontSize}
+              externalLineHeight={style.lineHeight}
+            />
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>

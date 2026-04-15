@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plus, FlaskConical, Settings, Users, Clock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -31,6 +32,8 @@ interface LabSettings {
 }
 
 export default function AdminLabsPage() {
+  const router = useRouter();
+
   // Labs state
   const [labs, setLabs] = useState<Lab[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,10 +59,29 @@ export default function AdminLabsPage() {
   // Extensions state
   const [extensionsDialogOpen, setExtensionsDialogOpen] = useState(false);
 
+  const prefetchCreateLabRoute = useCallback(() => {
+    router.prefetch('/admin/labs/new');
+    void import('@/app/admin/labs/new/page');
+  }, [router]);
+
   useEffect(() => {
     fetchLabs();
     fetchSettings();
   }, []);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    prefetchCreateLabRoute();
+
+    const timeoutId = window.setTimeout(prefetchCreateLabRoute, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [loading, prefetchCreateLabRoute]);
 
   const fetchLabs = async () => {
     try {
@@ -190,7 +212,13 @@ export default function AdminLabsPage() {
             <Settings className="mr-2 h-4 w-4" /> Настройки
           </Button>
           <Button asChild className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
-            <Link href="/admin/labs/new"><Plus className="mr-2 h-4 w-4" /> Создать</Link>
+            <Link
+              href="/admin/labs/new"
+              onMouseEnter={prefetchCreateLabRoute}
+              onFocus={prefetchCreateLabRoute}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Создать
+            </Link>
           </Button>
         </div>
 
