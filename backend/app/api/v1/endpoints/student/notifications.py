@@ -13,6 +13,22 @@ from app.schemas.notification import NotificationSettingsResponse, NotificationS
 router = APIRouter()
 
 
+async def list_student_announcements(
+    db: AsyncSession,
+    current_user: User,
+    *,
+    skip: int = 0,
+    limit: int = 20,
+) -> list[AnnouncementListResponse]:
+    """List student announcements if web notifications are enabled."""
+    notification_settings = await crud_notification_settings.get_or_create(db, current_user.id)
+    if not notification_settings.channel_web or not notification_settings.notify_announcements:
+        return []
+
+    announcements = await crud_announcement.get_published(db, skip=skip, limit=limit)
+    return [AnnouncementListResponse.model_validate(announcement) for announcement in announcements]
+
+
 @router.get("/notifications/settings", response_model=NotificationSettingsResponse)
 async def get_notification_settings(
     request: Request,
@@ -60,9 +76,4 @@ async def get_announcements(
     current_user: User = Depends(get_current_user),
 ) -> list[AnnouncementListResponse]:
     """Получить опубликованные объявления."""
-    notification_settings = await crud_notification_settings.get_or_create(db, current_user.id)
-    if not notification_settings.channel_web or not notification_settings.notify_announcements:
-        return []
-
-    announcements = await crud_announcement.get_published(db, skip=skip, limit=limit)
-    return [AnnouncementListResponse.model_validate(a) for a in announcements]
+    return await list_student_announcements(db, current_user, skip=skip, limit=limit)

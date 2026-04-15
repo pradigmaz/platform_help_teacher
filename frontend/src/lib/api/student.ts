@@ -1,4 +1,5 @@
 import { api } from './client';
+import { invalidateCached, invalidateCachedByPrefix, loadCached } from './read-cache';
 import type {
   StudentProfile,
   StudentAttendance,
@@ -9,7 +10,13 @@ import type {
   RelinkTelegramResponse,
   StudentActivities,
   AttestationSubjectOption,
+  StudentDashboardBootstrap,
 } from './types';
+
+const STUDENT_ATTENDANCE_CACHE_KEY = 'student:attendance';
+const STUDENT_LABS_CACHE_KEY = 'student:labs';
+const STUDENT_LAB_DETAIL_CACHE_PREFIX = 'student:lab-detail:';
+const STUDENT_DASHBOARD_BOOTSTRAP_CACHE_KEY = 'student:dashboard-bootstrap';
 
 export const StudentAPI = {
   getProfile: async () => {
@@ -17,28 +24,72 @@ export const StudentAPI = {
     return data;
   },
 
-  getAttendance: async () => {
-    const { data } = await api.get<StudentAttendance>('/student/attendance');
-    return data;
+  getDashboardBootstrap: async (options?: { forceRefresh?: boolean }) => {
+    return loadCached(
+      STUDENT_DASHBOARD_BOOTSTRAP_CACHE_KEY,
+      async () => {
+        const { data } = await api.get<StudentDashboardBootstrap>('/student/dashboard/bootstrap');
+        return data;
+      },
+      {
+        forceRefresh: options?.forceRefresh,
+        ttlMs: 30_000,
+      },
+    );
   },
 
-  getLabs: async () => {
-    const { data } = await api.get<StudentLab[]>('/student/labs');
-    return data;
+  getAttendance: async (options?: { forceRefresh?: boolean }) => {
+    return loadCached(
+      STUDENT_ATTENDANCE_CACHE_KEY,
+      async () => {
+        const { data } = await api.get<StudentAttendance>('/student/attendance');
+        return data;
+      },
+      {
+        forceRefresh: options?.forceRefresh,
+      },
+    );
   },
 
-  getLabDetail: async (labId: string) => {
-    const { data } = await api.get<StudentLabDetail>(`/student/labs/${labId}`);
-    return data;
+  getLabs: async (options?: { forceRefresh?: boolean }) => {
+    return loadCached(
+      STUDENT_LABS_CACHE_KEY,
+      async () => {
+        const { data } = await api.get<StudentLab[]>('/student/labs');
+        return data;
+      },
+      {
+        forceRefresh: options?.forceRefresh,
+      },
+    );
+  },
+
+  getLabDetail: async (labId: string, options?: { forceRefresh?: boolean }) => {
+    return loadCached(
+      `${STUDENT_LAB_DETAIL_CACHE_PREFIX}${labId}`,
+      async () => {
+        const { data } = await api.get<StudentLabDetail>(`/student/labs/${labId}`);
+        return data;
+      },
+      {
+        forceRefresh: options?.forceRefresh,
+      },
+    );
   },
 
   markLabReady: async (labId: string) => {
     const { data } = await api.post<{ status: string; submission_id: string; variant_number?: number; message: string }>(`/student/labs/${labId}/ready`);
+    invalidateCached(STUDENT_LABS_CACHE_KEY);
+    invalidateCached(`${STUDENT_LAB_DETAIL_CACHE_PREFIX}${labId}`);
+    invalidateCached(STUDENT_DASHBOARD_BOOTSTRAP_CACHE_KEY);
     return data;
   },
 
   cancelLabReady: async (labId: string) => {
     const { data } = await api.post<{ status: string; message: string }>(`/student/labs/${labId}/cancel-ready`);
+    invalidateCached(STUDENT_LABS_CACHE_KEY);
+    invalidateCached(`${STUDENT_LAB_DETAIL_CACHE_PREFIX}${labId}`);
+    invalidateCached(STUDENT_DASHBOARD_BOOTSTRAP_CACHE_KEY);
     return data;
   },
 
@@ -76,3 +127,10 @@ export const StudentAPI = {
     return data;
   },
 };
+
+export function resetStudentApiCacheForTests() {
+  invalidateCached(STUDENT_ATTENDANCE_CACHE_KEY);
+  invalidateCached(STUDENT_LABS_CACHE_KEY);
+  invalidateCached(STUDENT_DASHBOARD_BOOTSTRAP_CACHE_KEY);
+  invalidateCachedByPrefix(STUDENT_LAB_DETAIL_CACHE_PREFIX);
+}

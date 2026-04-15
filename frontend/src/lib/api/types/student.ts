@@ -4,6 +4,8 @@ export interface StudentProfile {
   username?: string;
   telegram_id?: number;
   vk_id?: number;
+  has_telegram?: boolean;
+  has_vk?: boolean;
   role: string;
   group?: {
     id: string;
@@ -164,4 +166,31 @@ export interface StudentActivities {
     count: number;
   };
   activities: StudentActivity[];
+}
+
+export interface StudentAnnouncement {
+  id: string;
+  title: string;
+  content: string;
+  is_draft: boolean;
+  published_at: string | null;
+  created_at: string;
+}
+
+export interface StudentDashboardOverview {
+  attendance_stats: StudentAttendanceStats;
+  labs: StudentLab[];
+  attestation_type: 'first' | 'second';
+  current_attestation: StudentAttestation | null;
+}
+
+export interface StudentDashboardBootstrap {
+  profile: StudentProfile;
+  semester: {
+    semester_start_date: string | null;
+    academic_year: number;
+    semester: 1 | 2;
+  };
+  announcements: StudentAnnouncement[];
+  overview: StudentDashboardOverview;
 }

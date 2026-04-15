@@ -17,18 +17,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/semester-info")
-@limiter.limit("100/minute")
-async def get_semester_info(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Получить информацию о текущем семестре.
-
-    Публичный эндпоинт для фронтенда.
-    Возвращает semester_start_date и вычисленный семестр.
-    """
+async def load_public_semester_info(db: AsyncSession) -> dict[str, int | str | None]:
+    """Build public semester payload."""
     from app.services.reports.semester_helpers import (
         get_current_semester_from_settings,
         get_semester_start_date,
@@ -42,3 +32,18 @@ async def get_semester_info(
         "academic_year": academic_year,
         "semester": semester,
     }
+
+
+@router.get("/semester-info")
+@limiter.limit("100/minute")
+async def get_semester_info(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить информацию о текущем семестре.
+
+    Публичный эндпоинт для фронтенда.
+    Возвращает semester_start_date и вычисленный семестр.
+    """
+    return await load_public_semester_info(db)

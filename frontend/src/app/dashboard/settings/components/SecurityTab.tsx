@@ -17,6 +17,7 @@ import type { LinkVkResponse } from '@/lib/api/types/admin';
 import { cn } from '@/lib/utils';
 import { SessionsSection } from './SessionsSection';
 import { DevicesSection } from './DevicesSection';
+import { useSecurityTabData } from './useSecurityTabData';
 
 interface SecurityTabProps {
   profile: StudentProfile | null;
@@ -36,8 +37,23 @@ export function SecurityTab({
   profile, relinkDialogOpen, setRelinkDialogOpen, relinkData, relinkLoading, onRelinkTelegram,
   vkDialogOpen, setVkDialogOpen, vkData, vkLoading, onLinkVk,
 }: SecurityTabProps) {
-  const isVkLinked = !!profile?.vk_id;
-  const isTelegramLinked = !!profile?.telegram_id;
+  const isVkLinked = !!profile?.has_vk;
+  const isTelegramLinked = !!profile?.has_telegram;
+  const {
+    loading,
+    refreshing,
+    error,
+    sessionsData,
+    devices,
+    revokingSessionId,
+    revokingAll,
+    deviceActionId,
+    reload,
+    revokeSession,
+    revokeAllSessions,
+    confirmDevice,
+    deleteDevice,
+  } = useSecurityTabData();
 
   const copyCode = () => {
     if (relinkData?.code) {
@@ -68,7 +84,7 @@ export function SecurityTab({
             icon={<IconBrandTelegram className={cn("h-6 w-6", isTelegramLinked ? "text-blue-400" : "text-neutral-400")} />}
             title="Telegram"
             isLinked={isTelegramLinked}
-            linkedInfo={profile?.username ? `@${profile.username}` : `ID: ${profile?.telegram_id}`}
+            linkedInfo={profile?.username ? `@${profile.username}` : 'Telegram привязан'}
             unlinkedText="Привяжите Telegram для авторизации и уведомлений"
             onAction={onRelinkTelegram}
             actionLoading={relinkLoading}
@@ -80,7 +96,7 @@ export function SecurityTab({
             icon={<IconBrandVk className={cn("h-6 w-6", isVkLinked ? "text-blue-600" : "text-neutral-400")} />}
             title="ВКонтакте"
             isLinked={isVkLinked}
-            linkedInfo={`ID: ${profile?.vk_id}`}
+            linkedInfo="ВКонтакте привязан"
             unlinkedText="Привяжите ВК для получения уведомлений"
             onAction={onLinkVk}
             actionLoading={vkLoading}
@@ -90,11 +106,37 @@ export function SecurityTab({
 
         <Separator className="bg-neutral-200 dark:bg-neutral-800 my-6" />
 
-        <SessionsSection />
+        <SessionsSection
+          data={sessionsData}
+          loading={loading}
+          refreshing={refreshing}
+          onRefresh={reload}
+          onRevoke={revokeSession}
+          onRevokeAll={() => {
+            if (confirm('Завершить все сессии кроме текущей?')) {
+              void revokeAllSessions();
+            }
+          }}
+          revokingSessionId={revokingSessionId}
+          revokingAll={revokingAll}
+        />
 
         <Separator className="bg-neutral-200 dark:bg-neutral-800 my-6" />
 
-        <DevicesSection />
+        <DevicesSection
+          devices={devices}
+          loading={loading}
+          error={error}
+          refreshing={refreshing}
+          actionInProgressId={deviceActionId}
+          onRefresh={reload}
+          onConfirm={confirmDevice}
+          onDelete={(deviceId) => {
+            if (confirm('Отвязать это устройство?')) {
+              void deleteDevice(deviceId);
+            }
+          }}
+        />
 
         <Separator className="bg-neutral-200 dark:bg-neutral-800 my-6" />
 

@@ -98,7 +98,7 @@ describe('NotificationBell', () => {
     expect(mocks.getAnnouncements).toHaveBeenCalledTimes(2);
   });
 
-  it('refreshes announcements on a fresh remount after all subscribers are gone', async () => {
+  it('reuses hydrated announcements on an immediate remount', async () => {
     const firstRender = render(<NotificationBell />);
 
     await act(async () => {
@@ -113,6 +113,6 @@ describe('NotificationBell', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(mocks.getAnnouncements).toHaveBeenCalledTimes(2);
+    expect(mocks.getAnnouncements).toHaveBeenCalledTimes(1);
   });
 });

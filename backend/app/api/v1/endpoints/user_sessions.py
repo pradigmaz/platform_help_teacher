@@ -65,7 +65,7 @@ def _mask_ip(ip: str | None) -> str | None:
 
 
 @router.get("/me/sessions", response_model=SessionListResponse)
-@limiter.limit("10/minute")
+@limiter.limit("60/minute")
 async def get_my_sessions(
     request: Request,
     current_user: User = Depends(get_current_user),

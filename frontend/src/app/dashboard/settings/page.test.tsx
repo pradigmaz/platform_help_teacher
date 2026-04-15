@@ -29,8 +29,8 @@ vi.mock('../DashboardProfileProvider', () => ({
       full_name: 'Иванов Иван Иванович',
       username: 'ivanov',
       role: 'student',
-      telegram_id: 123,
-      vk_id: 456,
+      has_telegram: true,
+      has_vk: true,
       group: {
         id: 'group-1',
         name: 'Группа 101',

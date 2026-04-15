@@ -1,97 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
-import {
-  StudentAPI,
-  StudentAttendance,
-  StudentLab,
-  StudentAttestation,
-} from '@/lib/api';
-import { getCurrentAttestationType } from '@/lib/attestation-period';
+import { type StudentAttendance, type StudentLab, type StudentAttestation } from '@/lib/api';
 import { formatGroupCode } from '@/lib/utils';
-import { useSemesterInfo } from '@/hooks/useSemesterInfo';
 import { Effect } from '@/components/animate-ui/primitives/effects/effect';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusHero, QuickStats, DeadlinesList } from '@/components/dashboard';
 import { useDashboardProfile } from './DashboardProfileProvider';
 
 export default function DashboardOverview() {
-  const semesterInfo = useSemesterInfo();
-  const {
-    loading: semesterInfoLoading,
-    academicYear,
-    semester,
-    semesterStartDate,
-  } = semesterInfo;
-  const [loading, setLoading] = useState(true);
-  const [attendance, setAttendance] = useState<StudentAttendance | null>(null);
-  const [labs, setLabs] = useState<StudentLab[]>([]);
-  const [attestation, setAttestation] = useState<StudentAttestation | null>(null);
-  const { profile } = useDashboardProfile();
+  const { profile, bootstrap, isLoading } = useDashboardProfile();
 
-  useEffect(() => {
-    if (semesterInfoLoading) {
-      return;
-    }
+  if (isLoading || !bootstrap) return <DashboardSkeleton />;
 
-    const loadData = async () => {
-      try {
-        const [attendanceData, labsData] = await Promise.all([
-          StudentAPI.getAttendance(),
-          StudentAPI.getLabs(),
-        ]);
-        setAttendance(attendanceData);
-        setLabs(labsData);
-        const preferredType = getCurrentAttestationType({
-          academicYear,
-          semester,
-          semesterStartDate,
-        });
-
-        const labSubjectIds = [
-          ...new Set(
-            labsData
-              .map((lab) => lab.subject_id)
-              .filter((subjectId): subjectId is string => typeof subjectId === 'string' && subjectId.length > 0)
-          ),
-        ];
-        let resolvedSubjectId = labSubjectIds.length === 1 ? labSubjectIds[0] : undefined;
-
-        if (!resolvedSubjectId) {
-          const attestationSubjects = await StudentAPI.getAttestationSubjects(preferredType);
-          if (attestationSubjects.length === 1) {
-            resolvedSubjectId = attestationSubjects[0].id;
-          } else if (attestationSubjects.length > 1) {
-            setAttestation({
-              attestation_type: preferredType,
-              subject_id: null,
-              total_score: 0,
-              grade: '-',
-              is_passing: false,
-              error: 'Для расчёта аттестации нужно выбрать предмет',
-            });
-            return;
-          }
-        }
-
-        const [att1, att2] = await Promise.all([
-          StudentAPI.getAttestation('first', resolvedSubjectId),
-          StudentAPI.getAttestation('second', resolvedSubjectId),
-        ]);
-        const preferred = preferredType === 'first' ? att1 : att2;
-        const fallback = preferredType === 'first' ? att2 : att1;
-        setAttestation(preferred?.error ? fallback : preferred);
-      } catch {
-        toast.error('Ошибка загрузки данных');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, [semesterInfoLoading, academicYear, semester, semesterStartDate]);
-
-  if (loading) return <DashboardSkeleton />;
+  const attendance: StudentAttendance = {
+    stats: bootstrap.overview.attendance_stats,
+    records: [],
+  };
+  const labs: StudentLab[] = bootstrap.overview.labs;
+  const attestation: StudentAttestation | null = bootstrap.overview.current_attestation;
 
   const firstName = profile?.full_name?.split(' ')[1] || 'Студент';
   const groupCode = profile?.group?.code;

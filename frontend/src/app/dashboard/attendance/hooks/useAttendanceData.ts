@@ -18,11 +18,11 @@ export function useAttendanceData(): UseAttendanceDataResult {
   const [attendance, setAttendance] = useState<StudentAttendance | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAttendance = useCallback(async () => {
+  const loadAttendance = useCallback(async (options?: { forceRefresh?: boolean }) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await StudentAPI.getAttendance();
+      const data = await StudentAPI.getAttendance({ forceRefresh: options?.forceRefresh });
       setAttendance(data);
     } catch (err) {
       console.error('Attendance fetch failed', err);
@@ -48,7 +48,7 @@ export function useAttendanceData(): UseAttendanceDataResult {
     stats,
     attendanceMap,
     recordsByDate,
-    reload: loadAttendance,
+    reload: () => loadAttendance({ forceRefresh: true }),
   };
 }
 

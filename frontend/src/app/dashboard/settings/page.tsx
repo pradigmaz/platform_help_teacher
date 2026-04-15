@@ -30,8 +30,8 @@ export default function SettingsPage() {
   const [vkData, setVkData] = useState<LinkVkResponse | null>(null);
   const [vkLoading, setVkLoading] = useState(false);
 
-  const isVkLinked = !!profile?.vk_id;
-  const isTelegramLinked = !!profile?.telegram_id;
+  const isVkLinked = !!profile?.has_vk;
+  const isTelegramLinked = !!profile?.has_telegram;
 
   const handleRelinkTelegram = async () => {
     setRelinkLoading(true);

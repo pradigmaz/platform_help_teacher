@@ -58,7 +58,7 @@ export async function mockUnauthorizedAuthCheck(page: Page): Promise<void> {
 }
 
 export async function mockUnauthorizedDashboardProfile(page: Page): Promise<void> {
-  await page.route('**/api/v1/student/profile', async (route) => {
+  await page.route('**/api/v1/student/dashboard/bootstrap', async (route) => {
     await route.fulfill({
       status: 401,
       contentType: 'application/json',
@@ -73,8 +73,12 @@ export async function mockDashboardProfile(page: Page): Promise<void> {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
+        id: 'student-1',
         full_name: 'Smoke Student',
         username: 'smoke_student',
+        role: 'student',
+        has_telegram: true,
+        has_vk: false,
         group: { code: 'SMOKE-01' },
       }),
     });
@@ -82,73 +86,58 @@ export async function mockDashboardProfile(page: Page): Promise<void> {
 }
 
 export async function mockDashboardData(page: Page): Promise<void> {
-  await page.route('**/api/v1/student/attendance', async (route) => {
+  await page.route('**/api/v1/student/dashboard/bootstrap', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        stats: {
-          total_classes: 10,
-          present: 9,
-          late: 0,
-          excused: 0,
-          absent: 1,
-          attendance_rate: 90,
+        profile: {
+          id: 'student-1',
+          full_name: 'Smoke Student',
+          username: 'smoke_student',
+          role: 'student',
+          has_telegram: true,
+          has_vk: false,
+          group: {
+            id: 'group-1',
+            name: 'Smoke Group',
+            code: 'SMOKE-01',
+          },
         },
-        records: [],
-      }),
-    });
-  });
-
-  await page.route('**/api/v1/student/labs', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          id: 'lab-1',
-          number: 1,
-          title: 'ЛР 1',
-          subject_id: 'subject-1',
-          max_grade: 5,
-          is_available: true,
+        semester: {
+          semester_start_date: '2026-02-01',
+          academic_year: 2025,
+          semester: 2,
         },
-      ]),
-    });
-  });
-
-  await page.route('**/api/v1/student/attestation/subjects/**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([{ id: 'subject-1', name: 'Математика' }]),
-    });
-  });
-
-  await page.route('**/api/v1/student/attestation/first**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        attestation_type: 'first',
-        subject_id: 'subject-1',
-        total_score: 10,
-        grade: '5',
-        is_passing: true,
-      }),
-    });
-  });
-
-  await page.route('**/api/v1/student/attestation/second**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        attestation_type: 'second',
-        subject_id: 'subject-1',
-        total_score: 12,
-        grade: '5',
-        is_passing: true,
+        announcements: [],
+        overview: {
+          attendance_stats: {
+            total_classes: 10,
+            present: 9,
+            late: 0,
+            excused: 0,
+            absent: 1,
+            attendance_rate: 90,
+          },
+          labs: [
+            {
+              id: 'lab-1',
+              number: 1,
+              title: 'ЛР 1',
+              subject_id: 'subject-1',
+              max_grade: 5,
+              is_available: true,
+            },
+          ],
+          attestation_type: 'second',
+          current_attestation: {
+            attestation_type: 'second',
+            subject_id: 'subject-1',
+            total_score: 12,
+            grade: '5',
+            is_passing: true,
+          },
+        },
       }),
     });
   });

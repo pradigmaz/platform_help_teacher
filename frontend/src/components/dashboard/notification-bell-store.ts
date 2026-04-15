@@ -22,6 +22,7 @@ let snapshot: NotificationBellSnapshot = {
   unreadCount: 0,
   loading: true,
 };
+let snapshotUpdatedAt = 0;
 let inFlightLoad: Promise<void> | null = null;
 let poller: ReturnType<typeof setInterval> | null = null;
 let subscriberCount = 0;
@@ -33,6 +34,7 @@ function emit() {
 
 function updateSnapshot(nextSnapshot: NotificationBellSnapshot) {
   snapshot = nextSnapshot;
+  snapshotUpdatedAt = Date.now();
   emit();
 }
 
@@ -69,7 +71,9 @@ function subscribe(listener: () => void) {
   subscriberCount += 1;
 
   if (subscriberCount === 1) {
-    void loadAnnouncements();
+    if (snapshot.loading || Date.now() - snapshotUpdatedAt >= POLL_INTERVAL_MS) {
+      void loadAnnouncements();
+    }
     poller = setInterval(() => {
       void loadAnnouncements();
     }, POLL_INTERVAL_MS);
@@ -85,11 +89,7 @@ function subscribe(listener: () => void) {
     }
 
     if (subscriberCount === 0) {
-      snapshot = {
-        announcements: [],
-        unreadCount: 0,
-        loading: true,
-      };
+      inFlightLoad = null;
     }
   };
 }
@@ -140,6 +140,14 @@ export function useNotificationBellState() {
   };
 }
 
+export function hydrateNotificationBellStore(announcements: Announcement[]) {
+  updateSnapshot({
+    announcements,
+    unreadCount: getUnreadCount(announcements),
+    loading: false,
+  });
+}
+
 export function resetNotificationBellStoreForTests() {
   if (poller) {
     clearInterval(poller);
@@ -154,4 +162,5 @@ export function resetNotificationBellStoreForTests() {
     unreadCount: 0,
     loading: true,
   };
+  snapshotUpdatedAt = 0;
 }

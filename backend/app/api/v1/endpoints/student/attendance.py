@@ -1,5 +1,6 @@
 """Student attendance endpoint."""
 
+from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -14,6 +15,43 @@ from app.models.user import User
 router = APIRouter()
 
 
+def build_attendance_stats(records: Sequence[Attendance]) -> dict[str, Any]:
+    """Build attendance stats block from attendance records."""
+    total = len(records)
+    present = sum(1 for record in records if record.status == AttendanceStatus.PRESENT)
+    late = sum(1 for record in records if record.status == AttendanceStatus.LATE)
+    excused = sum(1 for record in records if record.status == AttendanceStatus.EXCUSED)
+    absent = sum(1 for record in records if record.status == AttendanceStatus.ABSENT)
+    rate = round((present + late) / total * 100, 1) if total > 0 else 0.0
+
+    return {
+        "total_classes": total,
+        "present": present,
+        "late": late,
+        "excused": excused,
+        "absent": absent,
+        "attendance_rate": rate,
+    }
+
+
+async def list_student_attendance_records(
+    db: AsyncSession,
+    current_user: User,
+) -> list[Attendance]:
+    """Fetch attendance records visible for a student."""
+    query = select(Attendance).where(Attendance.student_id == current_user.id)
+    if current_user.subgroup:
+        query = query.where(
+            or_(
+                Attendance.subgroup.is_(None),
+                Attendance.subgroup == current_user.subgroup,
+            )
+        )
+
+    result = await db.execute(query.order_by(Attendance.date.desc(), Attendance.lesson_number.asc()))
+    return list(result.scalars().all())
+
+
 @router.get("/attendance")
 @audit_action(ActionType.VIEW, EntityType.ATTENDANCE)
 async def get_my_attendance(
@@ -22,49 +60,17 @@ async def get_my_attendance(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Посещаемость студента со статистикой и деталями занятий."""
-
-    # Фильтр по подгруппе: показываем записи без подгруппы (лекции) + записи подгруппы студента
-    query = select(Attendance).where(Attendance.student_id == current_user.id)
-
-    # Если у студента есть подгруппа — фильтруем
-    if current_user.subgroup:
-        query = query.where(
-            or_(
-                Attendance.subgroup.is_(None),  # Лекции (без подгруппы)
-                Attendance.subgroup == current_user.subgroup,  # Его подгруппа
-            )
-        )
-
-    query = query.order_by(Attendance.date.desc(), Attendance.lesson_number.asc())
-
-    result = await db.execute(query)
-    records = result.scalars().all()
-
-    # Статистика
-    total = len(records)
-    present = sum(1 for r in records if r.status == AttendanceStatus.PRESENT)
-    late = sum(1 for r in records if r.status == AttendanceStatus.LATE)
-    excused = sum(1 for r in records if r.status == AttendanceStatus.EXCUSED)
-    absent = sum(1 for r in records if r.status == AttendanceStatus.ABSENT)
-
-    rate = round((present + late) / total * 100, 1) if total > 0 else 0.0
+    records = await list_student_attendance_records(db, current_user)
 
     return {
-        "stats": {
-            "total_classes": total,
-            "present": present,
-            "late": late,
-            "excused": excused,
-            "absent": absent,
-            "attendance_rate": rate,
-        },
+        "stats": build_attendance_stats(records),
         "records": [
             {
-                "date": r.date.isoformat(),
-                "status": r.status.value,
-                "lesson_number": r.lesson_number,
-                "lesson_type": r.lesson_type.value if r.lesson_type else None,
+                "date": record.date.isoformat(),
+                "status": record.status.value,
+                "lesson_number": record.lesson_number,
+                "lesson_type": record.lesson_type.value if record.lesson_type else None,
             }
-            for r in records
+            for record in records
         ],
     }

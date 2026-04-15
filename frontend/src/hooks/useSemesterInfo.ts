@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api/client';
+import { loadCached } from '@/lib/api/read-cache';
 
 export interface SemesterInfo {
   semesterStartDate: string | null;
@@ -16,6 +17,31 @@ const DEFAULT_SEMESTER_INFO: SemesterInfo = {
 };
 
 let cachedSemesterInfo: SemesterInfo | null = null;
+let inFlightSemesterInfo: Promise<SemesterInfo> | null = null;
+
+async function fetchSemesterInfo(): Promise<SemesterInfo> {
+  if (!inFlightSemesterInfo) {
+    inFlightSemesterInfo = loadCached(
+      'public:semester-info',
+      async () => {
+        const response = await api.get('/public/semester-info');
+        const data = response.data;
+        return {
+          semesterStartDate: data.semester_start_date,
+          academicYear: data.academic_year,
+          semester: data.semester as 1 | 2,
+        };
+      },
+      {
+        ttlMs: 30_000,
+      },
+    ).finally(() => {
+      inFlightSemesterInfo = null;
+    });
+  }
+
+  return inFlightSemesterInfo;
+}
 
 export function useSemesterInfo() {
   const [info, setInfo] = useState<SemesterInfo>(cachedSemesterInfo || DEFAULT_SEMESTER_INFO);
@@ -26,13 +52,7 @@ export function useSemesterInfo() {
 
     const fetchInfo = async () => {
       try {
-        const response = await api.get('/public/semester-info');
-        const data = response.data;
-        const semesterInfo: SemesterInfo = {
-          semesterStartDate: data.semester_start_date,
-          academicYear: data.academic_year,
-          semester: data.semester as 1 | 2,
-        };
+        const semesterInfo = await fetchSemesterInfo();
         cachedSemesterInfo = semesterInfo;
         setInfo(semesterInfo);
       } catch {
