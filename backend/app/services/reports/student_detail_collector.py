@@ -18,8 +18,8 @@ from .attendance_helpers import (
     snapshot_to_stats,
 )
 from .base_helpers import get_group, get_group_students, get_user
-from .labs_helpers import get_student_lab_submissions
 from .notes_helpers import get_student_notes
+from .report_lab_detail_service import get_student_lab_submissions
 from .semester_helpers import get_semester_info
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ async def collect_student_report_data(
     labs_completed = 0
     labs_total = 0
     if report.show_grades:
-        lab_submissions = await get_student_lab_submissions(db, student_id)
+        lab_submissions = await get_student_lab_submissions(db, report.group_id, student_id, settings)
         if result is not None:
             labs_completed = result.breakdown.labs_count
             labs_total = result.breakdown.labs_required

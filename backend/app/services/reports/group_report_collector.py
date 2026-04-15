@@ -23,9 +23,10 @@ from .attendance_helpers import (
     load_group_attendance_snapshots,
 )
 from .base_helpers import get_filtered_teacher_contacts, get_group, get_group_students, get_user
-from .labs_helpers import calculate_grade_distribution, get_group_labs_stats, get_lab_progress
+from .labs_helpers import calculate_grade_distribution
 from .notes_helpers import get_students_notes
 from .report_builder import build_empty_report
+from .report_lab_service import get_group_labs_stats, get_lab_progress
 from .semester_helpers import get_semester_info, get_semester_start_date
 from .student_builder import process_students
 
@@ -183,7 +184,7 @@ async def collect_group_report_data(
         period_end=period_end,
         has_subgroups=has_subgroups,
     )
-    labs_data = await get_group_labs_stats(db, students, labs_count_override=settings.get_labs_count())
+    labs_data = await get_group_labs_stats(db, report.group_id, students, settings, results_map)
     notes_map = await _load_notes_map(db, report, students)
     students_data, passing_count, failing_count, total_score_sum = process_students(
         students,
@@ -199,7 +200,13 @@ async def collect_group_report_data(
     lab_progress_by_subgroup = None
     grade_distribution = None
     if report.show_grades:
-        lab_progress, lab_progress_by_subgroup = await get_lab_progress(db, students, has_subgroups)
+        lab_progress, lab_progress_by_subgroup = await get_lab_progress(
+            db,
+            report.group_id,
+            students,
+            settings,
+            has_subgroups,
+        )
         grade_distribution = calculate_grade_distribution(attestation_results)
 
     return PublicReportData(

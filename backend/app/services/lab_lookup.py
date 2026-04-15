@@ -34,12 +34,6 @@ def _pick_preferred_lab(candidates: list[Lab], *, subject_id: UUID, published_on
 
 
 def _extract_lab_rows(result) -> list[Lab]:
-    scalar_one_or_none = getattr(result, "scalar_one_or_none", None)
-    if callable(scalar_one_or_none):
-        single = scalar_one_or_none()
-        if isinstance(single, Lab):
-            return [single]
-
     scalars = getattr(result, "scalars", None)
     if callable(scalars):
         scalar_result = scalars()
@@ -48,6 +42,12 @@ def _extract_lab_rows(result) -> list[Lab]:
             rows = all_rows()
             if isinstance(rows, (list, tuple)):
                 return list(rows)
+
+    scalar_one_or_none = getattr(result, "scalar_one_or_none", None)
+    if callable(scalar_one_or_none):
+        single = scalar_one_or_none()
+        if isinstance(single, Lab):
+            return [single]
     return []
 
 
