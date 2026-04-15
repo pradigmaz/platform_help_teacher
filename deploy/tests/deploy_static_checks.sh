@@ -9,6 +9,7 @@ TMP_DIR="$(mktemp -d)"
 LAST_STDOUT=""
 LAST_STDERR=""
 LAST_OUTPUT=""
+SANITIZED_ENV=(env -i PATH="$PATH" HOME="${HOME:-}" TMPDIR="${TMPDIR:-/tmp}")
 
 cleanup() {
   rm -rf "$TMP_DIR"
@@ -93,46 +94,46 @@ run_expect 0 "deploy shell syntax" \
   "$DEPLOY_DIR/lib/envfile.sh" \
   "$DEPLOY_DIR/lib/prod_deploy.sh"
 
-run_expect 0 "install help" "$DEPLOY_DIR/install.sh" --help
+run_expect 0 "install help" "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/install.sh" --help
 assert_contains "$LAST_OUTPUT" "Использование:" "install help text"
 
-run_expect 0 "rebuild help" "$DEPLOY_DIR/rebuild.sh" --help
+run_expect 0 "rebuild help" "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/rebuild.sh" --help
 assert_contains "$LAST_OUTPUT" "Usage:" "rebuild help text"
 
-run_expect 0 "recovery help" "$DEPLOY_DIR/recovery.sh" --help
+run_expect 0 "recovery help" "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/recovery.sh" --help
 assert_contains "$LAST_OUTPUT" "Usage:" "recovery help text"
 
-run_expect 2 "install unknown option" "$DEPLOY_DIR/install.sh" --bogus
+run_expect 2 "install unknown option" "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/install.sh" --bogus
 assert_contains "$LAST_OUTPUT" "Неизвестная опция" "install unknown option message"
 
-run_expect 2 "rebuild unknown option" "$DEPLOY_DIR/rebuild.sh" --bogus
+run_expect 2 "rebuild unknown option" "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/rebuild.sh" --bogus
 assert_contains "$LAST_OUTPUT" "Unknown option" "rebuild unknown option message"
 
-run_expect 2 "recovery unknown option" "$DEPLOY_DIR/recovery.sh" --bogus
+run_expect 2 "recovery unknown option" "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/recovery.sh" --bogus
 assert_contains "$LAST_OUTPUT" "Unknown option" "recovery unknown option message"
 
 run_expect 1 "install missing env file" \
-  "$DEPLOY_DIR/install.sh" --non-interactive --env-file "$TMP_DIR/missing.env"
+  "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/install.sh" --non-interactive --env-file "$TMP_DIR/missing.env"
 assert_contains "$LAST_OUTPUT" "Env file not found" "install missing env validation"
 
 run_expect 1 "rebuild missing env file" \
-  "$DEPLOY_DIR/rebuild.sh" --env-file "$TMP_DIR/missing.env"
+  "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/rebuild.sh" --env-file "$TMP_DIR/missing.env"
 assert_contains "$LAST_OUTPUT" "Env file not found" "rebuild missing env validation"
 
 run_expect 2 "recovery requires backup key" \
-  "$DEPLOY_DIR/recovery.sh" --env-file "$INVALID_ENV_FILE"
+  "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/recovery.sh" --env-file "$INVALID_ENV_FILE"
 assert_contains "$LAST_OUTPUT" "--backup-key is required" "recovery missing backup key validation"
 
 run_expect 1 "install invalid env validation" \
-  "$DEPLOY_DIR/install.sh" --non-interactive --env-file "$INVALID_ENV_FILE"
+  "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/install.sh" --non-interactive --env-file "$INVALID_ENV_FILE"
 assert_contains "$LAST_OUTPUT" "Missing required env values" "install invalid env message"
 
 run_expect 1 "rebuild invalid env validation" \
-  "$DEPLOY_DIR/rebuild.sh" --env-file "$INVALID_ENV_FILE"
+  "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/rebuild.sh" --env-file "$INVALID_ENV_FILE"
 assert_contains "$LAST_OUTPUT" "Missing required env values" "rebuild invalid env message"
 
 run_expect 1 "recovery invalid env validation" \
-  "$DEPLOY_DIR/recovery.sh" --backup-key backup.enc --env-file "$INVALID_ENV_FILE"
+  "${SANITIZED_ENV[@]}" "$DEPLOY_DIR/recovery.sh" --backup-key backup.enc --env-file "$INVALID_ENV_FILE"
 assert_contains "$LAST_OUTPUT" "Missing required env values" "recovery invalid env message"
 
 echo "All deploy static checks passed."
