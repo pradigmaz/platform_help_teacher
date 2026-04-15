@@ -1,383 +1,299 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { 
-  ArrowUpDown, 
-  ArrowUp, 
-  ArrowDown, 
-  Search, 
-  AlertTriangle,
-  ChevronRight,
-  Eye
-} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertTriangle, ArrowDownUp, ChevronRight, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PublicReportData } from '@/lib/api';
+import type { PublicReportData, PublicStudentData } from '@/lib/api';
+import { buildStudentReportHref, type ReportAttestation } from '../reportNavigation';
 
 interface ReportStudentTableProps {
   data: PublicReportData;
+  students: PublicStudentData[];
   code: string;
+  attestationType: ReportAttestation;
 }
-
-type SortKey = 'name' | 'total' | 'labs' | 'attendance' | 'activity';
+type SortKey = 'name' | 'total' | 'labs' | 'attendance';
 type SortOrder = 'asc' | 'desc';
 
-// Вынесен за пределы компонента для React Compiler
-function SortIcon({ columnKey, sortKey, sortOrder }: { columnKey: SortKey; sortKey: SortKey; sortOrder: SortOrder }) {
-  if (sortKey !== columnKey) {
-    return <ArrowUpDown className="h-5 w-5 ml-2 opacity-50" />;
-  }
-  return sortOrder === 'asc' 
-    ? <ArrowUp className="h-5 w-5 ml-2" />
-    : <ArrowDown className="h-5 w-5 ml-2" />;
-}
-
-export function ReportStudentTable({ data, code }: ReportStudentTableProps) {
-  const router = useRouter();
+export function ReportStudentTable({ data, students, code, attestationType }: ReportStudentTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showOnlyAttention, setShowOnlyAttention] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
-  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
-
-  const { show_names, show_grades, show_attendance, is_early_semester } = data;
 
   const filteredStudents = useMemo(() => {
-    return data.students
-      .filter(s => {
-        if (!searchQuery) return true;
-        const name = s.name || `Студент ${s.id.slice(0, 4)}`;
-        return name.toLowerCase().includes(searchQuery.toLowerCase());
-      })
-      .sort((a, b) => {
-        const multiplier = sortOrder === 'asc' ? 1 : -1;
-        switch (sortKey) {
-          case 'name':
-            const nameA = a.name || `Студент ${a.id}`;
-            const nameB = b.name || `Студент ${b.id}`;
-            return nameA.localeCompare(nameB, 'ru') * multiplier;
-          case 'total':
-            return ((a.total_score || 0) - (b.total_score || 0)) * multiplier;
-          case 'labs':
-            return ((a.lab_score || 0) - (b.lab_score || 0)) * multiplier;
-          case 'attendance':
-            return ((a.attendance_rate || 0) - (b.attendance_rate || 0)) * multiplier;
-          case 'activity':
-            return ((a.activity_score || 0) - (b.activity_score || 0)) * multiplier;
-          default:
-            return 0;
-        }
-      });
-  }, [data.students, searchQuery, sortKey, sortOrder]);
+    const prepared = students.filter((student) => {
+      if (showOnlyAttention && !student.needs_attention) {
+        return false;
+      }
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortKey(key);
-      setSortOrder('asc');
+      if (!searchQuery) {
+        return true;
+      }
+
+      return getStudentName(student, data.show_names).toLowerCase().includes(searchQuery.toLowerCase());
+    });
+
+    return prepared.sort((left, right) => compareStudents(left, right, sortKey, sortOrder, data.show_names));
+  }, [students, showOnlyAttention, searchQuery, sortKey, sortOrder, data.show_names]);
+
+  const toggleSort = (nextSortKey: SortKey) => {
+    if (sortKey === nextSortKey) {
+      setSortOrder((current) => current === 'asc' ? 'desc' : 'asc');
+      return;
     }
+
+    setSortKey(nextSortKey);
+    setSortOrder('asc');
   };
 
-  const handleStudentClick = (studentId: string) => {
-    router.push(`/report/${code}/student/${studentId}`);
-  };
-
+  const getStudentHref = (studentId: string) => buildStudentReportHref(code, studentId, attestationType);
   return (
-    <Card className="shadow-lg">
-      <CardHeader className="pb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-          <CardTitle className="text-3xl font-bold text-gray-800 dark:text-gray-100">
-            📚 Список студентов
-          </CardTitle>
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              placeholder="Поиск по имени студента..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 text-base border-2 focus:border-blue-400 rounded-lg"
-            />
+    <Card className="rounded-3xl border-border/60 shadow-sm">
+      <CardHeader className="space-y-4 border-b border-border/60 bg-muted/20 pb-5">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <CardTitle className="text-2xl font-semibold tracking-tight">Студенты</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {filteredStudents.length} из {students.length} в текущем списке
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative min-w-[240px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={data.show_names ? 'Поиск по имени студента' : 'Поиск по студенту'}
+                className="pl-9"
+              />
+            </div>
+            <label className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Switch
+                checked={showOnlyAttention}
+                onCheckedChange={(value) => setShowOnlyAttention(Boolean(value))}
+              />
+              <span>Только требующие внимания</span>
+            </label>
           </div>
         </div>
       </CardHeader>
+
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-b-2 bg-gray-50 dark:bg-gray-800/50">
-                <TableHead className="w-20 text-lg font-bold py-6 text-center">#</TableHead>
-                <TableHead className="text-lg font-bold py-6">
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    className="-ml-3 h-12 text-lg font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/30"
-                    onClick={() => handleSort('name')}
+        {filteredStudents.length === 0 ? (
+          <EmptyStudentState searchQuery={searchQuery} showOnlyAttention={showOnlyAttention} />
+        ) : (
+          <>
+            <div className="md:hidden">
+              <Accordion type="single" collapsible className="px-4 py-3">
+                {filteredStudents.map((student) => (
+                  <AccordionItem
+                    key={student.id}
+                    value={student.id}
+                    className="mb-3 rounded-2xl border border-border/60 bg-background px-4 last:mb-0"
                   >
-                    {show_names ? '👤 ФИО студента' : '👤 Студент'}
-                    <SortIcon columnKey="name" sortKey={sortKey} sortOrder={sortOrder} />
-                  </Button>
-                </TableHead>
-                {show_grades && (
-                  <>
-                    <TableHead className="text-right text-lg font-bold py-6">
-                      <Button
-                        variant="ghost"
-                        size="lg"
-                        className="-mr-3 h-12 text-lg font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/30"
-                        onClick={() => handleSort('total')}
-                      >
-                        📊 Общий балл
-                        <SortIcon columnKey="total" sortKey={sortKey} sortOrder={sortOrder} />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="hidden md:table-cell text-lg font-bold py-6">
-                      <Button
-                        variant="ghost"
-                        size="lg"
-                        className="-ml-3 h-12 text-lg font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/30"
-                        onClick={() => handleSort('labs')}
-                      >
-                        🧪 Лабораторные работы
-                        <SortIcon columnKey="labs" sortKey={sortKey} sortOrder={sortOrder} />
-                      </Button>
-                    </TableHead>
-                  </>
-                )}
-                {show_attendance && (
-                  <TableHead className="hidden sm:table-cell text-lg font-bold py-6">
-                    <Button
-                      variant="ghost"
-                      size="lg"
-                      className="-ml-3 h-12 text-lg font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/30"
-                      onClick={() => handleSort('attendance')}
-                    >
-                      📅 Посещаемость за период
-                      <SortIcon columnKey="attendance" sortKey={sortKey} sortOrder={sortOrder} />
-                    </Button>
-                  </TableHead>
-                )}
-                {show_grades && !is_early_semester && (
-                  <TableHead className="text-center text-lg font-bold py-6">🎯 Итоговая оценка</TableHead>
-                )}
-                <TableHead className="w-40 text-lg font-bold py-6 text-center">Подробнее</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredStudents.map((student, index) => {
-                // В начале семестра не показываем предупреждения
-                const showWarning = student.needs_attention && !is_early_semester;
-                
-                return (
-                <TableRow 
-                  key={student.id}
-                  className={cn(
-                    "cursor-pointer transition-all duration-200 group hover:shadow-md",
-                    showWarning 
-                      ? "bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/20 dark:hover:bg-amber-950/30 border-l-4 border-amber-400" 
-                      : "hover:bg-blue-50 dark:hover:bg-blue-950/20",
-                    "h-16"
-                  )}
-                  onClick={() => handleStudentClick(student.id)}
-                  onMouseEnter={() => setHoveredRow(student.id)}
-                  onMouseLeave={() => setHoveredRow(null)}
-                >
-                  <TableCell className="font-bold text-lg text-muted-foreground text-center">
-                    {index + 1}
-                  </TableCell>
-                  <TableCell className="py-4">
-                    <div className="flex items-center gap-3">
-                      {showWarning && (
-                        <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0 animate-pulse" />
-                      )}
-                      <div className="flex flex-col">
-                        <span className={cn(
-                          "font-semibold text-lg leading-tight",
-                          showWarning && "text-amber-700 dark:text-amber-300"
-                        )}>
-                          {show_names 
-                            ? student.name 
-                            : `Студент ${student.id.slice(0, 4)}`}
-                        </span>
-                        {data.has_subgroups && student.subgroup && (
-                          <Badge variant="outline" className="text-sm px-2 py-1 mt-1 w-fit">
-                            {student.subgroup} подгруппа
-                          </Badge>
+                    <AccordionTrigger className="py-4 hover:no-underline">
+                      <div className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            {student.needs_attention && (
+                              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+                            )}
+                            <p className="truncate text-sm font-semibold text-foreground">
+                              {getStudentName(student, data.show_names)}
+                            </p>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {typeof student.total_score === 'number' && (
+                              <Badge variant="outline">{student.total_score.toFixed(1)} балла</Badge>
+                            )}
+                            {typeof student.attendance_rate === 'number' && (
+                              <Badge variant="outline">{Math.round(student.attendance_rate)}% посещаемость</Badge>
+                            )}
+                            {data.has_subgroups && student.subgroup && (
+                              <Badge variant="secondary">{student.subgroup} подгруппа</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-2">
+                        <MobileMetric label="Общий балл" value={formatScore(student.total_score)} />
+                        <MobileMetric label="Посещаемость" value={formatPercent(student.attendance_rate)} />
+                        <MobileMetric
+                          label="Лабораторные"
+                          value={formatLabProgress(student.labs_completed, student.labs_total)}
+                        />
+                        {!data.is_early_semester && data.show_grades && (
+                          <MobileMetric label="Итог" value={student.grade ?? '—'} />
                         )}
                       </div>
-                    </div>
-                  </TableCell>
-                  {show_grades && (
-                    <>
-                      <TableCell className="text-right font-mono font-bold text-xl py-4">
-                        <span className="bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-lg">
-                          {student.total_score?.toFixed(1) ?? '—'}
-                        </span>
+                      <Button asChild className="w-full" variant="outline">
+                        <Link href={getStudentHref(student.id)}>
+                          Открыть подробности
+                          <ChevronRight className="ml-2 h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+
+            <div className="hidden md:block">
+              <div className="flex items-center justify-between gap-3 border-b border-border/60 px-6 py-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <ArrowDownUp className="h-4 w-4" />
+                  <span>Сортировка таблицы</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <SortButton active={sortKey === 'name'} onClick={() => toggleSort('name')}>Имя</SortButton>
+                  {data.show_grades && (
+                    <SortButton active={sortKey === 'total'} onClick={() => toggleSort('total')}>Балл</SortButton>
+                  )}
+                  {data.show_grades && (
+                    <SortButton active={sortKey === 'labs'} onClick={() => toggleSort('labs')}>Лабы</SortButton>
+                  )}
+                  {data.show_attendance && (
+                    <SortButton active={sortKey === 'attendance'} onClick={() => toggleSort('attendance')}>
+                      Посещаемость
+                    </SortButton>
+                  )}
+                </div>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-14">#</TableHead>
+                    <TableHead>Студент</TableHead>
+                    {data.show_grades && <TableHead>Общий балл</TableHead>}
+                    {data.show_grades && <TableHead>Лабораторные</TableHead>}
+                    {data.show_attendance && <TableHead>Посещаемость</TableHead>}
+                    {data.show_grades && !data.is_early_semester && <TableHead>Итог</TableHead>}
+                    <TableHead className="text-right">Действие</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStudents.map((student, index) => (
+                    <TableRow key={student.id} className={cn(student.needs_attention && 'bg-amber-500/5')}>
+                      <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          {student.needs_attention && <AlertTriangle className="h-4 w-4 text-amber-500" />}
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">{getStudentName(student, data.show_names)}</p>
+                            {data.has_subgroups && student.subgroup && (
+                              <Badge variant="outline">{student.subgroup} подгруппа</Badge>
+                            )}
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell py-4">
-                        <LabProgressCell 
-                          completed={student.labs_completed} 
-                          total={student.labs_total}
-                        />
+                      {data.show_grades && <TableCell className="font-medium">{formatScore(student.total_score)}</TableCell>}
+                      {data.show_grades && <TableCell>{formatLabProgress(student.labs_completed, student.labs_total)}</TableCell>}
+                      {data.show_attendance && <TableCell>{formatPercent(student.attendance_rate)}</TableCell>}
+                      {data.show_grades && !data.is_early_semester && <TableCell>{student.grade ?? '—'}</TableCell>}
+                      <TableCell className="text-right">
+                        <Button asChild variant="ghost">
+                          <Link href={getStudentHref(student.id)}>
+                            Открыть
+                            <ChevronRight className="ml-2 h-4 w-4" />
+                          </Link>
+                        </Button>
                       </TableCell>
-                    </>
-                  )}
-                  {show_attendance && (
-                    <TableCell className="hidden sm:table-cell py-4">
-                      <AttendanceCell rate={student.attendance_rate} />
-                    </TableCell>
-                  )}
-                  {show_grades && !is_early_semester && (
-                    <TableCell className="text-center py-4">
-                      <GradeBadge 
-                        grade={student.grade} 
-                        isPassing={student.is_passing} 
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell className="py-4">
-                    <div className={cn(
-                      "flex items-center justify-center gap-2 text-base font-medium transition-all duration-200",
-                      hoveredRow === student.id 
-                        ? "opacity-100 text-blue-600 dark:text-blue-400" 
-                        : "opacity-60 text-muted-foreground"
-                    )}>
-                      <Eye className="h-5 w-5" />
-                      <span className="hidden lg:inline">Подробнее</span>
-                      <ChevronRight className="h-5 w-5" />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-              })}
-              {filteredStudents.length === 0 && (
-                <TableRow>
-                  <TableCell 
-                    colSpan={show_grades && show_attendance ? 7 : 4} 
-                    className="text-center py-12 text-lg text-muted-foreground"
-                  >
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="text-4xl">🔍</div>
-                      <div>
-                        {searchQuery 
-                          ? 'Студенты не найдены по вашему запросу' 
-                          : 'Нет данных о студентах'}
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-// Lab progress with visual dots or progress bar
-function LabProgressCell({ completed, total }: { completed?: number; total?: number }) {
-  if (completed === undefined || total === undefined) {
-    return <span className="text-muted-foreground text-lg">—</span>;
+function compareStudents(
+  left: PublicStudentData,
+  right: PublicStudentData,
+  sortKey: SortKey,
+  sortOrder: SortOrder,
+  showNames: boolean,
+) {
+  const direction = sortOrder === 'asc' ? 1 : -1;
+  switch (sortKey) {
+    case 'name':
+      return getStudentName(left, showNames).localeCompare(getStudentName(right, showNames), 'ru') * direction;
+    case 'total':
+      return ((left.total_score ?? 0) - (right.total_score ?? 0)) * direction;
+    case 'labs':
+      return (((left.labs_completed ?? 0) / Math.max(left.labs_total ?? 1, 1)) - ((right.labs_completed ?? 0) / Math.max(right.labs_total ?? 1, 1))) * direction;
+    case 'attendance':
+      return ((left.attendance_rate ?? 0) - (right.attendance_rate ?? 0)) * direction;
   }
+}
 
-  const percent = total > 0 ? (completed / total) * 100 : 0;
-  
-  // Use dots for small numbers, progress bar for larger
-  if (total <= 8) {
-    return (
-      <div className="flex items-center gap-2">
-        <div className="flex gap-1">
-          {Array.from({ length: total }).map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                "w-3 h-3 rounded-full",
-                i < completed 
-                  ? "bg-green-500 shadow-sm" 
-                  : "bg-gray-200 dark:bg-gray-700"
-              )}
-            />
-          ))}
-        </div>
-        <span className="ml-2 text-base font-semibold text-muted-foreground">
-          {completed}/{total}
-        </span>
+function getStudentName(student: PublicStudentData, showNames: boolean) {
+  return showNames ? student.name ?? `Студент ${student.id.slice(0, 4)}` : `Студент ${student.id.slice(0, 4)}`;
+}
+
+function formatScore(score?: number) {
+  return typeof score === 'number' ? score.toFixed(1) : '—';
+}
+
+function formatPercent(rate?: number) {
+  return typeof rate === 'number' ? `${Math.round(rate)}%` : '—';
+}
+
+function formatLabProgress(completed?: number, total?: number) {
+  return typeof completed === 'number' && typeof total === 'number' ? `${completed}/${total}` : '—';
+}
+function SortButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Button variant={active ? 'secondary' : 'outline'} size="sm" onClick={onClick}>
+      {children}
+    </Button>
+  );
+}
+
+function MobileMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-medium text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function EmptyStudentState({ searchQuery, showOnlyAttention }: { searchQuery: string; showOnlyAttention: boolean }) {
+  return (
+    <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+      <Search className="h-8 w-8 text-muted-foreground" />
+      <div className="space-y-1">
+        <p className="text-base font-medium text-foreground">Ничего не найдено</p>
+        <p className="text-sm text-muted-foreground">
+          {searchQuery || showOnlyAttention
+            ? 'Попробуйте изменить поиск или отключить фильтр внимания.'
+            : 'Список студентов пока пуст.'}
+        </p>
       </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-3 min-w-[120px]">
-      <Progress 
-        value={percent} 
-        className="h-3 flex-1"
-      />
-      <span className="text-base font-semibold text-muted-foreground whitespace-nowrap">
-        {completed}/{total}
-      </span>
     </div>
-  );
-}
-
-// Attendance with color indicator dot
-function AttendanceCell({ rate }: { rate?: number }) {
-  if (rate === undefined) {
-    return <span className="text-muted-foreground text-lg">—</span>;
-  }
-
-  const rounded = Math.round(rate);
-  
-  // Color based on attendance rate
-  const dotColor = rate >= 80 
-    ? "bg-green-500" 
-    : rate >= 60 
-      ? "bg-yellow-500" 
-      : "bg-red-500";
-
-  const textColor = rate >= 80 
-    ? "text-green-600 dark:text-green-400" 
-    : rate >= 60 
-      ? "text-yellow-600 dark:text-yellow-400" 
-      : "text-red-600 dark:text-red-400";
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className={cn("w-4 h-4 rounded-full shadow-sm", dotColor)} />
-      <span className={cn("font-mono text-lg font-bold", textColor)}>
-        {rounded}%
-      </span>
-    </div>
-  );
-}
-
-function GradeBadge({ grade, isPassing }: { grade?: string; isPassing?: boolean }) {
-  if (!grade) return <span className="text-muted-foreground text-lg">—</span>;
-
-  const variant = isPassing ? 'default' : 'destructive';
-  const className = cn(
-    "text-lg font-bold px-4 py-2",
-    grade === 'отл' && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-300',
-    grade === 'хор' && 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-300',
-    grade === 'уд' && 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-300',
-    grade === 'неуд' && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-300',
-  );
-
-  return (
-    <Badge variant={variant} className={className}>
-      {grade}
-    </Badge>
   );
 }

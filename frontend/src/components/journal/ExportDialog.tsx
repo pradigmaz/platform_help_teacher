@@ -38,11 +38,18 @@ import {
   useJournalExport,
   type ExportPeriodType,
   type ExportFormat,
+  type ExportSubgroup,
 } from '@/hooks/useJournalExport';
+import {
+  ExportStudentPicker,
+  type ExportStudentOption,
+} from './ExportStudentPicker';
 
 interface ExportDialogProps {
   groupId: string;
   groupName?: string;
+  availableSubgroups?: ExportSubgroup[];
+  students?: ExportStudentOption[];
   isOpen: boolean;
   onClose: () => void;
 }
@@ -56,15 +63,25 @@ function getISOWeek(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
-export function ExportDialog({ groupId, groupName, isOpen, onClose }: ExportDialogProps) {
+export function ExportDialog({
+  groupId,
+  groupName,
+  availableSubgroups = [],
+  students = [],
+  isOpen,
+  onClose,
+}: ExportDialogProps) {
   const [periodType, setPeriodType] = useState<ExportPeriodType>('semester');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('xlsx');
+  const [subgroup, setSubgroup] = useState<'all' | '1' | '2'>('all');
+  const [studentId, setStudentId] = useState<string | null>(null);
   const [includeAttendance, setIncludeAttendance] = useState(true);
   const [includeGrades, setIncludeGrades] = useState(true);
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
 
   const { exportJournal, isLoading, error } = useJournalExport();
+  const isStudentExport = studentId !== null;
 
   const getPeriodValue = (): string | undefined => {
     if (periodType === 'semester') return undefined;
@@ -85,8 +102,10 @@ export function ExportDialog({ groupId, groupName, isOpen, onClose }: ExportDial
   };
 
   const handleExport = async () => {
-    await exportJournal({
+    const isExported = await exportJournal({
       groupId,
+      subgroup: isStudentExport ? undefined : subgroup === 'all' ? undefined : Number(subgroup) as ExportSubgroup,
+      studentId: studentId ?? undefined,
       periodType,
       periodValue: getPeriodValue(),
       format: exportFormat,
@@ -94,7 +113,9 @@ export function ExportDialog({ groupId, groupName, isOpen, onClose }: ExportDial
       includeGrades,
     });
 
-    if (!error) onClose();
+    if (isExported) {
+      onClose();
+    }
   };
 
   const canExport = includeAttendance || includeGrades;
@@ -178,6 +199,41 @@ export function ExportDialog({ groupId, groupName, isOpen, onClose }: ExportDial
               </SelectContent>
             </Select>
           </div>
+
+          {availableSubgroups.length > 0 && (
+            <div className="space-y-2">
+              <Label>Состав</Label>
+              <Select
+                value={subgroup}
+                onValueChange={(value) => setSubgroup(value as 'all' | '1' | '2')}
+                disabled={isStudentExport}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Вся группа</SelectItem>
+                  {availableSubgroups.includes(1) && <SelectItem value="1">Только 1 подгруппа</SelectItem>}
+                  {availableSubgroups.includes(2) && <SelectItem value="2">Только 2 подгруппа</SelectItem>}
+                </SelectContent>
+              </Select>
+              {isStudentExport && (
+                <p className="text-xs text-muted-foreground">
+                  При выборе студента выгрузка идёт только по нему.
+                </p>
+              )}
+            </div>
+          )}
+
+          {students.length > 0 && (
+            <div className="space-y-2">
+              <Label>Студент</Label>
+              <ExportStudentPicker students={students} value={studentId} onChange={setStudentId} />
+              <p className="text-xs text-muted-foreground">
+                Оставьте пустым, чтобы выгрузить всю группу или выбранную подгруппу.
+              </p>
+            </div>
+          )}
 
           {/* Данные */}
           <div className="space-y-2">

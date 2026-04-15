@@ -1,20 +1,25 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, use, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PublicReportAPI, StudentDetailData, ApiError } from '@/lib/api';
-import { formatGroupCode } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, FileX, Clock, ArrowLeft } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { BlurFade } from '@/components/ui/blur-fade';
+import { PinDialog } from '../../components/PinDialog';
+import { HeroCard } from './components/HeroCard';
 import { ScoreBreakdown } from './components/ScoreBreakdown';
 import { ComparisonChart } from './components/ComparisonChart';
-import { AttendanceHeatmap } from './components/AttendanceHeatmap';
+import { AttendanceHistory } from './components/AttendanceHistory';
 import { LabSubmissions } from './components/LabSubmissions';
 import { Recommendations } from './components/Recommendations';
+import {
+  buildReportHref,
+  parseReportAttestation,
+} from '../../reportNavigation';
 
 interface PageProps {
   params: Promise<{ code: string; studentId: string }>;
@@ -22,23 +27,61 @@ interface PageProps {
 
 type PageState = 
   | { status: 'loading' }
+  | { status: 'pin_required' }
   | { status: 'loaded'; data: StudentDetailData }
   | { status: 'error'; error: string; errorType: 'not_found' | 'expired' | 'deactivated' | 'generic' };
 
 export default function StudentDetailPage({ params }: PageProps) {
   const { code, studentId } = use(params);
+  return <StudentDetailPageContent code={code} studentId={studentId} />;
+}
+
+interface StudentDetailPageContentProps {
+  code: string;
+  studentId: string;
+}
+
+export function StudentDetailPageContent({
+  code,
+  studentId,
+}: StudentDetailPageContentProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [state, setState] = useState<PageState>({ status: 'loading' });
+  const [reloadToken, setReloadToken] = useState(0);
+  const requestIdRef = useRef(0);
+  const attestationType = parseReportAttestation(searchParams.get('attestation'));
 
   useEffect(() => {
+    const controller = new AbortController();
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
     const loadStudent = async () => {
       setState({ status: 'loading' });
+
       try {
-        const data = await PublicReportAPI.getStudent(code, studentId);
+        const data = await PublicReportAPI.getStudent(
+          code,
+          studentId,
+          attestationType,
+          controller.signal,
+        );
+
+        if (requestId !== requestIdRef.current || controller.signal.aborted) {
+          return;
+        }
+
         setState({ status: 'loaded', data });
       } catch (err) {
+        if (requestId !== requestIdRef.current || controller.signal.aborted) {
+          return;
+        }
+
         if (err instanceof ApiError) {
-          if (err.status === 404) {
+          if (err.status === 401) {
+            setState({ status: 'pin_required' });
+          } else if (err.status === 404) {
             setState({ status: 'error', error: 'Студент не найден', errorType: 'not_found' });
           } else if (err.status === 410) {
             const isExpired = err.message.toLowerCase().includes('expired');
@@ -55,15 +98,30 @@ export default function StudentDetailPage({ params }: PageProps) {
         }
       }
     };
-    loadStudent();
-  }, [code, studentId]);
+
+    void loadStudent();
+    return () => controller.abort();
+  }, [attestationType, code, reloadToken, studentId]);
 
   const handleBack = () => {
-    router.push(`/report/${code}`);
+    router.push(buildReportHref(code, attestationType));
+  };
+
+  const handlePinSuccess = () => {
+    setState({ status: 'loading' });
+    setReloadToken((current) => current + 1);
   };
 
   if (state.status === 'loading') {
     return <LoadingSkeleton onBack={handleBack} />;
+  }
+
+  if (state.status === 'pin_required') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <PinDialog code={code} open={true} onSuccess={handlePinSuccess} />
+      </div>
+    );
   }
 
   if (state.status === 'error') {
@@ -71,60 +129,51 @@ export default function StudentDetailPage({ params }: PageProps) {
   }
 
   const { data } = state;
+  const hasRecommendations = Boolean(data.recommendations && data.recommendations.length > 0);
+  const hasComparison = data.group_average_score !== undefined;
 
   return (
     <div className="space-y-6">
-      {/* Header with rank */}
       <BlurFade delay={0.1} inView>
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={handleBack}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">
-                {data.name || `Студент ${studentId.slice(0, 8)}`}
-              </h1>
-              {data.rank_in_group && data.total_in_group && (
-                <Badge variant="secondary" className="text-sm">
-                  #{data.rank_in_group} из {data.total_in_group}
-                </Badge>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Группа {formatGroupCode(data.group_code)}
-            </p>
-          </div>
-        </div>
+        <HeroCard
+          data={data}
+          attestationType={attestationType}
+          studentId={studentId}
+          onBack={handleBack}
+        />
       </BlurFade>
 
-      {/* Score Breakdown */}
       <BlurFade delay={0.15} inView>
         <ScoreBreakdown data={data} />
       </BlurFade>
 
-      {/* Comparison Chart */}
-      {data.group_average_score !== undefined && (
-        <BlurFade delay={0.2} inView>
-          <ComparisonChart data={data} />
-        </BlurFade>
+      {(hasComparison || hasRecommendations) && (
+        <div
+          className={cn(
+            'grid gap-6',
+            hasComparison && hasRecommendations ? 'xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]' : undefined,
+          )}
+        >
+          {hasComparison && (
+            <BlurFade delay={0.2} inView>
+              <ComparisonChart data={data} />
+            </BlurFade>
+          )}
+          {hasRecommendations && data.recommendations && (
+            <BlurFade delay={0.25} inView>
+              <Recommendations
+                recommendations={data.recommendations}
+                isPassing={data.is_passing}
+                isEarlySemester={data.is_early_semester}
+              />
+            </BlurFade>
+          )}
+        </div>
       )}
 
-      {/* Recommendations for failing students */}
-      {data.recommendations && data.recommendations.length > 0 && (
-        <BlurFade delay={0.25} inView>
-          <Recommendations 
-            recommendations={data.recommendations} 
-            isPassing={data.is_passing} 
-            isEarlySemester={data.is_early_semester}
-          />
-        </BlurFade>
-      )}
-
-      {/* Attendance Heatmap */}
       {data.attendance_history && data.attendance_history.length > 0 && (
-        <BlurFade delay={0.3} inView>
-          <AttendanceHeatmap 
+        <BlurFade delay={0.28} inView>
+          <AttendanceHistory
             history={data.attendance_history}
             stats={{
               present: data.present_count || 0,
@@ -138,10 +187,9 @@ export default function StudentDetailPage({ params }: PageProps) {
         </BlurFade>
       )}
 
-      {/* Lab Submissions */}
       {data.lab_submissions && data.lab_submissions.length > 0 && (
-        <BlurFade delay={0.35} inView>
-          <LabSubmissions 
+        <BlurFade delay={0.32} inView>
+          <LabSubmissions
             submissions={data.lab_submissions}
             completed={data.labs_completed || 0}
             total={data.labs_total || 0}

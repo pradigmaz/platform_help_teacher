@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { TodayLessonAttendance, LessonHistoryItem } from '@/lib/api';
 import { Calendar, Users, UserX, Clock, UserCheck, CalendarX, History } from 'lucide-react';
 
@@ -49,7 +50,6 @@ export function TodayLessonsCard({ todayLessons, lessonHistory, showNames }: Tod
 
   return (
     <div className="space-y-4">
-      {/* Сегодня */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ function TodayLessonItem({ lesson, showNames }: { lesson: TodayLessonAttendance;
     : 0;
 
   return (
-    <div className="border rounded-lg p-3 space-y-2">
+    <div className="space-y-3 rounded-2xl border border-border/60 p-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <span className="font-medium">{lesson.lesson_number} пара</span>
@@ -124,7 +124,7 @@ function TodayLessonItem({ lesson, showNames }: { lesson: TodayLessonAttendance;
         <p className="text-sm text-muted-foreground">{lesson.topic}</p>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+      <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
         <StatItem 
           icon={<UserCheck className="h-3.5 w-3.5 text-green-600" />}
           label="Были"
@@ -162,9 +162,9 @@ function HistoryItem({ lesson, formatDate }: { lesson: LessonHistoryItem; format
       : 'text-red-600';
 
   return (
-    <div className="flex items-center justify-between py-2 border-b last:border-0">
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground w-20">{formatDate(lesson.date)}</span>
+    <div className="flex flex-col gap-2 border-b py-3 last:border-0 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <span className="text-sm text-muted-foreground sm:w-20">{formatDate(lesson.date)}</span>
         <Badge variant="outline" className="text-xs">
           {lesson.lesson_number} пара
         </Badge>
@@ -175,7 +175,7 @@ function HistoryItem({ lesson, formatDate }: { lesson: LessonHistoryItem; format
           <span className="text-xs text-muted-foreground">{lesson.subgroup} п/г</span>
         )}
       </div>
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 text-sm sm:justify-end">
         <span className="text-muted-foreground">{lesson.present_count}/{lesson.total_count}</span>
         <span className={`font-medium ${rateColor}`}>{lesson.attendance_rate}%</span>
       </div>
@@ -190,16 +190,18 @@ function StatItem({ icon, label, count, names }: {
   names?: string[];
 }) {
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1 rounded-xl border border-border/60 bg-background/70 p-2.5">
       <div className="flex items-center gap-1">
         {icon}
         <span className="text-muted-foreground text-xs">{label}:</span>
         <span className="font-medium text-xs">{count}</span>
       </div>
       {names && names.length > 0 && (
-        <div className="text-xs text-muted-foreground pl-4 max-h-16 overflow-y-auto">
-          {names.join(', ')}
-        </div>
+        <ScrollArea className="max-h-16 pl-4">
+          <div className="text-xs text-muted-foreground">
+            {names.join(', ')}
+          </div>
+        </ScrollArea>
       )}
     </div>
   );

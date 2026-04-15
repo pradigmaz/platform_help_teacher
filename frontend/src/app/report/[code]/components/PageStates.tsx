@@ -1,38 +1,39 @@
+'use client';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { AlertCircle, FileX, Clock } from 'lucide-react';
 
 export function LoadingSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Header skeleton */}
-      <div className="space-y-4">
-        <div className="flex justify-between">
+      <div className="rounded-3xl border border-border/60 p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-10 w-72" />
+            <Skeleton className="h-5 w-80" />
           </div>
           <div className="flex gap-2">
-            <Skeleton className="h-9 w-20" />
-            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-28 rounded-full" />
+            <Skeleton className="h-9 w-32 rounded-full" />
           </div>
         </div>
-        <div className="flex gap-4">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-32" />
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-28 rounded-2xl" />
         </div>
       </div>
 
-      {/* Summary cards skeleton */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
         {[1, 2, 3, 4].map(i => (
-          <Skeleton key={i} className="h-28 rounded-xl" />
+          <Skeleton key={i} className="h-36 rounded-3xl" />
         ))}
       </div>
 
-      {/* Table skeleton */}
-      <Skeleton className="h-96 rounded-xl" />
+      <Skeleton className="h-96 rounded-3xl" />
     </div>
   );
 }
@@ -59,16 +60,24 @@ export function ErrorDisplay({ error, errorType }: ErrorDisplayProps) {
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <Card className="max-w-md w-full">
-        <CardContent className="pt-6 text-center space-y-4">
+      <Card className="w-full max-w-lg rounded-3xl border-border/60 shadow-sm">
+        <CardContent className="space-y-5 p-8 text-center">
           <div className="flex justify-center">
             {icons[errorType]}
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold">{error}</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-2xl font-semibold tracking-tight">{error}</h2>
+            <p className="text-sm text-muted-foreground sm:text-base">
               {descriptions[errorType]}
             </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <Button type="button" onClick={() => window.location.reload()}>
+              Обновить страницу
+            </Button>
+            <Button type="button" variant="outline" onClick={() => window.history.back()}>
+              Вернуться назад
+            </Button>
           </div>
         </CardContent>
       </Card>

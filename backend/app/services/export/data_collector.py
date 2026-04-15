@@ -24,7 +24,10 @@ from app.schemas.export import (
 from app.services.export.attendance_helpers import (
     build_lesson_export_columns,
     collect_attendance_rows,
+    filter_lessons_for_subgroup,
+    filter_students_for_export,
     load_export_lessons,
+    resolve_export_subgroup,
 )
 from app.services.reports.base_helpers import get_group, get_group_students
 
@@ -37,7 +40,9 @@ class ExportDataCollector:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def collect_lessons(self, group_id: UUID, start_date: date, end_date: date) -> list[LessonExportColumn]:
+    async def collect_lessons(
+        self, group_id: UUID, start_date: date, end_date: date, subgroup: int | None = None
+    ) -> list[LessonExportColumn]:
         """
         Получить занятия группы за период.
 
@@ -50,7 +55,13 @@ class ExportDataCollector:
             Список занятий для экспорта
         """
         logger.debug("Сбор занятий для группы %s за период %s - %s", group_id, start_date, end_date)
-        lessons = await load_export_lessons(self.db, group_id=group_id, start_date=start_date, end_date=end_date)
+        lessons = await load_export_lessons(
+            self.db,
+            group_id=group_id,
+            start_date=start_date,
+            end_date=end_date,
+            subgroup=subgroup,
+        )
         logger.info("Найдено %d занятий для экспорта", len(lessons))
         return build_lesson_export_columns(lessons)
 
@@ -73,7 +84,9 @@ class ExportDataCollector:
 
         # Получаем все оценки с загрузкой связанных занятий
         query = (
-            select(LessonGrade).options(selectinload(LessonGrade.lesson)).where(LessonGrade.lesson_id.in_(lesson_ids))
+            select(LessonGrade)
+            .options(selectinload(LessonGrade.lesson))
+            .where(LessonGrade.lesson_id.in_(lesson_ids), LessonGrade.student_id.in_([student.id for student in students]))
         )
 
         result = await self.db.execute(query)
@@ -120,7 +133,12 @@ class ExportDataCollector:
         logger.info("Собрано %d строк оценок", len(rows))
         return rows
 
-    async def collect_students(self, group_id: UUID) -> list[User]:
+    async def collect_students(
+        self,
+        group_id: UUID,
+        subgroup: int | None = None,
+        student_id: UUID | None = None,
+    ) -> list[User]:
         """
         Получить студентов группы.
 
@@ -131,7 +149,11 @@ class ExportDataCollector:
             Список студентов
         """
         logger.debug("Получение студентов группы %s", group_id)
-        students = await get_group_students(self.db, group_id)
+        students = filter_students_for_export(
+            await get_group_students(self.db, group_id),
+            subgroup=subgroup,
+            student_id=student_id,
+        )
         logger.info("Найдено %d студентов", len(students))
         return students
 
@@ -153,6 +175,8 @@ class ExportDataCollector:
         group_id: UUID,
         start_date: date,
         end_date: date,
+        subgroup: int | None = None,
+        student_id: UUID | None = None,
         include_attendance: bool = True,
         include_grades: bool = True,
     ) -> JournalExportData:
@@ -169,7 +193,14 @@ class ExportDataCollector:
         Returns:
             Полные данные журнала для экспорта
         """
-        logger.info("Начало сбора данных для экспорта: группа=%s, период=%s - %s", group_id, start_date, end_date)
+        logger.info(
+            "Начало сбора данных для экспорта: группа=%s, subgroup=%s, student=%s, период=%s - %s",
+            group_id,
+            subgroup,
+            student_id,
+            start_date,
+            end_date,
+        )
 
         # Получаем базовые данные
         group = await self.collect_group_info(group_id)
@@ -177,8 +208,20 @@ class ExportDataCollector:
             logger.error("Группа %s не найдена", group_id)
             raise ValueError(f"Группа {group_id} не найдена")
 
-        students = await self.collect_students(group_id)
-        lesson_models = await load_export_lessons(self.db, group_id=group_id, start_date=start_date, end_date=end_date)
+        students = await self.collect_students(group_id, subgroup, student_id)
+        effective_subgroup = resolve_export_subgroup(
+            students,
+            subgroup=subgroup,
+            student_id=student_id,
+        )
+        lesson_models = await load_export_lessons(
+            self.db,
+            group_id=group_id,
+            start_date=start_date,
+            end_date=end_date,
+            subgroup=effective_subgroup,
+        )
+        lesson_models = filter_lessons_for_subgroup(lesson_models, effective_subgroup)
         lessons = build_lesson_export_columns(lesson_models)
 
         # Извлекаем ID занятий

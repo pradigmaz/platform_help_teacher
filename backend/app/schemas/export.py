@@ -30,6 +30,16 @@ class JournalExportRequest(BaseModel):
     """Параметры запроса на экспорт журнала."""
 
     group_id: UUID = Field(..., description="ID группы для экспорта")
+    student_id: UUID | None = Field(
+        default=None,
+        description="ID конкретного студента для экспорта; null = весь состав",
+    )
+    subgroup: int | None = Field(
+        default=None,
+        ge=1,
+        le=2,
+        description="Подгруппа для экспорта; null = вся группа",
+    )
     period_type: ExportPeriodType = Field(
         default=ExportPeriodType.SEMESTER,
         description="Тип периода экспорта",

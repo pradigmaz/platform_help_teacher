@@ -20,9 +20,20 @@ const NotesActionsContext = createContext<Pick<NotesContextValue, 'loadNotesBatc
 
 // Кэш: entityType:entityId -> notes[]
 type NotesCache = Map<string, Note[]>;
+const NOTES_BATCH_SIZE = 100;
 
 function getCacheKey(entityType: EntityType, entityId: string): string {
   return `${entityType}:${entityId}`;
+}
+
+export function chunkEntityIds(entityIds: string[], size: number = NOTES_BATCH_SIZE): string[][] {
+  const chunks: string[][] = [];
+
+  for (let index = 0; index < entityIds.length; index += size) {
+    chunks.push(entityIds.slice(index, index + size));
+  }
+
+  return chunks;
 }
 
 export function NotesProvider({ children }: { children: ReactNode }) {
@@ -55,18 +66,21 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     });
 
     try {
-      const { data } = await api.post('/admin/notes/batch', 
-        { entity_ids: uncached },
-        { params: { entity_type: entityType } }
-      );
-      
-      setCache(prev => {
-        const next = new Map(prev);
-        for (const [entityId, notes] of Object.entries(data)) {
-          next.set(getCacheKey(entityType, entityId), notes as Note[]);
-        }
-        return next;
-      });
+      for (const entityIdChunk of chunkEntityIds(uncached)) {
+        const { data } = await api.post(
+          '/admin/notes/batch',
+          { entity_ids: entityIdChunk },
+          { params: { entity_type: entityType } }
+        );
+
+        setCache(prev => {
+          const next = new Map(prev);
+          for (const [entityId, notes] of Object.entries(data)) {
+            next.set(getCacheKey(entityType, entityId), notes as Note[]);
+          }
+          return next;
+        });
+      }
     } catch (err) {
       console.error('Failed to load notes batch:', err);
     } finally {

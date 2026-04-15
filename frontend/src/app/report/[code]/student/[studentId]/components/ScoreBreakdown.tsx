@@ -1,192 +1,62 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { 
-  FlaskConical, 
-  CalendarCheck, 
-  Sparkles,
-  TrendingUp,
-  TrendingDown,
-  Award
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { StudentDetailData } from '@/lib/api';
+import { MetricCard } from '@/components/ui/metric-card';
 import { NumberTicker } from '@/components/ui/number-ticker';
-import { ShineBorder } from '@/components/ui/shine-border';
+import { StudentDetailData } from '@/lib/api';
+import { CalendarCheck, FlaskConical, Sparkles } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 interface ScoreBreakdownProps {
   data: StudentDetailData;
 }
 
 export function ScoreBreakdown({ data }: ScoreBreakdownProps) {
-  const maxPoints = data.max_points || 35;
-  const minPassing = data.min_passing_points || 20;
-  const totalScore = data.total_score || 0;
-  const isPassing = data.is_passing ?? totalScore >= minPassing;
-  const isEarlySemester = data.is_early_semester ?? false;
-  const progressPercent = Math.min((totalScore / maxPoints) * 100, 100);
-  const isExcellent = totalScore >= (maxPoints * 0.85); // 85%
-
-  // В начале семестра используем нейтральные цвета
-  const getScoreColor = () => {
-    if (isEarlySemester) return 'border-blue-500 bg-blue-500/10';
-    return isPassing ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10';
-  };
-
-  const getProgressColor = () => {
-    if (isEarlySemester) return '[&>div]:bg-blue-500';
-    return isPassing ? '[&>div]:bg-green-500' : '[&>div]:bg-red-500';
-  };
-
-  const getStatusText = () => {
-    if (isEarlySemester) {
-      return <span className="text-blue-600 dark:text-blue-400">⏳ Семестр в процессе</span>;
-    }
-    return isPassing ? (
-      <span className="text-green-600 dark:text-green-400">✓ Зачёт получен</span>
-    ) : (
-      <span className="text-red-600 dark:text-red-400">✗ До зачёта: {(minPassing - totalScore).toFixed(1)} баллов</span>
-    );
-  };
-
   return (
     <div className="space-y-4">
-      {/* Hero Score Card */}
-      <Card className="relative overflow-hidden">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row md:items-center gap-6">
-            {/* Circular Score Indicator */}
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className={cn(
-                  "w-24 h-24 rounded-full flex items-center justify-center",
-                  "border-4",
-                  getScoreColor()
-                )}>
-                  <div className="text-center">
-                    <span className="text-3xl font-bold">
-                      <NumberTicker value={totalScore} decimalPlaces={1} delay={0.2} />
-                    </span>
-                    <p className="text-xs text-muted-foreground">/ {maxPoints}</p>
-                  </div>
-                </div>
-                {isExcellent && !isEarlySemester && (
-                  <div className="absolute -top-1 -right-1 p-1.5 rounded-full bg-yellow-500 text-white">
-                    <Award className="h-4 w-4" />
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Итоговый балл</p>
-                <GradeBadge grade={data.grade} isPassing={isPassing} isEarlySemester={isEarlySemester} />
-                {isExcellent && !isEarlySemester && (
-                  <Badge className="mt-1 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800">
-                    <Award className="h-3 w-3 mr-1" />
-                    Отличник
-                  </Badge>
-                )}
-              </div>
-            </div>
+      <div className="space-y-1">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Из чего складывается результат
+        </p>
+        <h2 className="text-xl font-semibold tracking-tight">Компоненты оценки</h2>
+      </div>
 
-            {/* Progress Bar */}
-            <div className="flex-1 space-y-2">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>0</span>
-                <span className="font-medium">Порог: {minPassing}</span>
-                <span>{maxPoints}</span>
-              </div>
-              <div className="relative h-4 bg-secondary rounded-full overflow-hidden">
-                {/* Passing threshold marker */}
-                <div 
-                  className="absolute top-0 bottom-0 w-0.5 bg-yellow-500 z-10"
-                  style={{ left: `${(minPassing / maxPoints) * 100}%` }}
-                />
-                <Progress 
-                  value={progressPercent} 
-                  className={cn("h-full", getProgressColor())}
-                />
-              </div>
-              <p className="text-xs text-center">
-                {getStatusText()}
-              </p>
-            </div>
-          </div>
-
-          {/* Comparison with group average */}
-          {data.group_average_score !== undefined && (
-            <div className="mt-4 pt-4 border-t flex flex-wrap items-center gap-2 text-sm">
-              {totalScore > data.group_average_score ? (
-                <TrendingUp className="h-4 w-4 text-green-500" />
-              ) : totalScore < data.group_average_score ? (
-                <TrendingDown className="h-4 w-4 text-red-500" />
-              ) : (
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className="text-muted-foreground">Средний балл группы:</span>
-              <span className="font-medium">{data.group_average_score.toFixed(1)}</span>
-              {totalScore > data.group_average_score ? (
-                <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800">
-                  +{(totalScore - data.group_average_score).toFixed(1)} выше среднего
-                </Badge>
-              ) : totalScore < data.group_average_score ? (
-                <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800">
-                  {(totalScore - data.group_average_score).toFixed(1)} ниже среднего
-                </Badge>
-              ) : (
-                <Badge variant="outline">на уровне среднего</Badge>
-              )}
-            </div>
-          )}
-        </CardContent>
-        {isExcellent && (
-          <ShineBorder 
-            shineColor={["#fbbf24", "#f59e0b", "#d97706"]} 
-            borderWidth={2}
-            duration={8}
-          />
-        )}
-      </Card>
-
-      {/* Component Breakdown Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        {/* Labs Score */}
         {data.lab_score !== undefined && (
           <ComponentCard
+            tint="blue"
             icon={<FlaskConical className="h-5 w-5" />}
             title="Лабораторные"
             score={data.lab_score}
-            color="blue"
-            details={data.labs_completed !== undefined && data.labs_total !== undefined ? (
-              <span>Сдано: {data.labs_completed} из {data.labs_total}</span>
-            ) : undefined}
+            summary={getLabSummary(data.labs_completed, data.labs_total)}
           />
         )}
 
-        {/* Attendance Score */}
         {data.attendance_score !== undefined && (
           <ComponentCard
+            tint="green"
             icon={<CalendarCheck className="h-5 w-5" />}
-            title="Баллы за посещаемость"
+            title="Посещаемость"
             score={data.attendance_score}
-            color="emerald"
-            details={data.attendance_rate !== undefined ? (
-              <span>{Math.round(data.attendance_rate)}% занятий за период</span>
-            ) : undefined}
+            summary={
+              data.attendance_rate !== undefined
+                ? `${Math.round(data.attendance_rate)}% занятий за выбранный период`
+                : 'Данные по посещаемости доступны внизу страницы'
+            }
           />
         )}
 
-        {/* Activity Score */}
         {data.activity_score !== undefined && (
           <ComponentCard
+            tint="purple"
             icon={<Sparkles className="h-5 w-5" />}
             title="Активность"
             score={data.activity_score}
-            color="purple"
-            details={data.total_activity_points !== undefined ? (
-              <span>{data.total_activity_points} баллов активности</span>
-            ) : undefined}
+            summary={
+              data.total_activity_points !== undefined
+                ? `${data.total_activity_points} баллов набрано за активность`
+                : 'Дополнительный вклад в итоговый результат'
+            }
           />
         )}
       </div>
@@ -194,67 +64,47 @@ export function ScoreBreakdown({ data }: ScoreBreakdownProps) {
   );
 }
 
-interface ComponentCardProps {
-  icon: React.ReactNode;
-  title: string;
-  score: number;
-  color: 'blue' | 'emerald' | 'purple';
-  details?: React.ReactNode;
+function getLabSummary(completed?: number, total?: number) {
+  if (typeof completed === 'number' && typeof total === 'number') {
+    return `Сдано ${completed} из ${total} лабораторных`;
+  }
+
+  return 'Вклад лабораторных в итоговый результат';
 }
 
-function ComponentCard({ icon, title, score, color, details }: ComponentCardProps) {
-  const colorClasses = {
-    blue: 'bg-blue-500/10 text-blue-500',
-    emerald: 'bg-emerald-500/10 text-emerald-500',
-    purple: 'bg-purple-500/10 text-purple-500',
-  };
+interface ComponentCardProps {
+  tint: 'blue' | 'green' | 'purple';
+  icon: ReactNode;
+  title: string;
+  score: number;
+  summary: string;
+}
 
+function ComponentCard({ tint, icon, title, score, summary }: ComponentCardProps) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className={cn("p-2 rounded-lg", colorClasses[color])}>
+    <MetricCard tint={tint}>
+      <div className="space-y-4 p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border/60 bg-background/80 text-foreground">
             {icon}
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold">
-              <NumberTicker value={score} decimalPlaces={1} delay={0.3} />
+            <p className="text-3xl font-semibold tracking-tight text-foreground">
+              <NumberTicker value={score} decimalPlaces={1} delay={0.25} />
             </p>
             <p className="text-xs text-muted-foreground">баллов</p>
           </div>
         </div>
-        <p className="mt-2 font-medium">{title}</p>
-        {details && (
-          <p className="text-xs text-muted-foreground mt-1">{details}</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
-function GradeBadge({ grade, isPassing, isEarlySemester }: { grade?: string; isPassing?: boolean; isEarlySemester?: boolean }) {
-  if (!grade) return <span className="text-muted-foreground text-lg">—</span>;
+        <div className="space-y-2">
+          <p className="text-base font-semibold text-foreground">{title}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">{summary}</p>
+        </div>
 
-  // В начале семестра показываем нейтральный badge
-  if (isEarlySemester) {
-    return (
-      <Badge variant="secondary" className="text-lg px-4 py-1">
-        {grade}
-      </Badge>
-    );
-  }
-
-  const className = cn(
-    "text-lg px-4 py-1",
-    grade === 'отл' && 'bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20',
-    grade === 'хор' && 'bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20',
-    grade === 'уд' && 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/20',
-    grade === 'неуд' && 'bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20',
-  );
-
-  return (
-    <Badge variant={isPassing ? 'default' : 'destructive'} className={className}>
-      {grade}
-    </Badge>
+        <Badge variant="outline" className="rounded-full border-border/60 bg-background/70 px-2.5 py-1 text-xs">
+          Компонент итоговой оценки
+        </Badge>
+      </div>
+    </MetricCard>
   );
 }

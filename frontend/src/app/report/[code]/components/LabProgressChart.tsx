@@ -1,124 +1,133 @@
 'use client';
 
-import { useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LabProgress } from '@/lib/api';
+import type { LabProgress } from '@/lib/api';
+import type { ReportSubgroupFilter } from './reportFilters';
+import { ChartTooltipCard } from './ChartTooltipCard';
 
 interface LabProgressChartProps {
   progress: LabProgress[];
-  progressBySubgroup?: Record<string, LabProgress[]>;
-  hasSubgroups?: boolean;
+  selectedSubgroup: ReportSubgroupFilter;
 }
 
-function getBarColor(rate: number): string {
-  if (rate >= 80) return '#22c55e';  // green-500
-  if (rate >= 50) return '#f59e0b';  // amber-500
-  return '#ef4444';                   // red-500
+function getBarColor(rate: number) {
+  if (rate >= 80) {
+    return 'hsl(142 72% 29%)';
+  }
+
+  if (rate >= 50) {
+    return 'hsl(38 92% 50%)';
+  }
+
+  return 'hsl(0 72% 51%)';
 }
 
-export function LabProgressChart({ progress, progressBySubgroup, hasSubgroups }: LabProgressChartProps) {
-  const [selectedTab, setSelectedTab] = useState<string>('all');
-  
-  // Выбираем данные в зависимости от таба
-  const currentProgress = selectedTab === 'all' 
-    ? progress 
-    : progressBySubgroup?.[selectedTab] || progress;
-  
-  const hasData = currentProgress && currentProgress.length > 0;
-
-  // Пустые данные - показываем реальное количество лаб или 8 по умолчанию
-  const defaultLabCount = 8;
-  const emptyData = Array.from({ length: defaultLabCount }, (_, i) => ({
-    name: `Л${i + 1}`,
-    rate: 0,
-  }));
-
-  // TODO: фильтрация по подгруппам когда бэкенд поддержит
-  const data = hasData 
-    ? currentProgress.map((lab, index) => ({
-        name: `Л${index + 1}`,
-        fullName: lab.lab_name,
-        completed: lab.completed_count,
-        total: lab.total_students,
-        rate: Math.round(lab.completion_rate),
-      }))
-    : emptyData;
+export function LabProgressChart({ progress, selectedSubgroup }: LabProgressChartProps) {
+  const hasData = progress.length > 0;
+  const chartData = hasData
+    ? progress.map((lab, index) => ({
+      name: `Л${index + 1}`,
+      fullName: lab.lab_name,
+      completed: lab.completed_count,
+      total: lab.total_students,
+      rate: Math.round(lab.completion_rate),
+    }))
+    : Array.from({ length: 8 }, (_, index) => ({
+      name: `Л${index + 1}`,
+      fullName: `Лабораторная ${index + 1}`,
+      completed: 0,
+      total: 0,
+      rate: 0,
+    }));
 
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Прогресс сдачи лабораторных</CardTitle>
-          {hasSubgroups && (
-            <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-              <TabsList className="h-8">
-                <TabsTrigger value="all" className="text-xs px-2 h-6">Все</TabsTrigger>
-                <TabsTrigger value="1" className="text-xs px-2 h-6">1 п/г</TabsTrigger>
-                <TabsTrigger value="2" className="text-xs px-2 h-6">2 п/г</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
+    <Card className="h-full border-border/60 shadow-sm">
+      <CardHeader className="space-y-3 pb-1">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">Готовность лабораторных</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Доля студентов, сдавших каждую работу
+            </p>
+          </div>
+          <Badge variant="outline">{selectedSubgroup === 'all' ? 'Вся группа' : `${selectedSubgroup} подгруппа`}</Badge>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="h-[220px]">
+      <CardContent className="space-y-4">
+        <div className="h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ left: -10, right: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="name" 
+            <BarChart data={chartData} margin={{ left: -18, right: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis
+                dataKey="name"
                 tick={{ fontSize: 11 }}
                 stroke="hsl(var(--muted-foreground))"
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis 
-                domain={[0, 100]} 
-                tickFormatter={(v) => `${v}%`}
+              <YAxis
+                domain={[0, 100]}
+                width={38}
                 tick={{ fontSize: 11 }}
+                tickFormatter={(value) => `${value}%`}
                 stroke="hsl(var(--muted-foreground))"
                 axisLine={false}
                 tickLine={false}
-                width={35}
               />
               {hasData && (
-                <Tooltip 
-                  formatter={(value, _name, props) => {
-                    const item = (props as { payload: { completed: number; total: number; fullName: string } }).payload;
-                    return [`${item.completed}/${item.total} (${value}%)`, item.fullName];
-                  }}
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
+                <Tooltip
+                  cursor={{ fill: 'hsl(var(--accent) / 0.24)' }}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) {
+                      return null;
+                    }
+
+                    const item = payload[0].payload as {
+                      completed: number;
+                      total: number;
+                      fullName: string;
+                      rate: number;
+                    };
+
+                    return (
+                      <ChartTooltipCard
+                        title={`${String(label)} · ${item.fullName}`}
+                        value={`${item.completed}/${item.total} (${item.rate}%)`}
+                        description="Сколько студентов сдали эту лабораторную"
+                      />
+                    );
                   }}
                 />
               )}
-              <Bar dataKey="rate" radius={[4, 4, 0, 0]}>
-                {data.map((entry, index) => (
-                  <Cell key={index} fill={hasData && entry.rate > 0 ? getBarColor(entry.rate) : '#3f3f46'} />
+              <Bar dataKey="rate" radius={[10, 10, 0, 0]}>
+                {chartData.map((item, index) => (
+                  <Cell key={index} fill={hasData && item.rate > 0 ? getBarColor(item.rate) : 'hsl(var(--muted))'} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-center gap-4 mt-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded bg-green-500" />
-            <span>≥80%</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded bg-amber-500" />
-            <span>50-79%</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded bg-red-500" />
-            <span>&lt;50%</span>
-          </div>
+
+        <div className="grid gap-2 sm:grid-cols-3">
+          <LegendItem color="hsl(142 72% 29%)" label="Высокая готовность" description="80% и выше" />
+          <LegendItem color="hsl(38 92% 50%)" label="Средняя готовность" description="50–79%" />
+          <LegendItem color="hsl(0 72% 51%)" label="Низкая готовность" description="Ниже 50%" />
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function LegendItem({ color, label, description }: { color: string; label: string; description: string }) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+    </div>
   );
 }

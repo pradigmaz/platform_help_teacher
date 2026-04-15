@@ -1,10 +1,10 @@
 'use client';
 'use no memo';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PublicReportAPI, PublicReportData, ApiError } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PinDialog } from './components/PinDialog';
 import { ReportHeader } from './components/ReportHeader';
 import { ReportSummaryCards } from './components/ReportSummaryCards';
@@ -13,12 +13,24 @@ import { AttendanceChart, AttendanceTrend } from './components/AttendanceChart';
 import { LabProgressChart } from './components/LabProgressChart';
 import { TodayLessonsCard } from './components/TodayLessonsCard';
 import { LoadingSkeleton, ErrorDisplay } from './components/PageStates';
+import { ReportToolbar } from './components/ReportToolbar';
+import {
+  filterStudentsBySubgroup,
+  getAvailableSubgroups,
+  getAttendanceDistributionForSubgroup,
+  getLabProgressForSubgroup,
+  type ReportSubgroupFilter,
+} from './components/reportFilters';
+import {
+  parseReportAttestation,
+  type ReportAttestation,
+  withReportAttestation,
+} from './reportNavigation';
 
 interface PublicReportClientProps {
   code: string;
+  initialAttestationType?: ReportAttestation;
 }
-
-type AttestationType = 'first' | 'second';
 
 type PageState = 
   | { status: 'loading' }
@@ -26,15 +38,22 @@ type PageState =
   | { status: 'loaded'; data: PublicReportData }
   | { status: 'error'; error: string; errorType: 'not_found' | 'expired' | 'deactivated' | 'generic' };
 
-export function PublicReportClient({ code }: PublicReportClientProps) {
+export function PublicReportClient({
+  code,
+  initialAttestationType = 'first',
+}: PublicReportClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [state, setState] = useState<PageState>({ status: 'loading' });
   const [isReloading, setIsReloading] = useState(false);
-  const [attestationType, setAttestationType] = useState<AttestationType>('first');
+  const [attestationType, setAttestationType] = useState<ReportAttestation>(initialAttestationType);
+  const [selectedSubgroup, setSelectedSubgroup] = useState<ReportSubgroupFilter>('all');
   const requestIdRef = useRef(0);
   const loadedDataRef = useRef<PublicReportData | null>(null);
 
   const loadReport = useCallback(async (
-    attType: AttestationType,
+    attType: ReportAttestation,
     options: { preserveData?: boolean; signal?: AbortSignal } = {},
   ) => {
     const requestId = requestIdRef.current + 1;
@@ -115,14 +134,62 @@ export function PublicReportClient({ code }: PublicReportClientProps) {
     return () => controller.abort();
   }, [attestationType, loadReport]);
 
+  useEffect(() => {
+    const currentAttestation = parseReportAttestation(searchParams.get('attestation'));
+    if (currentAttestation === attestationType) {
+      return;
+    }
+
+    const nextParams = withReportAttestation(
+      new URLSearchParams(searchParams.toString()),
+      attestationType,
+    );
+    const nextQuery = nextParams.toString();
+    const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+
+    router.replace(nextUrl, { scroll: false });
+  }, [attestationType, pathname, router, searchParams]);
+
+  useEffect(() => {
+    const currentData = loadedDataRef.current;
+    if (!currentData) {
+      return;
+    }
+
+    const availableSubgroups = getAvailableSubgroups(currentData);
+    if (!availableSubgroups.includes(selectedSubgroup)) {
+      setSelectedSubgroup('all');
+    }
+  }, [selectedSubgroup, state]);
+
   const handleAttestationChange = (value: string) => {
-    const newType = value as AttestationType;
+    const newType = value as ReportAttestation;
     setAttestationType(newType);
   };
 
   const handlePinSuccess = () => {
     void loadReport(attestationType);
   };
+
+  const data = state.status === 'loaded' ? state.data : null;
+  const subgroupOptions = useMemo(
+    (): ReportSubgroupFilter[] => data ? getAvailableSubgroups(data) : ['all'],
+    [data],
+  );
+  const filteredStudents = useMemo(
+    () => data ? filterStudentsBySubgroup(data.students, selectedSubgroup) : [],
+    [data, selectedSubgroup],
+  );
+  const attendanceDistribution = useMemo(
+    () => data
+      ? getAttendanceDistributionForSubgroup(data.attendance_distribution, data.attendance_stats, selectedSubgroup)
+      : { present: 0, late: 0, excused: 0, absent: 0 },
+    [data, selectedSubgroup],
+  );
+  const labProgress = useMemo(
+    () => data ? getLabProgressForSubgroup(data.lab_progress, data.lab_progress_by_subgroup, selectedSubgroup) : [],
+    [data, selectedSubgroup],
+  );
 
   // Loading state
   if (state.status === 'loading') {
@@ -148,68 +215,74 @@ export function PublicReportClient({ code }: PublicReportClientProps) {
   }
 
   // Loaded state
-  const { data } = state;
+  if (!data) {
+    return <LoadingSkeleton />;
+  }
+
   const isSecondAvailable = data.is_second_available ?? false;
 
   return (
     <div className="space-y-6">
       <ReportHeader data={data} />
-      
-      {/* Attestation Tabs */}
-      <Tabs value={attestationType} onValueChange={handleAttestationChange}>
-        <TabsList>
-          <TabsTrigger value="first">1 аттестация</TabsTrigger>
-          <TabsTrigger value="second" disabled={!isSecondAvailable}>
-            2 аттестация
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-      {isReloading && (
-        <p className="text-sm text-muted-foreground">Обновляем данные для выбранной аттестации...</p>
-      )}
-      <p className="text-sm text-muted-foreground">
-        Показатели посещаемости считаются для выбранной аттестации, а история занятий показывает отдельный процент по каждому занятию.
-      </p>
-      
-      <ReportSummaryCards data={data} />
-      
-      {/* Charts section - 2 сверху (1+2 колонки), 1 снизу */}
+
+      <ReportToolbar
+        attestationType={attestationType}
+        onAttestationChange={handleAttestationChange}
+        isSecondAvailable={isSecondAvailable}
+        selectedSubgroup={selectedSubgroup}
+        onSubgroupChange={setSelectedSubgroup}
+        subgroupOptions={subgroupOptions}
+        isReloading={isReloading}
+      />
+
+      <ReportSummaryCards
+        data={data}
+        students={filteredStudents}
+        selectedSubgroup={selectedSubgroup}
+      />
+
       {(data.show_attendance || data.show_grades) && (
         <div className="space-y-6">
           <div className="grid gap-6 md:grid-cols-3">
             {data.show_attendance && (
-              <AttendanceChart 
-                distribution={data.attendance_distribution || { present: 0, late: 0, excused: 0, absent: 0 }} 
+              <AttendanceChart
+                distribution={attendanceDistribution}
                 stats={data.attendance_stats}
-                hasSubgroups={data.has_subgroups}
+                selectedSubgroup={selectedSubgroup}
               />
             )}
             {data.show_grades && (
               <div className="md:col-span-2">
-                <LabProgressChart 
-                  progress={data.lab_progress || []} 
-                  progressBySubgroup={data.lab_progress_by_subgroup}
-                  hasSubgroups={data.has_subgroups} 
+                <LabProgressChart
+                  progress={labProgress}
+                  selectedSubgroup={selectedSubgroup}
                 />
               </div>
             )}
           </div>
           {data.show_attendance && (
-            <AttendanceTrend stats={data.attendance_stats} hasSubgroups={data.has_subgroups} />
+            <AttendanceTrend
+              stats={data.attendance_stats}
+              selectedSubgroup={selectedSubgroup}
+            />
           )}
         </div>
       )}
-      
-      {/* Today's lessons and history */}
+
       {(data.today_lessons?.length || data.lesson_history?.length) && (
-        <TodayLessonsCard 
-          todayLessons={data.today_lessons} 
+        <TodayLessonsCard
+          todayLessons={data.today_lessons}
           lessonHistory={data.lesson_history}
-          showNames={data.show_names} 
+          showNames={data.show_names}
         />
       )}
-      
-      <ReportStudentTable data={data} code={code} />
+
+      <ReportStudentTable
+        data={data}
+        students={filteredStudents}
+        code={code}
+        attestationType={attestationType}
+      />
     </div>
   );
 }

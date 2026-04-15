@@ -12,9 +12,10 @@ export default function ReportLayout({
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="system"
-      enableSystem
+      defaultTheme="light"
+      enableSystem={false}
       disableTransitionOnChange
+      storageKey="public-report-theme"
     >
       <div className="min-h-screen bg-background">
         {/* Theme toggle in top right */}

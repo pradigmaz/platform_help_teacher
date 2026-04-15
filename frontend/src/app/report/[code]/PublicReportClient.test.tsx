@@ -16,9 +16,20 @@ const mocks = vi.hoisted(() => {
   return {
     getReport: vi.fn(),
     toastError: vi.fn(),
+    router: {
+      replace: vi.fn(),
+    },
+    pathname: '/report/CODE1234',
+    searchParams: new URLSearchParams(),
     MockApiError,
   };
 });
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => mocks.router,
+  usePathname: () => mocks.pathname,
+  useSearchParams: () => mocks.searchParams,
+}));
 
 vi.mock('@/lib/api', () => ({
   PublicReportAPI: {
@@ -145,6 +156,7 @@ function createReportData(attestationType: 'first' | 'second') {
 describe('PublicReportClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.searchParams = new URLSearchParams();
   });
 
   it('loads once on mount and keeps previous data visible during attestation reload', async () => {
@@ -168,13 +180,25 @@ describe('PublicReportClient', () => {
 
     await waitFor(() => expect(mocks.getReport).toHaveBeenCalledTimes(2));
     expect(mocks.getReport).toHaveBeenNthCalledWith(2, 'CODE1234', 'second', expect.any(AbortSignal));
+    expect(mocks.router.replace).toHaveBeenCalledWith('/report/CODE1234?attestation=second', { scroll: false });
     expect(screen.getByText('header-first-ИС1-231-ОТ')).toBeTruthy();
     expect(screen.queryByText('loading-skeleton')).toBeNull();
-    expect(screen.getByText('Обновляем данные для выбранной аттестации...')).toBeTruthy();
+    expect(screen.getByText('Обновляем данные…')).toBeTruthy();
 
     resolveSecondRequest?.(secondData);
 
     expect(await screen.findByText('header-second-ИС1-231-ОТ')).toBeTruthy();
-    expect(screen.queryByText('Обновляем данные для выбранной аттестации...')).toBeNull();
+    expect(screen.queryByText('Обновляем данные…')).toBeNull();
+  });
+
+  it('starts from attestation stored in the URL payload', async () => {
+    const secondData = createReportData('second');
+    mocks.getReport.mockResolvedValueOnce(secondData);
+
+    render(<PublicReportClient code="CODE1234" initialAttestationType="second" />);
+
+    expect(await screen.findByText('header-second-ИС1-231-ОТ')).toBeTruthy();
+    expect(mocks.getReport).toHaveBeenCalledWith('CODE1234', 'second', expect.any(AbortSignal));
+    expect(mocks.router.replace).toHaveBeenCalledWith('/report/CODE1234?attestation=second', { scroll: false });
   });
 });

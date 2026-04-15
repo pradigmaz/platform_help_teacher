@@ -78,9 +78,15 @@ export const PublicReportAPI = {
     return data;
   },
 
-  getStudent: async (code: string, studentId: string, attestation: 'first' | 'second' = 'first') => {
+  getStudent: async (
+    code: string,
+    studentId: string,
+    attestation: 'first' | 'second' = 'first',
+    signal?: AbortSignal,
+  ) => {
     const { data } = await publicApi.get<StudentDetailData>(
-      `/public/report/${code}/student/${studentId}?attestation=${attestation}`
+      `/public/report/${code}/student/${studentId}?attestation=${attestation}`,
+      { signal },
     );
     return data;
   },

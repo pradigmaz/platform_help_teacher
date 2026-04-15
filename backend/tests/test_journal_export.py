@@ -18,6 +18,13 @@ from app.services.export.period_utils import (
     parse_month,
     parse_custom,
 )
+from app.services.export.attendance_helpers import (
+    filter_lessons_for_subgroup,
+    filter_students_for_export,
+    filter_students_for_subgroup,
+    resolve_export_subgroup,
+)
+from app.api.v1.endpoints.journal.export import build_content_disposition_header
 from app.services.export.excel_generator import generate_excel
 from app.services.export.csv_generator import generate_csv
 
@@ -315,6 +322,72 @@ class TestExcelGeneration:
 
         assert isinstance(result, bytes)
         assert len(result) > 0
+
+
+class TestSubgroupFiltering:
+    """Тесты фильтрации экспорта по подгруппе."""
+
+    def test_filter_students_for_subgroup_keeps_only_matching_students(self):
+        student_a = type("Student", (), {"subgroup": 1})()
+        student_b = type("Student", (), {"subgroup": 2})()
+        student_c = type("Student", (), {"subgroup": None})()
+
+        result = filter_students_for_subgroup([student_a, student_b, student_c], 1)
+
+        assert result == [student_a]
+
+    def test_filter_lessons_for_subgroup_keeps_common_and_matching_lessons(self):
+        lecture = type("Lesson", (), {"subgroup": None})()
+        subgroup_one = type("Lesson", (), {"subgroup": 1})()
+        subgroup_two = type("Lesson", (), {"subgroup": 2})()
+
+        result = filter_lessons_for_subgroup([lecture, subgroup_one, subgroup_two], 1)
+
+        assert result == [lecture, subgroup_one]
+
+    def test_filter_students_for_export_keeps_only_selected_student(self):
+        student_id = uuid4()
+        selected_student = type("Student", (), {"id": student_id, "subgroup": 1})()
+        another_student = type("Student", (), {"id": uuid4(), "subgroup": 1})()
+
+        result = filter_students_for_export(
+            [selected_student, another_student],
+            subgroup=None,
+            student_id=student_id,
+        )
+
+        assert result == [selected_student]
+
+    def test_resolve_export_subgroup_uses_single_student_subgroup(self):
+        student = type("Student", (), {"subgroup": 2})()
+
+        result = resolve_export_subgroup([student], subgroup=None, student_id=uuid4())
+
+        assert result == 2
+
+    def test_resolve_export_subgroup_respects_explicit_subgroup(self):
+        student = type("Student", (), {"subgroup": 2})()
+
+        result = resolve_export_subgroup([student], subgroup=1, student_id=uuid4())
+
+        assert result == 1
+
+    def test_resolve_export_subgroup_does_not_narrow_whole_group_export(self):
+        student = type("Student", (), {"subgroup": 2})()
+
+        result = resolve_export_subgroup([student], subgroup=None, student_id=None)
+
+        assert result is None
+
+
+class TestContentDispositionHeader:
+    """Тесты заголовка скачивания файлов."""
+
+    def test_build_content_disposition_header_supports_unicode_filename(self):
+        header = build_content_disposition_header("journal_ИС1231ОТ_2026-01-01_2026-05-31.xlsx")
+
+        assert 'filename="journal_1231_2026-01-01_2026-05-31.xlsx"' in header
+        assert "filename*=UTF-8''journal_%D0%98%D0%A11231%D0%9E%D0%A2_2026-01-01_2026-05-31.xlsx" in header
 
 
 class TestCsvGeneration:

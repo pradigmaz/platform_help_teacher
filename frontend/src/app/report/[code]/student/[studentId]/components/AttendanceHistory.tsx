@@ -1,20 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  CalendarCheck, 
-  CheckCircle2, 
-  Clock, 
-  XCircle, 
-  AlertCircle,
-  ChevronDown,
-  ChevronUp
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { CalendarCheck, CheckCircle2, ChevronDown, ChevronUp, Clock, ShieldAlert, XCircle } from 'lucide-react';
 import { AttendanceRecordPublic } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 interface AttendanceStats {
   present: number;
@@ -33,35 +26,27 @@ interface AttendanceHistoryProps {
 const STATUS_CONFIG = {
   present: {
     label: 'Присутствовал',
-    shortLabel: 'Был',
+    compactLabel: 'Был',
     icon: CheckCircle2,
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
-    badgeClass: 'bg-green-500/10 text-green-600 border-green-200',
+    className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   },
   late: {
     label: 'Опоздал',
-    shortLabel: 'Опоздал',
+    compactLabel: 'Опоздание',
     icon: Clock,
-    color: 'text-yellow-500',
-    bgColor: 'bg-yellow-500/10',
-    badgeClass: 'bg-yellow-500/10 text-yellow-600 border-yellow-200',
+    className: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   },
   excused: {
-    label: 'Уважительная',
-    shortLabel: 'Ув. причина',
-    icon: AlertCircle,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
-    badgeClass: 'bg-blue-500/10 text-blue-600 border-blue-200',
+    label: 'Уважительная причина',
+    compactLabel: 'Уважительная',
+    icon: ShieldAlert,
+    className: 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300',
   },
   absent: {
     label: 'Отсутствовал',
-    shortLabel: 'Н/Б',
+    compactLabel: 'Пропуск',
     icon: XCircle,
-    color: 'text-red-500',
-    bgColor: 'bg-red-500/10',
-    badgeClass: 'bg-red-500/10 text-red-600 border-red-200',
+    className: 'border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300',
   },
 } as const;
 
@@ -69,137 +54,158 @@ type StatusKey = keyof typeof STATUS_CONFIG;
 
 export function AttendanceHistory({ history, stats }: AttendanceHistoryProps) {
   const [expanded, setExpanded] = useState(false);
-  const displayCount = expanded ? history.length : 10;
-  const displayedHistory = history.slice(0, displayCount);
-  const hasMore = history.length > 10;
+  const sortedHistory = useMemo(
+    () => [...history].sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()),
+    [history],
+  );
+  const primaryTimeline = expanded ? sortedHistory : sortedHistory.slice(0, 6);
+  const attendedCount = stats.present + stats.late;
+  const attendanceTone =
+    stats.rate >= 80 ? 'text-emerald-700 dark:text-emerald-300'
+    : stats.rate >= 60 ? 'text-amber-700 dark:text-amber-300'
+    : 'text-red-700 dark:text-red-300';
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <CalendarCheck className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>История посещений за период</CardTitle>
+    <Card className="group relative overflow-hidden border-border/60 bg-card/95 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-accent/10 hover:shadow-lg focus-within:border-primary/25 focus-within:shadow-lg">
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-green-500/35 to-transparent" />
+      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-green-500/15 opacity-0 blur-3xl transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100" />
+      <CardHeader className="space-y-4 border-b border-border/60 bg-muted/20 pb-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <CalendarCheck className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-lg">Посещаемость за период</CardTitle>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Был на {attendedCount} из {stats.total} занятий за выбранную аттестацию.
+            </p>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Посещаемость за период:</span>
-            <Badge variant="outline" className={cn(
-              stats.rate >= 80 ? 'bg-green-500/10 text-green-600' :
-              stats.rate >= 60 ? 'bg-yellow-500/10 text-yellow-600' :
-              'bg-red-500/10 text-red-600'
-            )}>
-              {Math.round(stats.rate)}%
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Stats Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatBadge 
-            status="present" 
-            count={stats.present} 
-            total={stats.total} 
-          />
-          <StatBadge 
-            status="late" 
-            count={stats.late} 
-            total={stats.total} 
-          />
-          <StatBadge 
-            status="excused" 
-            count={stats.excused} 
-            total={stats.total} 
-          />
-          <StatBadge 
-            status="absent" 
-            count={stats.absent} 
-            total={stats.total} 
-          />
+          <Badge variant="outline" className={`rounded-full border px-3 py-1 text-sm font-medium ${attendanceTone}`}>
+            {Math.round(stats.rate)}%
+          </Badge>
         </div>
 
-        {/* History List */}
-        <div className="space-y-2">
-          {displayedHistory.map((record, index) => (
-            <AttendanceRow key={index} record={record} />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <AttendanceStatCard label="Был" value={stats.present} tone="present" />
+          <AttendanceStatCard label="Опоздания" value={stats.late} tone="late" />
+          <AttendanceStatCard label="Уважительные" value={stats.excused} tone="excused" />
+          <AttendanceStatCard label="Пропуски" value={stats.absent} tone="absent" />
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4 p-6">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-foreground">Хронология занятий</p>
+          <p className="text-sm text-muted-foreground">
+            Сначала показываются последние занятия, чтобы было легче быстро оценить динамику.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {primaryTimeline.map((record, index) => (
+            <AttendanceRow key={`${record.date}-${index}`} record={record} />
           ))}
         </div>
 
-        {/* Show More Button */}
-        {hasMore && (
-          <Button
-            variant="ghost"
-            className="w-full"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? (
-              <>
-                <ChevronUp className="h-4 w-4 mr-2" />
-                Свернуть
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-4 w-4 mr-2" />
-                Показать все ({history.length})
-              </>
-            )}
-          </Button>
+        {sortedHistory.length > 6 && (
+          <Collapsible open={expanded} onOpenChange={setExpanded} className="rounded-2xl border border-border/60 bg-muted/10">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {expanded ? 'Свернуть подробную хронологию' : `Показать ещё ${sortedHistory.length - 6} занятий`}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Полный список по выбранному периоду аттестации
+                </p>
+              </div>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  {expanded ? (
+                    <>
+                      <ChevronUp className="mr-2 h-4 w-4" />
+                      Свернуть
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="mr-2 h-4 w-4" />
+                      Показать
+                    </>
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+            <CollapsibleContent className="space-y-3 border-t border-border/60 px-4 pb-4 pt-3">
+              {sortedHistory.slice(6).map((record, index) => (
+                <AttendanceRow key={`${record.date}-extra-${index}`} record={record} />
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function StatBadge({ status, count, total }: { status: StatusKey; count: number; total: number }) {
-  const config = STATUS_CONFIG[status];
+function AttendanceStatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: StatusKey;
+}) {
+  const config = STATUS_CONFIG[tone];
   const Icon = config.icon;
-  const percent = total > 0 ? Math.round((count / total) * 100) : 0;
 
   return (
-    <div className={cn("p-3 rounded-lg", config.bgColor)}>
+    <div className={cn('rounded-2xl border px-4 py-3', config.className)}>
       <div className="flex items-center gap-2">
-        <Icon className={cn("h-4 w-4", config.color)} />
-        <span className="text-sm font-medium">{config.shortLabel}</span>
+        <Icon className="h-4 w-4" />
+        <span className="text-sm font-medium">{label}</span>
       </div>
-      <div className="mt-1 flex items-baseline gap-1">
-        <span className="text-xl font-bold">{count}</span>
-        <span className="text-xs text-muted-foreground">({percent}%)</span>
-      </div>
+      <div className="mt-2 text-2xl font-semibold">{value}</div>
     </div>
   );
 }
 
 function AttendanceRow({ record }: { record: AttendanceRecordPublic }) {
-  const status = (record.status.toLowerCase() as StatusKey) || 'absent';
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.absent;
+  const status = normalizeStatus(record.status);
+  const config = STATUS_CONFIG[status];
   const Icon = config.icon;
 
-  const formattedDate = formatDate(record.date);
-
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-      <div className={cn("p-2 rounded-lg", config.bgColor)}>
-        <Icon className={cn("h-4 w-4", config.color)} />
+    <div className="flex items-start gap-3 rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
+      <div className={cn('mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl border', config.className)}>
+        <Icon className="h-4 w-4" />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm">{formattedDate}</p>
-        {record.lesson_topic && (
-          <p className="text-xs text-muted-foreground truncate">
-            {record.lesson_topic}
-          </p>
-        )}
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-medium text-foreground">{formatDate(record.date)}</p>
+          <Badge variant="outline" className={cn('rounded-full border px-2 py-0.5 text-[11px]', config.className)}>
+            {config.compactLabel}
+          </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {record.lesson_topic || 'Тема занятия не указана'}
+        </p>
       </div>
-      <Badge variant="outline" className={config.badgeClass}>
-        {config.label}
-      </Badge>
     </div>
   );
 }
 
-function formatDate(dateStr: string): string {
+function normalizeStatus(status: string): StatusKey {
+  const normalized = status.toLowerCase();
+
+  if (normalized === 'present') return 'present';
+  if (normalized === 'late') return 'late';
+  if (normalized === 'excused') return 'excused';
+  return 'absent';
+}
+
+function formatDate(dateStr: string) {
   try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('ru-RU', {
+    return new Date(dateStr).toLocaleDateString('ru-RU', {
       weekday: 'short',
       day: 'numeric',
       month: 'long',

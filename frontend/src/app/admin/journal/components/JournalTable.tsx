@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Table,
   TableBody,
 } from '@/components/ui/table';
 import { AddActivityDialog } from '@/components/admin/AddActivityDialog';
+import { useNotesActionsContext } from '@/components/notes';
 import { JournalTableHeader } from './JournalTableHeader';
 import { JournalTableStudentRow } from './JournalTableStudentRow';
 import type { Lesson, Student, GradeData } from '../lib/journal-constants';
@@ -39,10 +40,20 @@ export function JournalTable({
   onStudentAttestationClick,
   onActivityAdded,
 }: JournalTableProps) {
+  const { loadNotesBatch } = useNotesActionsContext();
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   const [selectedStudentForActivity, setSelectedStudentForActivity] = useState<Student | null>(null);
   const sortedLessons = sortJournalLessons(lessons);
   const maxWorkNumbers = buildMaxWorkNumberMap(sortedLessons);
+
+  useEffect(() => {
+    const studentIds = students.map((student) => student.id);
+    if (studentIds.length === 0) {
+      return;
+    }
+
+    void loadNotesBatch('student', studentIds);
+  }, [loadNotesBatch, students]);
 
   return (
     <div className="relative overflow-auto max-h-[70vh] rounded-lg border">

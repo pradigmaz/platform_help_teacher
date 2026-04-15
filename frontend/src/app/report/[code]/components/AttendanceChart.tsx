@@ -1,130 +1,137 @@
 'use client';
 
-import { useState } from 'react';
-import { 
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  AreaChart, Area, XAxis, YAxis, CartesianGrid
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AttendanceDistribution, AttendanceStats } from '@/lib/api/types/reports';
+import type { AttendanceDistribution, AttendanceStats } from '@/lib/api/types/reports';
+import type { ReportSubgroupFilter } from './reportFilters';
+import { getAttendanceTrendForSubgroup } from './reportFilters';
+import { ChartTooltipCard } from './ChartTooltipCard';
 
-const COLORS: Record<string, string> = {
-  present: '#22c55e',
-  late: '#f59e0b',
-  excused: '#3b82f6',
-  absent: '#ef4444',
-  empty: '#3f3f46',
+interface AttendanceChartProps {
+  distribution: AttendanceDistribution;
+  stats?: AttendanceStats;
+  selectedSubgroup: ReportSubgroupFilter;
+}
+
+interface AttendanceTrendProps {
+  stats?: AttendanceStats;
+  selectedSubgroup: ReportSubgroupFilter;
+}
+
+const COLORS = {
+  present: 'hsl(142 72% 29%)',
+  late: 'hsl(38 92% 50%)',
+  excused: 'hsl(217 91% 60%)',
+  absent: 'hsl(0 72% 51%)',
+  empty: 'hsl(var(--muted-foreground))',
 };
 
-const LABELS: Record<string, string> = {
+const LABELS: Record<keyof AttendanceDistribution, string> = {
   present: 'Присутствовал',
   late: 'Опоздал',
-  excused: 'Уважительная',
+  excused: 'Уважительная причина',
   absent: 'Отсутствовал',
 };
 
-function getChartData(dist: AttendanceDistribution) {
-  return [
-    { name: LABELS.present, value: dist.present, key: 'present' },
-    { name: LABELS.late, value: dist.late, key: 'late' },
-    { name: LABELS.excused, value: dist.excused, key: 'excused' },
-    { name: LABELS.absent, value: dist.absent, key: 'absent' },
-  ].filter(item => item.value > 0);
-}
+export function AttendanceChart({ distribution, selectedSubgroup }: AttendanceChartProps) {
+  const total = distribution.present + distribution.late + distribution.excused + distribution.absent;
+  const attendanceRate = total === 0
+    ? 0
+    : Math.round(((distribution.present + distribution.late * 0.5 + distribution.excused * 0.5) / total) * 100);
 
-function getTotal(dist: AttendanceDistribution) {
-  return dist.present + dist.late + dist.excused + dist.absent;
-}
-
-function getRate(dist: AttendanceDistribution) {
-  const total = getTotal(dist);
-  if (total === 0) return 0;
-  return Math.round((dist.present + dist.late * 0.5 + dist.excused * 0.5) / total * 100);
-}
-
-interface AttendanceDonutProps {
-  distribution: AttendanceDistribution;
-  stats?: AttendanceStats;
-  hasSubgroups?: boolean;
-}
-
-// Donut chart - только pie с процентом
-export function AttendanceDonut({ distribution, stats, hasSubgroups }: AttendanceDonutProps) {
-  const [selectedTab, setSelectedTab] = useState<string>('all');
-  
-  const currentDist = selectedTab === 'all' 
-    ? distribution 
-    : stats?.by_subgroup?.[selectedTab] || distribution;
-  
-  const data = getChartData(currentDist);
-  const total = getTotal(currentDist);
-  const attendanceRate = getRate(currentDist);
-  const chartData = total === 0 ? [{ name: 'Нет данных', value: 1, key: 'empty' }] : data;
+  const chartData = total === 0
+    ? [{ key: 'empty', label: 'Нет данных', value: 1 }]
+    : (Object.entries(distribution) as Array<[keyof AttendanceDistribution, number]>)
+      .filter(([, value]) => value > 0)
+      .map(([key, value]) => ({
+        key,
+        label: LABELS[key],
+        value,
+      }));
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Посещаемость за период</CardTitle>
-          {hasSubgroups && (
-            <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-              <TabsList className="h-8">
-                <TabsTrigger value="all" className="text-xs px-2 h-6">Все</TabsTrigger>
-                <TabsTrigger value="1" className="text-xs px-2 h-6">1 п/г</TabsTrigger>
-                <TabsTrigger value="2" className="text-xs px-2 h-6">2 п/г</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
+    <Card className="h-full border-border/60 shadow-sm">
+      <CardHeader className="space-y-3 pb-1">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">Посещаемость за период</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Итог по выбранной аттестации
+            </p>
+          </div>
+          <Badge variant="outline">{selectedSubgroup === 'all' ? 'Вся группа' : `${selectedSubgroup} подгруппа`}</Badge>
         </div>
       </CardHeader>
-      <CardContent>
-          <div className="h-[180px] relative">
+      <CardContent className="space-y-4">
+        <div className="relative h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={chartData}
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={60}
-                paddingAngle={total === 0 ? 0 : 2}
                 dataKey="value"
+                innerRadius={62}
+                outerRadius={88}
+                paddingAngle={2}
+                stroke="transparent"
               >
-                {chartData.map((entry) => (
-                  <Cell key={entry.key} fill={COLORS[entry.key] || COLORS.empty} />
+                {chartData.map((item) => (
+                  <Cell key={item.key} fill={COLORS[item.key as keyof typeof COLORS] ?? COLORS.empty} />
                 ))}
               </Pie>
               {total > 0 && (
-                <Tooltip 
-                  formatter={(value) => [`${value}`, '']}
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) {
+                      return null;
+                    }
+
+                    const item = payload[0];
+                    return (
+                      <ChartTooltipCard
+                        title={String(item.name ?? 'Посещаемость')}
+                        value={`${item.value ?? 0}`}
+                      />
+                    );
                   }}
                 />
               )}
             </PieChart>
           </ResponsiveContainer>
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <div className="text-2xl font-bold">{attendanceRate}%</div>
-              <div className="text-xs text-muted-foreground">за период</div>
+              <p className="text-4xl font-semibold tracking-tight">{attendanceRate}%</p>
             </div>
           </div>
         </div>
-        {/* Легенда */}
-        <div className="flex flex-wrap gap-3 mt-2 justify-center">
-          {(total > 0 ? data : [{ key: 'empty', name: 'Нет данных', value: 0 }]).map((item) => (
-            <div key={item.key} className="flex items-center gap-1.5">
-              <div 
-                className="w-2.5 h-2.5 rounded-full" 
-                style={{ backgroundColor: COLORS[item.key] }}
-              />
-              <span className="text-xs text-muted-foreground">
-                {item.name}{total > 0 ? `: ${item.value}` : ''}
-              </span>
+
+        <p className="text-center text-xs text-muted-foreground">
+          Средняя посещаемость за выбранный период
+        </p>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          {chartData.map((item) => (
+            <div key={item.key} className="flex items-center justify-between rounded-2xl border border-border/60 bg-background/80 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: COLORS[item.key as keyof typeof COLORS] ?? COLORS.empty }}
+                />
+                <span className="text-sm text-muted-foreground">{item.label}</span>
+              </div>
+              <span className="text-sm font-medium text-foreground">{total > 0 ? item.value : '—'}</span>
             </div>
           ))}
         </div>
@@ -133,99 +140,79 @@ export function AttendanceDonut({ distribution, stats, hasSubgroups }: Attendanc
   );
 }
 
-interface AttendanceTrendProps {
-  stats?: AttendanceStats;
-  hasSubgroups?: boolean;
-}
-
-// Trend chart - AreaChart на всю ширину
-export function AttendanceTrend({ stats, hasSubgroups }: AttendanceTrendProps) {
-  const [selectedTab, setSelectedTab] = useState<string>('all');
-
-  // Фильтруем данные по подгруппе
-  // Если hasSubgroups=false: "all" показывает ВСЕ занятия (группа без подгрупп)
-  // Если hasSubgroups=true: "all" = только лекции (subgroup === null)
-  // "1" или "2" = лабы соответствующей подгруппы
-  const trendData = stats?.trend
-    ?.filter(t => {
-      if (selectedTab === 'all') {
-        // Группа без подгрупп - показываем всё
-        if (!hasSubgroups) return true;
-        // Группа с подгруппами - только лекции
-        return t.subgroup === null || t.subgroup === undefined;
-      }
-      return t.subgroup?.toString() === selectedTab;
-    })
-    ?.map(t => ({
-      date: new Date(t.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
-      rate: t.rate
-    })) || [];
-
-  const hasData = trendData.length > 0;
+export function AttendanceTrend({ stats, selectedSubgroup }: AttendanceTrendProps) {
+  const trendData = getAttendanceTrendForSubgroup(stats, selectedSubgroup).map((item) => ({
+    date: new Date(item.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
+    rate: item.rate,
+  }));
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Посещаемость по занятиям</CardTitle>
-          {hasSubgroups && (
-            <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-              <TabsList className="h-8">
-                <TabsTrigger value="all" className="text-xs px-2 h-6">Все</TabsTrigger>
-                <TabsTrigger value="1" className="text-xs px-2 h-6">1 п/г</TabsTrigger>
-                <TabsTrigger value="2" className="text-xs px-2 h-6">2 п/г</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
+    <Card className="border-border/60 shadow-sm">
+      <CardHeader className="space-y-3 pb-1">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">Динамика посещаемости</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              По занятиям за выбранный период
+            </p>
+          </div>
+          <Badge variant="outline">{selectedSubgroup === 'all' ? 'Вся группа' : `${selectedSubgroup} подгруппа`}</Badge>
         </div>
       </CardHeader>
       <CardContent>
-        {!hasData ? (
-          <div className="h-[280px] flex items-center justify-center text-muted-foreground">
-            Нет данных о занятиях
+        {trendData.length === 0 ? (
+          <div className="flex h-[280px] items-center justify-center rounded-2xl border border-dashed border-border/60 text-sm text-muted-foreground">
+            Нет данных о занятиях за выбранный срез
           </div>
         ) : (
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData} margin={{ left: -10, right: 10 }}>
+              <AreaChart data={trendData} margin={{ left: -18, right: 8 }}>
                 <defs>
-                  <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                  <linearGradient id="attendance-area" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.32} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="date" 
-                  tick={{ fontSize: 11 }} 
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11 }}
                   stroke="hsl(var(--muted-foreground))"
                   axisLine={false}
                   tickLine={false}
                 />
-                <YAxis 
-                  domain={[0, 100]} 
-                  tick={{ fontSize: 11 }} 
+                <YAxis
+                  domain={[0, 100]}
+                  width={38}
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(value) => `${value}%`}
                   stroke="hsl(var(--muted-foreground))"
-                  width={40}
-                  tickFormatter={(v) => `${v}%`}
                   axisLine={false}
                   tickLine={false}
                 />
                 <Tooltip
-                  formatter={(value) => [`${value}%`, 'Занятие']}
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) {
+                      return null;
+                    }
+
+                    return (
+                      <ChartTooltipCard
+                        title={`Занятие ${String(label)}`}
+                        value={`${payload[0].value ?? 0}%`}
+                        description="Посещаемость на конкретном занятии"
+                      />
+                    );
                   }}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="rate" 
-                  stroke="#22c55e"
-                  strokeWidth={2}
+                <Area
+                  type="monotone"
+                  dataKey="rate"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2.5}
+                  fill="url(#attendance-area)"
                   fillOpacity={1}
-                  fill="url(#colorTrend)"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -234,15 +221,4 @@ export function AttendanceTrend({ stats, hasSubgroups }: AttendanceTrendProps) {
       </CardContent>
     </Card>
   );
-}
-
-// Legacy export для обратной совместимости
-interface AttendanceChartProps {
-  distribution: AttendanceDistribution;
-  stats?: AttendanceStats;
-  hasSubgroups?: boolean;
-}
-
-export function AttendanceChart({ distribution, stats, hasSubgroups }: AttendanceChartProps) {
-  return <AttendanceDonut distribution={distribution} stats={stats} hasSubgroups={hasSubgroups} />;
 }

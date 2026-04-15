@@ -2,12 +2,16 @@
  * Хук для экспорта журнала.
  */
 import { useState, useCallback } from 'react';
+import api from '@/lib/api';
 
 export type ExportPeriodType = 'day' | 'week' | 'month' | 'semester' | 'custom';
 export type ExportFormat = 'xlsx' | 'csv' | 'json';
+export type ExportSubgroup = 1 | 2;
 
 export interface ExportParams {
   groupId: string;
+  subgroup?: ExportSubgroup;
+  studentId?: string;
   periodType?: ExportPeriodType;
   periodValue?: string;
   format?: ExportFormat;
@@ -16,9 +20,27 @@ export interface ExportParams {
 }
 
 interface UseJournalExportReturn {
-  exportJournal: (params: ExportParams) => Promise<void>;
+  exportJournal: (params: ExportParams) => Promise<boolean>;
   isLoading: boolean;
   error: string | null;
+}
+
+function getFilenameFromContentDisposition(contentDisposition?: string): string | null {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      // Fall back to the plain filename attribute below.
+    }
+  }
+
+  const plainMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+  return plainMatch?.[1] ?? null;
 }
 
 export function useJournalExport(): UseJournalExportReturn {
@@ -30,51 +52,26 @@ export function useJournalExport(): UseJournalExportReturn {
     setError(null);
 
     try {
-      // Формируем query параметры
-      const searchParams = new URLSearchParams();
-      searchParams.set('group_id', params.groupId);
-      
-      if (params.periodType) {
-        searchParams.set('period_type', params.periodType);
-      }
-      if (params.periodValue) {
-        searchParams.set('period_value', params.periodValue);
-      }
-      if (params.format) {
-        searchParams.set('format', params.format);
-      }
-      if (params.includeAttendance !== undefined) {
-        searchParams.set('include_attendance', String(params.includeAttendance));
-      }
-      if (params.includeGrades !== undefined) {
-        searchParams.set('include_grades', String(params.includeGrades));
-      }
-
-      const response = await fetch(
-        `/api/v1/admin/journal/export?${searchParams.toString()}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Ошибка экспорта: ${response.status}`);
-      }
+      const response = await api.get<Blob>('/admin/journal/export', {
+        params: {
+          group_id: params.groupId,
+          subgroup: params.subgroup,
+          student_id: params.studentId,
+          period_type: params.periodType,
+          period_value: params.periodValue,
+          format: params.format,
+          include_attendance: params.includeAttendance,
+          include_grades: params.includeGrades,
+        },
+        responseType: 'blob',
+      });
 
       // Получаем имя файла из заголовка
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = 'journal_export.xlsx';
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="?([^"]+)"?/);
-        if (match) {
-          filename = match[1];
-        }
-      }
+      const contentDisposition = response.headers['content-disposition'];
+      const filename = getFilenameFromContentDisposition(contentDisposition) ?? 'journal_export.xlsx';
 
       // Скачиваем файл
-      const blob = await response.blob();
+      const blob = response.data instanceof Blob ? response.data : new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -83,11 +80,13 @@ export function useJournalExport(): UseJournalExportReturn {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      return true;
 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       setError(message);
       console.error('Export error:', err);
+      return false;
     } finally {
       setIsLoading(false);
     }

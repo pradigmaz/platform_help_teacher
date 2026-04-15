@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useJournalData, AttestationPeriod, SemesterInfo } from './hooks/useJournalData';
 import { LessonSheet } from '@/components/schedule';
 import { ExportDialog } from '@/components/journal';
+import { NotesProvider } from '@/components/notes';
 import {
   Select,
   SelectContent,
@@ -26,7 +27,7 @@ import {
 } from './components';
 import type { Lesson } from './lib/journal-constants';
 
-export default function JournalPage() {
+function JournalPageContent() {
   const searchParams = useSearchParams();
   const lessonIdParam = searchParams.get('lesson_id');
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -75,6 +76,11 @@ export default function JournalPage() {
     `${sem.semester} сем. ${sem.academicYear}-${sem.academicYear + 1}`;
 
   const semesterKey = (sem: SemesterInfo) => `${sem.academicYear}-${sem.semester}`;
+  const availableSubgroups = [...new Set(
+    students
+      .map((student) => student.subgroup)
+      .filter((subgroup): subgroup is 1 | 2 => subgroup === 1 || subgroup === 2)
+  )].sort((left, right) => left - right);
   const showAttestationColumn =
     attestationPeriod !== 'all' &&
     selectedSubjectId !== 'all' &&
@@ -220,9 +226,19 @@ export default function JournalPage() {
       <ExportDialog
         groupId={selectedGroupId}
         groupName={groups.find(g => g.id === selectedGroupId)?.name}
+        availableSubgroups={availableSubgroups}
+        students={students}
         isOpen={showExportDialog}
         onClose={() => setShowExportDialog(false)}
       />
     </div>
+  );
+}
+
+export default function JournalPage() {
+  return (
+    <NotesProvider>
+      <JournalPageContent />
+    </NotesProvider>
   );
 }

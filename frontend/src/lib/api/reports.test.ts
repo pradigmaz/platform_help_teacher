@@ -76,4 +76,16 @@ describe('PublicReportAPI', () => {
       { signal: controller.signal },
     );
   });
+
+  it('passes attestation and abort signal to the student detail request', async () => {
+    const controller = new AbortController();
+    mocks.publicGet.mockResolvedValue({ data: { id: 'student-1' } });
+
+    await PublicReportAPI.getStudent('CODE1234', 'student-1', 'second', controller.signal);
+
+    expect(mocks.publicGet).toHaveBeenCalledWith(
+      '/public/report/CODE1234/student/student-1?attestation=second',
+      { signal: controller.signal },
+    );
+  });
 });

@@ -26,6 +26,8 @@ class ExportService:
         self,
         group_id: UUID,
         period_type: ExportPeriodType,
+        subgroup: int | None = None,
+        student_id: UUID | None = None,
         period_value: str | None = None,
         format: ExportFormat = ExportFormat.XLSX,
         include_attendance: bool = True,
@@ -46,8 +48,10 @@ class ExportService:
             Кортеж (content, filename, media_type)
         """
         logger.info(
-            "Начало экспорта: group_id=%s, period=%s/%s, format=%s",
+            "Начало экспорта: group_id=%s, subgroup=%s, student=%s, period=%s/%s, format=%s",
             group_id,
+            subgroup,
+            student_id,
             period_type.value,
             period_value,
             format.value,
@@ -58,14 +62,24 @@ class ExportService:
         logger.debug("Период: %s - %s", start_date, end_date)
 
         # 2. Собираем данные
-        data = await self._collector.collect_all(group_id, start_date, end_date, include_attendance, include_grades)
+        data = await self._collector.collect_all(
+            group_id,
+            start_date,
+            end_date,
+            subgroup,
+            student_id,
+            include_attendance,
+            include_grades,
+        )
 
         # 3. Генерируем файл
         content, media_type, ext = self._generate_file(data, format, include_attendance, include_grades)
 
         # 4. Формируем имя файла
         period_str = f"{start_date}_{end_date}"
-        filename = f"journal_{data.meta.group_code}_{period_str}.{ext}"
+        subgroup_suffix = f"_subgroup_{subgroup}" if subgroup is not None else ""
+        student_suffix = f"_student_{str(student_id)[:8]}" if student_id is not None else ""
+        filename = f"journal_{data.meta.group_code}{subgroup_suffix}{student_suffix}_{period_str}.{ext}"
 
         logger.info("Экспорт завершён: %s, %d байт", filename, len(content))
 
@@ -112,6 +126,8 @@ class ExportService:
         self,
         group_id: UUID,
         period_type: ExportPeriodType,
+        subgroup: int | None = None,
+        student_id: UUID | None = None,
         period_value: str | None = None,
     ) -> JournalExportData:
         """
@@ -127,5 +143,11 @@ class ExportService:
         """
         start_date, end_date = parse_period(period_type, period_value)
         return await self._collector.collect_all(
-            group_id, start_date, end_date, include_attendance=True, include_grades=True
+            group_id,
+            start_date,
+            end_date,
+            subgroup,
+            student_id,
+            include_attendance=True,
+            include_grades=True,
         )
