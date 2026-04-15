@@ -29,7 +29,8 @@ function areGradeDataEqual(left: GradeData | undefined, right: GradeData | undef
     left?.grade === right?.grade &&
     left?.work_number === right?.work_number &&
     left?.has_conflict === right?.has_conflict &&
-    left?.conflict_count === right?.conflict_count
+    left?.conflict_count === right?.conflict_count &&
+    JSON.stringify(left?.grade_items ?? []) === JSON.stringify(right?.grade_items ?? [])
   );
 }
 

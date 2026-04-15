@@ -19,8 +19,10 @@ export const GradeCell = memo(function GradeCell({ gradeData, lesson, maxWorkNum
   const workNum = gradeData?.work_number ?? lesson.work_number ?? null;
   const lessonWorkNum = lesson.work_number;
   const lessonType = lesson.lesson_type.toLowerCase();
-  const hasConflict = gradeData?.has_conflict;
+  const hasConflict = gradeData?.has_conflict === true;
   const conflictCount = gradeData?.conflict_count ?? 2;
+  const gradeItems = gradeData?.grade_items ?? [];
+  const hasMultiGrade = !hasConflict && gradeItems.length > 1;
   
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(gradeValue?.toString() || '');
@@ -94,6 +96,18 @@ export const GradeCell = memo(function GradeCell({ gradeData, lesson, maxWorkNum
         className="w-5 h-5 rounded bg-destructive/15 text-destructive text-[10px] font-bold flex items-center justify-center cursor-not-allowed"
       >
         !
+      </div>
+    );
+  }
+
+  if (hasMultiGrade) {
+    const label = gradeItems.map((item) => `${item.grade}(${item.work_number ?? '?'})`).join(', ');
+    return (
+      <div
+        title={label}
+        className="h-5 px-1 rounded bg-primary/10 text-primary text-[9px] font-semibold flex items-center max-w-[58px] truncate"
+      >
+        {label}
       </div>
     );
   }

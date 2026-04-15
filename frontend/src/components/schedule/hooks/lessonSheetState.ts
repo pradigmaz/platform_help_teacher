@@ -35,6 +35,10 @@ export type SheetGradeUpdate = {
   work_number?: number | null;
   has_conflict?: boolean;
   conflict_count?: number;
+  grade_items?: Array<{
+    grade: number;
+    work_number: number | null;
+  }>;
 };
 
 type SheetResponse = {
@@ -76,6 +80,7 @@ const normalizeGrade = (update: SheetGradeUpdate): StudentGradeData | null => {
       work_number: null,
       has_conflict: true,
       conflict_count: update.conflict_count ?? 2,
+      grade_items: update.grade_items ?? [],
     };
   }
 
@@ -86,6 +91,14 @@ const normalizeGrade = (update: SheetGradeUpdate): StudentGradeData | null => {
   return {
     grade: update.grade,
     work_number: update.work_number ?? null,
+    has_conflict: false,
+    conflict_count: 0,
+    grade_items: update.grade_items ?? [
+      {
+        grade: update.grade,
+        work_number: update.work_number ?? null,
+      },
+    ],
   };
 };
 
@@ -139,6 +152,7 @@ const toComparableGrade = (gradeData?: StudentGradeData) => {
   return {
     grade: gradeData.grade,
     work_number: gradeData.work_number ?? null,
+    grade_items: gradeData.grade_items ?? [],
   };
 };
 
@@ -148,7 +162,8 @@ export const isSameGrade = (left?: StudentGradeData, right?: StudentGradeData) =
 
   return (
     leftGrade?.grade === rightGrade?.grade &&
-    leftGrade?.work_number === rightGrade?.work_number
+    leftGrade?.work_number === rightGrade?.work_number &&
+    JSON.stringify(leftGrade?.grade_items ?? []) === JSON.stringify(rightGrade?.grade_items ?? [])
   );
 };
 

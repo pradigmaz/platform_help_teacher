@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Attendance, AttendanceStatus, Lesson, LessonGrade
 from app.schemas.schedule import GroupedLectureSheetSaveRequest, LessonSheetSaveRequest
+from app.services.grade_cell_summary import summarize_lesson_grade_cell
 from app.services.journal_attendance_service import (
     JournalAttendanceValidationError,
     journal_attendance_service,
@@ -208,15 +209,10 @@ class LessonSheetService:
 
         grades = []
         for student_id, items in grouped.items():
-            first = items[0]
-            has_conflict = len(items) > 1
             grades.append(
                 {
                     "student_id": student_id,
-                    "grade": None if has_conflict else first.grade,
-                    "work_number": None if has_conflict else first.work_number,
-                    "has_conflict": has_conflict,
-                    "conflict_count": len(items),
+                    **summarize_lesson_grade_cell(items),
                 }
             )
 

@@ -142,7 +142,8 @@ class LessonSheetGradeResponse(BaseModel):
     grade: int | None = None
     work_number: int | None = None
     has_conflict: bool = False
-    conflict_count: int = 1
+    conflict_count: int = 0
+    grade_items: list[dict[str, int | None]] = Field(default_factory=list)
 
 
 class LessonSheetSaveResponse(BaseModel):

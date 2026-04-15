@@ -55,6 +55,7 @@ export function useJournalGrades({ onStatsRefetch }: UseJournalGradesProps): Use
           work_number: g.work_number,
           has_conflict: g.has_conflict,
           conflict_count: g.conflict_count,
+          grade_items: g.grade_items,
         };
       }
       setGrades(gradeMap);
@@ -120,6 +121,7 @@ export function useJournalGrades({ onStatsRefetch }: UseJournalGradesProps): Use
             work_number: workNumber,
             has_conflict: false,
             conflict_count: 1,
+            grade_items: [{ grade, work_number: workNumber }],
           },
         },
       };

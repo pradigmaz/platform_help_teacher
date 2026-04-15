@@ -5,7 +5,7 @@
 from datetime import date
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.attendance import AttendanceStatus
 from app.schemas.attestation import AttestationResultResponse, AttestationSubjectOption
@@ -188,6 +188,19 @@ class JournalResolvedFilters(BaseModel):
     week_end: date
 
 
+class JournalGradeItemResponse(BaseModel):
+    grade: int
+    work_number: int | None = None
+
+
+class JournalGradeCellResponse(BaseModel):
+    grade: int | None = None
+    work_number: int | None = None
+    has_conflict: bool = False
+    conflict_count: int = 0
+    grade_items: list[JournalGradeItemResponse] = Field(default_factory=list)
+
+
 class JournalViewResponse(BaseModel):
     """Единый payload для admin journal page."""
 
@@ -197,6 +210,6 @@ class JournalViewResponse(BaseModel):
     lessons: list[JournalLessonResponse]
     students: list[StudentInGroupResponse]
     attendance: dict[str, dict[str, str]]
-    grades: dict[str, dict[str, dict[str, int | bool | None]]]
+    grades: dict[str, dict[str, JournalGradeCellResponse]]
     attestation_scores: dict[str, AttestationResultResponse]
     stats: JournalStatsResponse | None = None

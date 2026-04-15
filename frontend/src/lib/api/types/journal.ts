@@ -44,6 +44,10 @@ export interface JournalGradeCellData {
   work_number: number | null;
   has_conflict?: boolean;
   conflict_count?: number;
+  grade_items?: Array<{
+    grade: number;
+    work_number: number | null;
+  }>;
 }
 
 export interface JournalViewResponse {

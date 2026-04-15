@@ -16,6 +16,7 @@ from app.core import error_messages as em
 from app.models import Lesson, LessonGrade, User
 from app.schemas.lesson_grade import LessonGradeCreate, LessonGradeResponse, LessonGradeUpdate
 from app.services.attestation.deadline_validator import get_max_allowed_grade
+from app.services.grade_cell_summary import summarize_lesson_grade_cell
 from app.services.journal_grade_write_service import (
     GradeWriteConflictError,
     GradeWriteValidationError,
@@ -48,18 +49,15 @@ async def get_journal_grades(
     payload = []
     for group in grouped.values():
         first = group[0]
-        has_conflict = len(group) > 1
+        cell = summarize_lesson_grade_cell(group)
         payload.append(
             {
-                "id": None if has_conflict else str(first.id),
+                "id": None if cell["has_conflict"] or len(group) > 1 else str(first.id),
                 "lesson_id": str(first.lesson_id),
                 "student_id": str(first.student_id),
                 "student_name": first.student.full_name if first.student else None,
-                "work_number": None if has_conflict else first.work_number,
-                "grade": None if has_conflict else first.grade,
-                "comment": None if has_conflict else first.comment,
-                "has_conflict": has_conflict,
-                "conflict_count": len(group),
+                "comment": None if cell["has_conflict"] or len(group) > 1 else first.comment,
+                **cell,
             }
         )
     return payload

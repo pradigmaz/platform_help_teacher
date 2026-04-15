@@ -39,7 +39,10 @@ export function StudentRow({
   const attConfig = attendance ? ATTENDANCE_CONFIG[attendance] : null;
   const AttIcon = attConfig?.icon;
   const grade = gradeData?.grade ?? null;
-  const gradeConflictCount = gradeData?.conflict_count;
+  const hasGradeConflict = gradeData?.has_conflict === true;
+  const gradeConflictCount = hasGradeConflict ? gradeData?.conflict_count ?? 2 : 0;
+  const gradeItems = gradeData?.grade_items ?? [];
+  const hasMultiGrade = !hasGradeConflict && gradeItems.length > 1;
   const selectedWorkNumber = gradeData?.work_number ?? lessonWorkNumber ?? null;
   const selectedWorkNumberValue = availableWorkNumbers.includes(selectedWorkNumber ?? -1)
     ? selectedWorkNumber?.toString()
@@ -67,7 +70,7 @@ export function StudentRow({
         {AttIcon ? <AttIcon className="h-4 w-4" /> : <span>—</span>}
       </button>
       <div className="flex justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
-        {gradeConflictCount ? (
+        {hasGradeConflict ? (
           <div
             title={`У студента ${gradeConflictCount} оценки на этой паре. Разберите конфликт в журнале.`}
             className="h-6 px-2 rounded bg-destructive/15 text-destructive text-[10px] font-semibold flex items-center"
@@ -75,7 +78,15 @@ export function StudentRow({
             Конфликт
           </div>
         ) : null}
-        {canHaveGrade && !gradeConflictCount ? (
+        {hasMultiGrade ? (
+          <div
+            title={gradeItems.map((item) => `${item.grade}(${item.work_number ?? '?'})`).join(', ')}
+            className="h-6 px-2 rounded bg-primary/10 text-primary text-[10px] font-semibold flex items-center"
+          >
+            {gradeItems.map((item) => `${item.grade}(${item.work_number ?? '?'})`).join(', ')}
+          </div>
+        ) : null}
+        {canHaveGrade && !hasGradeConflict && !hasMultiGrade ? (
           <Select
             value={selectedWorkNumberValue}
             onValueChange={(value) => onWorkNumberChange(parseInt(value, 10))}
@@ -98,7 +109,7 @@ export function StudentRow({
             </SelectContent>
           </Select>
         ) : null}
-        {canHaveGrade && !gradeConflictCount && [2, 3, 4, 5].map((g) => (
+        {canHaveGrade && !hasGradeConflict && !hasMultiGrade && [2, 3, 4, 5].map((g) => (
           <button
             key={g}
             onClick={() =>

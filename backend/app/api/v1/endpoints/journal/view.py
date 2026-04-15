@@ -17,12 +17,14 @@ from app.models.attestation_settings import AttestationType
 from app.schemas.attestation import AttestationResultResponse, AttestationSubjectOption
 from app.schemas.group import GroupResponse, StudentInGroupResponse
 from app.schemas.journal import (
+    JournalGradeCellResponse,
     JournalLessonResponse,
     JournalResolvedFilters,
     JournalStatsResponse,
     JournalViewResponse,
 )
 from app.services.attestation_service import AttestationService
+from app.services.grade_cell_summary import summarize_lesson_grade_cell
 
 router = APIRouter()
 
@@ -216,11 +218,12 @@ async def get_journal_view(
     attendance_rows: list[Attendance] = []
     grades_rows: list[LessonGrade] = []
     attendance_payload: dict[str, dict[str, str]] = {}
-    grades_payload: dict[str, dict[str, dict[str, int | bool | None]]] = {}
+    grades_payload: dict[str, dict[str, JournalGradeCellResponse]] = {}
     if lesson_ids:
         attendance_result = await db.execute(
-            select(Attendance)
-            .where(and_(Attendance.group_id == resolved_group_id, Attendance.lesson_id.in_(lesson_ids)))
+            select(Attendance).where(
+                and_(Attendance.group_id == resolved_group_id, Attendance.lesson_id.in_(lesson_ids))
+            )
         )
         attendance_rows = list(attendance_result.scalars().all())
         attendance_payload = defaultdict(dict)
@@ -237,14 +240,9 @@ async def get_journal_view(
 
         grades_payload = defaultdict(dict)
         for (lesson_key, student_key), rows in grouped_grades.items():
-            first = rows[0]
-            has_conflict = len(rows) > 1
-            grades_payload[lesson_key][student_key] = {
-                "grade": None if has_conflict else first.grade,
-                "work_number": None if has_conflict else first.work_number,
-                "has_conflict": has_conflict,
-                "conflict_count": len(rows),
-            }
+            grades_payload[lesson_key][student_key] = JournalGradeCellResponse.model_validate(
+                summarize_lesson_grade_cell(rows)
+            )
 
     attestation_scores: dict[str, AttestationResultResponse] = {}
     if include_attestation_scores and resolved_subject_id is not None:
