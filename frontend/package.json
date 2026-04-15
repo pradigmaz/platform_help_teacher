@@ -14,6 +14,7 @@
     "test:smoke:perf": "playwright test tests/smoke/admin-critical-flow.perf.spec.ts --config=playwright.config.ts",
     "perf:admin:live": "node ./scripts/live-admin-flow-perf.mjs",
     "perf:labs:live": "node ./scripts/live-labs-flow-perf.mjs",
+    "perf:lectures:live": "node ./scripts/live-lectures-flow-perf.mjs",
     "perf:reports:live": "node ./scripts/live-reports-flow-perf.mjs",
     "generate-types": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/schema.d.ts"
   },

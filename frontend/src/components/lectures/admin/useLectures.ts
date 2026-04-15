@@ -1,17 +1,16 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import LecturesAPI, { LectureListResponse, SubjectBrief } from '@/lib/lectures-api';
+import type { SubjectBrief, LectureListResponse } from '@/lib/lectures-api';
+import LecturesAPI from '@/lib/lectures-api';
 import api from '@/lib/api';
+import {
+  type AdminLectureSubject as Subject,
+  loadAdminLecturesList,
+  primeAdminLectureDetail,
+} from '@/lib/admin-lectures-cache';
 import { downloadMarkdownFile, lexicalToMarkdown } from '@/lib/utils/lexical-markdown';
-
-interface Subject {
-  id: string;
-  name: string;
-  code: string | null;
-  is_active: boolean;
-}
 
 export function useLectures() {
   const [lectures, setLectures] = useState<LectureListResponse[]>([]);
@@ -19,14 +18,19 @@ export function useLectures() {
   const [loading, setLoading] = useState(true);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (force = false) => {
     try {
-      const [lecturesData, subjectsData] = await Promise.all([
-        LecturesAPI.list(),
-        api.get<Subject[]>('/admin/subjects/').then(r => r.data)
-      ]);
-      setLectures(lecturesData);
-      setSubjects(subjectsData);
+      const data = await loadAdminLecturesList(async () => {
+        const [lecturesData, subjectsData] = await Promise.all([
+          LecturesAPI.list(),
+          api.get<Subject[]>('/admin/subjects/').then((response) => response.data),
+        ]);
+
+        return { lectures: lecturesData, subjects: subjectsData };
+      }, force);
+
+      setLectures(data.lectures);
+      setSubjects(data.subjects);
     } catch {
       toast.error('Ошибка загрузки данных');
     } finally {
@@ -35,44 +39,49 @@ export function useLectures() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
-  // Группировка лекций по предметам
   const lecturesBySubject = useMemo(() => {
     const grouped: Record<string, { subject: SubjectBrief | null; lectures: LectureListResponse[] }> = {};
-    
-    grouped['none'] = { subject: null, lectures: [] };
-    
-    subjects.forEach(s => {
-      grouped[s.id] = { subject: { id: s.id, name: s.name, code: s.code }, lectures: [] };
+
+    grouped.none = { subject: null, lectures: [] };
+
+    subjects.forEach((subject) => {
+      grouped[subject.id] = {
+        subject: { id: subject.id, name: subject.name, code: subject.code },
+        lectures: [],
+      };
     });
-    
-    lectures.forEach(lecture => {
+
+    lectures.forEach((lecture) => {
       const key = lecture.subject_id || 'none';
       if (grouped[key]) {
         grouped[key].lectures.push(lecture);
-      } else {
-        grouped['none'].lectures.push(lecture);
+        return;
       }
+
+      grouped.none.lectures.push(lecture);
     });
-    
+
     return grouped;
   }, [lectures, subjects]);
 
-  // Фильтрованные лекции
   const filteredLectures = useMemo(() => {
     if (!selectedSubjectId) return lectures;
-    if (selectedSubjectId === 'none') return lectures.filter(l => !l.subject_id);
-    return lectures.filter(l => l.subject_id === selectedSubjectId);
+    if (selectedSubjectId === 'none') return lectures.filter((lecture) => !lecture.subject_id);
+    return lectures.filter((lecture) => lecture.subject_id === selectedSubjectId);
   }, [lectures, selectedSubjectId]);
 
   const handleDelete = useCallback(async (id: string, title: string) => {
-    if (!confirm(`Удалить лекцию "${title}"?`)) return;
+    if (!confirm(`Удалить лекцию "${title}"?`)) {
+      return;
+    }
+
     try {
       await LecturesAPI.delete(id);
       toast.success('Лекция удалена');
-      fetchData();
+      await fetchData(true);
     } catch {
       toast.error('Ошибка удаления');
     }
@@ -84,7 +93,7 @@ export function useLectures() {
       toast.success('Лекция опубликована');
       await navigator.clipboard.writeText(`${window.location.origin}/lectures/view/${result.public_code}`);
       toast.info('Ссылка скопирована');
-      fetchData();
+      await fetchData(true);
     } catch {
       toast.error('Ошибка публикации');
     }
@@ -94,7 +103,7 @@ export function useLectures() {
     try {
       await LecturesAPI.unpublish(id);
       toast.success('Публикация отменена');
-      fetchData();
+      await fetchData(true);
     } catch {
       toast.error('Ошибка');
     }
@@ -110,10 +119,10 @@ export function useLectures() {
       toast.info('Генерация PDF...');
       const blob = await LecturesAPI.exportPdf(id);
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title}.pdf`;
-      a.click();
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${title}.pdf`;
+      link.click();
       URL.revokeObjectURL(url);
       toast.success('PDF скачан');
     } catch {
@@ -124,6 +133,7 @@ export function useLectures() {
   const handleExportMarkdown = useCallback(async (id: string, title: string) => {
     try {
       const lecture = await LecturesAPI.get(id);
+      primeAdminLectureDetail(lecture);
       const markdown = lexicalToMarkdown(lecture.content);
       downloadMarkdownFile(title, markdown || `# ${title}`);
       toast.success('Markdown скачан');

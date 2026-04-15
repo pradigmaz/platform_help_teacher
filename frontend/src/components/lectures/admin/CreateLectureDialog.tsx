@@ -31,9 +31,10 @@ interface Subject {
 interface CreateLectureDialogProps {
   subjects: Subject[];
   onSubmit: (title: string, subjectId: string | null) => Promise<void>;
+  onWarmup?: () => void;
 }
 
-export function CreateLectureDialog({ subjects, onSubmit }: CreateLectureDialogProps) {
+export function CreateLectureDialog({ subjects, onSubmit, onWarmup }: CreateLectureDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [subjectId, setSubjectId] = useState<string | null>(null);
@@ -57,7 +58,11 @@ export function CreateLectureDialog({ subjects, onSubmit }: CreateLectureDialogP
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
+        <Button
+          className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+          onMouseEnter={onWarmup}
+          onFocus={onWarmup}
+        >
           <Plus className="mr-2 h-4 w-4" /> Создать лекцию
         </Button>
       </DialogTrigger>

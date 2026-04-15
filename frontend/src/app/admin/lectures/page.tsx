@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { SerializedEditorState } from 'lexical';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { BlurFade } from '@/components/ui/blur-fade';
 import { BorderBeam } from '@/components/ui/border-beam';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { Sparkles } from '@/components/ui/sparkles';
+import { primeAdminLectureDetail } from '@/lib/admin-lectures-cache';
 import LecturesAPI from '@/lib/lectures-api';
 import { LectureCard, CreateLectureDialog, useLectures } from '@/components/lectures/admin';
 
@@ -29,6 +31,28 @@ export default function AdminLecturesPage() {
     handleExportMarkdown,
   } = useLectures();
 
+  const prefetchLectureRoute = useCallback((href: string) => {
+    router.prefetch(href);
+    void import('@/app/admin/lectures/[id]/page');
+    void import('@/components/lectures/LectureEditor');
+  }, [router]);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    prefetchLectureRoute('/admin/lectures/new');
+
+    const timeoutId = window.setTimeout(() => {
+      prefetchLectureRoute('/admin/lectures/new');
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [loading, prefetchLectureRoute]);
+
   const handleCreate = async (title: string, subjectId: string | null) => {
     try {
       const lecture = await LecturesAPI.create({
@@ -36,6 +60,8 @@ export default function AdminLecturesPage() {
         content: { root: { children: [], direction: null, format: '', indent: 0, type: 'root', version: 1 } } as unknown as SerializedEditorState,
         subject_id: subjectId,
       });
+      primeAdminLectureDetail(lecture);
+      router.prefetch(`/admin/lectures/${lecture.id}`);
       toast.success('Лекция создана');
       router.push(`/admin/lectures/${lecture.id}`);
     } catch (error) {
@@ -69,7 +95,11 @@ export default function AdminLecturesPage() {
             </h1>
             <p className="text-muted-foreground mt-1">Создание и управление интерактивными лекциями</p>
           </div>
-          <CreateLectureDialog subjects={subjects} onSubmit={handleCreate} />
+          <CreateLectureDialog
+            subjects={subjects}
+            onSubmit={handleCreate}
+            onWarmup={() => prefetchLectureRoute('/admin/lectures/new')}
+          />
         </div>
       </BlurFade>
 
@@ -136,7 +166,11 @@ export default function AdminLecturesPage() {
                 {selectedSubjectId ? 'Нет лекций по этому предмету' : 'Нет лекций'}
               </p>
               <p className="text-sm text-muted-foreground mb-4">Создайте первую интерактивную лекцию</p>
-              <CreateLectureDialog subjects={subjects} onSubmit={handleCreate} />
+              <CreateLectureDialog
+                subjects={subjects}
+                onSubmit={handleCreate}
+                onWarmup={() => prefetchLectureRoute('/admin/lectures/new')}
+              />
             </CardContent>
           </Card>
         ) : (
@@ -148,6 +182,7 @@ export default function AdminLecturesPage() {
                   onDelete={handleDelete}
                   onPublish={handlePublish}
                   onUnpublish={handleUnpublish}
+                  onWarmup={() => prefetchLectureRoute(`/admin/lectures/${lecture.id}`)}
                   onCopyLink={handleCopyLink}
                   onExportPdf={handleExportPdf}
                   onExportMarkdown={handleExportMarkdown}

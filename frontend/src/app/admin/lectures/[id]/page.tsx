@@ -1,17 +1,30 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { SerializedEditorState } from 'lexical';
-import { LectureEditor } from '@/components/lectures/LectureEditor';
-import { LectureViewer } from '@/components/lectures/LectureViewer';
-import { LectureEditorHeader } from '@/components/lectures/admin/LectureEditorHeader';
-import { LecturesAPI, type LectureResponse } from '@/lib/lectures-api';
+import type { SerializedEditorState } from 'lexical';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Loader2, EyeOff } from 'lucide-react';
+import { LectureEditor } from '@/components/lectures/LectureEditor';
+import { LectureEditorHeader } from '@/components/lectures/admin/LectureEditorHeader';
+import {
+  loadAdminLectureDetail,
+  peekAdminLectureDetail,
+  primeAdminLectureDetail,
+} from '@/lib/admin-lectures-cache';
+import { LecturesAPI, type LectureResponse } from '@/lib/lectures-api';
 import { cn } from '@/lib/utils';
+
+const LectureViewer = dynamic(
+  () => import('@/components/lectures/LectureViewer').then((module) => module.LectureViewer),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-[280px] animate-pulse rounded-lg bg-muted/50" />,
+  },
+);
 
 const emptyEditorState = {
   root: {
@@ -40,65 +53,116 @@ export default function LectureEditorPage() {
   const [debouncedPreviewContent, setDebouncedPreviewContent] = useState<SerializedEditorState | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debounce preview content
   useEffect(() => {
-    if (previewContent) {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = setTimeout(() => setDebouncedPreviewContent(previewContent), 300);
+    if (!previewContent) {
+      return;
     }
-    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      setDebouncedPreviewContent(previewContent);
+    }, 300);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [previewContent]);
 
-  // Load lecture
   useEffect(() => {
     if (isNew) {
       setTitle('Новая лекция');
       setPreviewContent(emptyEditorState as unknown as SerializedEditorState);
       setDebouncedPreviewContent(emptyEditorState as unknown as SerializedEditorState);
+      setIsLoading(false);
       return;
     }
 
+    let isMounted = true;
+    const cachedLecture = peekAdminLectureDetail(lectureId);
+
+    if (cachedLecture) {
+      setLecture(cachedLecture);
+      setTitle(cachedLecture.title);
+      setPreviewContent(cachedLecture.content as unknown as SerializedEditorState);
+      setDebouncedPreviewContent(cachedLecture.content as unknown as SerializedEditorState);
+      setIsLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
     const loadLecture = async () => {
+      setIsLoading(true);
+
       try {
-        const data = await LecturesAPI.get(lectureId);
+        const data = await loadAdminLectureDetail(lectureId, () => LecturesAPI.get(lectureId));
+        if (!isMounted) {
+          return;
+        }
+
         setLecture(data);
         setTitle(data.title);
         setPreviewContent(data.content as unknown as SerializedEditorState);
         setDebouncedPreviewContent(data.content as unknown as SerializedEditorState);
       } catch {
+        if (!isMounted) {
+          return;
+        }
+
         toast.error('Не удалось загрузить лекцию');
         router.push('/admin/lectures');
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
-    loadLecture();
+
+    void loadLecture();
+
+    return () => {
+      isMounted = false;
+    };
   }, [lectureId, isNew, router]);
 
   const handleSave = useCallback(async (content: SerializedEditorState) => {
     setPreviewContent(content);
+
     try {
       if (isNew) {
         const created = await LecturesAPI.create({ title, content });
+        primeAdminLectureDetail(created);
         setLecture(created);
+        router.prefetch(`/admin/lectures/${created.id}`);
         router.replace(`/admin/lectures/${created.id}`);
         toast.success('Лекция создана');
-      } else {
-        const updated = await LecturesAPI.update(lectureId, { title, content });
-        setLecture(updated);
+        return;
       }
+
+      const updated = await LecturesAPI.update(lectureId, { title, content });
+      primeAdminLectureDetail(updated);
+      setLecture(updated);
     } catch (error) {
       toast.error('Ошибка сохранения');
       throw error;
     }
-  }, [isNew, lectureId, title, router]);
+  }, [isNew, lectureId, router, title]);
 
   const handleContentChange = useCallback((content: SerializedEditorState) => {
     setPreviewContent(content);
   }, []);
 
   const togglePreview = useCallback(() => {
-    setPreviewMode(prev => prev === 'off' ? 'split' : prev === 'split' ? 'full' : 'off');
+    setPreviewMode((currentMode) => {
+      if (currentMode === 'off') return 'split';
+      if (currentMode === 'split') return 'full';
+      return 'off';
+    });
   }, []);
 
   if (isLoading) {
@@ -119,15 +183,20 @@ export default function LectureEditorPage() {
           isNew={isNew}
           previewMode={previewMode}
           onTogglePreview={togglePreview}
-          onLectureUpdate={setLecture}
+          onLectureUpdate={(nextLecture) => {
+            primeAdminLectureDetail(nextLecture);
+            setLecture(nextLecture);
+          }}
           content={previewContent}
         />
 
-        <div className={cn(
-          "grid gap-4",
-          previewMode === 'split' && "grid-cols-2",
-          previewMode === 'full' && "grid-cols-1"
-        )}>
+        <div
+          className={cn(
+            'grid gap-4',
+            previewMode === 'split' && 'grid-cols-2',
+            previewMode === 'full' && 'grid-cols-1',
+          )}
+        >
           {previewMode !== 'full' && (
             <LectureEditor
               initialContent={(lecture?.content || emptyEditorState) as unknown as SerializedEditorState}
@@ -136,12 +205,14 @@ export default function LectureEditorPage() {
               autoSaveInterval={30000}
             />
           )}
-          
+
           {previewMode !== 'off' && debouncedPreviewContent && (
-            <div className={cn(
-              "rounded-lg border bg-background shadow overflow-auto",
-              previewMode === 'split' ? "max-h-[calc(100vh-200px)]" : "min-h-[400px]"
-            )}>
+            <div
+              className={cn(
+                'rounded-lg border bg-background shadow overflow-auto',
+                previewMode === 'split' ? 'max-h-[calc(100vh-200px)]' : 'min-h-[400px]',
+              )}
+            >
               <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2 border-b bg-muted/40">
                 <span className="text-sm font-medium text-muted-foreground">Предпросмотр</span>
                 {previewMode === 'full' && (

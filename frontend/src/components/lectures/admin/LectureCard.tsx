@@ -29,6 +29,7 @@ interface LectureCardProps {
   onDelete: (id: string, title: string) => void;
   onPublish: (id: string) => void;
   onUnpublish: (id: string) => void;
+  onWarmup?: () => void;
   onCopyLink: (code: string) => void;
   onExportPdf: (id: string, title: string) => void;
   onExportMarkdown: (id: string, title: string) => void;
@@ -39,6 +40,7 @@ export function LectureCard({
   onDelete,
   onPublish,
   onUnpublish,
+  onWarmup,
   onCopyLink,
   onExportPdf,
   onExportMarkdown,
@@ -48,6 +50,8 @@ export function LectureCard({
   return (
     <Card
       className="group h-full cursor-pointer border-border/60 bg-card/95 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg hover:bg-accent/10"
+      onMouseEnter={onWarmup}
+      onFocus={onWarmup}
     >
       <div className="p-5 h-full flex flex-col">
         <div className="flex items-start justify-between mb-3">

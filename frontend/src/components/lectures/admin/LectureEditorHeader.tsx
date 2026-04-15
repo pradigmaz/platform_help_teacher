@@ -37,6 +37,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  clearAdminLectureDetail,
+  clearAdminLecturesList,
+  removeAdminLectureListItem,
+} from '@/lib/admin-lectures-cache';
 import { LecturesAPI, type LectureResponse } from '@/lib/lectures-api';
 import { downloadMarkdownFile, lexicalToMarkdown } from '@/lib/utils/lexical-markdown';
 
@@ -105,6 +110,9 @@ export function LectureEditorHeader({
     setIsDeleting(true);
     try {
       await LecturesAPI.delete(lecture.id);
+      clearAdminLectureDetail(lecture.id);
+      removeAdminLectureListItem(lecture.id);
+      clearAdminLecturesList();
       toast.success('Лекция удалена');
       router.push('/admin/lectures');
     } catch {
