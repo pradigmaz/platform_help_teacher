@@ -98,9 +98,7 @@ async def load_user_names(db: AsyncSession, warnings: list[RateLimitWarning]) ->
         return {}
 
     rows = (
-        await db.execute(
-            select(user_table.c.id, user_table.c.full_name).where(user_table.c.id.in_(user_ids))
-        )
+        await db.execute(select(user_table.c.id, user_table.c.full_name).where(user_table.c.id.in_(user_ids)))
     ).all()
     return {row.id: row.full_name for row in rows}
 

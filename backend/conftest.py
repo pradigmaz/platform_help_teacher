@@ -25,6 +25,7 @@ os.environ.setdefault("MINIO_ENDPOINT", "localhost:9000")
 os.environ.setdefault("MINIO_ROOT_USER", "minioadmin")
 os.environ.setdefault("MINIO_ROOT_PASSWORD", "minioadmin")
 os.environ.setdefault("MINIO_BUCKET_NAME", "test")
+os.environ.setdefault("BACKUP_ENCRYPTION_KEY", "test-backup-key-for-test-suite-minimum-32chars")
 
 
 @pytest_asyncio.fixture

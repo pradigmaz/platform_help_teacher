@@ -2,7 +2,6 @@
 
 DEPLOY_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="$(cd "$DEPLOY_LIB_DIR/.." && pwd)"
-ROOT_DIR="$(cd "$DEPLOY_DIR/.." && pwd)"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

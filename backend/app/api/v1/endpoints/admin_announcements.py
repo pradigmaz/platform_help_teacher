@@ -15,6 +15,7 @@ from app.schemas.announcement import (
     AdminAnnouncementListResponse,
     AdminAnnouncementResponse,
     AnnouncementCreate,
+    AnnouncementDeliveryStats,
     AnnouncementUpdate,
 )
 from app.tasks.announcement_tasks import send_announcement_task
@@ -149,13 +150,19 @@ async def send_announcement(
     except Exception as exc:
         logger.exception("announcement_send_enqueue_failed announcement_id=%s", announcement.id)
         announcement = await crud_announcement.mark_send_enqueue_failed(db, announcement, current_user.id, str(exc))
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Не удалось запустить отправку") from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Не удалось запустить отправку"
+        ) from exc
 
     logger.info("announcement_send_enqueued announcement_id=%s actor_id=%s", announcement.id, current_user.id)
     return _to_response(announcement)
 
 
 def _to_list_response(announcement: Announcement) -> AdminAnnouncementListResponse:
+    delivery_stats = None
+    if announcement.delivery_stats is not None:
+        delivery_stats = AnnouncementDeliveryStats.model_validate(announcement.delivery_stats)
+
     return AdminAnnouncementListResponse(
         id=announcement.id,
         title=announcement.title,
@@ -168,7 +175,7 @@ def _to_list_response(announcement: Announcement) -> AdminAnnouncementListRespon
         sent_at=announcement.sent_at,
         created_at=announcement.created_at,
         updated_at=announcement.updated_at,
-        delivery_stats=announcement.delivery_stats,
+        delivery_stats=delivery_stats,
         delivery_error=announcement.delivery_error,
     )
 

@@ -219,12 +219,16 @@ async def test_preview_and_clear_use_same_real_db_filters():
         assert clear_response.json()["deleted"] == 2
 
         remaining = (
-            await session.execute(
-                select(StudentAuditLog).where(
-                    StudentAuditLog.id.in_([remaining_log.id, *(log.id for log in deleted_logs)])
+            (
+                await session.execute(
+                    select(StudentAuditLog).where(
+                        StudentAuditLog.id.in_([remaining_log.id, *(log.id for log in deleted_logs)])
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         remaining_by_id = {log.id: log for log in remaining}
         assert remaining_log.id in remaining_by_id
         assert deleted_logs[0].id not in remaining_by_id

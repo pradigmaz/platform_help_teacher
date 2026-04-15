@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Attendance, Lesson, User
 from app.models.user import UserRole
 from app.schemas.schedule import (
+    AttendanceSummaryState,
     GroupedLectureAttendanceSummaryResponse,
     LessonAttendanceSummaryResponse,
 )
@@ -52,7 +53,7 @@ def is_schedule_slot_past(slot_date: date, lesson_number: int, current_time: dat
     return now.time() > end_time
 
 
-def _resolve_summary_state(marked_count: int, expected_count: int) -> str:
+def _resolve_summary_state(marked_count: int, expected_count: int) -> AttendanceSummaryState:
     if expected_count == 0:
         return "complete"
     if marked_count == 0:
@@ -175,9 +176,7 @@ class ScheduleAttendanceSummaryService:
     ) -> ScheduleAttendanceSummaryResult:
         lesson_rows = list(regular_lessons)
         grouped_lesson_ids = [
-            UUID(group["lesson_id"])
-            for item in grouped_lecture_items
-            for group in item.get("groups", [])
+            UUID(group["lesson_id"]) for item in grouped_lecture_items for group in item.get("groups", [])
         ]
 
         lecture_lessons: list[Lesson] = []

@@ -86,7 +86,9 @@ class ExportDataCollector:
         query = (
             select(LessonGrade)
             .options(selectinload(LessonGrade.lesson))
-            .where(LessonGrade.lesson_id.in_(lesson_ids), LessonGrade.student_id.in_([student.id for student in students]))
+            .where(
+                LessonGrade.lesson_id.in_(lesson_ids), LessonGrade.student_id.in_([student.id for student in students])
+            )
         )
 
         result = await self.db.execute(query)

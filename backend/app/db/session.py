@@ -2,8 +2,7 @@ import logging
 import time
 from typing import cast
 
-from sqlalchemy import create_engine
-from sqlalchemy import event
+from sqlalchemy import create_engine, event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 

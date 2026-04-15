@@ -124,7 +124,6 @@ collect_interactive_inputs() {
     FRONTEND_URL="http://${DOMAIN}"
   fi
   NEXT_PUBLIC_API_URL="${FRONTEND_URL}/api/v1"
-  TELEGRAM_WEBHOOK_URL="$FRONTEND_URL"
 
   TELEGRAM_BOT_TOKEN="$(ask 'Токен Telegram-бота (обязательно)' "${TELEGRAM_BOT_TOKEN:-}")"
   TELEGRAM_WEBHOOK_SECRET="${TELEGRAM_WEBHOOK_SECRET:-$(openssl rand -hex 16)}"

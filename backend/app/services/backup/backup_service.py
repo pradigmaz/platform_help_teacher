@@ -24,6 +24,7 @@ from .upload_flow import annotate_offsite_presence, mirror_backup_upload, mirror
 
 logger = logging.getLogger(__name__)
 
+
 class BackupService:
     """Service for creating encrypted PostgreSQL backups."""
 

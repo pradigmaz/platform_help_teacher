@@ -126,11 +126,7 @@ async def collect_attendance_rows(
     snapshots = build_student_attendance_snapshots(
         students=students,
         lessons=lessons,
-        attendance_records=[
-            record
-            for student_records in attendance_by_student.values()
-            for record in student_records
-        ],
+        attendance_records=[record for student_records in attendance_by_student.values() for record in student_records],
     )
 
     rows: list[AttendanceExportRow] = []

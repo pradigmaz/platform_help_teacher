@@ -62,11 +62,7 @@ async def load_group_attendance_snapshots(
     snapshots = build_student_attendance_snapshots(
         students=students,
         lessons=lessons,
-        attendance_records=[
-            record
-            for student_records in attendance_by_student.values()
-            for record in student_records
-        ],
+        attendance_records=[record for student_records in attendance_by_student.values() for record in student_records],
     )
     return lessons, snapshots
 
@@ -196,7 +192,11 @@ def build_attendance_trend(
     sorted_lessons = sorted(lessons, key=lambda lesson: (lesson.date, lesson.lesson_number or 0))
     for lesson in sorted_lessons[-limit:]:
         key = lesson_key(lesson)
-        relevant_students = students if lesson.subgroup is None else [student for student in students if student.subgroup == lesson.subgroup]
+        relevant_students = (
+            students
+            if lesson.subgroup is None
+            else [student for student in students if student.subgroup == lesson.subgroup]
+        )
         present_count = 0
         for student in relevant_students:
             snapshot = snapshots.get(student.id)

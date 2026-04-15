@@ -1,6 +1,7 @@
 """Student dashboard bootstrap endpoint."""
 
 from datetime import datetime, timedelta
+from typing import TypedDict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
@@ -22,6 +23,20 @@ from app.schemas.student_dashboard import StudentDashboardBootstrapResponse
 from app.services.schedule_constants import today_msk
 
 router = APIRouter()
+
+
+class SemesterPayload(TypedDict):
+    semester_start_date: str | None
+    academic_year: int
+    semester: int
+
+
+def _parse_semester_int(value: int | str | None, field_name: str) -> int:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        return int(value)
+    raise ValueError(f"Missing semester field: {field_name}")
 
 
 def resolve_preferred_attestation_type(
@@ -97,20 +112,26 @@ async def get_dashboard_bootstrap(
     """Aggregate payload for the student dashboard home screen."""
     profile = await build_student_profile(db, current_user)
     semester = await load_public_semester_info(db)
+    semester_start_date = semester.get("semester_start_date")
+    semester_payload: SemesterPayload = {
+        "semester_start_date": semester_start_date if isinstance(semester_start_date, str) else None,
+        "academic_year": _parse_semester_int(semester.get("academic_year"), "academic_year"),
+        "semester": _parse_semester_int(semester.get("semester"), "semester"),
+    }
     announcements = await list_student_announcements(db, current_user, skip=0, limit=10)
     labs = await list_student_labs(db, current_user)
     attendance_records = await list_student_attendance_records(db, current_user)
     preferred_type = resolve_preferred_attestation_type(
-        semester.get("semester_start_date"),
-        int(semester["academic_year"]),
-        int(semester["semester"]),
+        semester_payload["semester_start_date"],
+        semester_payload["academic_year"],
+        semester_payload["semester"],
     )
     current_attestation = await resolve_current_attestation(db, current_user, preferred_type, labs)
 
     return StudentDashboardBootstrapResponse.model_validate(
         {
             "profile": profile,
-            "semester": semester,
+            "semester": semester_payload,
             "announcements": [announcement.model_dump(mode="json") for announcement in announcements],
             "overview": {
                 "attendance_stats": build_attendance_stats(attendance_records),

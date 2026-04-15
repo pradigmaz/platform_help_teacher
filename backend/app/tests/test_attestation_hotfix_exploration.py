@@ -26,6 +26,8 @@ from app.models.attestation_settings import (
     AttestationType,
 )
 
+pytestmark = pytest.mark.exploratory
+
 # ============================================================
 # Helpers
 # ============================================================

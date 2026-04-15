@@ -41,6 +41,8 @@ from .subject_scope import (
 from .submission_fallbacks import get_submission_grade_fallbacks_batch
 
 logger = logging.getLogger(__name__)
+
+
 class BatchScoreCalculator:
     """Калькулятор пакетных операций."""
 
@@ -142,14 +144,23 @@ class BatchScoreCalculator:
         calculated_at = perf_counter()
         logger.info(
             "attestation.batch_timing group=%s type=%s students=%s settings=%.4fs scope=%.4fs students_q=%.4fs lessons=%.4fs grades=%.4fs submission_fallbacks=%.4fs attendance=%.4fs activity=%.4fs transfers=%.4fs calculate=%.4fs total=%.4fs",
-            group_id, attestation_type, len(students), settings_loaded_at - total_started_at,
-            subject_scope_at - settings_loaded_at, students_loaded_at - subject_scope_at,
-            lessons_loaded_at - students_loaded_at, grades_loaded_at - lessons_loaded_at,
-            submission_fallbacks_at - grades_loaded_at, attendance_loaded_at - submission_fallbacks_at,
-            activity_loaded_at - attendance_loaded_at, transfers_loaded_at - activity_loaded_at,
-            calculated_at - transfers_loaded_at, calculated_at - total_started_at,
+            group_id,
+            attestation_type,
+            len(students),
+            settings_loaded_at - total_started_at,
+            subject_scope_at - settings_loaded_at,
+            students_loaded_at - subject_scope_at,
+            lessons_loaded_at - students_loaded_at,
+            grades_loaded_at - lessons_loaded_at,
+            submission_fallbacks_at - grades_loaded_at,
+            attendance_loaded_at - submission_fallbacks_at,
+            activity_loaded_at - attendance_loaded_at,
+            transfers_loaded_at - activity_loaded_at,
+            calculated_at - transfers_loaded_at,
+            calculated_at - total_started_at,
         )
         return results, errors
+
     def _calculate_student(
         self,
         student: User,
@@ -221,6 +232,7 @@ class BatchScoreCalculator:
                 bonus_blocked=bonus_blocked,
             ),
         )
+
     async def _get_lesson_grades_batch(
         self,
         student_ids: list[UUID],
@@ -246,7 +258,9 @@ class BatchScoreCalculator:
             rows_by_student[grade.student_id].append((grade, grade_subject_id))
         return {student_id: dedupe_lesson_grade_rows(rows) for student_id, rows in rows_by_student.items()}
 
-    async def _get_attendance_batch(self, group_id: UUID, student_ids: list[UUID], _settings: AttestationSettings, lessons: list[Lesson]) -> dict[UUID, list[Attendance]]:
+    async def _get_attendance_batch(
+        self, group_id: UUID, student_ids: list[UUID], _settings: AttestationSettings, lessons: list[Lesson]
+    ) -> dict[UUID, list[Attendance]]:
         return await load_attendance_by_student_for_lessons(
             self.db, group_id=group_id, student_ids=student_ids, lessons=lessons
         )

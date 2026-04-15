@@ -66,7 +66,11 @@ async def get_today_lessons_attendance(
 
     result: list[TodayLessonAttendance] = []
     for lesson in lessons:
-        relevant_students = students if lesson.subgroup is None else [student for student in students if student.subgroup == lesson.subgroup]
+        relevant_students = (
+            students
+            if lesson.subgroup is None
+            else [student for student in students if student.subgroup == lesson.subgroup]
+        )
 
         present: list[str] = []
         absent: list[str] = []
@@ -151,7 +155,11 @@ async def get_recent_lessons_history(
 
     result: list[LessonHistoryItem] = []
     for lesson in lessons[:limit]:
-        relevant_students = students if lesson.subgroup is None else [student for student in students if student.subgroup == lesson.subgroup]
+        relevant_students = (
+            students
+            if lesson.subgroup is None
+            else [student for student in students if student.subgroup == lesson.subgroup]
+        )
         present_count = 0
         total_count = len(relevant_students)
 

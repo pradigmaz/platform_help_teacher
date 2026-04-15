@@ -191,7 +191,9 @@ class BackupStorage:
             lambda: client.delete_object(Bucket=self.bucket, Key=remote_key),
         )
 
-    def _verify_uploaded_object_sync(self, remote_key: str, local_path: Path, response: dict, local_md5: str, delete_callback) -> None:
+    def _verify_uploaded_object_sync(
+        self, remote_key: str, local_path: Path, response: dict, local_md5: str, delete_callback
+    ) -> None:
         error = upload_verification_error(response, local_path, local_md5)
         if error:
             delete_callback()

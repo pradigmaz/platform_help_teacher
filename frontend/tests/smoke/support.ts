@@ -172,7 +172,7 @@ export async function installAdminShellMocks(page: Page): Promise<void> {
 }
 
 export async function mockAdminGroupDetail(page: Page): Promise<void> {
-  await page.route('**/api/v1/groups/group-1', async (route) => {
+  await page.route('**/api/v1/groups/group-1**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

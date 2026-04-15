@@ -73,7 +73,9 @@ async def test_write_grade_creates_and_updates_submission_projection():
         )
 
         submission = (
-            await session.execute(select(Submission).where(Submission.user_id == student.id, Submission.lab_id == lab.id))
+            await session.execute(
+                select(Submission).where(Submission.user_id == student.id, Submission.lab_id == lab.id)
+            )
         ).scalar_one()
         assert grade.grade == 5
         assert submission.status == SubmissionStatus.ACCEPTED
@@ -93,7 +95,9 @@ async def test_write_grade_creates_and_updates_submission_projection():
         )
 
         refreshed_submission = (
-            await session.execute(select(Submission).where(Submission.user_id == student.id, Submission.lab_id == lab.id))
+            await session.execute(
+                select(Submission).where(Submission.user_id == student.id, Submission.lab_id == lab.id)
+            )
         ).scalar_one()
         assert updated_grade.id == grade.id
         assert refreshed_submission.id == submission.id
@@ -127,7 +131,9 @@ async def test_delete_grade_rolls_submission_back_to_new_state():
         await service.delete_grade(session, grade, actor_id=teacher.id)
 
         submission = (
-            await session.execute(select(Submission).where(Submission.user_id == student.id, Submission.lab_id == lab.id))
+            await session.execute(
+                select(Submission).where(Submission.user_id == student.id, Submission.lab_id == lab.id)
+            )
         ).scalar_one()
         deleted_grade = await session.get(type(grade), grade.id)
 

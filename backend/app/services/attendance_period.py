@@ -90,7 +90,9 @@ async def load_attendance_by_student_for_lessons(
     return grouped
 
 
-def filter_attendance_records_to_lessons(attendance_records: Iterable[Attendance], lessons: list[Lesson]) -> list[Attendance]:
+def filter_attendance_records_to_lessons(
+    attendance_records: Iterable[Attendance], lessons: list[Lesson]
+) -> list[Attendance]:
     """Filter attendance records down to the exact lesson slots for one student."""
 
     lesson_ids, legacy_slots = get_lesson_slot_sets(lessons)

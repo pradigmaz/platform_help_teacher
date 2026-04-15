@@ -17,6 +17,7 @@ os.environ.setdefault("ENVIRONMENT", "test")
 
 import inspect
 from datetime import date
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -388,14 +389,40 @@ class TestLabWithoutLessonPreservation:
 class TestBestGradePreservation:
     """get_user_journal_grades() returns best grade per work_number."""
 
-    def test_best_grade_logic_exists(self):
-        """get_user_journal_grades() picks best grade when multiple exist."""
+    @pytest.mark.asyncio
+    async def test_best_grade_logic_exists(self):
+        """get_user_journal_grades() picks the highest grade when multiple exist."""
         from app.services.student_lab_service import StudentLabService
 
-        source = inspect.getsource(StudentLabService.get_user_journal_grades)
-        assert "grade >" in source or ".grade > " in source, (
-            "get_user_journal_grades must select best grade (grade > existing)"
-        )
+        rows = [
+            {
+                "id": "grade-low",
+                "lesson_id": "lesson-1",
+                "student_id": "student-1",
+                "work_number": 1,
+                "grade": 3,
+                "comment": None,
+                "created_at": None,
+            },
+            {
+                "id": "grade-high",
+                "lesson_id": "lesson-2",
+                "student_id": "student-1",
+                "work_number": 1,
+                "grade": 5,
+                "comment": "rework",
+                "created_at": None,
+            },
+        ]
+        result = MagicMock()
+        result.mappings.return_value.all.return_value = rows
+        db = AsyncMock()
+        db.execute.return_value = result
+
+        grades = await StudentLabService().get_user_journal_grades(db, uuid4(), subject_id=uuid4())
+
+        assert grades[1].grade == 5, "get_user_journal_grades must keep the highest grade per work_number"
+        assert grades[1].id == "grade-high"
 
 
 # ============================================================

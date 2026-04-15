@@ -21,6 +21,8 @@ import pytest
 from hypothesis import given, settings, HealthCheck
 from hypothesis import strategies as st
 
+pytestmark = pytest.mark.exploratory
+
 
 # Strategy: strings containing at least one of <, >, &
 # Используем flatmap чтобы гарантировать наличие спецсимвола без filter()

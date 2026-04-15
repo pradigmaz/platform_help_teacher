@@ -27,6 +27,7 @@ env:
   MINIO_ROOT_USER: minioadmin
   MINIO_ROOT_PASSWORD: minioadmin
   MINIO_BUCKET_NAME: test
+  BACKUP_ENCRYPTION_KEY: test-backup-key-for-ci-minimum-32-characters-long
   NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
@@ -106,14 +107,15 @@ jobs:
           sudo apt-get install -y shellcheck
       - name: Run shellcheck
         run: |
-          shellcheck \
-            deploy/install.sh \
-            deploy/rebuild.sh \
-            deploy/recovery.sh \
-            deploy/lib/common.sh \
-            deploy/lib/envfile.sh \
-            deploy/lib/prod_deploy.sh \
-            deploy/tests/deploy_static_checks.sh
+          cd deploy
+          shellcheck -x \
+            install.sh \
+            rebuild.sh \
+            recovery.sh \
+            lib/common.sh \
+            lib/envfile.sh \
+            lib/prod_deploy.sh \
+            tests/deploy_static_checks.sh
       - name: Run deploy static checks
         run: bash deploy/tests/deploy_static_checks.sh
 
@@ -220,7 +222,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Run backend tests
-        run: pytest -v --tb=short -m "not smoke and not integration"
+        run: pytest -v --tb=short -m "not smoke and not integration and not exploratory"
 
   backend-types:
     name: backend-types

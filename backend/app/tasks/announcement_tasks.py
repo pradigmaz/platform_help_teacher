@@ -44,7 +44,7 @@ def _send_telegram_sync(chat_id: int, message: str) -> bool:
         json={"chat_id": chat_id, "text": message},
         timeout=TELEGRAM_SEND_TIMEOUT_SECONDS,
     )
-    return response.status_code == 200
+    return bool(response.status_code == 200)
 
 
 def _send_vk_sync(user_id: int, message: str) -> bool:

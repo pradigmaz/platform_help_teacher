@@ -142,6 +142,7 @@ async def slow_route_logger(request: Request, call_next):
         )
     return response
 
+
 # Rate Limiting
 app.state.limiter = limiter
 app.add_exception_handler(

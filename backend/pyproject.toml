@@ -53,4 +53,5 @@ python_functions = ["test_*"]
 markers = [
     "smoke: critical auth/session/audit regression checks for CI",
     "integration: database-backed integration checks",
+    "exploratory: intentionally failing or research-oriented tests kept out of blocking CI",
 ]

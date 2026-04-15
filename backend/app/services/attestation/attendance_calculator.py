@@ -79,7 +79,13 @@ class AttendanceScoreCalculator:
             adjusted_expected = expected_lessons - excused_count
             if adjusted_expected <= 0:
                 adjusted_expected = 0
-            if adjusted_expected == 0 and excused_count > 0 and present_count == 0 and late_count == 0 and absent_count == 0:
+            if (
+                adjusted_expected == 0
+                and excused_count > 0
+                and present_count == 0
+                and late_count == 0
+                and absent_count == 0
+            ):
                 score = max_score
                 ratio = 1.0
             else:

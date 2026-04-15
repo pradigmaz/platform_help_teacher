@@ -25,10 +25,8 @@ normalize_prod_env() {
   if [[ -n "${FRONTEND_URL:-}" ]]; then
     if [[ "$FRONTEND_URL" == https://* ]]; then
       USE_HTTPS=true
-      PROTOCOL="https"
     else
       USE_HTTPS=false
-      PROTOCOL="http"
     fi
   fi
 }

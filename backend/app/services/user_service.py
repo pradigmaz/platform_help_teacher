@@ -47,7 +47,9 @@ class UserService:
 
         # 1. Проверка существования пользователя
         if user_in.telegram_id is not None:
-            existing_telegram = await db.execute(select(models.User).where(models.User.telegram_id == user_in.telegram_id))
+            existing_telegram = await db.execute(
+                select(models.User).where(models.User.telegram_id == user_in.telegram_id)
+            )
             if existing_telegram.scalar_one_or_none():
                 raise HTTPException(status_code=400, detail="User with this Telegram ID already exists")
         if user_in.vk_id is not None:

@@ -214,7 +214,9 @@ class StudentService:
 
         return labs_data, stats
 
-    def _apply_group_ranking(self, stats: StudentStats, student_scores: list[tuple[UUID, int]], student_id: UUID) -> None:
+    def _apply_group_ranking(
+        self, stats: StudentStats, student_scores: list[tuple[UUID, int]], student_id: UUID
+    ) -> None:
         if not student_scores:
             return
 

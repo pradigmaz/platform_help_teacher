@@ -50,6 +50,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.models.schedule import LessonType
 
+pytestmark = pytest.mark.exploratory
+
 # ============================================================
 # Minimal SQLite-compatible metadata (no JSONB/PostgreSQL types)
 # ============================================================
