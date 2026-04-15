@@ -1,17 +1,7 @@
 'use client';
+import type { AttendanceStatus, LessonData, LessonStatus, StudentGradeData } from '../types';
 
-import type {
-  AttendanceStatus,
-  LessonData,
-  LessonStatus,
-  StudentGradeData,
-} from '../types';
-
-export type SavedLessonState = Pick<
-  LessonData,
-  'id' | 'topic' | 'work_number' | 'is_cancelled' | 'ended_early'
->;
-
+export type SavedLessonState = Pick<LessonData, 'id' | 'topic' | 'work_number' | 'is_cancelled' | 'ended_early'>;
 export type LessonSnapshot = Pick<
   LessonData,
   | 'id'
@@ -195,25 +185,36 @@ export const buildGradeUpdates = (
     ...Object.keys(currentGrades),
   ]);
 
-  return Array.from(studentIds)
-    .map((studentId) => {
-      const currentGrade = currentGrades[studentId];
-      if (!currentGrade || currentGrade.grade === null) {
-        return { student_id: studentId, grade: null, work_number: null };
-      }
+  return Array.from(studentIds).reduce<SheetGradeUpdate[]>((updates, studentId) => {
+    const initialGrade = initialGrades[studentId];
+    const currentGrade = currentGrades[studentId];
+    const hasReadOnlyMultiGrade =
+      (!initialGrade?.has_conflict && (initialGrade?.grade_items?.length ?? 0) > 1) ||
+      (!currentGrade?.has_conflict && (currentGrade?.grade_items?.length ?? 0) > 1);
+    if (hasReadOnlyMultiGrade) {
+      return updates;
+    }
 
-      return {
-        student_id: studentId,
-        grade: currentGrade.grade,
-        work_number: currentGrade.work_number ?? null,
-      };
-    })
-    .filter(({ student_id, grade, work_number }) =>
+    const nextUpdate =
+      !currentGrade || currentGrade.grade === null
+        ? { student_id: studentId, grade: null, work_number: null }
+        : {
+            student_id: studentId,
+            grade: currentGrade.grade,
+            work_number: currentGrade.work_number ?? null,
+          };
+    if (
       !isSameGrade(
-        initialGrades[student_id],
-        grade === null ? undefined : { grade, work_number: work_number ?? null }
+        initialGrades[studentId],
+        nextUpdate.grade === null
+          ? undefined
+          : { grade: nextUpdate.grade, work_number: nextUpdate.work_number ?? null }
       )
-    );
+    ) {
+      updates.push(nextUpdate);
+    }
+    return updates;
+  }, []);
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
