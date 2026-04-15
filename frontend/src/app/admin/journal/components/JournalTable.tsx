@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Table,
   TableBody,
+  TableCell,
+  TableRow,
 } from '@/components/ui/table';
 import { AddActivityDialog } from '@/components/admin/AddActivityDialog';
-import { useNotesActionsContext } from '@/components/notes';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { JournalTableHeader } from './JournalTableHeader';
 import { JournalTableStudentRow } from './JournalTableStudentRow';
 import type { Lesson, Student, GradeData } from '../lib/journal-constants';
@@ -40,66 +43,87 @@ export function JournalTable({
   onStudentAttestationClick,
   onActivityAdded,
 }: JournalTableProps) {
-  const { loadNotesBatch } = useNotesActionsContext();
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   const [selectedStudentForActivity, setSelectedStudentForActivity] = useState<Student | null>(null);
-  const sortedLessons = sortJournalLessons(lessons);
-  const maxWorkNumbers = buildMaxWorkNumberMap(sortedLessons);
-
-  useEffect(() => {
-    const studentIds = students.map((student) => student.id);
-    if (studentIds.length === 0) {
-      return;
-    }
-
-    void loadNotesBatch('student', studentIds);
-  }, [loadNotesBatch, students]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sortedLessons = useMemo(() => sortJournalLessons(lessons), [lessons]);
+  const maxWorkNumbers = useMemo(() => buildMaxWorkNumberMap(sortedLessons), [sortedLessons]);
+  const columnCount = lessons.length + 2 + (attestationScores ? 1 : 0);
+  const handleOpenActivityDialog = useCallback((student: Student) => {
+    setSelectedStudentForActivity(student);
+    setActivityDialogOpen(true);
+  }, []);
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const rowVirtualizer = useVirtualizer({
+    count: students.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 52,
+    overscan: 4,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const paddingTop = virtualRows[0]?.start ?? 0;
+  const paddingBottom = virtualRows.length > 0
+    ? rowVirtualizer.getTotalSize() - (virtualRows[virtualRows.length - 1]?.end ?? 0)
+    : 0;
 
   return (
-    <div className="relative overflow-auto max-h-[70vh] rounded-lg border">
-      <Table>
-        <JournalTableHeader
-          lessons={sortedLessons}
-          hasAttestationScores={Boolean(attestationScores)}
-          onLessonClick={onLessonClick}
-        />
-        <TableBody>
-          {students.map((student, index) => (
-            <JournalTableStudentRow
-              key={student.id}
-              index={index}
-              student={student}
-              lessons={sortedLessons}
-              attendance={attendance}
-              grades={grades}
-              maxWorkNumbers={maxWorkNumbers}
-              attestationScores={attestationScores}
-              attestationPeriod={attestationPeriod}
-              onAttendanceChange={onAttendanceChange}
-              onGradeChange={onGradeChange}
-              onStudentAttestationClick={onStudentAttestationClick}
-              onOpenActivityDialog={(nextStudent) => {
-                setSelectedStudentForActivity(nextStudent);
-                setActivityDialogOpen(true);
-              }}
-            />
-          ))}
-        </TableBody>
-      </Table>
+    <TooltipProvider delayDuration={300}>
+      <div ref={scrollContainerRef} className="relative overflow-auto max-h-[70vh] rounded-lg border">
+        <Table>
+          <JournalTableHeader
+            lessons={sortedLessons}
+            hasAttestationScores={Boolean(attestationScores)}
+            onLessonClick={onLessonClick}
+          />
+          <TableBody>
+            {paddingTop > 0 && (
+              <TableRow aria-hidden>
+                <TableCell colSpan={columnCount} className="p-0 border-0" style={{ height: `${paddingTop}px` }} />
+              </TableRow>
+            )}
+            {virtualRows.map((virtualRow) => {
+              const student = students[virtualRow.index];
 
-      {selectedStudentForActivity && attestationPeriod && (
-        <AddActivityDialog
-          open={activityDialogOpen}
-          onOpenChange={setActivityDialogOpen}
-          targetId={selectedStudentForActivity.id}
-          targetName={selectedStudentForActivity.full_name}
-          mode="student"
-          onSuccess={() => {
-            setSelectedStudentForActivity(null);
-            onActivityAdded?.();
-          }}
-        />
-      )}
-    </div>
+              return (
+                <JournalTableStudentRow
+                  key={student.id}
+                  index={virtualRow.index}
+                  student={student}
+                  lessons={sortedLessons}
+                  attendance={attendance}
+                  grades={grades}
+                  maxWorkNumbers={maxWorkNumbers}
+                  attestationScores={attestationScores}
+                  attestationPeriod={attestationPeriod}
+                  onAttendanceChange={onAttendanceChange}
+                  onGradeChange={onGradeChange}
+                  onStudentAttestationClick={onStudentAttestationClick}
+                  onOpenActivityDialog={handleOpenActivityDialog}
+                />
+              );
+            })}
+            {paddingBottom > 0 && (
+              <TableRow aria-hidden>
+                <TableCell colSpan={columnCount} className="p-0 border-0" style={{ height: `${paddingBottom}px` }} />
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+
+        {selectedStudentForActivity && attestationPeriod && (
+          <AddActivityDialog
+            open={activityDialogOpen}
+            onOpenChange={setActivityDialogOpen}
+            targetId={selectedStudentForActivity.id}
+            targetName={selectedStudentForActivity.full_name}
+            mode="student"
+            onSuccess={() => {
+              setSelectedStudentForActivity(null);
+              onActivityAdded?.();
+            }}
+          />
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

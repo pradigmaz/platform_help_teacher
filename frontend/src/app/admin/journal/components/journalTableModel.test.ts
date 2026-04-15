@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildMaxWorkNumberMap,
   calculateAttendancePercentage,
+  isJournalStudentLessonStateEqual,
   isLessonDisabledForStudent,
   sortJournalLessons,
 } from './journalTableModel';
@@ -73,5 +74,57 @@ describe('journalTableModel', () => {
         subgroup: 2,
       })
     ).toBe(true);
+  });
+
+  it('treats another student update as unchanged for the current row', () => {
+    expect(
+      isJournalStudentLessonStateEqual(
+        [...lessons],
+        'student-a',
+        {
+          a: { 'student-a': 'PRESENT', 'student-b': 'ABSENT' },
+          b: { 'student-a': 'LATE' },
+        },
+        {
+          a: { 'student-a': 'PRESENT', 'student-b': 'PRESENT' },
+          b: { 'student-a': 'LATE' },
+        },
+        {
+          a: {
+            'student-a': { grade: 5, work_number: 1 },
+            'student-b': { grade: 2, work_number: 1 },
+          },
+        },
+        {
+          a: {
+            'student-a': { grade: 5, work_number: 1 },
+            'student-b': { grade: 4, work_number: 1 },
+          },
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it('detects changes in the current student lesson state', () => {
+    expect(
+      isJournalStudentLessonStateEqual(
+        [...lessons],
+        'student-a',
+        {
+          a: { 'student-a': 'PRESENT' },
+          b: { 'student-a': 'LATE' },
+        },
+        {
+          a: { 'student-a': 'ABSENT' },
+          b: { 'student-a': 'LATE' },
+        },
+        {
+          a: { 'student-a': { grade: 5, work_number: 1 } },
+        },
+        {
+          a: { 'student-a': { grade: 4, work_number: 1 } },
+        },
+      ),
+    ).toBe(false);
   });
 });

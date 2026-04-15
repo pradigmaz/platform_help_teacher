@@ -1,5 +1,6 @@
 'use client';
 
+import { forwardRef, memo, useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +8,6 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { NoteButton } from '@/components/notes';
@@ -19,6 +19,7 @@ import type { AttestationResult } from '@/lib/api';
 import {
   buildJournalStudentRowModel,
   getAttestationGradeColor,
+  isJournalStudentLessonStateEqual,
   isLessonDisabledForStudent,
 } from './journalTableModel';
 
@@ -37,25 +38,29 @@ interface JournalTableStudentRowProps {
   onOpenActivityDialog: (student: Student) => void;
 }
 
-export function JournalTableStudentRow({
-  index,
-  student,
-  lessons,
-  attendance,
-  grades,
-  maxWorkNumbers,
-  attestationScores,
-  attestationPeriod,
-  onAttendanceChange,
-  onGradeChange,
-  onStudentAttestationClick,
-  onOpenActivityDialog,
-}: JournalTableStudentRowProps) {
+const JournalTableStudentRowInner = forwardRef<HTMLTableRowElement, JournalTableStudentRowProps>(function JournalTableStudentRowInner(props, ref) {
+  const {
+    index,
+    student,
+    lessons,
+    attendance,
+    grades,
+    maxWorkNumbers,
+    attestationScores,
+    attestationPeriod,
+    onAttendanceChange,
+    onGradeChange,
+    onStudentAttestationClick,
+    onOpenActivityDialog,
+  } = props;
   const isEven = index % 2 === 0;
-  const rowModel = buildJournalStudentRowModel(lessons, attendance, grades, attestationScores, student.id);
+  const rowModel = useMemo(
+    () => buildJournalStudentRowModel(lessons, attendance, grades, attestationScores, student.id),
+    [attestationScores, attendance, grades, lessons, student.id],
+  );
 
   return (
-    <TableRow className={`${isEven ? 'bg-background' : 'bg-muted/30'} hover:bg-accent/50 transition-colors`}>
+    <TableRow ref={ref} className={`${isEven ? 'bg-background' : 'bg-muted/30'} hover:bg-accent/50 transition-colors`}>
       <TableCell className={`sticky left-0 z-10 font-medium border-r ${isEven ? 'bg-background' : 'bg-muted/30'} hover:bg-accent/50`}>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground text-xs w-5">{index + 1}.</span>
@@ -68,26 +73,24 @@ export function JournalTableStudentRow({
           <div className="flex items-center gap-0.5 ml-auto shrink-0">
             <NoteButton entityType="student" entityId={student.id} size="sm" />
             {attestationPeriod && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-primary"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpenActivityDialog(student);
-                      }}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p>Добавить активность</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-primary"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenActivityDialog(student);
+                    }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Добавить активность</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         </div>
@@ -133,42 +136,40 @@ export function JournalTableStudentRow({
       {attestationScores && (
         <TableCell className={`text-center border-l ${isEven ? 'bg-background' : 'bg-muted/30'}`}>
           {rowModel.attestation ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className={`px-2 py-1 rounded-md text-sm font-semibold cursor-pointer transition-colors hover:opacity-80 ${getAttestationGradeColor(rowModel.attestation.grade)}`}
-                    onClick={() => onStudentAttestationClick?.(student, rowModel.attestation!)}
-                  >
-                    {rowModel.attestation.total_score.toFixed(1)}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="p-3 max-w-[200px]">
-                  <div className="space-y-1.5 text-xs">
-                    <div className="font-semibold border-b pb-1 mb-1">
-                      {rowModel.attestation.grade.toUpperCase()} ({rowModel.attestation.total_score.toFixed(1)}/{rowModel.attestation.max_points})
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Лабы:</span>
-                      <span>{rowModel.attestation.breakdown.labs_score.toFixed(1)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Посещ.:</span>
-                      <span>{rowModel.attestation.breakdown.attendance_score.toFixed(1)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Актив.:</span>
-                      <span>{rowModel.attestation.breakdown.activity_score.toFixed(1)}</span>
-                    </div>
-                    {!rowModel.attestation.is_passing && (
-                      <div className="text-red-500 text-[10px] pt-1 border-t mt-1">
-                        Не хватает {(rowModel.attestation.min_passing_points - rowModel.attestation.total_score).toFixed(1)} б.
-                      </div>
-                    )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={`px-2 py-1 rounded-md text-sm font-semibold cursor-pointer transition-colors hover:opacity-80 ${getAttestationGradeColor(rowModel.attestation.grade)}`}
+                  onClick={() => onStudentAttestationClick?.(student, rowModel.attestation!)}
+                >
+                  {rowModel.attestation.total_score.toFixed(1)}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="p-3 max-w-[200px]">
+                <div className="space-y-1.5 text-xs">
+                  <div className="font-semibold border-b pb-1 mb-1">
+                    {rowModel.attestation.grade.toUpperCase()} ({rowModel.attestation.total_score.toFixed(1)}/{rowModel.attestation.max_points})
                   </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Лабы:</span>
+                    <span>{rowModel.attestation.breakdown.labs_score.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Посещ.:</span>
+                    <span>{rowModel.attestation.breakdown.attendance_score.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Актив.:</span>
+                    <span>{rowModel.attestation.breakdown.activity_score.toFixed(1)}</span>
+                  </div>
+                  {!rowModel.attestation.is_passing && (
+                    <div className="text-red-500 text-[10px] pt-1 border-t mt-1">
+                      Не хватает {(rowModel.attestation.min_passing_points - rowModel.attestation.total_score).toFixed(1)} б.
+                    </div>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
           ) : (
             <span className="text-sm text-muted-foreground">—</span>
           )}
@@ -190,4 +191,38 @@ export function JournalTableStudentRow({
       </TableCell>
     </TableRow>
   );
+});
+
+function areJournalTableStudentRowPropsEqual(
+  previous: Readonly<JournalTableStudentRowProps>,
+  next: Readonly<JournalTableStudentRowProps>,
+): boolean {
+  if (
+    previous.index !== next.index ||
+    previous.student !== next.student ||
+    previous.lessons !== next.lessons ||
+    previous.maxWorkNumbers !== next.maxWorkNumbers ||
+    previous.attestationPeriod !== next.attestationPeriod ||
+    previous.onAttendanceChange !== next.onAttendanceChange ||
+    previous.onGradeChange !== next.onGradeChange ||
+    previous.onStudentAttestationClick !== next.onStudentAttestationClick ||
+    previous.onOpenActivityDialog !== next.onOpenActivityDialog
+  ) {
+    return false;
+  }
+
+  if (previous.attestationScores?.[previous.student.id] !== next.attestationScores?.[next.student.id]) {
+    return false;
+  }
+
+  return isJournalStudentLessonStateEqual(
+    previous.lessons,
+    previous.student.id,
+    previous.attendance,
+    next.attendance,
+    previous.grades,
+    next.grades,
+  );
 }
+
+export const JournalTableStudentRow = memo(JournalTableStudentRowInner, areJournalTableStudentRowPropsEqual);

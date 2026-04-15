@@ -95,7 +95,7 @@ async def get_journal_stats(
     current_user: User = Depends(get_current_teacher),
 ):
     """Получить статистику журнала для группы."""
-    lesson_filter = [Lesson.group_id == group_id, Lesson.is_cancelled.is_(False)]
+    lesson_filter = [Lesson.group_id == group_id]
     if subject_id:
         lesson_filter.append(Lesson.subject_id == subject_id)
     if start_date:

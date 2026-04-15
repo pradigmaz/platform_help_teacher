@@ -1,7 +1,7 @@
 """Aggregate admin journal view endpoint."""
 
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import cast
 from uuid import UUID
 
@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_teacher, get_db
-from app.models import Attendance, Group, Lesson, LessonGrade, Subject, User, UserRole
+from app.models import Attendance, Group, Lesson, LessonGrade, Subject, User
 from app.models.attendance import AttendanceStatus
 from app.models.attestation_settings import AttestationType
 from app.schemas.attestation import AttestationResultResponse, AttestationSubjectOption
@@ -165,14 +165,14 @@ async def get_journal_view(
         period_type = AttestationType(attestation_period)
         range_start, range_end = _attestation_range(period_type, semester_start)
 
-    group_result = await db.execute(
-        select(Group).options(selectinload(Group.users)).where(Group.id == resolved_group_id)
+    active_students_result = await db.execute(
+        select(User)
+        .where(User.group_id == resolved_group_id)
+        .where(User.is_active.is_(True))
+        .order_by(User.full_name.asc())
     )
-    group = group_result.scalar_one_or_none()
-    students = []
-    if group is not None:
-        active_students = sorted((user for user in group.users if user.is_active), key=lambda row: row.full_name or "")
-        students = [StudentInGroupResponse.model_validate(student) for student in active_students]
+    active_students = list(active_students_result.scalars().all())
+    students = [StudentInGroupResponse.model_validate(student) for student in active_students]
 
     semester_subject_ids_result = await db.execute(
         select(Lesson.subject_id)
@@ -221,7 +221,6 @@ async def get_journal_view(
         attendance_result = await db.execute(
             select(Attendance)
             .where(and_(Attendance.group_id == resolved_group_id, Attendance.lesson_id.in_(lesson_ids)))
-            .options(selectinload(Attendance.student))
         )
         attendance_rows = list(attendance_result.scalars().all())
         attendance_payload = defaultdict(dict)
@@ -230,9 +229,7 @@ async def get_journal_view(
                 continue
             attendance_payload[str(row.lesson_id)][str(row.student_id)] = row.status.value
 
-        grades_result = await db.execute(
-            select(LessonGrade).where(LessonGrade.lesson_id.in_(lesson_ids)).options(selectinload(LessonGrade.student))
-        )
+        grades_result = await db.execute(select(LessonGrade).where(LessonGrade.lesson_id.in_(lesson_ids)))
         grades_rows = list(grades_result.scalars().all())
         grouped_grades: dict[tuple[str, str], list[LessonGrade]] = defaultdict(list)
         for grade_row in grades_rows:
@@ -255,7 +252,7 @@ async def get_journal_view(
         results, _ = await service.calculate_group_scores_batch(
             group_id=resolved_group_id,
             attestation_type=AttestationType(attestation_period),
-            students=[group_user for group_user in (group.users if group else []) if group_user.is_active],
+            students=active_students,
             subject_id=resolved_subject_id,
         )
         attestation_scores = {

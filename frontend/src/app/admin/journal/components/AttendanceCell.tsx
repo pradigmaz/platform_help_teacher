@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -10,7 +11,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { STATUS_INFO } from '../lib/journal-constants';
@@ -30,7 +30,7 @@ function getNextStatus(current: string | undefined): string {
   return CYCLE_ORDER[nextIndex];
 }
 
-export function AttendanceCell({ status, onStatusChange }: AttendanceCellProps) {
+export const AttendanceCell = memo(function AttendanceCell({ status, onStatusChange }: AttendanceCellProps) {
   const cycleStatus = () => {
     onStatusChange(getNextStatus(status));
   };
@@ -43,57 +43,55 @@ export function AttendanceCell({ status, onStatusChange }: AttendanceCellProps) 
   const nextStatusLabel = STATUS_INFO[nextStatus]?.label || 'Присутствует';
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <Tooltip>
-        <DropdownMenu>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <button 
-                onClick={(e) => {
-                  if (e.detail === 1 && e.button === 0) {
-                    e.preventDefault();
-                    cycleStatus();
-                  }
-                }}
-                className={cn(
-                  'h-6 w-6 p-0 rounded-full transition-all hover:scale-110 flex items-center justify-center',
-                  statusColor,
-                  statusBg,
-                  'hover:bg-accent'
-                )}
-              >
-                {StatusIcon ? <StatusIcon className="w-3.5 h-3.5" /> : <span className="text-xs">—</span>}
-              </button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="text-xs">
-            <p>{status ? STATUS_INFO[status]?.label : 'Не отмечено'}</p>
-            <p className="text-muted-foreground">Клик → {nextStatusLabel}</p>
-            <p className="text-muted-foreground">ПКМ → меню</p>
-          </TooltipContent>
-          <DropdownMenuContent align="center" className="min-w-[140px]">
-            {Object.entries(STATUS_INFO).map(([key, info]) => (
-              <DropdownMenuItem 
-                key={key}
-                onClick={() => onStatusChange(key)}
-                className="cursor-pointer"
-              >
-                <info.icon className={`w-4 h-4 mr-2 ${info.color}`} />
-                {info.label}
-              </DropdownMenuItem>
-            ))}
-            {status && (
-              <DropdownMenuItem 
-                onClick={() => onStatusChange(null)}
-                className="cursor-pointer text-destructive"
-              >
-                <span className="w-4 h-4 mr-2 flex items-center justify-center">×</span>
-                Сбросить
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <DropdownMenu>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <button 
+              onClick={(e) => {
+                if (e.detail === 1 && e.button === 0) {
+                  e.preventDefault();
+                  cycleStatus();
+                }
+              }}
+              className={cn(
+                'h-6 w-6 p-0 rounded-full transition-all hover:scale-110 flex items-center justify-center',
+                statusColor,
+                statusBg,
+                'hover:bg-accent'
+              )}
+            >
+              {StatusIcon ? <StatusIcon className="w-3.5 h-3.5" /> : <span className="text-xs">—</span>}
+            </button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <p>{status ? STATUS_INFO[status]?.label : 'Не отмечено'}</p>
+          <p className="text-muted-foreground">Клик → {nextStatusLabel}</p>
+          <p className="text-muted-foreground">ПКМ → меню</p>
+        </TooltipContent>
+        <DropdownMenuContent align="center" className="min-w-[140px]">
+          {Object.entries(STATUS_INFO).map(([key, info]) => (
+            <DropdownMenuItem 
+              key={key}
+              onClick={() => onStatusChange(key)}
+              className="cursor-pointer"
+            >
+              <info.icon className={`w-4 h-4 mr-2 ${info.color}`} />
+              {info.label}
+            </DropdownMenuItem>
+          ))}
+          {status && (
+            <DropdownMenuItem 
+              onClick={() => onStatusChange(null)}
+              className="cursor-pointer text-destructive"
+            >
+              <span className="w-4 h-4 mr-2 flex items-center justify-center">×</span>
+              Сбросить
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </Tooltip>
   );
-}
+});

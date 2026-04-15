@@ -53,22 +53,26 @@ export function useJournalAttendance({ onStatsRefetch }: UseJournalAttendancePro
   }, []);
 
   const updateAttendance = useCallback(async (lessonId: string, studentId: string, status: string | null) => {
-    // Optimistic update — сохраняем предыдущее значение для отката
-    const prevStatus = attendance[lessonId]?.[studentId];
-    
-    // Сразу обновляем UI
-    if (status === null) {
-      setAttendance(prev => {
+    let prevStatus: string | undefined;
+
+    setAttendance(prev => {
+      prevStatus = prev[lessonId]?.[studentId];
+
+      if (status === null) {
         const updated = { ...prev };
-        if (updated[lessonId]) delete updated[lessonId][studentId];
+        if (updated[lessonId]) {
+          const nextLessonAttendance: Record<string, string> = { ...updated[lessonId] };
+          delete nextLessonAttendance[studentId];
+          updated[lessonId] = nextLessonAttendance;
+        }
         return updated;
-      });
-    } else {
-      setAttendance(prev => ({
+      }
+
+      return {
         ...prev,
         [lessonId]: { ...prev[lessonId], [studentId]: status }
-      }));
-    }
+      };
+    });
     
     setIsSaving(true);
     try {
@@ -85,15 +89,24 @@ export function useJournalAttendance({ onStatsRefetch }: UseJournalAttendancePro
       debouncedStatsRefetch();
     } catch {
       // Откат при ошибке
-      if (prevStatus) {
-        setAttendance(prev => ({
-          ...prev,
-          [lessonId]: { ...prev[lessonId], [studentId]: prevStatus }
-        }));
+      if (prevStatus !== undefined) {
+        const restoredStatus = prevStatus;
+        setAttendance(prev => {
+          const nextLessonAttendance: Record<string, string> = { ...(prev[lessonId] ?? {}) };
+          nextLessonAttendance[studentId] = restoredStatus;
+          return {
+            ...prev,
+            [lessonId]: nextLessonAttendance,
+          };
+        });
       } else {
         setAttendance(prev => {
           const updated = { ...prev };
-          if (updated[lessonId]) delete updated[lessonId][studentId];
+          if (updated[lessonId]) {
+            const nextLessonAttendance: Record<string, string> = { ...updated[lessonId] };
+            delete nextLessonAttendance[studentId];
+            updated[lessonId] = nextLessonAttendance;
+          }
           return updated;
         });
       }
@@ -101,7 +114,7 @@ export function useJournalAttendance({ onStatsRefetch }: UseJournalAttendancePro
     } finally {
       setIsSaving(false);
     }
-  }, [attendance, debouncedStatsRefetch]);
+  }, [debouncedStatsRefetch]);
 
   return { attendance, setAttendance, updateAttendance, loadAttendance, isSaving };
 }

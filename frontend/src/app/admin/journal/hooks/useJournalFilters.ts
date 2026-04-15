@@ -21,6 +21,10 @@ export type SemesterInfo = {
   semester: 1 | 2;
 };
 
+export function sameSemesterInfo(left: SemesterInfo, right: SemesterInfo): boolean {
+  return left.academicYear === right.academicYear && left.semester === right.semester;
+}
+
 export interface UseJournalFiltersReturn {
   selectedGroupId: string;
   setSelectedGroupId: (id: string) => void;
@@ -91,13 +95,19 @@ export function useJournalFilters(): UseJournalFiltersReturn {
   // Обновляем selectedSemester когда данные загрузятся из API
   useEffect(() => {
     if (!semesterLoading) {
-      setSelectedSemester({ academicYear, semester });
+      const nextSemester = { academicYear, semester } as SemesterInfo;
+      setSelectedSemester((currentSemester) => (
+        sameSemesterInfo(currentSemester, nextSemester) ? currentSemester : nextSemester
+      ));
     }
   }, [academicYear, semester, semesterLoading]);
 
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+  const weekStart = useMemo(
+    () => startOfWeek(currentWeek, { weekStartsOn: 1 }),
+    [currentWeek],
+  );
   // Суббота = Пн + 5 дней (как в расписании, без воскресенья)
-  const weekEnd = addDays(weekStart, 5);
+  const weekEnd = useMemo(() => addDays(weekStart, 5), [weekStart]);
   const currentSemesterInfo = useMemo(() => ({ academicYear, semester }), [academicYear, semester]);
   const isCurrentSemesterSelected =
     selectedSemester.academicYear === academicYear && selectedSemester.semester === semester;

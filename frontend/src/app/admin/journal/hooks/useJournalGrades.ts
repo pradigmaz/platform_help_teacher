@@ -96,22 +96,34 @@ export function useJournalGrades({ onStatsRefetch }: UseJournalGradesProps): Use
     grade: number | null,
     workNumber: number | null = null
   ) => {
-    // Optimistic update — сохраняем предыдущее значение
-    const prevGrade = grades[lessonId]?.[studentId];
-    
-    // Сразу обновляем UI
-    if (grade === null) {
-      setGrades(prev => {
+    let prevGrade: GradeData | undefined;
+
+    setGrades(prev => {
+      prevGrade = prev[lessonId]?.[studentId];
+
+      if (grade === null) {
         const updated = { ...prev };
-        if (updated[lessonId]) delete updated[lessonId][studentId];
+        if (updated[lessonId]) {
+          const nextLessonGrades: Record<string, GradeData> = { ...updated[lessonId] };
+          delete nextLessonGrades[studentId];
+          updated[lessonId] = nextLessonGrades;
+        }
         return updated;
-      });
-    } else {
-      setGrades(prev => ({
+      }
+
+      return {
         ...prev,
-        [lessonId]: { ...prev[lessonId], [studentId]: { grade, work_number: workNumber } }
-      }));
-    }
+        [lessonId]: {
+          ...prev[lessonId],
+          [studentId]: {
+            grade,
+            work_number: workNumber,
+            has_conflict: false,
+            conflict_count: 1,
+          },
+        },
+      };
+    });
     
     setIsSaving(true);
     try {
@@ -131,15 +143,24 @@ export function useJournalGrades({ onStatsRefetch }: UseJournalGradesProps): Use
       }
     } catch {
       // Откат при ошибке
-      if (prevGrade) {
-        setGrades(prev => ({
-          ...prev,
-          [lessonId]: { ...prev[lessonId], [studentId]: prevGrade }
-        }));
+      if (prevGrade !== undefined) {
+        const restoredGrade = prevGrade;
+        setGrades(prev => {
+          const nextLessonGrades: Record<string, GradeData> = { ...(prev[lessonId] ?? {}) };
+          nextLessonGrades[studentId] = restoredGrade;
+          return {
+            ...prev,
+            [lessonId]: nextLessonGrades,
+          };
+        });
       } else {
         setGrades(prev => {
           const updated = { ...prev };
-          if (updated[lessonId]) delete updated[lessonId][studentId];
+          if (updated[lessonId]) {
+            const nextLessonGrades: Record<string, GradeData> = { ...updated[lessonId] };
+            delete nextLessonGrades[studentId];
+            updated[lessonId] = nextLessonGrades;
+          }
           return updated;
         });
       }
@@ -147,7 +168,7 @@ export function useJournalGrades({ onStatsRefetch }: UseJournalGradesProps): Use
     } finally {
       setIsSaving(false);
     }
-  }, [grades, debouncedStatsRefetch]);
+  }, [debouncedStatsRefetch]);
 
   return {
     grades,

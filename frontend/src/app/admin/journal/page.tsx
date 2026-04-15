@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Users, BookOpen, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -81,6 +81,12 @@ function JournalPageContent() {
       .map((student) => student.subgroup)
       .filter((subgroup): subgroup is 1 | 2 => subgroup === 1 || subgroup === 2)
   )].sort((left, right) => left - right);
+  const filteredStudents = useMemo(
+    () => students.filter((student) =>
+      !studentSearch || student.full_name.toLowerCase().includes(studentSearch.toLowerCase())
+    ),
+    [studentSearch, students],
+  );
   const showAttestationColumn =
     attestationPeriod !== 'all' &&
     selectedSubjectId !== 'all' &&
@@ -184,9 +190,7 @@ function JournalPageContent() {
           <CardContent className="p-0">
             <JournalTable
               lessons={lessons}
-              students={students.filter(s => 
-                !studentSearch || s.full_name.toLowerCase().includes(studentSearch.toLowerCase())
-              )}
+              students={filteredStudents}
               attendance={attendance}
               grades={grades}
               attestationScores={showAttestationColumn ? attestationScores : undefined}

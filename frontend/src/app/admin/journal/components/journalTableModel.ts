@@ -20,6 +20,19 @@ export function buildMaxWorkNumberMap(lessons: Lesson[]): Record<string, number>
   }, {});
 }
 
+function areGradeDataEqual(left: GradeData | undefined, right: GradeData | undefined): boolean {
+  if (left === right) {
+    return true;
+  }
+
+  return (
+    left?.grade === right?.grade &&
+    left?.work_number === right?.work_number &&
+    left?.has_conflict === right?.has_conflict &&
+    left?.conflict_count === right?.conflict_count
+  );
+}
+
 export function calculateAttendancePercentage(
   lessons: Lesson[],
   attendance: Record<string, Record<string, string>>,
@@ -86,4 +99,25 @@ export function buildJournalStudentRowModel(
     gradesByLesson: Object.fromEntries(lessons.map((lesson) => [lesson.id, grades[lesson.id]?.[studentId]])),
     attendanceByLesson: Object.fromEntries(lessons.map((lesson) => [lesson.id, attendance[lesson.id]?.[studentId]])),
   };
+}
+
+export function isJournalStudentLessonStateEqual(
+  lessons: Lesson[],
+  studentId: string,
+  previousAttendance: Record<string, Record<string, string>>,
+  nextAttendance: Record<string, Record<string, string>>,
+  previousGrades: Record<string, Record<string, GradeData>>,
+  nextGrades: Record<string, Record<string, GradeData>>,
+): boolean {
+  for (const lesson of lessons) {
+    if (previousAttendance[lesson.id]?.[studentId] !== nextAttendance[lesson.id]?.[studentId]) {
+      return false;
+    }
+
+    if (!areGradeDataEqual(previousGrades[lesson.id]?.[studentId], nextGrades[lesson.id]?.[studentId])) {
+      return false;
+    }
+  }
+
+  return true;
 }

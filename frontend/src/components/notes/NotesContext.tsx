@@ -7,6 +7,8 @@ import type { Note, EntityType, NoteColor } from '@/hooks/useNotes';
 interface NotesContextValue {
   // Получить заметки для entity (из кэша)
   getNotes: (entityType: EntityType, entityId: string) => Note[];
+  // Проверить, загружался ли entity в кэш
+  hasLoaded: (entityType: EntityType, entityId: string) => boolean;
   // Загрузить заметки для списка entity одним запросом
   loadNotesBatch: (entityType: EntityType, entityIds: string[]) => Promise<void>;
   // CRUD операции (обновляют кэш)
@@ -49,6 +51,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const getNotes = useCallback((entityType: EntityType, entityId: string): Note[] => {
     return cache.get(getCacheKey(entityType, entityId)) || emptyNotesRef.current;
   }, [cache]);
+
+  const hasLoaded = useCallback((entityType: EntityType, entityId: string): boolean => {
+    return cacheRef.current.has(getCacheKey(entityType, entityId));
+  }, []);
 
   const loadNotesBatch = useCallback(async (entityType: EntityType, entityIds: string[]) => {
     if (entityIds.length === 0) return;
@@ -178,8 +184,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     getNotes,
+    hasLoaded,
     ...actionsValue,
-  }), [actionsValue, getNotes]);
+  }), [actionsValue, getNotes, hasLoaded]);
 
   return (
     <NotesActionsContext.Provider value={actionsValue}>

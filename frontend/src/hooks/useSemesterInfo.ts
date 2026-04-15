@@ -10,10 +10,22 @@ export interface SemesterInfo {
   semester: 1 | 2;
 }
 
+export function getCurrentSemesterInfo(now: Date = new Date()): Pick<SemesterInfo, 'academicYear' | 'semester'> {
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  const semester = month >= 8 ? 1 : 2;
+  return {
+    academicYear: semester === 1 ? year : year - 1,
+    semester,
+  };
+}
+
+const currentSemesterInfo = getCurrentSemesterInfo();
+
 const DEFAULT_SEMESTER_INFO: SemesterInfo = {
   semesterStartDate: null,
-  academicYear: new Date().getFullYear(),
-  semester: new Date().getMonth() >= 8 ? 1 : 2,
+  academicYear: currentSemesterInfo.academicYear,
+  semester: currentSemesterInfo.semester,
 };
 
 let cachedSemesterInfo: SemesterInfo | null = null;
@@ -56,12 +68,11 @@ export function useSemesterInfo() {
         cachedSemesterInfo = semesterInfo;
         setInfo(semesterInfo);
       } catch {
-        // Fallback на хардкод если API недоступен
-        const now = new Date();
+        const fallbackSemesterInfo = getCurrentSemesterInfo();
         const fallback: SemesterInfo = {
           semesterStartDate: null,
-          academicYear: now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1,
-          semester: now.getMonth() >= 8 || now.getMonth() <= 4 ? (now.getMonth() >= 8 ? 1 : 2) : 2,
+          academicYear: fallbackSemesterInfo.academicYear,
+          semester: fallbackSemesterInfo.semester,
         };
         setInfo(fallback);
       } finally {
