@@ -25,10 +25,10 @@ class AttestationSettingsBase(BaseModel):
     # === КОЛИЧЕСТВО РАБОТ ===
     labs_count_first: int = Field(default=8, ge=1, le=20, description="Требуемые лабы для 1-й аттестации")
     labs_count_second: int = Field(
-        default=10,
+        default=2,
         ge=0,
         le=20,
-        description="Доп. лабы после 1-й аттестации, синхронизируются от общего числа лабораторных",
+        description="Доп. лабы после 1-й аттестации до 2-й аттестации",
     )
 
     # === КОЭФФИЦИЕНТЫ ОЦЕНОК (5=1.0 и 2=0.0 фиксированы) ===

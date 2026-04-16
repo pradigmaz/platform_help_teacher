@@ -4,6 +4,7 @@
 
 from datetime import date, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attestation_settings import AttestationSettings, AttestationType
@@ -15,9 +16,12 @@ EARLY_SEMESTER_WEEKS = 6  # Первые 6 недель - "начало семе
 
 async def get_semester_start_date(db: AsyncSession) -> date | None:
     """Получить дату начала семестра из настроек FIRST аттестации."""
-    settings_manager = AttestationSettingsManager(db)
-    settings = await settings_manager.get_settings(AttestationType.FIRST)
-    return settings.semester_start_date if settings else None
+    result = await db.execute(
+        select(AttestationSettings.semester_start_date).where(
+            AttestationSettings.attestation_type == AttestationType.FIRST
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def get_current_semester_from_settings(db: AsyncSession) -> tuple[int, int]:

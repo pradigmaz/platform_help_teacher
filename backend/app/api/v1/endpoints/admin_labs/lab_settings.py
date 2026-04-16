@@ -18,16 +18,15 @@ async def get_lab_settings(
 ):
     """Получить глобальные настройки лабораторных."""
     settings = await lab_settings_service.get_lab_settings(db)
-
     if not settings:
-        # Возвращаем дефолтные значения без сохранения, is_configured=False
         return schemas.LabSettingsResponse(
             labs_count=DEFAULT_TOTAL_LABS_COUNT,
+            automatic_enabled=True,
+            automatic_places=None,
             grading_scale=schemas.GradingScale.TEN,
             default_max_grade=10,
             is_configured=False,
         )
-
     return settings
 
 

@@ -7,7 +7,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crud.crud_group_subject_offering import get_current_semester_key
 from app.models.attestation_settings import AttestationSettings
+from app.models.group_subject_offering import GroupSubjectOffering
 from app.models.lesson import Lesson
 from app.models.schedule import LessonType
 from app.models.student_transfer import StudentTransfer
@@ -35,9 +37,22 @@ async def list_group_subject_ids_in_period(
     group_id: UUID,
     settings: AttestationSettings,
 ) -> tuple[UUID, ...]:
-    """List distinct subjects that have lessons in the attestation period."""
+    """List distinct subjects for the active semester, preferring offerings over lessons."""
+    semester_key = await get_current_semester_key(db)
+    offerings_result = await db.execute(
+        select(GroupSubjectOffering.subject_id)
+        .where(
+            GroupSubjectOffering.group_id == group_id,
+            GroupSubjectOffering.semester == semester_key,
+        )
+        .distinct()
+    )
+    offering_subject_ids = tuple(subject_id for subject_id in offerings_result.scalars().all() if subject_id is not None)
+    if offering_subject_ids:
+        return offering_subject_ids
+
     period_start, period_end = settings.get_effective_period()
-    query = (
+    lessons_result = await db.execute(
         select(Lesson.subject_id)
         .where(Lesson.group_id == group_id)
         .where(Lesson.subject_id.isnot(None))
@@ -46,8 +61,7 @@ async def list_group_subject_ids_in_period(
         .where(Lesson.date <= period_end)
         .distinct()
     )
-    result = await db.execute(query)
-    return tuple(subject_id for subject_id in result.scalars().all() if subject_id is not None)
+    return tuple(subject_id for subject_id in lessons_result.scalars().all() if subject_id is not None)
 
 
 async def resolve_attestation_subject_scope(
@@ -85,8 +99,23 @@ async def list_group_subject_options_in_period(
     settings: AttestationSettings,
 ) -> list[Subject]:
     """List subject records available for attestation in the period."""
+    semester_key = await get_current_semester_key(db)
+    offerings_result = await db.execute(
+        select(Subject)
+        .join(GroupSubjectOffering, GroupSubjectOffering.subject_id == Subject.id)
+        .where(
+            GroupSubjectOffering.group_id == group_id,
+            GroupSubjectOffering.semester == semester_key,
+        )
+        .distinct()
+        .order_by(Subject.name.asc())
+    )
+    offering_subjects = list(offerings_result.scalars().all())
+    if offering_subjects:
+        return offering_subjects
+
     period_start, period_end = settings.get_effective_period()
-    query = (
+    lessons_result = await db.execute(
         select(Subject)
         .join(Lesson, Lesson.subject_id == Subject.id)
         .where(Lesson.group_id == group_id)
@@ -97,8 +126,7 @@ async def list_group_subject_options_in_period(
         .distinct()
         .order_by(Subject.name.asc())
     )
-    result = await db.execute(query)
-    return list(result.scalars().all())
+    return list(lessons_result.scalars().all())
 
 
 def apply_lesson_subject_scope(query, subject_id: UUID | None):

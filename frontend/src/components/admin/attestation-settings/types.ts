@@ -27,7 +27,7 @@ export const DEFAULT_FORM_STATE: AttestationFormState = {
   attendance_weight: 30,
   activity_reserve: 10,
   labs_count_first: 8,
-  labs_count_second: 10,
+  labs_count_second: 2,
   grade_4_coef: 0.7,
   grade_3_coef: 0.4,
   late_coef: 0.5,

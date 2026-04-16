@@ -49,16 +49,16 @@ class AsyncMockResult:
 
 
 @pytest.mark.asyncio
-async def test_get_settings_syncs_stale_second_counts_from_total_labs(mock_db):
+async def test_get_settings_syncs_stale_attestation_rows_from_first_and_second_sources(mock_db):
     first_settings = _make_attestation_settings(
         AttestationType.FIRST,
         labs_count_first=5,
-        labs_count_second=99,
+        labs_count_second=3,
     )
     second_settings = _make_attestation_settings(
         AttestationType.SECOND,
         labs_count_first=9,
-        labs_count_second=99,
+        labs_count_second=7,
     )
     manager = AttestationSettingsManager(mock_db)
 
@@ -79,6 +79,7 @@ async def test_get_settings_syncs_stale_second_counts_from_total_labs(mock_db):
     assert settings is second_settings
     assert second_settings.labs_count_first == 5
     assert second_settings.labs_count_second == 7
+    assert first_settings.labs_count_second == 7
     mock_db.commit.assert_awaited_once()
 
 
@@ -97,10 +98,11 @@ async def test_update_first_settings_uses_shared_total_labs_contract(mock_db):
         grade_4_coef=0.8,
     )
 
-    async def fake_sync(*, first_required_override: int | None = None):
+    async def fake_sync(*, first_required_override: int | None = None, second_required_override: int | None = None):
         assert first_required_override == 7
+        assert second_required_override is None
         first_settings.labs_count_first = 7
-        first_settings.labs_count_second = 5
+        first_settings.labs_count_second = 6
         return {AttestationType.FIRST, AttestationType.SECOND}
 
     with (
@@ -113,13 +115,13 @@ async def test_update_first_settings_uses_shared_total_labs_contract(mock_db):
     assert settings is first_settings
     assert first_settings.grade_4_coef == 0.8
     assert first_settings.labs_count_first == 7
-    assert first_settings.labs_count_second == 5
+    assert first_settings.labs_count_second == 6
     mock_db.commit.assert_awaited_once()
     mock_db.refresh.assert_awaited_once_with(first_settings)
 
 
 @pytest.mark.asyncio
-async def test_update_second_settings_ignores_manual_second_count_edits(mock_db):
+async def test_update_second_settings_respects_manual_second_count_edits(mock_db):
     second_settings = _make_attestation_settings(
         AttestationType.SECOND,
         labs_count_first=6,
@@ -133,10 +135,11 @@ async def test_update_second_settings_ignores_manual_second_count_edits(mock_db)
         grade_4_coef=0.8,
     )
 
-    async def fake_sync(*, first_required_override: int | None = None):
+    async def fake_sync(*, first_required_override: int | None = None, second_required_override: int | None = None):
         assert first_required_override is None
+        assert second_required_override == 0
         second_settings.labs_count_first = 6
-        second_settings.labs_count_second = 5
+        second_settings.labs_count_second = 0
         return {AttestationType.SECOND}
 
     with (
@@ -149,13 +152,13 @@ async def test_update_second_settings_ignores_manual_second_count_edits(mock_db)
     assert settings is second_settings
     assert second_settings.grade_4_coef == 0.8
     assert second_settings.labs_count_first == 6
-    assert second_settings.labs_count_second == 5
+    assert second_settings.labs_count_second == 0
     mock_db.commit.assert_awaited_once()
     mock_db.refresh.assert_awaited_once_with(second_settings)
 
 
 @pytest.mark.asyncio
-async def test_lab_settings_update_syncs_existing_attestation_rows(mock_db):
+async def test_lab_settings_update_keeps_existing_attestation_thresholds_when_total_is_valid(mock_db):
     service = LabSettingsService()
     lab_settings = _make_lab_settings(10)
     first_settings = _make_attestation_settings(
@@ -175,14 +178,14 @@ async def test_lab_settings_update_syncs_existing_attestation_rows(mock_db):
         AsyncMockResult(second_settings),
     ]
 
-    settings = await service.update_lab_settings(mock_db, LabSettingsUpdate(labs_count=9))
+    settings = await service.update_lab_settings(mock_db, LabSettingsUpdate(labs_count=12))
 
     assert settings is lab_settings
-    assert lab_settings.labs_count == 9
+    assert lab_settings.labs_count == 12
     assert first_settings.labs_count_first == 6
-    assert first_settings.labs_count_second == 3
+    assert first_settings.labs_count_second == 4
     assert second_settings.labs_count_first == 6
-    assert second_settings.labs_count_second == 3
+    assert second_settings.labs_count_second == 4
     mock_db.commit.assert_awaited_once()
     mock_db.refresh.assert_awaited_once_with(lab_settings)
 
@@ -196,14 +199,48 @@ async def test_lab_settings_update_rejects_total_below_first_requirement(mock_db
         labs_count_first=8,
         labs_count_second=2,
     )
+    second_settings = _make_attestation_settings(
+        AttestationType.SECOND,
+        labs_count_first=8,
+        labs_count_second=2,
+    )
 
     mock_db.execute.side_effect = [
         AsyncMockResult(lab_settings),
         AsyncMockResult(first_settings),
-        AsyncMockResult(None),
+        AsyncMockResult(second_settings),
     ]
 
-    with pytest.raises(ValueError, match="не может быть меньше"):
-        await service.update_lab_settings(mock_db, LabSettingsUpdate(labs_count=7))
+    with pytest.raises(ValueError, match="не может быть меньше суммарного количества"):
+        await service.update_lab_settings(mock_db, LabSettingsUpdate(labs_count=9))
 
     mock_db.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_sync_attestation_lab_counts_uses_first_row_for_first_and_second_row_for_second(mock_db):
+    first_settings = _make_attestation_settings(
+        AttestationType.FIRST,
+        labs_count_first=4,
+        labs_count_second=3,
+    )
+    second_settings = _make_attestation_settings(
+        AttestationType.SECOND,
+        labs_count_first=9,
+        labs_count_second=4,
+    )
+
+    with patch("app.services.attestation.lab_count_sync.get_total_labs_count", AsyncMock(return_value=10)):
+        from app.services.attestation.lab_count_sync import sync_attestation_lab_counts
+
+        changed_types = await sync_attestation_lab_counts(
+            mock_db,
+            first_settings=first_settings,
+            second_settings=second_settings,
+        )
+
+    assert changed_types == {AttestationType.FIRST, AttestationType.SECOND}
+    assert first_settings.labs_count_first == 4
+    assert first_settings.labs_count_second == 4
+    assert second_settings.labs_count_first == 4
+    assert second_settings.labs_count_second == 4

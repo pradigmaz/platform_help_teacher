@@ -5,6 +5,7 @@ import {
   Users, 
   BookOpen,
   FlaskConical,
+  NotebookTabs,
   GraduationCap,
   Clock,
   RefreshCw
@@ -123,6 +124,15 @@ export default function AdminPanel() {
       description: "Управление заданиями и дедлайнами.",
       href: "/admin/labs",
       cta: "Настроить",
+      background: null,
+      className: "col-span-1",
+    },
+    {
+      Icon: NotebookTabs,
+      name: "Предметы групп",
+      description: "Форма контроля и очередь автомата по предметам.",
+      href: "/admin/subjects",
+      cta: "Открыть",
       background: null,
       className: "col-span-1",
     },

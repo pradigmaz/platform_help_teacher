@@ -22,6 +22,7 @@ from app.api.v1.endpoints import (
     admin_schedule_view,
     admin_security,
     admin_stats,
+    admin_subject_offerings,
     admin_subjects,
     admin_work_submissions,
     admin_works,
@@ -103,6 +104,7 @@ api_router.include_router(admin_schedule.router, prefix="/admin", tags=["admin_s
 api_router.include_router(admin_schedule_sheet.router, prefix="/admin", tags=["admin_schedule"])
 api_router.include_router(admin_schedule_view.router, prefix="/admin", tags=["admin_schedule"])
 api_router.include_router(admin_journal.router, prefix="/admin/journal", tags=["admin_journal"])
+api_router.include_router(admin_subject_offerings.router, prefix="/admin/subjects", tags=["admin_subject_offerings"])
 api_router.include_router(admin_subjects.router, prefix="/admin/subjects", tags=["admin_subjects"])
 api_router.include_router(
     admin_schedule_parser.router,

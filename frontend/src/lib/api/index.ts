@@ -33,6 +33,7 @@ export { SecurityAPI } from './security';
 export type { SecurityStrikesResponse, SecurityStatsResponse, StrikeDetail, ClearStrikesResponse, UserInfoResponse } from './security';
 export { DevicesAPI } from './devices';
 export type { Device, DeviceListResponse } from './devices';
+export { SubjectsAPI } from './subjects';
 export { BackupAPI } from './backup';
 export type {
   BackupInfo,

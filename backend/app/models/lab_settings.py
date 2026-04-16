@@ -1,8 +1,8 @@
 from enum import Enum
 from uuid import UUID, uuid4
 
+from sqlalchemy import Boolean, Integer
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin
@@ -23,6 +23,8 @@ class LabSettings(Base, TimestampMixin):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     labs_count: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    automatic_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    automatic_places: Mapped[int | None] = mapped_column(Integer, nullable=True)
     grading_scale: Mapped[GradingScale] = mapped_column(
         SQLEnum(GradingScale, name="gradingscale", create_constraint=False, native_enum=False),
         default=GradingScale.TEN,

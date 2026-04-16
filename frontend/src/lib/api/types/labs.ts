@@ -14,6 +14,8 @@ export interface Submission {
 
 export interface LabSettings {
   labs_count: number;
+  automatic_enabled: boolean;
+  automatic_places: number | null;
   grading_scale: '5' | '10' | '100';
   default_max_grade: number;
   is_configured: boolean;

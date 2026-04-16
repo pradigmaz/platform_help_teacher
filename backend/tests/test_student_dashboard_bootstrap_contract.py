@@ -140,6 +140,20 @@ class TestStudentDashboardBootstrapContract:
                         "total_score": 32.5,
                         "grade": "5",
                         "is_passing": True,
+                        "lab_progress_plan": {
+                            "total_required": 10,
+                            "first_required": 4,
+                            "second_extra_required": 4,
+                            "second_total_required": 8,
+                            "automatic_extra_required": 2,
+                            "automatic_enabled": True,
+                            "automatic_places": 3,
+                            "completed_count": 7,
+                            "automatic_remaining": 3,
+                            "automatic_queue_position": 2,
+                            "automatic_is_winner": False,
+                            "automatic_completion_at": None,
+                        },
                     }
                 ),
             ) as calculate_mock,
@@ -156,6 +170,7 @@ class TestStudentDashboardBootstrapContract:
         assert payload["overview"]["attendance_stats"]["attendance_rate"] == 90.0
         assert payload["overview"]["attestation_type"] == "first"
         assert payload["overview"]["current_attestation"]["total_score"] == 32.5
+        assert payload["overview"]["current_attestation"]["lab_progress_plan"]["automatic_places"] == 3
         calculate_mock.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -183,6 +198,25 @@ class TestStudentDashboardBootstrapContract:
             patch("app.api.v1.endpoints.student.bootstrap.build_attendance_stats", return_value=attendance_stats_payload()),
             patch("app.api.v1.endpoints.student.bootstrap.resolve_preferred_attestation_type", return_value="second"),
             patch(
+                "app.api.v1.endpoints.student.bootstrap.resolve_student_lab_progress_plan",
+                new=AsyncMock(
+                    return_value={
+                        "total_required": 10,
+                        "first_required": 4,
+                        "second_extra_required": 4,
+                        "second_total_required": 8,
+                        "automatic_extra_required": 2,
+                        "automatic_enabled": True,
+                        "automatic_places": 2,
+                        "completed_count": 3,
+                        "automatic_remaining": 7,
+                        "automatic_queue_position": None,
+                        "automatic_is_winner": None,
+                        "automatic_completion_at": None,
+                    }
+                ),
+            ),
+            patch(
                 "app.api.v1.endpoints.student.bootstrap.list_student_attestation_subjects",
                 new=AsyncMock(
                     return_value=[
@@ -207,6 +241,7 @@ class TestStudentDashboardBootstrapContract:
         assert payload["overview"]["attestation_type"] == "second"
         assert payload["overview"]["current_attestation"]["error"] == "Для расчёта аттестации нужно выбрать предмет"
         assert payload["overview"]["current_attestation"]["subject_id"] is None
+        assert payload["overview"]["current_attestation"]["lab_progress_plan"]["second_total_required"] == 8
         calculate_mock.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -291,6 +326,25 @@ class TestStudentDashboardBootstrapContract:
             patch("app.api.v1.endpoints.student.bootstrap.list_student_announcements", new=AsyncMock(return_value=[])),
             patch("app.api.v1.endpoints.student.bootstrap.list_student_labs", new=AsyncMock(return_value=[])),
             patch("app.api.v1.endpoints.student.bootstrap.list_student_attendance_records", new=AsyncMock(return_value=[])),
+            patch(
+                "app.api.v1.endpoints.student.attestation.resolve_student_lab_progress_plan",
+                new=AsyncMock(
+                    return_value={
+                        "total_required": 10,
+                        "first_required": 4,
+                        "second_extra_required": 4,
+                        "second_total_required": 8,
+                        "automatic_extra_required": 2,
+                        "automatic_enabled": True,
+                        "automatic_places": 2,
+                        "completed_count": 0,
+                        "automatic_remaining": 10,
+                        "automatic_queue_position": None,
+                        "automatic_is_winner": None,
+                        "automatic_completion_at": None,
+                    }
+                ),
+            ),
             patch(
                 "app.api.v1.endpoints.student.bootstrap.build_attendance_stats",
                 return_value={

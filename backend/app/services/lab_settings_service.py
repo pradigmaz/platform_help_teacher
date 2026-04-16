@@ -30,7 +30,11 @@ class LabSettingsService:
         settings = result.scalar_one_or_none()
 
         if not settings:
-            settings = LabSettings(labs_count=DEFAULT_TOTAL_LABS_COUNT, default_max_grade=10)
+            settings = LabSettings(
+                labs_count=DEFAULT_TOTAL_LABS_COUNT,
+                automatic_enabled=True,
+                default_max_grade=10,
+            )
             db.add(settings)
             await db.flush()
             logger.info("[LabSettingsService:update_lab_settings] Created new settings")
@@ -40,7 +44,10 @@ class LabSettingsService:
             setattr(settings, field, value)
 
         if "labs_count" in update_data:
-            await sync_attestation_lab_counts(db, total_labs=settings.labs_count)
+            await sync_attestation_lab_counts(
+                db,
+                total_labs=settings.labs_count,
+            )
 
         await db.commit()
         await db.refresh(settings)

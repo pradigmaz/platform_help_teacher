@@ -5,6 +5,7 @@ import {
   getResolvedLabGrade,
   getResolvedLabStatus,
   isLabAccepted,
+  type StudentLabLike,
 } from './progress';
 
 describe('labs progress helpers', () => {
@@ -34,5 +35,17 @@ describe('labs progress helpers', () => {
     expect(getResolvedLabStatus(lab)).toBe('rejected');
     expect(getResolvedLabGrade(lab)).toBe(2);
     expect(getResolvedAcceptanceLabel(lab)).toBe('Не сдано');
+  });
+
+  it('does not return null submission grades as a visible score', () => {
+    const lab = {
+      is_accepted: false,
+      acceptance_source: null,
+      journal_grade: null,
+      submission: { id: 'sub-3', status: 'READY' as const, grade: null },
+    } as unknown as StudentLabLike;
+
+    expect(getResolvedLabGrade(lab)).toBeUndefined();
+    expect(getResolvedLabStatus(lab)).toBe('pending');
   });
 });

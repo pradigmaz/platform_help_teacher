@@ -28,16 +28,21 @@ function clampFirstLabsCount(value: number, totalLabsCount: number) {
   return Math.min(Math.max(Math.trunc(value), 1), normalizedTotal);
 }
 
-function getDerivedSecondLabsCount(firstLabsCount: number, totalLabsCount: number) {
-  return Math.max(Math.max(totalLabsCount, 1) - firstLabsCount, 0);
+function clampSecondLabsCount(value: number, firstLabsCount: number, totalLabsCount: number) {
+  const maxSecondLabs = Math.max(Math.max(totalLabsCount, 1) - firstLabsCount, 0);
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(Math.max(Math.trunc(value), 0), maxSecondLabs);
 }
 
 function getNormalizedFormState(form: AttestationFormState, totalLabsCount: number): AttestationFormState {
   const labsCountFirst = clampFirstLabsCount(form.labs_count_first, totalLabsCount);
+  const labsCountSecond = clampSecondLabsCount(form.labs_count_second, labsCountFirst, totalLabsCount);
   return {
     ...form,
     labs_count_first: labsCountFirst,
-    labs_count_second: getDerivedSecondLabsCount(labsCountFirst, totalLabsCount),
+    labs_count_second: labsCountSecond,
   };
 }
 
@@ -65,7 +70,7 @@ export function AttestationSettingsForm() {
   const update = <K extends keyof AttestationFormState>(key: K, value: AttestationFormState[K]) => {
     setForm((prev: AttestationFormState) => {
       const next = { ...prev, [key]: value } as AttestationFormState;
-      if (key === 'labs_count_first') {
+      if (key === 'labs_count_first' || key === 'labs_count_second') {
         return getNormalizedFormState(next, totalLabsCount);
       }
       return next;
@@ -87,9 +92,13 @@ export function AttestationSettingsForm() {
           firstSettings?.labs_count_first ??
           settings?.labs_count_first ??
           DEFAULT_FORM_STATE.labs_count_first;
+        const sourceSecondLabsCount =
+          settings?.labs_count_second ??
+          firstSettings?.labs_count_second ??
+          DEFAULT_FORM_STATE.labs_count_second;
         const fallbackTotalLabs =
           sourceFirstLabsCount +
-          (settings?.labs_count_second ?? DEFAULT_FORM_STATE.labs_count_second);
+          sourceSecondLabsCount;
         const resolvedTotalLabs =
           labSettingsResult.status === 'fulfilled'
             ? Math.max(labSettingsResult.value.labs_count, 1)
@@ -103,7 +112,7 @@ export function AttestationSettingsForm() {
               attendance_weight: settings?.attendance_weight ?? 30,
               activity_reserve: settings?.activity_reserve ?? 10,
               labs_count_first: sourceFirstLabsCount,
-              labs_count_second: settings?.labs_count_second ?? 10,
+              labs_count_second: sourceSecondLabsCount,
               grade_4_coef: settings?.grade_4_coef ?? 0.7,
               grade_3_coef: settings?.grade_3_coef ?? 0.4,
               late_coef: settings?.late_coef ?? 0.5,
@@ -151,9 +160,11 @@ export function AttestationSettingsForm() {
     }
   };
 
+  const secondTotalLabsCount = normalizedForm.labs_count_first + normalizedForm.labs_count_second;
+  const automaticExtraLabsCount = Math.max(totalLabsCount - secondTotalLabsCount, 0);
   const labsCount = attestationType === 'first'
     ? normalizedForm.labs_count_first
-    : totalLabsCount;
+    : secondTotalLabsCount;
   const expectedLessonsCount = normalizedForm.expected_lessons_per_week * (attestationType === 'first' ? 8 : 14);
 
   return (
@@ -227,7 +238,8 @@ export function AttestationSettingsForm() {
             form={normalizedForm}
             attestationType={attestationType}
             totalLabsCount={totalLabsCount}
-            derivedSecondLabsCount={normalizedForm.labs_count_second}
+            secondTotalLabsCount={secondTotalLabsCount}
+            automaticExtraLabsCount={automaticExtraLabsCount}
             onUpdate={update}
           />
         </BlurFade>

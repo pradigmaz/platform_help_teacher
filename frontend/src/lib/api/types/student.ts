@@ -142,6 +142,22 @@ export interface StudentAttestation {
   max_points?: number;
   min_passing_points?: number;
   error?: string;
+  lab_progress_plan?: {
+    total_required: number;
+    first_required: number;
+    second_extra_required: number;
+    second_total_required: number;
+    automatic_extra_required: number;
+    automatic_enabled: boolean;
+    automatic_places?: number | null;
+    completed_count: number;
+    automatic_remaining: number;
+    automatic_queue_position?: number | null;
+    automatic_is_winner?: boolean | null;
+    automatic_completion_at?: string | null;
+    automatic_reason?: string | null;
+    automatic_declined?: boolean;
+  } | null;
   breakdown?: {
     labs: { score: number; max: number; count: number; required: number };
     attendance: { score: number; max: number; ratio: number; total_classes: number; present: number; late: number };

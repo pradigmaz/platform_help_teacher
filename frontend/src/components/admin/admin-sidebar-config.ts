@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Megaphone,
   MessageSquare,
+  NotebookTabs,
   Settings,
   Shield,
 } from "lucide-react";
@@ -35,6 +36,7 @@ export const adminSidebarItems: SidebarItem[] = [
   { title: "Группы", href: "/admin/groups", icon: GraduationCap },
   { title: "Лекции", href: "/admin/lectures", icon: BookOpen },
   { title: "Лабораторные", href: "/admin/labs", icon: FlaskConical },
+  { title: "Предметы групп", href: "/admin/subjects", icon: NotebookTabs },
   {
     title: "Аттестация",
     href: "/admin/attestation",

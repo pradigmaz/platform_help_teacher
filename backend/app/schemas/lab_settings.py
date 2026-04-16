@@ -11,6 +11,8 @@ class GradingScale(str, Enum):
 
 class LabSettingsResponse(BaseModel):
     labs_count: int
+    automatic_enabled: bool = True
+    automatic_places: int | None = None
     grading_scale: GradingScale
     default_max_grade: int
     is_configured: bool = True
@@ -20,5 +22,7 @@ class LabSettingsResponse(BaseModel):
 
 class LabSettingsUpdate(BaseModel):
     labs_count: int | None = Field(default=None, ge=1, le=50)
+    automatic_enabled: bool | None = None
+    automatic_places: int | None = Field(default=None, ge=0, le=1000)
     grading_scale: GradingScale | None = None
     default_max_grade: int | None = None

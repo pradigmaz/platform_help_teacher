@@ -18,7 +18,7 @@ export function getResolvedLabGrade(lab: StudentLabLike): number | undefined {
   if (typeof lab.journal_grade === 'number') {
     return lab.journal_grade;
   }
-  return lab.submission?.grade;
+  return typeof lab.submission?.grade === 'number' ? lab.submission.grade : undefined;
 }
 
 export function getResolvedLabStatus(lab: StudentLabLike): ResolvedLabStatus {

@@ -8,6 +8,7 @@ import { Effect } from '@/components/animate-ui/primitives/effects/effect';
 import { IconCheck, IconX, IconAlertTriangle } from '@tabler/icons-react';
 import type { StatusHeroProps, AttestationStatus } from './types';
 import { EmptyState } from './EmptyState';
+import { LabProgressPlanSummary } from './LabProgressPlanSummary';
 
 /** Get attestation status from data */
 function getAttestationStatus(attestation: StatusHeroProps['attestation']): AttestationStatus {
@@ -85,11 +86,14 @@ export function StatusHero({ attestation, isLoading }: StatusHeroProps) {
   if (status === 'unavailable') {
     return (
       <MagicCard gradientColor={config.gradient}>
-        <EmptyState
-          icon={<Icon className="h-8 w-8" />}
-          title="Данные аттестации недоступны"
-          description="Информация появится после начала семестра"
-        />
+        <div className={cn("p-6", config.border, config.bg, "border rounded-xl")}>
+          <EmptyState
+            icon={<Icon className="h-8 w-8" />}
+            title="Данные аттестации недоступны"
+            description="Информация появится после начала семестра"
+          />
+          <LabProgressPlanSummary attestation={attestation} />
+        </div>
       </MagicCard>
     );
   }
@@ -149,6 +153,8 @@ export function StatusHero({ attestation, isLoading }: StatusHeroProps) {
               style={{ width: `${Math.min(progressPercent, 100)}%` }}
             />
           </div>
+
+          <LabProgressPlanSummary attestation={attestation} />
 
           {/* Labs info and points to pass */}
           <div className="flex items-center justify-between text-xs text-muted-foreground">

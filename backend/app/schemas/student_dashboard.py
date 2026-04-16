@@ -63,6 +63,23 @@ class StudentDashboardAttestationBreakdown(BaseModel):
     activity: StudentDashboardActivityBreakdown
 
 
+class StudentDashboardLabProgressPlan(BaseModel):
+    total_required: int
+    first_required: int
+    second_extra_required: int
+    second_total_required: int
+    automatic_extra_required: int
+    automatic_enabled: bool = True
+    automatic_places: int | None = None
+    completed_count: int = 0
+    automatic_remaining: int = 0
+    automatic_queue_position: int | None = None
+    automatic_is_winner: bool | None = None
+    automatic_completion_at: str | None = None
+    automatic_reason: str | None = None
+    automatic_declined: bool = False
+
+
 class StudentDashboardAttestation(BaseModel):
     attestation_type: str
     subject_id: str | None = None
@@ -73,6 +90,7 @@ class StudentDashboardAttestation(BaseModel):
     min_passing_points: int | None = None
     error: str | None = None
     calculation_status: str | None = None
+    lab_progress_plan: StudentDashboardLabProgressPlan | None = None
     breakdown: StudentDashboardAttestationBreakdown | None = None
 
 

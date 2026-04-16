@@ -15,7 +15,6 @@ from app.schemas.attestation import (
     ScorePreview,
 )
 from app.services.attestation.lab_count_sync import (
-    calculate_synced_lab_counts,
     get_attestation_settings_row,
     get_total_labs_count,
     sync_attestation_lab_counts,
@@ -52,12 +51,17 @@ class AttestationSettingsManager:
     async def _get_raw_settings(self, attestation_type: AttestationType) -> AttestationSettings | None:
         return await get_attestation_settings_row(self.db, attestation_type)
 
-    async def _sync_lab_counts(self, first_required_override: int | None = None) -> set[AttestationType]:
+    async def _sync_lab_counts(
+        self,
+        first_required_override: int | None = None,
+        second_required_override: int | None = None,
+    ) -> set[AttestationType]:
         first_settings = await self._get_raw_settings(AttestationType.FIRST)
         second_settings = await self._get_raw_settings(AttestationType.SECOND)
         return await sync_attestation_lab_counts(
             self.db,
             first_required=first_required_override,
+            second_required=second_required_override,
             first_settings=first_settings,
             second_settings=second_settings,
         )
@@ -90,15 +94,15 @@ class AttestationSettingsManager:
 
         total_labs = await get_total_labs_count(self.db)
         first_required = min(8, total_labs)
-        synced_first, synced_second = calculate_synced_lab_counts(first_required, total_labs)
+        second_required = max(total_labs - first_required, 0)
 
         att_settings = AttestationSettings(
             attestation_type=attestation_type,
             labs_weight=70.0,
             attendance_weight=30.0,
             activity_reserve=10.0,
-            labs_count_first=synced_first,
-            labs_count_second=synced_second,
+            labs_count_first=first_required,
+            labs_count_second=second_required,
             grade_4_coef=0.7,
             grade_3_coef=0.4,
             late_coef=0.5,
@@ -123,6 +127,9 @@ class AttestationSettingsManager:
         first_required_override = (
             settings_update.labs_count_first if settings_update.attestation_type == AttestationType.FIRST else None
         )
+        second_required_override = (
+            settings_update.labs_count_second if settings_update.attestation_type == AttestationType.SECOND else None
+        )
 
         for field, value in update_data.items():
             setattr(att_settings, field, value)
@@ -130,7 +137,10 @@ class AttestationSettingsManager:
         if not att_settings.validate_weights():
             raise ValueError("Базовые веса должны суммироваться в 100%")
 
-        changed_types = await self._sync_lab_counts(first_required_override=first_required_override)
+        changed_types = await self._sync_lab_counts(
+            first_required_override=first_required_override,
+            second_required_override=second_required_override,
+        )
         await self.db.commit()
         await self.db.refresh(att_settings)
         await self._invalidate_caches(changed_types | {settings_update.attestation_type})

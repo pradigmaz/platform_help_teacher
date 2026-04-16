@@ -16,19 +16,26 @@ def resolve_total_labs_count(configured_total: int | None) -> int:
     return configured_total
 
 
-def calculate_synced_lab_counts(first_required: int, total_labs: int) -> tuple[int, int]:
-    """Derive SECOND additional labs from the FIRST requirement and total labs."""
-    if total_labs < first_required:
+def validate_lab_counts(first_required: int, second_required: int, total_labs: int) -> tuple[int, int]:
+    """Validate manual lab thresholds against the total labs count."""
+    if total_labs < first_required + second_required:
         raise ValueError(
             "Общее количество лабораторных "
-            f"({total_labs}) не может быть меньше количества для первой аттестации ({first_required})"
+            f"({total_labs}) не может быть меньше суммарного количества "
+            "лабораторных для аттестаций "
+            f"({first_required + second_required})"
         )
-    return first_required, total_labs - first_required
+    return first_required, second_required
 
 
-def apply_synced_lab_counts(settings: AttestationSettings, first_required: int, total_labs: int) -> bool:
+def apply_synced_lab_counts(
+    settings: AttestationSettings,
+    first_required: int,
+    second_required: int,
+    total_labs: int,
+) -> bool:
     """Apply synchronized lab counts to an attestation settings row."""
-    synced_first, synced_second = calculate_synced_lab_counts(first_required, total_labs)
+    synced_first, synced_second = validate_lab_counts(first_required, second_required, total_labs)
     changed = False
 
     if settings.labs_count_first != synced_first:
@@ -42,7 +49,7 @@ def apply_synced_lab_counts(settings: AttestationSettings, first_required: int, 
 
 
 async def get_total_labs_count(db: AsyncSession) -> int:
-    """Load the configured semester total for labs."""
+    """Load the configured total labs count."""
     result = await db.execute(select(LabSettings).limit(1))
     settings = result.scalar_one_or_none()
     configured_total = settings.labs_count if settings else None
@@ -65,6 +72,7 @@ async def sync_attestation_lab_counts(
     *,
     total_labs: int | None = None,
     first_required: int | None = None,
+    second_required: int | None = None,
     first_settings: AttestationSettings | None = None,
     second_settings: AttestationSettings | None = None,
 ) -> set[AttestationType]:
@@ -84,12 +92,22 @@ async def sync_attestation_lab_counts(
 
     effective_first_required = first_required
     if effective_first_required is None:
-        source_row = rows[0]
+        source_row = first_settings or rows[0]
         effective_first_required = source_row.labs_count_first
+
+    effective_second_required = second_required
+    if effective_second_required is None:
+        source_row = second_settings or rows[0]
+        effective_second_required = source_row.labs_count_second
 
     changed_types: set[AttestationType] = set()
     for settings in rows:
-        if apply_synced_lab_counts(settings, effective_first_required, effective_total_labs):
+        if apply_synced_lab_counts(
+            settings,
+            effective_first_required,
+            effective_second_required,
+            effective_total_labs,
+        ):
             changed_types.add(settings.attestation_type)
 
     return changed_types

@@ -56,7 +56,7 @@ class AttestationSettings(Base, TimestampMixin):
     # === КОЛИЧЕСТВО РАБОТ ===
     labs_count_first: Mapped[int] = mapped_column(Integer, default=8, nullable=False)
     # Для SECOND хранится добавочное количество работ после FIRST.
-    labs_count_second: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    labs_count_second: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
 
     # === КОЭФФИЦИЕНТЫ ОЦЕНОК (grade_5=1.0 и grade_2=0.0 фиксированы) ===
     grade_4_coef: Mapped[float] = mapped_column(Float, default=0.7, nullable=False)

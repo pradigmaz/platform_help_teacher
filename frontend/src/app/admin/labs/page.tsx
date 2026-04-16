@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import api from '@/lib/api';
 import { LabQueueAPI } from '@/lib/api/lab-queue';
 import type { LabQueue, SubmissionDetail } from '@/lib/api/types/lab-queue';
-import type { Lab } from '@/lib/api/types/labs';
+import type { Lab, LabSettings } from '@/lib/api/types/labs';
 
 import { BlurFade } from '@/components/ui/blur-fade';
 import { Sparkles } from '@/components/ui/sparkles';
@@ -24,13 +24,6 @@ import {
   DeadlineExtensionsDialog,
 } from './components';
 
-interface LabSettings {
-  labs_count: number;
-  grading_scale: '5' | '10' | '100';
-  default_max_grade: number;
-  is_configured: boolean;
-}
-
 export default function AdminLabsPage() {
   const router = useRouter();
 
@@ -41,7 +34,12 @@ export default function AdminLabsPage() {
   // Settings state
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [labSettings, setLabSettings] = useState<LabSettings>({
-    labs_count: 10, grading_scale: '10', default_max_grade: 10, is_configured: true,
+    labs_count: 10,
+    automatic_enabled: true,
+    automatic_places: null,
+    grading_scale: '10',
+    default_max_grade: 10,
+    is_configured: true,
   });
 
   // Queue state

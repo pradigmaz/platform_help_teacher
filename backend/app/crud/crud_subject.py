@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import Subject, TeacherSubjectAssignment
+from app.crud.crud_group_subject_offering import ensure_group_subject_offering
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,8 @@ async def assign_teacher_to_subject(
         if not existing.is_active:
             existing.is_active = True
             await db.flush()
+        if group_id is not None and semester is not None:
+            await ensure_group_subject_offering(db, group_id=group_id, subject_id=subject_id, semester=semester)
         return existing
 
     assignment = TeacherSubjectAssignment(
@@ -126,6 +129,8 @@ async def assign_teacher_to_subject(
     )
     db.add(assignment)
     await db.flush()
+    if group_id is not None and semester is not None:
+        await ensure_group_subject_offering(db, group_id=group_id, subject_id=subject_id, semester=semester)
     await db.refresh(assignment)
     logger.info(f"Assigned teacher {teacher_id} to subject {subject_id}")
     return assignment
@@ -154,6 +159,7 @@ async def get_or_create_assignment_from_schedule(
     existing = result.scalar_one_or_none()
 
     if existing:
+        await ensure_group_subject_offering(db, group_id=group_id, subject_id=subject.id, semester=semester)
         return existing, False
 
     assignment = await assign_teacher_to_subject(db, teacher_id, subject.id, group_id, semester)

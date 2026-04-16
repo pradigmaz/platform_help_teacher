@@ -13,6 +13,7 @@ from app.api.v1.endpoints.student.attendance import build_attendance_stats, list
 from app.api.v1.endpoints.student.attestation import (
     calculate_student_attestation_response,
     list_student_attestation_subjects,
+    resolve_student_lab_progress_plan,
 )
 from app.api.v1.endpoints.student.lab_queries import list_student_labs
 from app.api.v1.endpoints.student.notifications import list_student_announcements
@@ -82,6 +83,7 @@ async def resolve_current_attestation(
                 "grade": "-",
                 "is_passing": False,
                 "error": "Для расчёта аттестации нужно выбрать предмет",
+                "lab_progress_plan": await resolve_student_lab_progress_plan(db, current_user),
             }
 
     preferred = await calculate_student_attestation_response(

@@ -22,6 +22,9 @@ export * from './activities';
 // Student
 export * from './student';
 
+// Subjects
+export * from './subjects';
+
 // Schedule
 export * from './schedule';
 

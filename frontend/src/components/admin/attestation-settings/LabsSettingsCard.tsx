@@ -11,7 +11,8 @@ interface LabsSettingsCardProps {
   form: AttestationFormState;
   attestationType: 'first' | 'second';
   totalLabsCount: number;
-  derivedSecondLabsCount: number;
+  secondTotalLabsCount: number;
+  automaticExtraLabsCount: number;
   onUpdate: <K extends keyof AttestationFormState>(key: K, value: AttestationFormState[K]) => void;
 }
 
@@ -19,7 +20,8 @@ export function LabsSettingsCard({
   form,
   attestationType,
   totalLabsCount,
-  derivedSecondLabsCount,
+  secondTotalLabsCount,
+  automaticExtraLabsCount,
   onUpdate,
 }: LabsSettingsCardProps) {
   return (
@@ -43,7 +45,7 @@ export function LabsSettingsCard({
             <Label>Всего лаб в семестре</Label>
             <Input type="number" value={totalLabsCount} readOnly className="bg-muted" />
             <p className="mt-1 text-xs text-muted-foreground">
-              Общее количество задаётся в разделе «Лабораторные».
+              Значение приходит из глобальных настроек лабораторных.
             </p>
           </div>
         </div>
@@ -67,14 +69,36 @@ export function LabsSettingsCard({
           </div>
           <div>
             <Label>Доп. лаб ко 2-й атт.</Label>
-            <Input type="number" value={derivedSecondLabsCount} readOnly className="bg-muted" />
+            <Input
+              type="number"
+              value={form.labs_count_second}
+              onChange={e => onUpdate('labs_count_second', +e.target.value)}
+              min={0}
+              max={Math.max(totalLabsCount - form.labs_count_first, 0)}
+              readOnly={attestationType === 'first'}
+              className={attestationType === 'first' ? 'bg-muted' : undefined}
+            />
+            {attestationType === 'first' && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Доп. лабы ко 2-й аттестации редактируются на вкладке «2-я аттестация».
+              </p>
+            )}
           </div>
         </div>
-        {attestationType === 'second' && (
-          <p className="text-xs text-muted-foreground">
-            2-я аттестация суммарно требует {totalLabsCount} лаб: {form.labs_count_first} к 1-й аттестации и {derivedSecondLabsCount} после неё.
-          </p>
-        )}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <Label>Суммарно ко 2-й атт.</Label>
+            <Input type="number" value={secondTotalLabsCount} readOnly className="bg-muted" />
+          </div>
+          <div>
+            <Label>Ещё для автомата</Label>
+            <Input type="number" value={automaticExtraLabsCount} readOnly className="bg-muted" />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Сейчас логика такая: {form.labs_count_first} к 1-й аттестации, ещё {form.labs_count_second} ко 2-й,
+          суммарно {secondTotalLabsCount}. Для автомата нужно добрать ещё {automaticExtraLabsCount} из общего total {totalLabsCount}.
+        </p>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Коэф. оценки 4</Label>
