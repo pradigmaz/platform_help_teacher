@@ -1,22 +1,25 @@
 """Unified write-path for journal grades and submission projection."""
 
 import logging
-from collections.abc import Iterable
 from uuid import UUID
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.crud_lesson_grade import get_student_grade_by_work
-from app.models import Lesson, LessonGrade, User
-from app.models.schedule import LessonType
-from app.services.attestation.deadline_validator import get_max_allowed_grade, validate_grade_for_max
+from app.models import Lesson, LessonGrade
+from app.services.journal_grade_cell_resolution import GradeCellResolutionConflict, select_grade_for_work
+from app.services.journal_grade_rules import (
+    SUBMISSION_SYNC_TYPES,
+    JournalGradeRuleError,
+    resolve_work_number,
+    validate_grade_limits,
+    validate_lesson_write,
+    validate_student_membership,
+)
 from app.services.submission_journal_sync import journal_sync
 
 logger = logging.getLogger(__name__)
-
-_WORK_NUMBER_REQUIRED_TYPES = {LessonType.LAB, LessonType.PRACTICE}
-_SUBMISSION_SYNC_TYPES = {LessonType.LAB, LessonType.PRACTICE}
 
 
 class JournalGradeValidationError(ValueError):
@@ -51,11 +54,15 @@ class JournalGradeWriteService:
         sync_submission: bool = True,
         submission_history: bool = True,
     ) -> LessonGrade:
-        resolved_work_number = self._resolve_work_number(lesson, work_number)
+        try:
+            resolved_work_number = resolve_work_number(lesson, work_number)
+        except JournalGradeRuleError as exc:
+            raise JournalGradeValidationError(str(exc)) from exc
         cell_grades = await self.list_cell_grades(db, lesson.id, student_id)
-        if len(cell_grades) > 1:
-            raise JournalGradeConflictError(self._conflict_message(lesson.id, student_id, cell_grades))
-        existing = cell_grades[0] if cell_grades else None
+        try:
+            existing = select_grade_for_work(lesson.id, student_id, cell_grades, resolved_work_number)
+        except GradeCellResolutionConflict as exc:
+            raise JournalGradeConflictError(str(exc)) from exc
         if (
             existing is not None
             and existing.work_number is not None
@@ -100,8 +107,10 @@ class JournalGradeWriteService:
             raise JournalGradeValidationError("Занятие для оценки не найдено")
 
         cell_grades = await self.list_cell_grades(db, lesson.id, existing.student_id)
-        if len(cell_grades) > 1:
-            raise JournalGradeConflictError(self._conflict_message(lesson.id, existing.student_id, cell_grades))
+        try:
+            select_grade_for_work(lesson.id, existing.student_id, cell_grades, existing.work_number)
+        except GradeCellResolutionConflict as exc:
+            raise JournalGradeConflictError(str(exc)) from exc
 
         return await self._write_grade(
             db,
@@ -117,7 +126,6 @@ class JournalGradeWriteService:
         )
 
     async def update_grade(self, *args, **kwargs) -> LessonGrade:
-        """Backward-compatible alias for replace_grade()."""
         return await self.replace_grade(*args, **kwargs)
 
     async def delete_grade(
@@ -130,7 +138,7 @@ class JournalGradeWriteService:
     ) -> None:
         lesson = grade.lesson or await db.get(Lesson, grade.lesson_id)
 
-        if lesson and grade.work_number is not None and lesson.lesson_type in _SUBMISSION_SYNC_TYPES:
+        if lesson and grade.work_number is not None and lesson.lesson_type in SUBMISSION_SYNC_TYPES:
             await journal_sync.rollback_from_journal(
                 db,
                 student_id=grade.student_id,
@@ -158,11 +166,13 @@ class JournalGradeWriteService:
         sync_submission: bool,
         submission_history: bool,
     ) -> LessonGrade:
-        self._validate_lesson_write(lesson)
-        await self._validate_student_membership(db, lesson, student_id)
-
-        resolved_work_number = self._resolve_work_number(lesson, work_number)
-        await self._validate_grade_limits(db, lesson, student_id, resolved_work_number, grade)
+        try:
+            validate_lesson_write(lesson)
+            await validate_student_membership(db, lesson, student_id)
+            resolved_work_number = resolve_work_number(lesson, work_number)
+            await validate_grade_limits(db, lesson, student_id, resolved_work_number, grade)
+        except JournalGradeRuleError as exc:
+            raise JournalGradeValidationError(str(exc)) from exc
 
         previous_work_number = existing.work_number if existing else None
         merge_target = await self._find_merge_target(
@@ -205,7 +215,7 @@ class JournalGradeWriteService:
 
         await db.flush()
 
-        if sync_submission and lesson.lesson_type in _SUBMISSION_SYNC_TYPES and resolved_work_number is not None:
+        if sync_submission and lesson.lesson_type in SUBMISSION_SYNC_TYPES and resolved_work_number is not None:
             await journal_sync.sync_from_journal(
                 db,
                 student_id=student_id,
@@ -248,7 +258,9 @@ class JournalGradeWriteService:
         comment: str | None,
         actor_id: UUID,
     ) -> LessonGrade:
-        if merge_target is not None and merge_target.id != existing.id and merge_target.lesson_id != lesson.id:
+        if merge_target is not None and merge_target.id != existing.id:
+            if merge_target.lesson_id == lesson.id:
+                raise JournalGradeConflictError("На этой паре уже есть оценка за выбранную работу")
             merge_target.lesson_id = lesson.id
             merge_target.grade = grade
             merge_target.work_number = work_number
@@ -283,51 +295,5 @@ class JournalGradeWriteService:
             exclude_grade_id=exclude_grade_id,
         )
 
-    async def _validate_grade_limits(
-        self,
-        db: AsyncSession,
-        lesson: Lesson,
-        student_id: UUID,
-        work_number: int | None,
-        grade: int,
-    ) -> None:
-        max_allowed = await get_max_allowed_grade(db, lesson, student_id=student_id, work_number=work_number)
-        validate_grade_for_max(grade, max_allowed)
-
-    async def _validate_student_membership(self, db: AsyncSession, lesson: Lesson, student_id: UUID) -> None:
-        student = await db.get(User, student_id)
-        if not student:
-            raise JournalGradeValidationError("Студент не найден")
-        if student.group_id != lesson.group_id:
-            raise JournalGradeValidationError(f"Student {student_id} not in group {lesson.group_id}")
-        if lesson.subgroup is not None and student.subgroup != lesson.subgroup:
-            raise JournalGradeValidationError(f"Student {student_id} not in subgroup {lesson.subgroup}")
-
-    def _validate_lesson_write(self, lesson: Lesson) -> None:
-        if lesson.is_cancelled:
-            raise JournalGradeValidationError("Нельзя выставлять оценки в отменённом занятии")
-
-    def _resolve_work_number(self, lesson: Lesson, work_number: int | None) -> int | None:
-        if lesson.lesson_type not in _WORK_NUMBER_REQUIRED_TYPES:
-            return work_number
-
-        resolved_work_number = work_number if work_number is not None else lesson.work_number
-        if resolved_work_number is None:
-            raise JournalGradeValidationError("Для lab/practice номер работы обязателен")
-        return resolved_work_number
-
-    def _conflict_message(self, lesson_id: UUID, student_id: UUID, grades: Iterable[LessonGrade]) -> str:
-        return (
-            f"Конфликт legacy-данных: у студента {student_id} уже {len(list(grades))} оценок "
-            f"на занятии {lesson_id}. Сначала разрешите конфликт."
-        )
-
 
 journal_grade_service = JournalGradeWriteService()
-
-__all__ = [
-    "JournalGradeConflictError",
-    "JournalGradeValidationError",
-    "JournalGradeWriteService",
-    "journal_grade_service",
-]

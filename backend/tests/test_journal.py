@@ -22,7 +22,11 @@ from app.schemas.lesson_grade import (
 )
 from app.schemas.schedule import GroupedLectureSheetSaveItem, GroupedLectureSheetSaveRequest, LessonSheetSaveRequest
 from app.services.grade_cell_summary import summarize_lesson_grade_cell
-from app.services.journal_grade_service import JournalGradeValidationError, JournalGradeWriteService
+from app.services.journal_grade_service import (
+    JournalGradeConflictError,
+    JournalGradeValidationError,
+    JournalGradeWriteService,
+)
 from app.services.lesson_sheet_service import LessonSheetService
 
 
@@ -220,8 +224,8 @@ class TestJournalGradeWriteService:
     """Тесты канонического write-path для оценок."""
 
     @pytest.mark.asyncio
-    async def test_upsert_rejects_second_work_on_same_lesson(self):
-        """На одной паре нельзя молча заменить работу на другую."""
+    async def test_upsert_adds_distinct_work_on_same_lesson(self):
+        """Разные work_number на одной паре адресуются как multi-grade ячейка."""
         service = JournalGradeWriteService()
         lesson = Lesson(
             id=uuid4(),
@@ -244,13 +248,100 @@ class TestJournalGradeWriteService:
         )
         db = AsyncMock()
         service.list_cell_grades = AsyncMock(return_value=[existing])
+        service._write_grade = AsyncMock(return_value=existing)
 
-        with pytest.raises(JournalGradeValidationError, match="Вторая работа на одной паре запрещена"):
+        await service.upsert_grade(
+            db=db,
+            lesson=lesson,
+            student_id=existing.student_id,
+            grade=4,
+            work_number=2,
+            comment=None,
+            actor_id=uuid4(),
+        )
+
+        assert service._write_grade.await_args.kwargs["existing"] is None
+        assert service._write_grade.await_args.kwargs["work_number"] == 2
+
+    @pytest.mark.asyncio
+    async def test_upsert_updates_matching_work_in_multi_grade_cell(self):
+        service = JournalGradeWriteService()
+        lesson = Lesson(
+            id=uuid4(),
+            group_id=uuid4(),
+            subject_id=uuid4(),
+            date=date.today(),
+            lesson_number=1,
+            lesson_type=LessonType.LAB,
+            work_number=1,
+            is_cancelled=False,
+        )
+        student_id = uuid4()
+        first = LessonGrade(id=uuid4(), lesson_id=lesson.id, student_id=student_id, work_number=1, grade=5)
+        second = LessonGrade(id=uuid4(), lesson_id=lesson.id, student_id=student_id, work_number=2, grade=4)
+        db = AsyncMock()
+        service.list_cell_grades = AsyncMock(return_value=[first, second])
+        service._write_grade = AsyncMock(return_value=second)
+
+        await service.upsert_grade(
+            db=db,
+            lesson=lesson,
+            student_id=student_id,
+            grade=5,
+            work_number=2,
+            comment=None,
+            actor_id=uuid4(),
+        )
+
+        assert service._write_grade.await_args.kwargs["existing"] is second
+
+    @pytest.mark.asyncio
+    async def test_upsert_rejects_duplicate_work_number_conflict(self):
+        service = JournalGradeWriteService()
+        lesson = Lesson(
+            id=uuid4(),
+            group_id=uuid4(),
+            subject_id=uuid4(),
+            date=date.today(),
+            lesson_number=1,
+            lesson_type=LessonType.LAB,
+            work_number=2,
+            is_cancelled=False,
+        )
+        student_id = uuid4()
+        grades = [
+            LessonGrade(id=uuid4(), lesson_id=lesson.id, student_id=student_id, work_number=2, grade=4),
+            LessonGrade(id=uuid4(), lesson_id=lesson.id, student_id=student_id, work_number=2, grade=5),
+        ]
+        db = AsyncMock()
+        service.list_cell_grades = AsyncMock(return_value=grades)
+
+        with pytest.raises(JournalGradeConflictError, match="Конфликт legacy-данных"):
             await service.upsert_grade(
                 db=db,
                 lesson=lesson,
-                student_id=existing.student_id,
-                grade=4,
+                student_id=student_id,
+                grade=5,
+                work_number=2,
+                comment=None,
+                actor_id=uuid4(),
+            )
+
+    @pytest.mark.asyncio
+    async def test_replace_rejects_same_lesson_work_number_collision(self):
+        service = JournalGradeWriteService()
+        lesson = Lesson(id=uuid4(), group_id=uuid4(), subject_id=uuid4())
+        student_id = uuid4()
+        first = LessonGrade(id=uuid4(), lesson_id=lesson.id, student_id=student_id, work_number=1, grade=5)
+        second = LessonGrade(id=uuid4(), lesson_id=lesson.id, student_id=student_id, work_number=2, grade=4)
+
+        with pytest.raises(JournalGradeConflictError, match="уже есть оценка"):
+            await service._replace_existing(
+                AsyncMock(),
+                lesson=lesson,
+                existing=first,
+                merge_target=second,
+                grade=5,
                 work_number=2,
                 comment=None,
                 actor_id=uuid4(),

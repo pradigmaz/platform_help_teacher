@@ -54,7 +54,7 @@ async def test_upsert_grade_syncs_submission_on_canonical_write(mock_db):
     mock_db.execute = AsyncMock(return_value=empty_result())
 
     with (
-        patch("app.services.journal_grade_service.get_max_allowed_grade", new=AsyncMock(return_value=5)),
+        patch("app.services.journal_grade_rules.get_max_allowed_grade", new=AsyncMock(return_value=5)),
         patch("app.services.journal_grade_service.get_student_grade_by_work", new=AsyncMock(return_value=None)),
         patch("app.services.journal_grade_service.journal_sync.sync_from_journal", new=AsyncMock()) as sync_mock,
     ):

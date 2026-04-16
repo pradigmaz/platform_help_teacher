@@ -64,16 +64,17 @@ class TestGradeBoundaries:
 # ============== Weights Validation Tests ==============
 
 class TestWeightsValidation:
-    """Тесты валидации суммы весов = 100%."""
+    """Тесты валидации суммы базовых весов = 100%."""
 
     def test_valid_weights_sum_100(self):
         """Тест валидных весов (сумма = 100%)."""
         settings = AttestationSettingsBase(
             labs_weight=70.0,
-            attendance_weight=20.0,
+            attendance_weight=30.0,
             activity_reserve=10.0
         )
-        assert settings.labs_weight + settings.attendance_weight + settings.activity_reserve == 100.0
+        assert settings.labs_weight + settings.attendance_weight == 100.0
+        assert settings.activity_reserve == 10.0
 
     def test_invalid_weights_sum_less_than_100(self):
         """Тест невалидных весов (сумма < 100%)."""
@@ -88,7 +89,7 @@ class TestWeightsValidation:
         """Тест невалидных весов (сумма > 100%)."""
         with pytest.raises(ValidationError, match="100%"):
             AttestationSettingsBase(
-                labs_weight=70.0,
+                labs_weight=80.0,
                 attendance_weight=30.0,
                 activity_reserve=10.0
             )
@@ -98,10 +99,10 @@ class TestWeightsValidation:
         # Должно пройти из-за tolerance 0.01
         settings = AttestationSettingsBase(
             labs_weight=69.995,
-            attendance_weight=20.0,
+            attendance_weight=30.0,
             activity_reserve=10.0
         )
-        total = settings.labs_weight + settings.attendance_weight + settings.activity_reserve
+        total = settings.labs_weight + settings.attendance_weight
         assert abs(total - 100.0) < 0.01
 
     def test_model_validate_weights(self):
@@ -109,7 +110,7 @@ class TestWeightsValidation:
         att_settings = AttestationSettings(
             attestation_type=AttestationType.FIRST,
             labs_weight=70.0,
-            attendance_weight=20.0,
+            attendance_weight=30.0,
             activity_reserve=10.0
         )
         assert att_settings.validate_weights() is True
@@ -490,7 +491,7 @@ class TestSecurityChecklist:
         """Тест что валидация весов существует."""
         with pytest.raises(ValidationError):
             AttestationSettingsBase(
-                labs_weight=50.0,
+                labs_weight=75.0,
                 attendance_weight=50.0,
                 activity_reserve=50.0  # Сумма 150%
             )
