@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import { Users, BookOpen, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useJournalData, AttestationPeriod, SemesterInfo } from './hooks/useJournalData';
+import { useJournalSheetRecovery } from './hooks/useJournalSheetRecovery';
 import { LessonSheet } from '@/components/schedule';
 import { ExportDialog } from '@/components/journal';
 import { NotesProvider } from '@/components/notes';
@@ -61,6 +63,23 @@ function JournalPageContent() {
     updateGrade,
     refreshJournalData,
   } = useJournalData({ lessonIdParam });
+  const { restoredDraft, clearRestoredDraft } = useJournalSheetRecovery({
+    lessons,
+    isLoading,
+    selectedGroupId,
+    setSelectedGroupId,
+    selectedSubjectId,
+    setSelectedSubjectId,
+    selectedLessonType,
+    setSelectedLessonType,
+    currentWeek,
+    setCurrentWeek,
+    attestationPeriod,
+    setAttestationPeriod,
+    selectedSemester,
+    setSelectedSemester,
+    setSelectedLesson,
+  });
 
   // Generate semester options (current year and previous)
   const now = new Date();
@@ -91,6 +110,8 @@ function JournalPageContent() {
     attestationPeriod !== 'all' &&
     selectedSubjectId !== 'all' &&
     isCurrentSemesterSelected;
+  const activeLessonDraft =
+    restoredDraft && selectedLesson?.id === restoredDraft.lessonId ? restoredDraft : null;
 
   return (
     <div className="space-y-6">
@@ -217,13 +238,29 @@ function JournalPageContent() {
           group_name: groups.find(g => g.id === selectedGroupId)?.name
         } : null}
         isOpen={!!selectedLesson}
-        onClose={() => setSelectedLesson(null)}
+        onClose={() => {
+          if (activeLessonDraft) {
+            clearRestoredDraft();
+          }
+          setSelectedLesson(null);
+        }}
         onSave={async (savedSheet) => {
           if (savedSheet) {
             await refreshJournalData();
           }
+          clearRestoredDraft();
           setSelectedLesson(null);
         }}
+        draftContext={{
+          route: 'journal',
+          weekStartIso: format(currentWeek, 'yyyy-MM-dd'),
+          groupId: selectedGroupId,
+          subjectId: selectedSubjectId,
+          lessonType: selectedLessonType,
+          attestationPeriod,
+          semester: selectedSemester,
+        }}
+        restoredDraft={activeLessonDraft}
       />
 
       {/* Export Dialog */}

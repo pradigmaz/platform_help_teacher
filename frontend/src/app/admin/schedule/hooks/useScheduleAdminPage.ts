@@ -6,12 +6,27 @@ import api, { ScheduleAPI } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
 import { useNotesActionsContext } from '@/components/notes';
 import type { GroupedLecture, LessonSheetData } from '@/components/schedule';
+import {
+  clearSheetDraft,
+  consumeSheetRecoveryPending,
+  readSheetDraft,
+} from '@/components/schedule/hooks/sheetDraftStorage';
+import { getGroupedLectureKey, type RestoredSheetDraft } from '@/components/schedule/hooks/sheetDraftTypes';
 import type { LessonData } from '../components';
 import type { ScheduleConflict } from '../components/ConflictResolver';
 
 function getInitialWeek(): Date {
   const today = new Date();
   return getDay(today) === 0 ? addWeeks(today, 1) : today;
+}
+
+function getInitialRecoveredDraft(): RestoredSheetDraft | null {
+  if (!consumeSheetRecoveryPending()) {
+    return null;
+  }
+
+  const draft = readSheetDraft();
+  return draft?.context.route === 'schedule' ? draft : null;
 }
 
 export function useScheduleAdminPage() {
@@ -25,11 +40,13 @@ export function useScheduleAdminPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<LessonSheetData | null>(null);
   const [selectedLecture, setSelectedLecture] = useState<GroupedLecture | null>(null);
+  const [restoredDraft, setRestoredDraft] = useState<RestoredSheetDraft | null>(getInitialRecoveredDraft);
   const [isParserOpen, setIsParserOpen] = useState(false);
   const [isAutoParserOpen, setIsAutoParserOpen] = useState(false);
   const [isConflictsOpen, setIsConflictsOpen] = useState(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const lastParseRunningRef = useRef(false);
+  const recoveryHandledRef = useRef(restoredDraft === null);
 
   const weekStart = useMemo(() => startOfWeek(currentWeek, { weekStartsOn: 1 }), [currentWeek]);
   const weekEnd = useMemo(() => addDays(weekStart, 5), [weekStart]);
@@ -43,6 +60,12 @@ export function useScheduleAdminPage() {
     [groupedLectures, lessons]
   );
   const noteLessonIdsKey = noteLessonIds.join('|');
+
+  const clearRestoredDraft = useCallback(() => {
+    clearSheetDraft();
+    setRestoredDraft(null);
+    recoveryHandledRef.current = true;
+  }, []);
 
   const loadScheduleView = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -120,6 +143,44 @@ export function useScheduleAdminPage() {
   }, [loadScheduleView]);
 
   useEffect(() => {
+    if (!restoredDraft || recoveryHandledRef.current) {
+      return;
+    }
+
+    if (restoredDraft.context.weekStartIso !== weekStartIso) {
+      setCurrentWeek(new Date(`${restoredDraft.context.weekStartIso}T00:00:00`));
+      return;
+    }
+
+    if (isLoading) {
+      return;
+    }
+
+    if (restoredDraft.kind === 'lesson') {
+      const lesson = lessons.find((item) => item.id === restoredDraft.lessonId);
+      if (lesson) {
+        recoveryHandledRef.current = true;
+        setSelectedLesson(lesson as LessonSheetData);
+        toast.warning('Сессия истекла во время сохранения. Черновик восстановлен, сохраните ещё раз.');
+        return;
+      }
+    } else {
+      const lecture = groupedLectures.find(
+        (item) => getGroupedLectureKey(item) === restoredDraft.lectureKey
+      );
+      if (lecture) {
+        recoveryHandledRef.current = true;
+        setSelectedLecture(lecture);
+        toast.warning('Сессия истекла во время сохранения. Черновик восстановлен, сохраните ещё раз.');
+        return;
+      }
+    }
+
+    toast.error('Черновик найден, но нужная карточка в расписании больше не найдена.');
+    queueMicrotask(clearRestoredDraft);
+  }, [clearRestoredDraft, groupedLectures, isLoading, lessons, restoredDraft, weekStartIso]);
+
+  useEffect(() => {
     if (!isParsing) {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
@@ -178,11 +239,14 @@ export function useScheduleAdminPage() {
     setIsParsing,
     currentWeek,
     setCurrentWeek,
+    weekStartIso,
     lastUpdated,
     selectedLesson,
     setSelectedLesson,
     selectedLecture,
     setSelectedLecture,
+    restoredDraft,
+    clearRestoredDraft,
     isParserOpen,
     setIsParserOpen,
     isAutoParserOpen,

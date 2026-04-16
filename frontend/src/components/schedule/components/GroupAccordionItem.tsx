@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NoteButton } from '@/components/notes';
 import type { Student, AttendanceStatus, LectureGroup } from '../types';
-import { ATTENDANCE_CONFIG } from '../constants';
+import { AttendanceControl } from './AttendanceControl';
 
 interface GroupAccordionItemProps {
   group: LectureGroup;
@@ -14,7 +14,7 @@ interface GroupAccordionItemProps {
   isExpanded: boolean;
   isLoading: boolean;
   onToggle: () => void;
-  onAttendanceClick: (studentId: string) => void;
+  onAttendanceChange: (studentId: string, status: AttendanceStatus | null) => void;
 }
 
 export function GroupAccordionItem({
@@ -24,7 +24,7 @@ export function GroupAccordionItem({
   isExpanded,
   isLoading,
   onToggle,
-  onAttendanceClick,
+  onAttendanceChange,
 }: GroupAccordionItemProps) {
   const presentCount = Object.values(attendance).filter(s => s === 'PRESENT' || s === 'LATE').length;
   const totalMarked = Object.values(attendance).filter(Boolean).length;
@@ -59,7 +59,7 @@ export function GroupAccordionItem({
       <CollapsibleContent>
         <div className="border rounded-lg overflow-hidden mx-2 mb-2">
           {/* Table header */}
-          <div className="grid grid-cols-[32px_1fr_32px_40px] gap-2 px-3 py-2 bg-muted text-[10px] font-medium text-muted-foreground uppercase">
+          <div className="grid grid-cols-[32px_1fr_32px_40px] gap-2 px-2 py-2 bg-muted text-[10px] font-medium text-muted-foreground uppercase">
             <span>#</span>
             <span>ФИО</span>
             <span></span>
@@ -78,34 +78,21 @@ export function GroupAccordionItem({
               </div>
             ) : (
               students.map((student, idx) => {
-                const att = attendance[student.id];
-                const attConfig = att ? ATTENDANCE_CONFIG[att] : null;
-                const AttIcon = attConfig?.icon;
-
                 return (
                   <div
                     key={student.id}
                     className={cn(
-                      'grid grid-cols-[32px_1fr_32px_40px] gap-2 px-3 py-2 items-center text-sm',
+                      'grid grid-cols-[32px_1fr_32px_40px] gap-2 px-2 py-2 items-center text-sm',
                       idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'
                     )}
                   >
                     <span className="text-muted-foreground text-xs">{idx + 1}</span>
                     <span className="truncate" title={student.full_name}>{student.full_name}</span>
                     <NoteButton entityType="student" entityId={student.id} size="sm" />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAttendanceClick(student.id);
-                      }}
-                      className={cn(
-                        'h-7 w-7 rounded-full flex items-center justify-center transition-all hover:scale-110 mx-auto',
-                        attConfig ? `${attConfig.color} ${attConfig.bg}` : 'text-muted-foreground/50 hover:bg-muted'
-                      )}
-                      title={attConfig?.label || 'Не отмечено'}
-                    >
-                      {AttIcon ? <AttIcon className="h-4 w-4" /> : <span>—</span>}
-                    </button>
+                    <AttendanceControl
+                      status={attendance[student.id] ?? null}
+                      onStatusChange={(status) => onAttendanceChange(student.id, status)}
+                    />
                   </div>
                 );
               })

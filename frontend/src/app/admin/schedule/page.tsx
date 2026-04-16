@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { LessonSheet, LectureSheet, type LessonSheetData } from '@/components/schedule';
+import { getGroupedLectureKey } from '@/components/schedule/hooks/sheetDraftTypes';
 import { NotesProvider } from '@/components/notes';
 import { 
   WeekNavigation, 
@@ -27,11 +28,14 @@ function SchedulePageContent() {
     setIsParsing,
     currentWeek,
     setCurrentWeek,
+    weekStartIso,
     lastUpdated,
     selectedLesson,
     setSelectedLesson,
     selectedLecture,
     setSelectedLecture,
+    restoredDraft,
+    clearRestoredDraft,
     isParserOpen,
     setIsParserOpen,
     isAutoParserOpen,
@@ -41,6 +45,23 @@ function SchedulePageContent() {
     loadScheduleView,
     handleLessonAction,
   } = useScheduleAdminPage();
+
+  const restoredLessonDraft =
+    restoredDraft?.kind === 'lesson' && restoredDraft.context.route === 'schedule'
+      ? restoredDraft
+      : null;
+  const restoredLectureDraft =
+    restoredDraft?.kind === 'lecture' && restoredDraft.context.route === 'schedule'
+      ? restoredDraft
+      : null;
+  const activeLessonDraft =
+    restoredLessonDraft && selectedLesson?.id === restoredLessonDraft.lessonId ? restoredLessonDraft : null;
+  const activeLectureDraft =
+    restoredLectureDraft &&
+    selectedLecture &&
+    getGroupedLectureKey(selectedLecture) === restoredLectureDraft.lectureKey
+      ? restoredLectureDraft
+      : null;
 
   return (
     <div className="space-y-6">
@@ -136,22 +157,38 @@ function SchedulePageContent() {
       <LessonSheet
         lesson={selectedLesson}
         isOpen={!!selectedLesson}
-        onClose={() => setSelectedLesson(null)}
-        onSave={() => {
-          void loadScheduleView();
+        onClose={() => {
+          if (activeLessonDraft) {
+            clearRestoredDraft();
+          }
           setSelectedLesson(null);
         }}
+        onSave={() => {
+          void loadScheduleView();
+          clearRestoredDraft();
+          setSelectedLesson(null);
+        }}
+        draftContext={{ route: 'schedule', weekStartIso }}
+        restoredDraft={activeLessonDraft}
       />
 
       {/* Lecture Sheet (grouped) */}
       <LectureSheet
         lecture={selectedLecture}
         isOpen={!!selectedLecture}
-        onClose={() => setSelectedLecture(null)}
-        onSave={() => {
-          void loadScheduleView();
+        onClose={() => {
+          if (activeLectureDraft) {
+            clearRestoredDraft();
+          }
           setSelectedLecture(null);
         }}
+        onSave={() => {
+          void loadScheduleView();
+          clearRestoredDraft();
+          setSelectedLecture(null);
+        }}
+        draftContext={{ route: 'schedule', weekStartIso }}
+        restoredDraft={activeLectureDraft}
       />
     </div>
   );

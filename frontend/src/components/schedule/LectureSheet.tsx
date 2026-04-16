@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import type { GroupedLecture, LessonStatus } from './types';
 import { useLectureData } from './hooks/useLectureData';
+import { getGroupedLectureKey, type RestoredLectureDraft, type ScheduleDraftContext } from './hooks/sheetDraftTypes';
 import { LectureSheetHeader } from './components/LectureSheetHeader';
 import { LessonStatus as LessonStatusComponent } from './components/LessonStatus';
 import { GroupAccordionItem } from './components/GroupAccordionItem';
@@ -16,7 +17,11 @@ interface LectureSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: (status?: LessonStatus) => void;
+  draftContext: ScheduleDraftContext;
+  restoredDraft?: RestoredLectureDraft | null;
 }
+
+const DEFAULT_SHEET_WIDTH = 620;
 
 function getInitialStatus(lecture: GroupedLecture | null): LessonStatus {
   if (!lecture) return 'normal';
@@ -25,11 +30,18 @@ function getInitialStatus(lecture: GroupedLecture | null): LessonStatus {
   return 'normal';
 }
 
-export function LectureSheet({ lecture, isOpen, onClose, onSave }: LectureSheetProps) {
+export function LectureSheet({
+  lecture,
+  isOpen,
+  onClose,
+  onSave,
+  draftContext,
+  restoredDraft = null,
+}: LectureSheetProps) {
   const [status, setStatus] = useState<LessonStatus>(() => getInitialStatus(lecture));
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [width, setWidth] = useState(450);
+  const [width, setWidth] = useState(DEFAULT_SHEET_WIDTH);
   const isResizing = useRef(false);
 
   // Resize handlers
@@ -63,28 +75,32 @@ export function LectureSheet({ lecture, isOpen, onClose, onSave }: LectureSheetP
 
   // Reset status when lecture changes
   useEffect(() => {
-    setStatus(getInitialStatus(lecture));
-    setHasChanges(false);
-  }, [lecture]);
+    const nextStatus =
+      restoredDraft && lecture && restoredDraft.lectureKey === getGroupedLectureKey(lecture)
+        ? restoredDraft.status
+        : getInitialStatus(lecture);
+    setStatus(nextStatus);
+    setHasChanges(Boolean(restoredDraft));
+  }, [lecture, restoredDraft]);
 
   const {
     groupsData,
     expandedGroups,
     toggleGroup,
-    cycleAttendance,
+    setAttendanceStatus,
     saveLectureSheet,
     isLoading,
-  } = useLectureData({ lecture, isOpen });
+  } = useLectureData({ lecture, isOpen, draftContext, restoredDraft });
 
   const handleStatusChange = (newStatus: LessonStatus) => {
     setStatus(newStatus);
     setHasChanges(true);
   };
 
-  const handleAttendanceClick = useCallback((groupId: string, studentId: string) => {
-    cycleAttendance(groupId, studentId);
+  const handleAttendanceChange = useCallback((groupId: string, studentId: string, nextStatus: import('./types').AttendanceStatus | null) => {
+    setAttendanceStatus(groupId, studentId, nextStatus);
     setHasChanges(true);
-  }, [cycleAttendance]);
+  }, [setAttendanceStatus]);
 
   const handleSave = async () => {
     if (!lecture) return;
@@ -167,15 +183,15 @@ export function LectureSheet({ lecture, isOpen, onClose, onSave }: LectureSheetP
                   <GroupAccordionItem
                     key={group.id}
                     group={group}
-                    students={groupState.students}
-                    attendance={groupState.attendance}
-                    isExpanded={expandedGroups.includes(group.id)}
-                    isLoading={groupState.isLoading}
-                    onToggle={() => toggleGroup(group.id)}
-                    onAttendanceClick={(studentId) => handleAttendanceClick(group.id, studentId)}
-                  />
-                );
-              })}
+                  students={groupState.students}
+                  attendance={groupState.attendance}
+                  isExpanded={expandedGroups.includes(group.id)}
+                  isLoading={groupState.isLoading}
+                  onToggle={() => toggleGroup(group.id)}
+                  onAttendanceChange={(studentId, nextStatus) => handleAttendanceChange(group.id, studentId, nextStatus)}
+                />
+              );
+            })}
           </div>
         </div>
 

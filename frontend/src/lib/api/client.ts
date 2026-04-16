@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 import axiosRetry from 'axios-retry';
 import qs from 'qs';
 import logger from '@/lib/logger';
+import { markSheetRecoveryPending } from '@/components/schedule/hooks/sheetDraftStorage';
 
 // --- Custom Error Class ---
 export class ApiError extends Error {
@@ -209,6 +210,7 @@ api.interceptors.response.use(
       // Не редиректим если уже на странице авторизации
       const isAuthPage = window.location.pathname.startsWith('/auth');
       if (!isAuthPage) {
+        markSheetRecoveryPending();
         // Сохраняем текущий URL для возврата после логина
         const returnUrl = window.location.pathname + window.location.search;
         window.location.href = `/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`;

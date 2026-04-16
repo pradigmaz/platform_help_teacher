@@ -4,7 +4,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import type { Student, GroupedLecture, AttendanceStatus, LessonStatus } from '../types';
-import { ATTENDANCE_CYCLE } from '../constants';
+import { setAttendanceStatusState } from './lessonSheetMutations';
+import { clearSheetDraft, saveLectureSheetDraft } from './sheetDraftStorage';
+import {
+  getGroupedLectureKey,
+  type RestoredLectureDraft,
+  type ScheduleDraftContext,
+} from './sheetDraftTypes';
 
 interface GroupAttendanceState {
   students: Student[];
@@ -16,18 +22,25 @@ interface GroupAttendanceState {
 interface UseLectureDataProps {
   lecture: GroupedLecture | null;
   isOpen: boolean;
+  draftContext: ScheduleDraftContext;
+  restoredDraft?: RestoredLectureDraft | null;
 }
 
 interface UseLectureDataReturn {
   groupsData: Record<string, GroupAttendanceState>;
   expandedGroups: string[];
   toggleGroup: (groupId: string) => void;
-  cycleAttendance: (groupId: string, studentId: string) => void;
+  setAttendanceStatus: (groupId: string, studentId: string, status: AttendanceStatus | null) => void;
   saveLectureSheet: (status: LessonStatus) => Promise<void>;
   isLoading: boolean;
 }
 
-export function useLectureData({ lecture, isOpen }: UseLectureDataProps): UseLectureDataReturn {
+export function useLectureData({
+  lecture,
+  isOpen,
+  draftContext,
+  restoredDraft = null,
+}: UseLectureDataProps): UseLectureDataReturn {
   const [groupsData, setGroupsData] = useState<Record<string, GroupAttendanceState>>({});
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const isLoading = Object.values(groupsData).some((groupState) => groupState.isLoading);
@@ -40,7 +53,11 @@ export function useLectureData({ lecture, isOpen }: UseLectureDataProps): UseLec
     }
   }, [isOpen, lecture?.date, lecture?.lesson_number]);
 
-  const loadGroupData = useCallback(async (groupId: string, lessonId: string) => {
+  const loadGroupData = useCallback(async (
+    groupId: string,
+    lessonId: string,
+    restoredAttendance?: Record<string, AttendanceStatus | null>
+  ) => {
     setGroupsData(prev => ({
       ...prev,
       [groupId]: {
@@ -67,7 +84,12 @@ export function useLectureData({ lecture, isOpen }: UseLectureDataProps): UseLec
 
       setGroupsData(prev => ({
         ...prev,
-        [groupId]: { students, attendance: attMap, initialAttendance: attMap, isLoading: false }
+        [groupId]: {
+          students,
+          attendance: restoredAttendance ? { ...restoredAttendance } : attMap,
+          initialAttendance: attMap,
+          isLoading: false,
+        }
       }));
     } catch (err) {
       console.error('Failed to load group data:', err);
@@ -77,6 +99,22 @@ export function useLectureData({ lecture, isOpen }: UseLectureDataProps): UseLec
       }));
     }
   }, []);
+
+  useEffect(() => {
+    if (!lecture || !isOpen || !restoredDraft) {
+      return;
+    }
+
+    if (restoredDraft.lectureKey !== getGroupedLectureKey(lecture)) {
+      return;
+    }
+
+    void Promise.all(
+      lecture.groups.map((group) =>
+        loadGroupData(group.id, group.lesson_id, restoredDraft.attendanceByGroup[group.id])
+      )
+    );
+  }, [isOpen, lecture, loadGroupData, restoredDraft]);
 
   const toggleGroup = useCallback((groupId: string) => {
     setExpandedGroups(prev => {
@@ -96,42 +134,16 @@ export function useLectureData({ lecture, isOpen }: UseLectureDataProps): UseLec
     });
   }, [groupsData, lecture, loadGroupData]);
 
-  const cycleAttendance = useCallback((groupId: string, studentId: string) => {
+  const setAttendanceStatus = useCallback((groupId: string, studentId: string, nextStatus: AttendanceStatus | null) => {
     setGroupsData(prev => {
       const groupState = prev[groupId];
       if (!groupState) return prev;
-
-      const current = groupState.attendance[studentId] ?? null;
-      if (!current) {
-        return {
-          ...prev,
-          [groupId]: {
-            ...groupState,
-            attendance: { ...groupState.attendance, [studentId]: 'PRESENT' },
-          }
-        };
-      }
-
-      if (current === ATTENDANCE_CYCLE[ATTENDANCE_CYCLE.length - 1]) {
-        const nextAttendance = { ...groupState.attendance };
-        delete nextAttendance[studentId];
-        return {
-          ...prev,
-          [groupId]: {
-            ...groupState,
-            attendance: nextAttendance,
-          }
-        };
-      }
-
-      const idx = ATTENDANCE_CYCLE.indexOf(current);
-      const next = idx >= 0 ? ATTENDANCE_CYCLE[idx + 1] : ATTENDANCE_CYCLE[0];
 
       return {
         ...prev,
         [groupId]: {
           ...groupState,
-          attendance: { ...groupState.attendance, [studentId]: next }
+          attendance: setAttendanceStatusState(groupState.attendance, studentId, nextStatus),
         }
       };
     });
@@ -141,6 +153,16 @@ export function useLectureData({ lecture, isOpen }: UseLectureDataProps): UseLec
     if (!lecture) {
       return;
     }
+
+    saveLectureSheetDraft({
+      kind: 'lecture',
+      context: draftContext,
+      lectureKey: getGroupedLectureKey(lecture),
+      status,
+      attendanceByGroup: Object.fromEntries(
+        lecture.groups.map((group) => [group.id, groupsData[group.id]?.attendance || {}])
+      ),
+    });
 
     const items = lecture.groups.map((group) => {
       const groupState = groupsData[group.id];
@@ -203,13 +225,14 @@ export function useLectureData({ lecture, isOpen }: UseLectureDataProps): UseLec
       }
       return next;
     });
-  }, [groupsData, lecture]);
+    clearSheetDraft();
+  }, [draftContext, groupsData, lecture]);
 
   return {
     groupsData,
     expandedGroups,
     toggleGroup,
-    cycleAttendance,
+    setAttendanceStatus,
     saveLectureSheet,
     isLoading,
   };

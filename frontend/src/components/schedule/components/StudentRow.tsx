@@ -9,7 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { NoteButton } from '@/components/notes';
 import type { Student, AttendanceStatus, StudentGradeData } from '../types';
-import { ATTENDANCE_CONFIG } from '../constants';
+import { AttendanceControl } from './AttendanceControl';
 
 interface StudentRowProps {
   student: Student;
@@ -19,7 +19,7 @@ interface StudentRowProps {
   canHaveGrade: boolean;
   lessonWorkNumber: number | null;
   availableWorkNumbers: number[];
-  onAttendanceClick: () => void;
+  onAttendanceChange: (status: AttendanceStatus | null) => void;
   onGradeClick: (grade: number, workNumber: number | null) => void;
   onWorkNumberChange: (workNumber: number) => void;
 }
@@ -32,12 +32,10 @@ export function StudentRow({
   canHaveGrade,
   lessonWorkNumber,
   availableWorkNumbers,
-  onAttendanceClick,
+  onAttendanceChange,
   onGradeClick,
   onWorkNumberChange,
 }: StudentRowProps) {
-  const attConfig = attendance ? ATTENDANCE_CONFIG[attendance] : null;
-  const AttIcon = attConfig?.icon;
   const grade = gradeData?.grade ?? null;
   const hasGradeConflict = gradeData?.has_conflict === true;
   const gradeConflictCount = hasGradeConflict ? gradeData?.conflict_count ?? 2 : 0;
@@ -52,23 +50,14 @@ export function StudentRow({
   return (
     <div
       className={cn(
-        'grid grid-cols-[32px_1fr_32px_40px_208px] gap-2 px-3 py-2 items-center text-sm group',
+        'grid grid-cols-[32px_1fr_32px_40px_208px] gap-2 px-2 py-2 items-center text-sm group',
         index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
       )}
     >
       <span className="text-muted-foreground text-xs">{index + 1}</span>
       <span className="truncate" title={student.full_name}>{student.full_name}</span>
       <NoteButton entityType="student" entityId={student.id} size="sm" />
-      <button
-        onClick={onAttendanceClick}
-        className={cn(
-          'h-7 w-7 rounded-full flex items-center justify-center transition-all hover:scale-110 mx-auto',
-          attConfig ? `${attConfig.color} ${attConfig.bg}` : 'text-muted-foreground/50'
-        )}
-        title={attConfig?.label || 'Не отмечено'}
-      >
-        {AttIcon ? <AttIcon className="h-4 w-4" /> : <span>—</span>}
-      </button>
+      <AttendanceControl status={attendance} onStatusChange={onAttendanceChange} />
       <div className="flex justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
         {hasGradeConflict ? (
           <div

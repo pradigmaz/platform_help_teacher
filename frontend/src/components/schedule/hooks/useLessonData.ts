@@ -7,13 +7,12 @@ import api from '@/lib/api';
 import type { Student, LessonData, LessonStatus, AttendanceStatus, StudentGradeData, LessonSheetSyncData } from '../types';
 import { canHaveGrade } from '../constants';
 import {
-  cycleAttendanceState,
   updateGradeState,
   updateStudentWorkNumberState,
+  setAttendanceStatusState,
 } from './lessonSheetMutations';
 import {
   buildAttendanceUpdates,
-  buildGradeMap,
   buildGradeUpdates,
   cloneGradeMap,
   extractServerState,
@@ -21,10 +20,15 @@ import {
   type LessonSnapshot,
   type SavedLessonState,
 } from './lessonSheetState';
+import { loadLessonSheetResources } from './lessonSheetQueries';
+import { clearSheetDraft, saveLessonSheetDraft } from './sheetDraftStorage';
+import type { RestoredLessonDraft, SheetDraftContext } from './sheetDraftTypes';
 
 interface UseLessonDataProps {
   lesson: LessonData | null;
   isOpen: boolean;
+  draftContext: SheetDraftContext;
+  restoredDraft?: RestoredLessonDraft | null;
 }
 
 interface UseLessonDataReturn {
@@ -40,14 +44,19 @@ interface UseLessonDataReturn {
   setTopic: (topic: string) => void;
   setWorkNumber: (workNumber: number | null) => void;
   setStatus: (status: LessonStatus) => void;
-  cycleAttendance: (studentId: string) => void;
+  setAttendanceStatus: (studentId: string, status: AttendanceStatus | null) => void;
   setGrade: (studentId: string, grade: number, workNumber: number | null) => void;
   setStudentWorkNumber: (studentId: string, workNumber: number) => void;
   saveAll: () => Promise<LessonSheetSyncData | null>;
   resetChanges: () => void;
 }
 
-export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLessonDataReturn {
+export function useLessonData({
+  lesson,
+  isOpen,
+  draftContext,
+  restoredDraft = null,
+}: UseLessonDataProps): UseLessonDataReturn {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus | null>>({});
   const [grades, setGrades] = useState<Record<string, StudentGradeData>>({});
@@ -100,85 +109,29 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
     setHasChanges(false);
 
     try {
-      if (currentLesson.group_id) {
-        try {
-          const { data: groupData } = await api.get(`/groups/${currentLesson.group_id}`);
-          let studentsList = groupData.students || [];
-          
-          if (currentLesson.subgroup !== null && currentLesson.subgroup !== undefined) {
-            studentsList = studentsList.filter(
-              (s: Student) => s.subgroup === currentLesson.subgroup
-            );
-          }
-          setStudents(studentsList);
-        } catch {
-          console.warn('Could not load group');
-          setStudents([]);
-        }
-      } else {
-        setStudents([]);
-      }
+      const nextResources = await loadLessonSheetResources(currentLesson);
 
-      if (currentLesson.group_id) {
-        try {
-          const { data: attData } = await api.get('/admin/journal/attendance', {
-            params: { group_id: currentLesson.group_id, lesson_ids: [currentLesson.id] }
-          });
-          const attMap: Record<string, AttendanceStatus | null> = {};
-          for (const a of attData) {
-            attMap[a.student_id] = a.status as AttendanceStatus;
-          }
-          setAttendance(attMap);
-          initialAttendanceRef.current = { ...attMap };
-        } catch {
-          setAttendance({});
-          initialAttendanceRef.current = {};
-        }
-      } else {
-        setAttendance({});
-        initialAttendanceRef.current = {};
-      }
+      setStudents(nextResources.students);
+      setAttendance(nextResources.attendance);
+      setGrades(nextResources.grades);
+      setAvailableWorkNumbers(nextResources.availableWorkNumbers);
+      initialAttendanceRef.current = { ...nextResources.attendance };
+      initialGradesRef.current = cloneGradeMap(nextResources.grades);
 
-      try {
-        const { data: gradeData } = await api.get('/admin/journal/grades', {
-          params: { lesson_ids: [currentLesson.id] }
-        });
-        const gradeMap = buildGradeMap(gradeData);
-        setGrades(gradeMap);
-        initialGradesRef.current = cloneGradeMap(gradeMap);
-      } catch {
-        setGrades({});
-        initialGradesRef.current = {};
-      }
-
-      if (currentLesson.subject_id) {
-        try {
-          const { data: labs } = await api.get<Array<{ number: number }>>('/admin/labs', {
-            params: {
-              subject_id: currentLesson.subject_id,
-              limit: 500,
-            },
-          });
-          const workNumbers = Array.from(
-            new Set(
-              labs
-                .map((lab) => lab.number)
-                .filter((number): number is number => Number.isInteger(number) && number > 0)
-            )
-          ).sort((left, right) => left - right);
-          setAvailableWorkNumbers(workNumbers);
-        } catch {
-          setAvailableWorkNumbers([]);
-        }
-      } else {
-        setAvailableWorkNumbers([]);
+      if (restoredDraft?.lessonId === currentLesson.id) {
+        setTopicState(restoredDraft.topic);
+        setWorkNumberState(restoredDraft.workNumber);
+        setStatusState(restoredDraft.status);
+        setAttendance({ ...restoredDraft.attendance });
+        setGrades(cloneGradeMap(restoredDraft.grades));
+        setHasChanges(true);
       }
     } catch (err) {
       console.error('Ошибка загрузки данных занятия', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [restoredDraft]);
 
   useEffect(() => {
     if (lessonSnapshot && isOpen) {
@@ -186,21 +139,12 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
     }
   }, [lessonSnapshot, isOpen, loadData]);
 
-  const setTopic = (value: string) => {
-    setTopicState(value);
-    setHasChanges(true);
-  };
-  const setWorkNumber = (value: number | null) => {
-    setWorkNumberState(value);
-    setHasChanges(true);
-  };
-  const setStatus = (value: LessonStatus) => {
-    setStatusState(value);
-    setHasChanges(true);
-  };
+  const setTopic = (value: string) => { setTopicState(value); setHasChanges(true); };
+  const setWorkNumber = (value: number | null) => { setWorkNumberState(value); setHasChanges(true); };
+  const setStatus = (value: LessonStatus) => { setStatusState(value); setHasChanges(true); };
 
-  const cycleAttendance = (studentId: string) => {
-    setAttendance((prev) => cycleAttendanceState(prev, studentId));
+  const setAttendanceStatus = (studentId: string, nextStatus: AttendanceStatus | null) => {
+    setAttendance((prev) => setAttendanceStatusState(prev, studentId, nextStatus));
     setHasChanges(true);
   };
 
@@ -244,6 +188,17 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
         throw new Error('work_number_required');
       }
 
+      saveLessonSheetDraft({
+        kind: 'lesson',
+        context: draftContext,
+        lessonId: lesson.id,
+        topic,
+        workNumber,
+        status,
+        attendance,
+        grades,
+      });
+
       const { data } = await api.post(`/admin/lessons/${lesson.id}/sheet`, {
         topic,
         lesson_work_number: workNumber,
@@ -275,6 +230,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
       setWorkNumberState(nextState.lesson.work_number ?? null);
       setStatusState(getLessonStatus(nextState.lesson));
       setHasChanges(false);
+      clearSheetDraft();
       return {
         lesson: nextState.lesson,
         attendance: { ...nextState.attendance },
@@ -319,7 +275,7 @@ export function useLessonData({ lesson, isOpen }: UseLessonDataProps): UseLesson
     setTopic,
     setWorkNumber,
     setStatus,
-    cycleAttendance,
+    setAttendanceStatus,
     setGrade,
     setStudentWorkNumber,
     saveAll,

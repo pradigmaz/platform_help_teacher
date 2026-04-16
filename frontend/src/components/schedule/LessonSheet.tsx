@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import type { LessonData, LessonSheetSyncData } from './types';
 import { canHaveGrade } from './constants';
 import { useLessonData } from './hooks/useLessonData';
+import type { RestoredLessonDraft, SheetDraftContext } from './hooks/sheetDraftTypes';
 import { SheetHeader, LessonStatus, LessonTopic, StudentsTable } from './components';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -19,11 +20,22 @@ interface LessonSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: (savedSheet: LessonSheetSyncData | null) => void | Promise<void>;
+  draftContext: SheetDraftContext;
+  restoredDraft?: RestoredLessonDraft | null;
 }
 
-export function LessonSheet({ lesson, isOpen, onClose, onSave }: LessonSheetProps) {
+const DEFAULT_SHEET_WIDTH = 620;
+
+export function LessonSheet({
+  lesson,
+  isOpen,
+  onClose,
+  onSave,
+  draftContext,
+  restoredDraft = null,
+}: LessonSheetProps) {
   const [mounted, setMounted] = useState(false);
-  const [width, setWidth] = useState(450);
+  const [width, setWidth] = useState(DEFAULT_SHEET_WIDTH);
   const isResizing = useRef(false);
 
   useEffect(() => {
@@ -72,11 +84,11 @@ export function LessonSheet({ lesson, isOpen, onClose, onSave }: LessonSheetProp
     setTopic,
     setWorkNumber,
     setStatus,
-    cycleAttendance,
+    setAttendanceStatus,
     setGrade,
     setStudentWorkNumber,
     saveAll,
-  } = useLessonData({ lesson, isOpen });
+  } = useLessonData({ lesson, isOpen, draftContext, restoredDraft });
 
   const handleSave = async () => {
     try {
@@ -143,7 +155,7 @@ export function LessonSheet({ lesson, isOpen, onClose, onSave }: LessonSheetProp
             lessonWorkNumber={workNumber}
             availableWorkNumbers={availableWorkNumbers}
             isLoading={isLoading}
-            onAttendanceClick={cycleAttendance}
+            onAttendanceChange={setAttendanceStatus}
             onGradeClick={setGrade}
             onWorkNumberChange={setStudentWorkNumber}
           />

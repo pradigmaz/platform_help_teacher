@@ -3,25 +3,39 @@
 import type { AttendanceStatus, StudentGradeData } from '../types';
 import { ATTENDANCE_CYCLE } from '../constants';
 
-export const cycleAttendanceState = (
-  currentAttendance: Record<string, AttendanceStatus | null>,
-  studentId: string
-) => {
-  const current = currentAttendance[studentId] ?? null;
+export const getNextAttendanceStatus = (
+  current: AttendanceStatus | null | undefined
+): AttendanceStatus | null => {
   if (!current) {
-    return { ...currentAttendance, [studentId]: 'PRESENT' as const };
+    return 'PRESENT';
   }
 
   if (current === ATTENDANCE_CYCLE[ATTENDANCE_CYCLE.length - 1]) {
+    return null;
+  }
+
+  const idx = ATTENDANCE_CYCLE.indexOf(current);
+  return idx >= 0 ? ATTENDANCE_CYCLE[idx + 1] : ATTENDANCE_CYCLE[0];
+};
+
+export const setAttendanceStatusState = (
+  currentAttendance: Record<string, AttendanceStatus | null>,
+  studentId: string,
+  status: AttendanceStatus | null
+) => {
+  if (!status) {
     const nextAttendance = { ...currentAttendance };
     delete nextAttendance[studentId];
     return nextAttendance;
   }
 
-  const idx = ATTENDANCE_CYCLE.indexOf(current);
-  const next = idx >= 0 ? ATTENDANCE_CYCLE[idx + 1] : ATTENDANCE_CYCLE[0];
-  return { ...currentAttendance, [studentId]: next };
+  return { ...currentAttendance, [studentId]: status };
 };
+
+export const cycleAttendanceState = (
+  currentAttendance: Record<string, AttendanceStatus | null>,
+  studentId: string
+) => setAttendanceStatusState(currentAttendance, studentId, getNextAttendanceStatus(currentAttendance[studentId] ?? null));
 
 export const updateGradeState = (
   currentGrades: Record<string, StudentGradeData>,
