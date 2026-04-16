@@ -18,7 +18,7 @@ export interface AttestationSettings {
   id: string;
   attestation_type: AttestationType;
   
-  // Веса компонентов (сумма = 100%)
+  // Базовые веса (сумма = 100%, активность считается бонусом)
   labs_weight: number;
   attendance_weight: number;
   activity_reserve: number;
@@ -50,6 +50,9 @@ export interface AttestationSettings {
   
   // Активность
   activity_enabled: boolean;
+
+  // Ожидаемое количество занятий
+  expected_lessons_per_week: number;
   
   // Периоды
   period_start_date: string | null;
@@ -88,6 +91,7 @@ export interface AttestationSettingsUpdate {
   colloquium_weight: number;
   colloquium_count: number;
   activity_enabled: boolean;
+  expected_lessons_per_week: number;
   period_start_date?: string | null;
   period_end_date?: string | null;
   semester_start_date?: string | null;

@@ -1,12 +1,4 @@
-"""
-Модель глобальных настроек аттестации.
-Система автобалансировки: веса + количество работ → автоматический расчёт баллов.
-
-Фиксированные константы университета:
-- 1-я аттестация: макс 35 баллов
-- 2-я аттестация: макс 70 баллов (накопительно)
-- Коэффициенты: grade_5 = 1.0 (фикс), grade_2 = 0.0 (фикс)
-"""
+"""Модель глобальных настроек аттестации."""
 
 from datetime import date, timedelta
 from enum import Enum
@@ -43,16 +35,7 @@ class AttestationType(str, Enum):
 
 
 class AttestationSettings(Base, TimestampMixin):
-    """
-    Настройки автобалансировки аттестации.
-
-    Препод задаёт:
-    - Веса компонентов (лабы, посещаемость, резерв активности)
-    - Количество работ для каждой аттестации
-    - Коэффициенты оценок 4 и 3 (5=1.0 и 2=0.0 фиксированы)
-
-    Система автоматически рассчитывает баллы за каждую работу.
-    """
+    """Настройки автобалансировки аттестации."""
 
     __tablename__ = "attestation_settings"
 
@@ -65,9 +48,9 @@ class AttestationSettings(Base, TimestampMixin):
         unique=True,
     )
 
-    # === ВЕСА КОМПОНЕНТОВ (сумма = 100%) ===
+    # === БАЗОВЫЕ ВЕСА (сумма = 100%, без бонусной активности) ===
     labs_weight: Mapped[float] = mapped_column(Float, default=70.0, nullable=False)
-    attendance_weight: Mapped[float] = mapped_column(Float, default=20.0, nullable=False)
+    attendance_weight: Mapped[float] = mapped_column(Float, default=30.0, nullable=False)
     activity_reserve: Mapped[float] = mapped_column(Float, default=10.0, nullable=False)
 
     # === КОЛИЧЕСТВО РАБОТ ===
@@ -83,18 +66,16 @@ class AttestationSettings(Base, TimestampMixin):
     late_coef: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
     absent_coef: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)  # 0 или отрицательный
 
-    # === ОПЦИОНАЛЬНЫЕ КОМПОНЕНТЫ ===
-    # Самостоятельные работы
+    # === ОПЦИОНАЛЬНЫЕ БАЗОВЫЕ КОМПОНЕНТЫ ===
     self_works_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     self_works_weight: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     self_works_count: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
 
-    # Коллоквиум
     colloquium_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     colloquium_weight: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     colloquium_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
-    # === АКТИВНОСТЬ ===
+    # === БОНУСНАЯ АКТИВНОСТЬ ===
     activity_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # === ОЖИДАЕМОЕ КОЛИЧЕСТВО ЗАНЯТИЙ ===
@@ -104,8 +85,6 @@ class AttestationSettings(Base, TimestampMixin):
     period_start_date: Mapped[date | None] = mapped_column(Date, nullable=True, default=None)
     period_end_date: Mapped[date | None] = mapped_column(Date, nullable=True, default=None)
     semester_start_date: Mapped[date | None] = mapped_column(Date, nullable=True, default=None)
-
-    # === МЕТОДЫ РАСЧЁТА ===
 
     def get_grade_coef(self, grade: int) -> float:
         """Коэффициент для оценки (5=1.0, 4=настр., 3=настр., 2=0.0)"""
@@ -138,8 +117,6 @@ class AttestationSettings(Base, TimestampMixin):
     def calculate_work_points(self, grade: int, weight: float, work_count: int) -> float:
         """Баллы за работу = points_per_work * grade_coef"""
         return self.get_points_per_work(weight, work_count) * self.get_grade_coef(grade)
-
-    # === СТАТИЧЕСКИЕ МЕТОДЫ ===
 
     @staticmethod
     def get_max_points(attestation_type: AttestationType) -> int:
@@ -183,8 +160,8 @@ class AttestationSettings(Base, TimestampMixin):
         return {"неуд": (0, 40), "уд": (40, 51), "хор": (51, 61), "отл": (61, 70)}
 
     def validate_weights(self) -> bool:
-        """Проверка суммы весов = 100%"""
-        total = self.labs_weight + self.attendance_weight + self.activity_reserve
+        """Проверка суммы базовых весов = 100% без бонусной активности."""
+        total = self.labs_weight + self.attendance_weight
         if self.self_works_enabled:
             total += self.self_works_weight
         if self.colloquium_enabled:

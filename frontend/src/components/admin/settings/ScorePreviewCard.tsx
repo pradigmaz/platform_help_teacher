@@ -15,7 +15,7 @@ interface ScorePreviewCardProps {
   lateCoef: number;
   absentCoef: number;
   totalWeight: number;
-  exampleLessonsCount?: number; // Примерное кол-во занятий для расчёта
+  expectedLessonsCount: number;
 }
 
 export function ScorePreviewCard({
@@ -29,15 +29,14 @@ export function ScorePreviewCard({
   lateCoef,
   absentCoef,
   totalWeight,
-  exampleLessonsCount = 10,
+  expectedLessonsCount,
 }: ScorePreviewCardProps) {
   const labsMax = maxPoints * (labsWeight / 100);
   const labsPerWork = labsCount > 0 ? labsMax / labsCount : 0;
   const attendanceMax = maxPoints * (attendanceWeight / 100);
   const reserveMax = maxPoints * (activityReserve / 100);
   
-  // Расчёт штрафов за посещаемость (на примере N занятий)
-  const pointsPerLesson = exampleLessonsCount > 0 ? attendanceMax / exampleLessonsCount : 0;
+  const pointsPerLesson = expectedLessonsCount > 0 ? attendanceMax / expectedLessonsCount : 0;
   // absentCoef: 0 = нет штрафа, -0.5 = -50% от присутствия, -1 = -100%
   const absentPenalty = pointsPerLesson * (1 - absentCoef); // За прогул: если coef=0 → теряем 1 балл, если coef=-0.5 → теряем 1.5 балла
   const latePenalty = pointsPerLesson * (1 - lateCoef); // За опоздание теряется часть
@@ -56,10 +55,10 @@ export function ScorePreviewCard({
       perUnit: `−${absentPenalty.toFixed(2)} за прогул, −${latePenalty.toFixed(2)} за опозд.`,
     },
     {
-      component: 'Резерв (активность)',
-      weight: `${activityReserve}%`,
+      component: 'Активность (бонус)',
+      weight: `${activityReserve}% сверх базы`,
       max: reserveMax.toFixed(2),
-      perUnit: 'бонусы/штрафы',
+      perUnit: 'бонусный лимит',
     },
   ];
 
@@ -91,12 +90,12 @@ export function ScorePreviewCard({
               </TableRow>
             ))}
             <TableRow className="font-bold">
-              <TableCell>ИТОГО</TableCell>
+              <TableCell>БАЗА</TableCell>
               <TableCell className={`text-right ${Math.abs(totalWeight - 100) < 0.01 ? '' : 'text-red-500'}`}>
                 {totalWeight.toFixed(0)}%
               </TableCell>
               <TableCell className="text-right font-mono">{maxPoints.toFixed(2)}</TableCell>
-              <TableCell></TableCell>
+              <TableCell>базовые компоненты</TableCell>
             </TableRow>
           </TableBody>
         </Table>

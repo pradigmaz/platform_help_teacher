@@ -18,12 +18,13 @@ export interface AttestationFormState {
   colloquium_weight: number;
   colloquium_count: number;
   activity_enabled: boolean;
+  expected_lessons_per_week: number;
   semester_start_date: string;
 }
 
 export const DEFAULT_FORM_STATE: AttestationFormState = {
   labs_weight: 70,
-  attendance_weight: 20,
+  attendance_weight: 30,
   activity_reserve: 10,
   labs_count_first: 8,
   labs_count_second: 10,
@@ -41,6 +42,7 @@ export const DEFAULT_FORM_STATE: AttestationFormState = {
   colloquium_weight: 0,
   colloquium_count: 1,
   activity_enabled: true,
+  expected_lessons_per_week: 2,
   semester_start_date: '',
 };
 

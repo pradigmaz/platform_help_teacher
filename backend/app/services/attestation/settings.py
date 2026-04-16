@@ -95,7 +95,7 @@ class AttestationSettingsManager:
         att_settings = AttestationSettings(
             attestation_type=attestation_type,
             labs_weight=70.0,
-            attendance_weight=20.0,
+            attendance_weight=30.0,
             activity_reserve=10.0,
             labs_count_first=synced_first,
             labs_count_second=synced_second,
@@ -128,7 +128,7 @@ class AttestationSettingsManager:
             setattr(att_settings, field, value)
 
         if not att_settings.validate_weights():
-            raise ValueError("Веса должны суммироваться в 100%")
+            raise ValueError("Базовые веса должны суммироваться в 100%")
 
         changed_types = await self._sync_lab_counts(first_required_override=first_required_override)
         await self.db.commit()
@@ -171,15 +171,15 @@ class AttestationSettingsManager:
             )
         )
 
-        # Резерв активности
+        # Бонус активности
         reserve_max = att_settings.get_max_component_points(att_settings.activity_reserve)
         previews.append(
             ScorePreview(
-                component="Резерв (активность)",
+                component="Активность (бонус)",
                 weight=att_settings.activity_reserve,
                 max_points=round(reserve_max, 2),
                 points_per_unit=0.0,
-                unit_label="бонусы/штрафы",
+                unit_label="бонусный лимит",
             )
         )
 
@@ -240,6 +240,7 @@ class AttestationSettingsManager:
             colloquium_weight=att_settings.colloquium_weight,
             colloquium_count=att_settings.colloquium_count,
             activity_enabled=att_settings.activity_enabled,
+            expected_lessons_per_week=att_settings.expected_lessons_per_week,
             period_start_date=att_settings.period_start_date,
             period_end_date=att_settings.period_end_date,
             semester_start_date=att_settings.semester_start_date,

@@ -18,12 +18,12 @@ export function ActivitySettingsCard({ form, onUpdate }: ActivitySettingsCardPro
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Zap className="w-5 h-5 text-yellow-500" />
-          Резерв для активности
+          Бонус активности
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label>Резерв (%)</Label>
+          <Label>Бонусный лимит (%)</Label>
           <div className="flex items-center gap-2">
             <Slider value={[form.activity_reserve]} onValueChange={([v]) => onUpdate('activity_reserve', v)} max={30} step={1} />
             <span className="w-12 text-right font-mono">{form.activity_reserve}%</span>
@@ -34,9 +34,9 @@ export function ActivitySettingsCard({ form, onUpdate }: ActivitySettingsCardPro
           <Label>Включить активность</Label>
         </div>
         <div className="text-xs text-muted-foreground space-y-1">
-          <p>• Бонусы ограничены резервом и макс баллами</p>
-          <p>• Штрафы без ограничений</p>
-          <p>• Если студент набрал макс — бонусы заблокированы</p>
+          <p>• Не входит в сумму базовых весов</p>
+          <p>• Плюсовая активность добавляется сверху до максимума аттестации</p>
+          <p>• Отрицательная активность остаётся ручным штрафом</p>
         </div>
       </CardContent>
     </Card>

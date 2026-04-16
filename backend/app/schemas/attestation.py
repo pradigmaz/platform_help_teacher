@@ -17,10 +17,10 @@ from app.schemas.group import GroupResponse
 class AttestationSettingsBase(BaseModel):
     """Базовая схема настроек автобалансировки"""
 
-    # === ВЕСА КОМПОНЕНТОВ (сумма = 100%) ===
+    # === БАЗОВЫЕ ВЕСА (сумма = 100%, без бонусной активности) ===
     labs_weight: float = Field(default=70.0, ge=0, le=100, description="Вес лабораторных (%)")
-    attendance_weight: float = Field(default=20.0, ge=0, le=100, description="Вес посещаемости (%)")
-    activity_reserve: float = Field(default=10.0, ge=0, le=100, description="Резерв для активности (%)")
+    attendance_weight: float = Field(default=30.0, ge=0, le=100, description="Вес посещаемости (%)")
+    activity_reserve: float = Field(default=10.0, ge=0, le=100, description="Бонусный лимит активности (%)")
 
     # === КОЛИЧЕСТВО РАБОТ ===
     labs_count_first: int = Field(default=8, ge=1, le=20, description="Требуемые лабы для 1-й аттестации")
@@ -39,18 +39,16 @@ class AttestationSettingsBase(BaseModel):
     late_coef: float = Field(default=0.5, ge=0, le=1, description="Коэффициент опоздания")
     absent_coef: float = Field(default=0.0, ge=-1, le=0, description="Коэффициент прогула (0 или отрицательный)")
 
-    # === ОПЦИОНАЛЬНЫЕ КОМПОНЕНТЫ ===
-    # Самостоятельные работы
+    # === ОПЦИОНАЛЬНЫЕ БАЗОВЫЕ КОМПОНЕНТЫ ===
     self_works_enabled: bool = Field(default=False, description="Включить СР")
     self_works_weight: float = Field(default=0.0, ge=0, le=100, description="Вес СР (%)")
     self_works_count: int = Field(default=2, ge=1, le=10, description="Количество СР")
 
-    # Коллоквиум
     colloquium_enabled: bool = Field(default=False, description="Включить коллоквиум")
     colloquium_weight: float = Field(default=0.0, ge=0, le=100, description="Вес коллоквиума (%)")
     colloquium_count: int = Field(default=1, ge=1, le=5, description="Количество коллоквиумов")
 
-    # === АКТИВНОСТЬ ===
+    # === БОНУСНАЯ АКТИВНОСТЬ ===
     activity_enabled: bool = Field(default=True, description="Включить активность")
 
     # === ОЖИДАЕМОЕ КОЛИЧЕСТВО ЗАНЯТИЙ ===
@@ -68,14 +66,14 @@ class AttestationSettingsBase(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_weights_sum(self) -> "AttestationSettingsBase":
-        total = self.labs_weight + self.attendance_weight + self.activity_reserve
+    def validate_base_weights_sum(self) -> "AttestationSettingsBase":
+        total = self.labs_weight + self.attendance_weight
         if self.self_works_enabled:
             total += self.self_works_weight
         if self.colloquium_enabled:
             total += self.colloquium_weight
         if abs(total - 100.0) > 0.01:
-            raise ValueError(f"Веса должны суммироваться в 100%, текущая сумма: {total}%")
+            raise ValueError(f"Базовые веса должны суммироваться в 100%, текущая сумма: {total}%")
         return self
 
 
@@ -149,7 +147,7 @@ class ComponentBreakdown(BaseModel):
 
     # Активность
     activity_score: float = Field(default=0.0, description="Баллы за активность")
-    activity_max: float = Field(description="Макс баллов (резерв)")
+    activity_max: float = Field(description="Макс бонусных баллов")
     bonus_blocked: bool = Field(default=False, description="Бонусы заблокированы (макс набран)")
 
     # Опциональные

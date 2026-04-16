@@ -54,7 +54,7 @@ export function AttestationSettingsForm() {
   const maxPoints = attestationType === 'first' ? 35 : 70;
 
   const totalWeight = useMemo(() => {
-    let total = form.labs_weight + form.attendance_weight + form.activity_reserve;
+    let total = form.labs_weight + form.attendance_weight;
     if (form.self_works_enabled) total += form.self_works_weight;
     if (form.colloquium_enabled) total += form.colloquium_weight;
     return total;
@@ -100,7 +100,7 @@ export function AttestationSettingsForm() {
           getNormalizedFormState(
             {
               labs_weight: settings?.labs_weight ?? 70,
-              attendance_weight: settings?.attendance_weight ?? 20,
+              attendance_weight: settings?.attendance_weight ?? 30,
               activity_reserve: settings?.activity_reserve ?? 10,
               labs_count_first: sourceFirstLabsCount,
               labs_count_second: settings?.labs_count_second ?? 10,
@@ -118,6 +118,7 @@ export function AttestationSettingsForm() {
               colloquium_weight: settings?.colloquium_weight ?? 0,
               colloquium_count: settings?.colloquium_count ?? 1,
               activity_enabled: settings?.activity_enabled ?? true,
+              expected_lessons_per_week: settings?.expected_lessons_per_week ?? DEFAULT_FORM_STATE.expected_lessons_per_week,
               semester_start_date: settings?.semester_start_date ?? '',
             },
             resolvedTotalLabs
@@ -131,7 +132,7 @@ export function AttestationSettingsForm() {
 
   const handleSave = async () => {
     if (!isWeightValid) {
-      toast.error(`Сумма весов должна быть 100%. Текущая: ${totalWeight.toFixed(1)}%`);
+      toast.error(`Сумма базовых весов должна быть 100%. Текущая: ${totalWeight.toFixed(1)}%`);
       return;
     }
     setSaving(true);
@@ -153,6 +154,7 @@ export function AttestationSettingsForm() {
   const labsCount = attestationType === 'first'
     ? normalizedForm.labs_count_first
     : totalLabsCount;
+  const expectedLessonsCount = normalizedForm.expected_lessons_per_week * (attestationType === 'first' ? 8 : 14);
 
   return (
     <TooltipProvider>
@@ -215,6 +217,7 @@ export function AttestationSettingsForm() {
             lateCoef={form.late_coef}
             absentCoef={form.absent_coef}
             totalWeight={totalWeight}
+            expectedLessonsCount={expectedLessonsCount}
           />
         </BlurFade>
 

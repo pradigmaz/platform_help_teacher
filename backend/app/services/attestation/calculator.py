@@ -48,7 +48,7 @@ class AttestationCalculator:
         Расчёт баллов за активность с учётом лимита.
 
         Логика:
-        - Резерв = attestation_max * (activity_reserve / 100)
+        - Бонусный лимит = attestation_max * (activity_reserve / 100)
         - Если current_score >= max → бонусы заблокированы
         - Штрафы без ограничений
 
@@ -73,7 +73,7 @@ class AttestationCalculator:
             # Бонусы заблокированы, только штрафы
             return penalty, True
 
-        # Ограничиваем бонусы резервом и оставшимся местом
+        # Ограничиваем бонусы лимитом активности и оставшимся местом
         max_bonus = min(reserve, remaining)
         capped_bonus = min(bonus, max_bonus)
 
