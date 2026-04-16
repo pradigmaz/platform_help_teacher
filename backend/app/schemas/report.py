@@ -114,6 +114,16 @@ class PublicStudentData(BaseModel):
     notes: list[str] | None = None
 
 
+class ReportSubjectOption(BaseModel):
+    """Предмет, доступный для subject-aware публичного отчёта."""
+
+    id: UUID
+    name: str
+    code: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AttendanceDistribution(BaseModel):
     """Распределение посещаемости для графика."""
 
@@ -215,6 +225,9 @@ class PublicReportData(BaseModel):
     # Тип аттестации
     attestation_type: str = Field("first", description="first или second")
     is_second_available: bool = Field(False, description="Доступна ли 2-я аттестация")
+    requires_subject: bool = Field(False, description="Нужен ли явный выбор предмета")
+    selected_subject_id: UUID | None = Field(None, description="Выбранный предмет отчёта")
+    available_subjects: list[ReportSubjectOption] = Field(default_factory=list)
 
     # Подгруппы
     has_subgroups: bool = Field(False, description="Есть ли подгруппы в группе")
@@ -281,6 +294,10 @@ class StudentDetailData(BaseModel):
     id: UUID
     name: str | None = None
     group_code: str
+    subject_name: str | None = None
+    requires_subject: bool = Field(False, description="Нужен ли явный выбор предмета")
+    selected_subject_id: UUID | None = Field(None, description="Выбранный предмет отчёта")
+    available_subjects: list[ReportSubjectOption] = Field(default_factory=list)
 
     # Аттестация
     total_score: float | None = None

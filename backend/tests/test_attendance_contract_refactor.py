@@ -23,6 +23,7 @@ from app.services.attendance_contract import (
 from app.services.attestation.batch import BatchScoreCalculator
 from app.services.attestation.student_score import StudentScoreCalculator
 from app.services.export.attendance_helpers import collect_attendance_rows
+from app.services.reports.attendance_helpers import load_group_attendance_snapshots
 from app.services.reports.data_collector import ReportDataCollector
 from app.services.reports.student_detail_collector import collect_student_report_data
 
@@ -236,6 +237,7 @@ async def test_group_report_attendance_uses_selected_attestation_period(mock_db)
         patch("app.services.reports.group_report_collector.get_group_labs_stats", new=AsyncMock(return_value={})),
         patch("app.services.reports.group_report_collector.process_students", return_value=([], 0, 0, 0)),
         patch("app.services.attestation.service.AttestationService.get_or_create_settings", new=AsyncMock(return_value=settings)),
+        patch("app.services.reports.report_subject_helpers.list_group_subject_options_in_period", new=AsyncMock(return_value=[])),
         patch("app.services.attestation.service.AttestationService.calculate_group_scores_batch", new=AsyncMock(return_value=([], []))),
         patch("app.services.reports.group_report_collector.load_group_attendance_snapshots", new=AsyncMock(return_value=([], {}))) as load_snapshots_mock,
         patch("app.services.reports.group_report_collector.build_group_attendance_stats", return_value={}),
@@ -268,6 +270,7 @@ async def test_student_detail_attendance_uses_selected_attestation_period(mock_d
     lessons = [
         _make_lesson(lesson_date=date(2025, 9, 1), lesson_number=1),
         _make_lesson(lesson_date=date(2025, 9, 8), lesson_number=1),
+        _make_lesson(lesson_date=date(2025, 9, 15), lesson_number=1, subgroup=2),
     ]
     snapshot = StudentAttendanceSnapshot(
         expected_lessons=2,
@@ -283,6 +286,7 @@ async def test_student_detail_attendance_uses_selected_attestation_period(mock_d
         patch("app.services.reports.student_detail_collector.get_group", new=AsyncMock(return_value=SimpleNamespace(code="IT-11"))),
         patch("app.services.reports.student_detail_collector.get_semester_info", new=AsyncMock(return_value=(False, 35, 20, True))),
         patch("app.services.attestation.service.AttestationService.get_or_create_settings", new=AsyncMock(return_value=settings)),
+        patch("app.services.reports.report_subject_helpers.list_group_subject_options_in_period", new=AsyncMock(return_value=[])),
         patch(
             "app.services.attestation.service.AttestationService.calculate_student_score",
             new=AsyncMock(return_value=SimpleNamespace(is_passing=True, max_points=35, min_passing_points=20)),
@@ -303,8 +307,34 @@ async def test_student_detail_attendance_uses_selected_attestation_period(mock_d
     assert result.attendance_rate == 75.0
     assert result.total_lessons == 2
     assert len(result.attendance_history or []) == 2
+    assert {entry.subgroup for entry in result.attendance_history or []} == {None}
     assert load_snapshots_mock.await_args.kwargs["period_start"] == period_start
     assert load_snapshots_mock.await_args.kwargs["period_end"] == period_end
+
+
+@pytest.mark.asyncio
+async def test_report_attendance_snapshots_ignore_future_lessons(mock_db):
+    student = _make_student(subgroup=1)
+    period_start = date(2026, 4, 1)
+    period_end = date(2026, 4, 30)
+    today = date(2026, 4, 16)
+
+    with (
+        patch("app.services.reports.attendance_helpers.today_msk", return_value=today),
+        patch("app.services.reports.attendance_helpers.load_period_lessons", new=AsyncMock(return_value=[])) as lessons_mock,
+    ):
+        lessons, snapshots = await load_group_attendance_snapshots(
+            mock_db,
+            student.group_id,
+            [student],
+            period_start=period_start,
+            period_end=period_end,
+        )
+
+    assert lessons == []
+    assert snapshots == {}
+    assert lessons_mock.await_args.kwargs["period_start"] == period_start
+    assert lessons_mock.await_args.kwargs["period_end"] == today
 
 
 @pytest.mark.asyncio

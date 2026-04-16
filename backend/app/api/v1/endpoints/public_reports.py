@@ -8,7 +8,7 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.limiter import limiter
@@ -40,6 +40,7 @@ async def get_public_report(
     request: Request,
     code: str,
     attestation: str = "first",
+    subject_id: UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -63,7 +64,11 @@ async def get_public_report(
     user_agent = request.headers.get("User-Agent")
     await service.log_view(report.id, client_ip, user_agent)
 
-    report_data = await service.get_group_report_data(report, attestation_type=attestation)
+    report_data = await service.get_group_report_data(
+        report,
+        attestation_type=attestation,
+        subject_id=subject_id,
+    )
 
     logger.info("Public report %s viewed from %s, attestation=%s", code, client_ip, attestation)
 
@@ -147,6 +152,7 @@ async def get_public_student_report(
     code: str,
     student_id: UUID,
     attestation: str = "first",
+    subject_id: UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -167,7 +173,12 @@ async def get_public_student_report(
     await check_pin_session(report, code, client_ip)
 
     service = ReportService(db)
-    student_data = await service.get_student_report_data(report, student_id, attestation)
+    student_data = await service.get_student_report_data(
+        report,
+        student_id,
+        attestation,
+        subject_id,
+    )
 
     if not student_data:
         raise HTTPException(

@@ -69,11 +69,11 @@ describe('PublicReportAPI', () => {
     const controller = new AbortController();
     mocks.publicGet.mockResolvedValue({ data: { students: [] } });
 
-    await PublicReportAPI.getReport('CODE1234', 'second', controller.signal);
+    await PublicReportAPI.getReport('CODE1234', 'second', 'subject-1', controller.signal);
 
     expect(mocks.publicGet).toHaveBeenCalledWith(
-      '/public/report/CODE1234?attestation=second',
-      { signal: controller.signal },
+      '/public/report/CODE1234',
+      { params: { attestation: 'second', subject_id: 'subject-1' }, signal: controller.signal },
     );
   });
 
@@ -81,11 +81,11 @@ describe('PublicReportAPI', () => {
     const controller = new AbortController();
     mocks.publicGet.mockResolvedValue({ data: { id: 'student-1' } });
 
-    await PublicReportAPI.getStudent('CODE1234', 'student-1', 'second', controller.signal);
+    await PublicReportAPI.getStudent('CODE1234', 'student-1', 'second', 'subject-1', controller.signal);
 
     expect(mocks.publicGet).toHaveBeenCalledWith(
-      '/public/report/CODE1234/student/student-1?attestation=second',
-      { signal: controller.signal },
+      '/public/report/CODE1234/student/student-1',
+      { params: { attestation: 'second', subject_id: 'subject-1' }, signal: controller.signal },
     );
   });
 });

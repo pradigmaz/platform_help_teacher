@@ -4,10 +4,6 @@ import { useState, useEffect, use, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PublicReportAPI, StudentDetailData, ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { AlertCircle, FileX, Clock, ArrowLeft } from 'lucide-react';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { PinDialog } from '../../components/PinDialog';
 import { HeroCard } from './components/HeroCard';
@@ -16,9 +12,15 @@ import { ComparisonChart } from './components/ComparisonChart';
 import { AttendanceHistory } from './components/AttendanceHistory';
 import { LabSubmissions } from './components/LabSubmissions';
 import { Recommendations } from './components/Recommendations';
+import { SubjectSelectionCard } from '../../components/SubjectSelectionCard';
+import { ErrorDisplay, LoadingSkeleton } from './components/PageStateViews';
+import { StudentReportHeader } from './components/StudentReportHeader';
+import { AttestationComparisonCards } from './components/AttestationComparisonCards';
 import {
   buildReportHref,
+  buildStudentReportHref,
   parseReportAttestation,
+  parseReportSubjectId,
 } from '../../reportNavigation';
 
 interface PageProps {
@@ -28,7 +30,7 @@ interface PageProps {
 type PageState = 
   | { status: 'loading' }
   | { status: 'pin_required' }
-  | { status: 'loaded'; data: StudentDetailData }
+  | { status: 'loaded'; data: StudentDetailData; firstAttestationData?: StudentDetailData | null }
   | { status: 'error'; error: string; errorType: 'not_found' | 'expired' | 'deactivated' | 'generic' };
 
 export default function StudentDetailPage({ params }: PageProps) {
@@ -51,6 +53,7 @@ export function StudentDetailPageContent({
   const [reloadToken, setReloadToken] = useState(0);
   const requestIdRef = useRef(0);
   const attestationType = parseReportAttestation(searchParams.get('attestation'));
+  const subjectId = parseReportSubjectId(searchParams.get('subject_id'));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,6 +68,7 @@ export function StudentDetailPageContent({
           code,
           studentId,
           attestationType,
+          subjectId ?? undefined,
           controller.signal,
         );
 
@@ -72,7 +76,32 @@ export function StudentDetailPageContent({
           return;
         }
 
-        setState({ status: 'loaded', data });
+        const shouldLoadFirstAttestation =
+          attestationType === 'second' && !(data.requires_subject && !data.selected_subject_id);
+        let firstAttestationData: StudentDetailData | null = null;
+
+        if (shouldLoadFirstAttestation) {
+          try {
+            firstAttestationData = await PublicReportAPI.getStudent(
+              code,
+              studentId,
+              'first',
+              data.selected_subject_id ?? subjectId ?? undefined,
+              controller.signal,
+            );
+
+            if (requestId !== requestIdRef.current || controller.signal.aborted) {
+              return;
+            }
+          } catch {
+            if (requestId !== requestIdRef.current || controller.signal.aborted) {
+              return;
+            }
+            firstAttestationData = null;
+          }
+        }
+
+        setState({ status: 'loaded', data, firstAttestationData });
       } catch (err) {
         if (requestId !== requestIdRef.current || controller.signal.aborted) {
           return;
@@ -101,10 +130,10 @@ export function StudentDetailPageContent({
 
     void loadStudent();
     return () => controller.abort();
-  }, [attestationType, code, reloadToken, studentId]);
+  }, [attestationType, code, reloadToken, studentId, subjectId]);
 
   const handleBack = () => {
-    router.push(buildReportHref(code, attestationType));
+    router.push(buildReportHref(code, attestationType, subjectId));
   };
 
   const handlePinSuccess = () => {
@@ -128,18 +157,50 @@ export function StudentDetailPageContent({
     return <ErrorDisplay error={state.error} errorType={state.errorType} onBack={handleBack} />;
   }
 
-  const { data } = state;
+  const { data, firstAttestationData } = state;
+  const subjectSelectionPending = Boolean(data.requires_subject && !data.selected_subject_id);
   const hasRecommendations = Boolean(data.recommendations && data.recommendations.length > 0);
   const hasComparison = data.group_average_score !== undefined;
 
+  if (subjectSelectionPending) {
+    return (
+      <div className="space-y-6">
+        <SubjectSelectionCard
+          title="Выберите предмет для аттестации"
+          description="У этой группы в выбранной аттестации несколько предметов. Выберите предмет, чтобы открыть детальную карточку студента."
+          subjects={data.available_subjects ?? []}
+          value={subjectId ?? ''}
+          onChange={(nextSubjectId) =>
+            router.push(buildStudentReportHref(code, studentId, attestationType, nextSubjectId))
+          }
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <BlurFade delay={0.06} inView>
+        <StudentReportHeader
+          data={data}
+          attestationType={attestationType}
+          onBack={handleBack}
+        />
+      </BlurFade>
+
+      {attestationType === 'second' && firstAttestationData && (
+        <BlurFade delay={0.08} inView>
+          <AttestationComparisonCards
+            firstAttestationData={firstAttestationData}
+            currentAttestationData={data}
+          />
+        </BlurFade>
+      )}
+
       <BlurFade delay={0.1} inView>
         <HeroCard
           data={data}
           attestationType={attestationType}
-          studentId={studentId}
-          onBack={handleBack}
         />
       </BlurFade>
 
@@ -197,70 +258,6 @@ export function StudentDetailPageContent({
           />
         </BlurFade>
       )}
-    </div>
-  );
-}
-
-
-function LoadingSkeleton({ onBack }: { onBack: () => void }) {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-32" />
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-4">
-        {[1, 2, 3, 4].map(i => (
-          <Skeleton key={i} className="h-28 rounded-xl" />
-        ))}
-      </div>
-      <Skeleton className="h-64 rounded-xl" />
-      <Skeleton className="h-48 rounded-xl" />
-    </div>
-  );
-}
-
-interface ErrorDisplayProps {
-  error: string;
-  errorType: 'not_found' | 'expired' | 'deactivated' | 'generic';
-  onBack: () => void;
-}
-
-function ErrorDisplay({ error, errorType, onBack }: ErrorDisplayProps) {
-  const icons = {
-    not_found: <FileX className="h-12 w-12 text-muted-foreground" />,
-    expired: <Clock className="h-12 w-12 text-amber-500" />,
-    deactivated: <AlertCircle className="h-12 w-12 text-red-500" />,
-    generic: <AlertCircle className="h-12 w-12 text-red-500" />,
-  };
-
-  const descriptions = {
-    not_found: 'Студент не найден в этом отчёте',
-    expired: 'Срок действия ссылки истёк',
-    deactivated: 'Отчёт был деактивирован',
-    generic: 'Попробуйте обновить страницу',
-  };
-
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-      <Card className="max-w-md w-full">
-        <CardContent className="pt-6 text-center space-y-4">
-          <div className="flex justify-center">{icons[errorType]}</div>
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold">{error}</h2>
-            <p className="text-sm text-muted-foreground">{descriptions[errorType]}</p>
-          </div>
-          <Button variant="outline" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Вернуться к отчёту
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }

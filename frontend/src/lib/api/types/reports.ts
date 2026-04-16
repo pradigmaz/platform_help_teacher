@@ -45,6 +45,12 @@ export interface Report {
   url: string;
 }
 
+export interface ReportSubjectOption {
+  id: string;
+  name: string;
+  code?: string | null;
+}
+
 export interface ReportListResponse {
   reports: Report[];
   total: number;
@@ -153,6 +159,9 @@ export interface PublicReportData {
   grade_scale?: Record<string, number[]>;
   attestation_type?: 'first' | 'second';
   is_second_available?: boolean;
+  requires_subject?: boolean;
+  selected_subject_id?: string | null;
+  available_subjects?: ReportSubjectOption[];
   has_subgroups?: boolean;
   students: PublicStudentData[];
   attendance_distribution?: AttendanceDistribution;
@@ -168,6 +177,7 @@ export interface PublicReportData {
 export interface AttendanceRecordPublic {
   date: string;
   status: string;
+  lesson_type?: string;
   lesson_topic?: string;
 }
 
@@ -192,6 +202,10 @@ export interface StudentDetailData {
   id: string;
   name?: string;
   group_code: string;
+  subject_name?: string;
+  requires_subject?: boolean;
+  selected_subject_id?: string | null;
+  available_subjects?: ReportSubjectOption[];
   total_score?: number;
   lab_score?: number;
   /** Баллы компонента посещаемости из аттестационного расчёта. */

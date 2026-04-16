@@ -55,7 +55,8 @@ export function ReportStudentTable({ data, students, code, attestationType }: Re
     setSortOrder('asc');
   };
 
-  const getStudentHref = (studentId: string) => buildStudentReportHref(code, studentId, attestationType);
+  const getStudentHref = (studentId: string) =>
+    buildStudentReportHref(code, studentId, attestationType, data.selected_subject_id ?? null);
   return (
     <Card className="rounded-3xl border-border/60 shadow-sm">
       <CardHeader className="space-y-4 border-b border-border/60 bg-muted/20 pb-5">

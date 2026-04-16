@@ -58,9 +58,10 @@ async def get_student_lab_submissions(
     group_id: UUID,
     student_id: UUID,
     settings,
+    subject_id: UUID | None = None,
 ) -> list[LabSubmission]:
     total_labs = settings.get_labs_count()
-    resolved, subject_id = await _resolve_subject_id(db, group_id, settings)
+    resolved, subject_id = await _resolve_subject_id(db, group_id, settings, subject_id)
     catalog_by_number = await _load_lab_catalog_by_number(db, total_labs, subject_id)
     journal_grades = (
         await _load_student_journal_grades(db, group_id, student_id, settings, subject_id) if resolved else {}

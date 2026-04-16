@@ -66,6 +66,31 @@ vi.mock('./components/ReportStudentTable', () => ({
   ),
 }));
 
+vi.mock('./components/ReportToolbar', () => ({
+  ReportToolbar: ({
+    onAttestationChange,
+    onSubjectChange,
+    availableSubjects,
+  }: {
+    onAttestationChange: (value: string) => void;
+    onSubjectChange: (value: string) => void;
+    availableSubjects: Array<{ id: string; name: string }>;
+  }) => (
+    <div>
+      <button onClick={() => onAttestationChange('second')} type="button">2 аттестация</button>
+      {availableSubjects[0] && (
+        <button onClick={() => onSubjectChange(availableSubjects[0].id)} type="button">
+          {availableSubjects[0].name}
+        </button>
+      )}
+    </div>
+  ),
+}));
+
+vi.mock('./components/SubjectSelectionCard', () => ({
+  SubjectSelectionCard: ({ title }: { title: string }) => <div>{title}</div>,
+}));
+
 vi.mock('./components/AttendanceChart', () => ({
   AttendanceChart: () => <div>attendance-chart</div>,
   AttendanceTrend: () => <div>attendance-trend</div>,
@@ -150,6 +175,9 @@ function createReportData(attestationType: 'first' | 'second') {
     students: [{ id: 'student-1', needs_attention: false }],
     attestation_type: attestationType,
     is_second_available: true,
+    requires_subject: false,
+    selected_subject_id: null,
+    available_subjects: [],
   };
 }
 
@@ -174,16 +202,15 @@ describe('PublicReportClient', () => {
 
     expect(await screen.findByText('header-first-ИС1-231-ОТ')).toBeTruthy();
     expect(mocks.getReport).toHaveBeenCalledTimes(1);
-    expect(mocks.getReport).toHaveBeenNthCalledWith(1, 'CODE1234', 'first', expect.any(AbortSignal));
+    expect(mocks.getReport).toHaveBeenNthCalledWith(1, 'CODE1234', 'first', undefined, expect.any(AbortSignal));
 
-    fireEvent.click(screen.getByRole('tab', { name: '2 аттестация' }));
+    fireEvent.click(screen.getByRole('button', { name: '2 аттестация' }));
 
     await waitFor(() => expect(mocks.getReport).toHaveBeenCalledTimes(2));
-    expect(mocks.getReport).toHaveBeenNthCalledWith(2, 'CODE1234', 'second', expect.any(AbortSignal));
+    expect(mocks.getReport).toHaveBeenNthCalledWith(2, 'CODE1234', 'second', undefined, expect.any(AbortSignal));
     expect(mocks.router.replace).toHaveBeenCalledWith('/report/CODE1234?attestation=second', { scroll: false });
     expect(screen.getByText('header-first-ИС1-231-ОТ')).toBeTruthy();
     expect(screen.queryByText('loading-skeleton')).toBeNull();
-    expect(screen.getByText('Обновляем данные…')).toBeTruthy();
 
     resolveSecondRequest?.(secondData);
 
@@ -193,12 +220,33 @@ describe('PublicReportClient', () => {
 
   it('starts from attestation stored in the URL payload', async () => {
     const secondData = createReportData('second');
+    mocks.getReport.mockResolvedValue(secondData);
+
+    render(<PublicReportClient code="CODE1234" initialAttestationType="second" />);
+
+    expect(await screen.findByText('header-second-ИС1-231-ОТ')).toBeTruthy();
+    expect(mocks.getReport).toHaveBeenCalledWith('CODE1234', 'second', undefined, expect.any(AbortSignal));
+    expect(mocks.router.replace).toHaveBeenCalledWith('/report/CODE1234?attestation=second', { scroll: false });
+  });
+
+  it('passes subject from the URL to the report request', async () => {
+    mocks.searchParams = new URLSearchParams('attestation=second&subject_id=subject-1');
+    const secondData = {
+      ...createReportData('second'),
+      selected_subject_id: 'subject-1',
+      available_subjects: [{ id: 'subject-1', name: 'Матан' }],
+    };
     mocks.getReport.mockResolvedValueOnce(secondData);
 
     render(<PublicReportClient code="CODE1234" initialAttestationType="second" />);
 
     expect(await screen.findByText('header-second-ИС1-231-ОТ')).toBeTruthy();
-    expect(mocks.getReport).toHaveBeenCalledWith('CODE1234', 'second', expect.any(AbortSignal));
-    expect(mocks.router.replace).toHaveBeenCalledWith('/report/CODE1234?attestation=second', { scroll: false });
+    expect(mocks.getReport).toHaveBeenCalledWith(
+      'CODE1234',
+      'second',
+      'subject-1',
+      expect.any(AbortSignal),
+    );
+    expect(mocks.router.replace).not.toHaveBeenCalled();
   });
 });

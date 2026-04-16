@@ -22,7 +22,7 @@ interface AttendanceHeatmapProps {
 
 const STATUS_CONFIG = {
   present: {
-    label: 'Был',
+    label: 'Был(а)',
     color: 'bg-emerald-500/20 border-emerald-500/30 text-emerald-500',
     dotColor: 'bg-emerald-400',
   },
@@ -106,7 +106,7 @@ export function AttendanceHeatmap({ history, stats }: AttendanceHeatmapProps) {
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-2 border-t">
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span>Был ({stats.present})</span>
+            <span>Был(а) ({stats.present})</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
@@ -124,7 +124,7 @@ export function AttendanceHeatmap({ history, stats }: AttendanceHeatmapProps) {
 
         {/* Stats Summary - компактные карточки */}
         <div className="grid grid-cols-4 gap-2">
-          <StatMini icon={CheckCircle2} value={stats.present} label="Был" color="emerald" />
+          <StatMini icon={CheckCircle2} value={stats.present} label="Был(а)" color="emerald" />
           <StatMini icon={Clock} value={stats.late} label="Опоздал" color="amber" />
           <StatMini icon={AlertCircle} value={stats.excused} label="Ув." color="blue" />
           <StatMini icon={XCircle} value={stats.absent} label="Н/Б" color="red" />

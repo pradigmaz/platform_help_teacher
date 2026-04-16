@@ -79,6 +79,26 @@ vi.mock('@/components/ui/blur-fade', () => ({
   BlurFade: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('../../components/SubjectSelectionCard', () => ({
+  SubjectSelectionCard: ({ title }: { title: string }) => <div>{title}</div>,
+}));
+
+vi.mock('./components/StudentReportHeader', () => ({
+  StudentReportHeader: ({
+    attestationType,
+    onBack,
+  }: {
+    attestationType: 'first' | 'second';
+    onBack: () => void;
+  }) => (
+    <button onClick={onBack} type="button">{`header-${attestationType}`}</button>
+  ),
+}));
+
+vi.mock('./components/AttestationComparisonCards', () => ({
+  AttestationComparisonCards: () => <div>attestation-comparison</div>,
+}));
+
 import { StudentDetailPageContent } from './page';
 
 function createStudentData() {
@@ -109,17 +129,31 @@ describe('StudentDetailPage', () => {
 
   it('loads student details with attestation from the URL', async () => {
     mocks.searchParams = new URLSearchParams('attestation=second');
-    mocks.getStudent.mockResolvedValue(createStudentData());
+    mocks.getStudent
+      .mockResolvedValueOnce(createStudentData())
+      .mockResolvedValueOnce(createStudentData());
 
     renderPage();
 
     expect(await screen.findByText('score-breakdown')).toBeTruthy();
-    expect(mocks.getStudent).toHaveBeenCalledWith(
+    expect(mocks.getStudent).toHaveBeenNthCalledWith(
+      1,
       'CODE1234',
       'student-1',
       'second',
+      undefined,
       expect.any(AbortSignal),
     );
+    expect(mocks.getStudent).toHaveBeenNthCalledWith(
+      2,
+      'CODE1234',
+      'student-1',
+      'first',
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(screen.getByText('header-second')).toBeTruthy();
+    expect(screen.getByText('attestation-comparison')).toBeTruthy();
     expect(screen.getByText('hero-second')).toBeTruthy();
   });
 
@@ -140,6 +174,19 @@ describe('StudentDetailPage', () => {
     expect(await screen.findByText('score-breakdown')).toBeTruthy();
   });
 
+  it('keeps second attestation visible when first-attestation summary fails to load', async () => {
+    mocks.searchParams = new URLSearchParams('attestation=second');
+    mocks.getStudent
+      .mockResolvedValueOnce(createStudentData())
+      .mockRejectedValueOnce(new Error('first attestation failed'));
+
+    renderPage();
+
+    expect(await screen.findByText('score-breakdown')).toBeTruthy();
+    expect(screen.getByText('hero-second')).toBeTruthy();
+    expect(screen.queryByText('attestation-comparison')).toBeNull();
+  });
+
   it('returns to the same attestation from the error state', async () => {
     mocks.searchParams = new URLSearchParams('attestation=second');
     mocks.getStudent.mockRejectedValueOnce(new mocks.MockApiError(404, 'not found'));
@@ -149,5 +196,38 @@ describe('StudentDetailPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Вернуться к отчёту' }));
 
     expect(mocks.router.push).toHaveBeenCalledWith('/report/CODE1234?attestation=second');
+  });
+
+  it('passes subject from the URL to the student request and preserves it on back', async () => {
+    mocks.searchParams = new URLSearchParams('attestation=second&subject_id=subject-1');
+    const data = {
+      ...createStudentData(),
+      selected_subject_id: 'subject-1',
+      available_subjects: [{ id: 'subject-1', name: 'Матан' }],
+    };
+    mocks.getStudent.mockResolvedValueOnce(data).mockResolvedValueOnce(data);
+
+    renderPage();
+
+    expect(await screen.findByText('score-breakdown')).toBeTruthy();
+    expect(mocks.getStudent).toHaveBeenNthCalledWith(
+      1,
+      'CODE1234',
+      'student-1',
+      'second',
+      'subject-1',
+      expect.any(AbortSignal),
+    );
+    expect(mocks.getStudent).toHaveBeenNthCalledWith(
+      2,
+      'CODE1234',
+      'student-1',
+      'first',
+      'subject-1',
+      expect.any(AbortSignal),
+    );
+
+    fireEvent.click(screen.getByText('header-second'));
+    expect(mocks.router.push).toHaveBeenCalledWith('/report/CODE1234?attestation=second&subject_id=subject-1');
   });
 });

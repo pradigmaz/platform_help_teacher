@@ -22,6 +22,7 @@ from app.services.attendance_contract import (
     snapshot_to_report_stats,
 )
 from app.services.attendance_period import load_attendance_by_student_for_lessons, load_period_lessons
+from app.services.schedule_constants import today_msk
 
 from .attendance_timeline_helpers import get_recent_lessons_history, get_today_lessons_attendance
 
@@ -43,11 +44,15 @@ async def load_group_attendance_snapshots(
     subject_id: UUID | None = None,
 ) -> tuple[list[Lesson], dict[UUID, StudentAttendanceSnapshot]]:
     """Load relevant lessons and per-student attendance snapshots for a report period."""
+    effective_period_end = min(period_end, today_msk())
+    if effective_period_end < period_start:
+        return [], {}
+
     lessons = await load_period_lessons(
         db,
         group_id=group_id,
         period_start=period_start,
-        period_end=period_end,
+        period_end=effective_period_end,
         subject_id=subject_id,
     )
     if not lessons or not students:
@@ -146,6 +151,8 @@ def build_student_attendance_history(
     sorted_lessons = sorted(lessons, key=lambda lesson: (lesson.date, lesson.lesson_number or 0), reverse=True)
     for lesson in sorted_lessons:
         key = lesson_key(lesson)
+        if key not in snapshot.statuses_by_lesson_key:
+            continue
         status = snapshot.statuses_by_lesson_key.get(key, AttendanceStatus.ABSENT)
         lesson_type_str = lesson.lesson_type.value if hasattr(lesson.lesson_type, "value") else str(lesson.lesson_type)
         history.append(

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CalendarCheck, CheckCircle2, ChevronDown, ChevronUp, Clock, ShieldAlert, XCircle } from 'lucide-react';
 import { AttendanceRecordPublic } from '@/lib/api';
+import { getLessonTypeConfig } from '@/lib/schedule-constants';
 import { cn } from '@/lib/utils';
 
 interface AttendanceStats {
@@ -26,7 +27,7 @@ interface AttendanceHistoryProps {
 const STATUS_CONFIG = {
   present: {
     label: 'Присутствовал',
-    compactLabel: 'Был',
+    compactLabel: 'Был(а)',
     icon: CheckCircle2,
     className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   },
@@ -58,7 +59,7 @@ export function AttendanceHistory({ history, stats }: AttendanceHistoryProps) {
     () => [...history].sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()),
     [history],
   );
-  const primaryTimeline = expanded ? sortedHistory : sortedHistory.slice(0, 6);
+  const primaryTimeline = sortedHistory.slice(0, 6);
   const attendedCount = stats.present + stats.late;
   const attendanceTone =
     stats.rate >= 80 ? 'text-emerald-700 dark:text-emerald-300'
@@ -77,7 +78,7 @@ export function AttendanceHistory({ history, stats }: AttendanceHistoryProps) {
               <CardTitle className="text-lg">Посещаемость за период</CardTitle>
             </div>
             <p className="text-sm text-muted-foreground">
-              Был на {attendedCount} из {stats.total} занятий за выбранную аттестацию.
+              Был(а) на {attendedCount} из {stats.total} занятий за выбранную аттестацию.
             </p>
           </div>
           <Badge variant="outline" className={`rounded-full border px-3 py-1 text-sm font-medium ${attendanceTone}`}>
@@ -86,7 +87,7 @@ export function AttendanceHistory({ history, stats }: AttendanceHistoryProps) {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <AttendanceStatCard label="Был" value={stats.present} tone="present" />
+          <AttendanceStatCard label="Был(а)" value={stats.present} tone="present" />
           <AttendanceStatCard label="Опоздания" value={stats.late} tone="late" />
           <AttendanceStatCard label="Уважительные" value={stats.excused} tone="excused" />
           <AttendanceStatCard label="Пропуски" value={stats.absent} tone="absent" />
@@ -185,6 +186,11 @@ function AttendanceRow({ record }: { record: AttendanceRecordPublic }) {
           <Badge variant="outline" className={cn('rounded-full border px-2 py-0.5 text-[11px]', config.className)}>
             {config.compactLabel}
           </Badge>
+          {record.lesson_type && (
+            <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[11px]">
+              {formatLessonType(record.lesson_type)}
+            </Badge>
+          )}
         </div>
         <p className="text-sm text-muted-foreground">
           {record.lesson_topic || 'Тема занятия не указана'}
@@ -213,4 +219,8 @@ function formatDate(dateStr: string) {
   } catch {
     return dateStr;
   }
+}
+
+function formatLessonType(lessonType: string) {
+  return getLessonTypeConfig(lessonType).label;
 }

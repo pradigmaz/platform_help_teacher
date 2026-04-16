@@ -42,7 +42,7 @@ export function LabSubmissions({ submissions, completed, total, isEarlySemester 
 
   const attentionSubmissions = orderedSubmissions.filter((lab) => getStatusWeight(lab, isEarlySemester) < 2);
   const stableSubmissions = orderedSubmissions.filter((lab) => getStatusWeight(lab, isEarlySemester) >= 2);
-  const previewStableSubmissions = expanded ? stableSubmissions : stableSubmissions.slice(0, 4);
+  const previewStableSubmissions = stableSubmissions.slice(0, 4);
 
   return (
     <Card className="group relative overflow-hidden border-border/60 bg-card/95 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-accent/10 hover:shadow-lg focus-within:border-primary/25 focus-within:shadow-lg">

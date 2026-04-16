@@ -10,16 +10,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { ReportSubjectOption } from '@/lib/api';
 import type { ReportSubgroupFilter } from './reportFilters';
 
 interface ReportToolbarProps {
   attestationType: 'first' | 'second';
   onAttestationChange: (value: string) => void;
   isSecondAvailable: boolean;
+  selectedSubjectId: string;
+  onSubjectChange: (value: string) => void;
+  availableSubjects: ReportSubjectOption[];
   selectedSubgroup: ReportSubgroupFilter;
   onSubgroupChange: (value: ReportSubgroupFilter) => void;
   subgroupOptions: ReportSubgroupFilter[];
   isReloading: boolean;
+  requiresSubject: boolean;
 }
 
 const subgroupLabels: Record<ReportSubgroupFilter, string> = {
@@ -32,10 +37,14 @@ export function ReportToolbar({
   attestationType,
   onAttestationChange,
   isSecondAvailable,
+  selectedSubjectId,
+  onSubjectChange,
+  availableSubjects,
   selectedSubgroup,
   onSubgroupChange,
   subgroupOptions,
   isReloading,
+  requiresSubject,
 }: ReportToolbarProps) {
   return (
     <Card className="border-border/60 shadow-sm">
@@ -50,6 +59,26 @@ export function ReportToolbar({
               </TabsTrigger>
             </TabsList>
           </Tabs>
+        </div>
+
+        <div className="flex flex-col gap-2 md:min-w-[220px]">
+          <p className="text-sm font-medium text-foreground">Предмет</p>
+          <Select
+            value={selectedSubjectId}
+            onValueChange={onSubjectChange}
+            disabled={availableSubjects.length === 0}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Выберите предмет" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableSubjects.map((subject) => (
+                <SelectItem key={subject.id} value={subject.id}>
+                  {subject.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex flex-col gap-2 md:min-w-[220px]">
@@ -73,7 +102,9 @@ export function ReportToolbar({
         <div className="flex items-start gap-2">
           <Users className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
-            Подгруппа влияет на сводку, графики и список студентов. История занятий ниже остаётся общей для всей группы.
+            {requiresSubject && !selectedSubjectId
+              ? 'Во 2-й аттестации для этой группы нужно выбрать предмет, иначе расчёт не выполняется.'
+              : 'Подгруппа влияет на сводку, графики и список студентов. История занятий ниже остаётся общей для всей группы.'}
           </p>
         </div>
         {isReloading && (

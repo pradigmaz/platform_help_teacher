@@ -32,6 +32,7 @@ async def get_today_lessons_attendance(
     target_date: date | None = None,
     period_start_date: date | None = None,
     period_end_date: date | None = None,
+    subject_id: UUID | None = None,
 ) -> list[TodayLessonAttendance]:
     """Получить посещаемость по парам на указанную дату (по умолчанию сегодня)."""
     check_date = target_date or today_msk()
@@ -46,6 +47,8 @@ async def get_today_lessons_attendance(
         .where(Lesson.group_id == group_id, Lesson.date == check_date, Lesson.is_cancelled.is_(False))
         .order_by(Lesson.lesson_number)
     )
+    if subject_id is not None:
+        lessons_query = lessons_query.where(Lesson.subject_id == subject_id)
     lessons_result = await db.execute(lessons_query)
     lessons = lessons_result.scalars().all()
 
@@ -119,6 +122,7 @@ async def get_recent_lessons_history(
     limit: int = 10,
     period_start_date: date | None = None,
     period_end_date: date | None = None,
+    subject_id: UUID | None = None,
 ) -> list[LessonHistoryItem]:
     """Получить историю последних занятий с посещаемостью."""
     check_date = today_msk()
@@ -132,6 +136,8 @@ async def get_recent_lessons_history(
         .order_by(Lesson.date.desc(), Lesson.lesson_number.desc())
         .limit(limit * 2)
     )
+    if subject_id is not None:
+        lessons_query = lessons_query.where(Lesson.subject_id == subject_id)
     if period_start_date is not None:
         lessons_query = lessons_query.where(Lesson.date >= period_start_date)
 

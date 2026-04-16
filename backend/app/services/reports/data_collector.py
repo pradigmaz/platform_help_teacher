@@ -22,12 +22,14 @@ class ReportDataCollector:
         self,
         report: GroupReport,
         attestation_type: str = "first",
+        subject_id: UUID | None = None,
     ) -> PublicReportData:
         """Collect public group report data."""
         return await collect_group_report_data(
             db=self.db,
             report=report,
             attestation_type=attestation_type,
+            subject_id=subject_id,
         )
 
     async def get_student_report_data(
@@ -35,6 +37,7 @@ class ReportDataCollector:
         report: GroupReport,
         student_id: UUID,
         attestation_type: str = "first",
+        subject_id: UUID | None = None,
     ) -> StudentDetailData | None:
         """Collect detailed student report data."""
         return await collect_student_report_data(
@@ -42,6 +45,7 @@ class ReportDataCollector:
             report=report,
             student_id=student_id,
             attestation_type=attestation_type,
+            subject_id=subject_id,
         )
 
     async def _get_group_comparison_stats(

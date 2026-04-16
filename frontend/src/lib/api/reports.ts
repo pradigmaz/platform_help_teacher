@@ -62,10 +62,15 @@ export const ReportsAPI = {
 };
 
 export const PublicReportAPI = {
-  getReport: async (code: string, attestation: 'first' | 'second' = 'first', signal?: AbortSignal) => {
+  getReport: async (
+    code: string,
+    attestation: 'first' | 'second' = 'first',
+    subjectId?: string,
+    signal?: AbortSignal,
+  ) => {
     const { data } = await publicApi.get<PublicReportData>(
-      `/public/report/${code}?attestation=${attestation}`,
-      { signal }
+      `/public/report/${code}`,
+      { params: { attestation, subject_id: subjectId }, signal }
     );
     return data;
   },
@@ -82,11 +87,12 @@ export const PublicReportAPI = {
     code: string,
     studentId: string,
     attestation: 'first' | 'second' = 'first',
+    subjectId?: string,
     signal?: AbortSignal,
   ) => {
     const { data } = await publicApi.get<StudentDetailData>(
-      `/public/report/${code}/student/${studentId}?attestation=${attestation}`,
-      { signal },
+      `/public/report/${code}/student/${studentId}`,
+      { params: { attestation, subject_id: subjectId }, signal },
     );
     return data;
   },

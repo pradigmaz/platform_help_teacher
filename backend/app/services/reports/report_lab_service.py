@@ -58,7 +58,10 @@ async def _resolve_subject_id(
     db: AsyncSession,
     group_id: UUID,
     settings: AttestationSettings,
+    requested_subject_id: UUID | None = None,
 ) -> tuple[bool, UUID | None]:
+    if requested_subject_id is not None:
+        return True, requested_subject_id
     try:
         scope = await resolve_attestation_subject_scope(db, group_id=group_id, settings=settings)
     except ValueError as exc:
@@ -207,9 +210,10 @@ async def get_group_labs_stats(
     students: list[User],
     settings: AttestationSettings,
     results_map: dict[UUID, Any] | None = None,
+    subject_id: UUID | None = None,
 ) -> dict[UUID, LabStatsMap]:
     total_labs = settings.get_labs_count()
-    resolved, subject_id = await _resolve_subject_id(db, group_id, settings)
+    resolved, subject_id = await _resolve_subject_id(db, group_id, settings, subject_id)
     states_by_student = (
         await _load_completed_states_by_student(
             db, group_id, [student.id for student in students], settings, subject_id
@@ -237,9 +241,10 @@ async def get_lab_progress(
     students: list[User],
     settings: AttestationSettings,
     has_subgroups: bool = False,
+    subject_id: UUID | None = None,
 ) -> tuple[list[LabProgress], dict[str, list[LabProgress]] | None]:
     total_labs = settings.get_labs_count()
-    resolved, subject_id = await _resolve_subject_id(db, group_id, settings)
+    resolved, subject_id = await _resolve_subject_id(db, group_id, settings, subject_id)
     states_by_student = (
         await _load_completed_states_by_student(
             db, group_id, [student.id for student in students], settings, subject_id
