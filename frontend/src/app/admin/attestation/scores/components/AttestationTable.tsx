@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatScoreValue } from '@/lib/score-format';
 
 type ViewMode = 'by-group' | 'all-students';
 type SortKey = 'name' | 'group' | 'total' | 'labs' | 'attendance' | 'activity';
@@ -170,19 +171,19 @@ export function AttestationTable({
 
               {/* Scores */}
               <TableCell className="text-center font-mono text-sm">
-                {student.breakdown.labs_score.toFixed(1)}
+                {formatScoreValue(student.breakdown.labs_score)}
               </TableCell>
               <TableCell className="text-center font-mono text-sm">
-                {student.breakdown.attendance_score.toFixed(1)}
+                {formatScoreValue(student.breakdown.attendance_score)}
               </TableCell>
               <TableCell className="text-center font-mono text-sm">
-                {student.breakdown.activity_score.toFixed(1)}
+                {formatScoreValue(student.breakdown.activity_score)}
               </TableCell>
 
               {/* Total */}
               <TableCell className="text-center">
-                <span className="font-semibold text-lg">{student.total_score.toFixed(1)}</span>
-                <span className="text-muted-foreground text-sm">/{student.max_points}</span>
+                <span className="font-semibold text-lg">{formatScoreValue(student.total_score)}</span>
+                <span className="text-muted-foreground text-sm">/{formatScoreValue(student.max_points)}</span>
               </TableCell>
 
               {/* Grade */}

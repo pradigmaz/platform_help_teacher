@@ -7,6 +7,7 @@ import { MetricCard } from '@/components/ui/metric-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { formatScoreValue } from '@/lib/score-format';
 import type { PublicReportData, PublicStudentData } from '@/lib/api';
 import type { ReportSubgroupFilter } from './reportFilters';
 
@@ -76,14 +77,14 @@ export function ReportSummaryCards({ data, students, selectedSubgroup }: ReportS
             <SummaryStat
               icon={<TrendingUp className="h-4 w-4" />}
               label="Средний балл"
-              value={averageScore !== undefined ? averageScore.toFixed(1) : '—'}
-              hint={data.max_points ? `Из ${data.max_points} возможных` : undefined}
+              value={averageScore !== undefined ? formatScoreValue(averageScore) : '—'}
+              hint={data.max_points ? `Из ${formatScoreValue(data.max_points)} возможных` : undefined}
             >
               {averageScore !== undefined && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>0</span>
-                    <span>{maxPoints}</span>
+                    <span>{formatScoreValue(maxPoints)}</span>
                   </div>
                   <div className="relative">
                     <div
@@ -93,7 +94,7 @@ export function ReportSummaryCards({ data, students, selectedSubgroup }: ReportS
                     <Progress value={(averageScore / maxPoints) * 100} className="h-2" />
                   </div>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <span>Порог зачёта: {minPassingPoints}</span>
+                    <span>Порог зачёта: {formatScoreValue(minPassingPoints)}</span>
                     {data.grade_scale && (
                       <GradeScalePopover
                         gradeScale={data.grade_scale}
@@ -260,7 +261,7 @@ function GradeScalePopover({ gradeScale, attestationType = 'first', maxPoints }:
             <p className="text-sm font-medium">
               Шкала оценок {attestationType === 'first' ? 'для 1 аттестации' : 'для 2 аттестации'}
             </p>
-            <p className="text-xs text-muted-foreground">Максимум: {maxPoints} баллов</p>
+            <p className="text-xs text-muted-foreground">Максимум: {formatScoreValue(maxPoints)} баллов</p>
           </div>
           <div className="space-y-2">
             {GRADE_CONFIG.map(({ key, label }) => {
@@ -272,7 +273,9 @@ function GradeScalePopover({ gradeScale, attestationType = 'first', maxPoints }:
               return (
                 <div key={key} className="flex items-center justify-between text-sm">
                   <span>Оценка {label}</span>
-                  <span className="text-muted-foreground">{range[0]}–{range[1]}</span>
+                  <span className="text-muted-foreground">
+                    {formatScoreValue(range[0])}–{formatScoreValue(range[1])}
+                  </span>
                 </div>
               );
             })}

@@ -9,6 +9,7 @@ import { IconCheck, IconX, IconAlertTriangle } from '@tabler/icons-react';
 import type { StatusHeroProps, AttestationStatus } from './types';
 import { EmptyState } from './EmptyState';
 import { LabProgressPlanSummary } from './LabProgressPlanSummary';
+import { formatScoreValue } from '@/lib/score-format';
 
 /** Get attestation status from data */
 function getAttestationStatus(attestation: StatusHeroProps['attestation']): AttestationStatus {
@@ -139,10 +140,10 @@ export function StatusHero({ attestation, isLoading }: StatusHeroProps) {
               <span className={cn("text-5xl font-bold", config.color)}>
                 <SlidingNumber number={Math.round(attestation!.total_score * 10) / 10} decimalPlaces={1} />
               </span>
-              <span className="text-2xl text-muted-foreground">/{maxPoints}</span>
+              <span className="text-2xl text-muted-foreground">/{formatScoreValue(maxPoints)}</span>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              баллов из {maxPoints}
+              баллов из {formatScoreValue(maxPoints)}
             </p>
           </div>
 
@@ -168,7 +169,7 @@ export function StatusHero({ attestation, isLoading }: StatusHeroProps) {
             )}
             {status !== 'passing' && (
               <span>
-                До зачёта: <span className="font-semibold text-foreground">{((attestation!.min_passing_points || 18) - attestation!.total_score).toFixed(1)} баллов</span>
+                До зачёта: <span className="font-semibold text-foreground">{formatScoreValue((attestation!.min_passing_points || 18) - attestation!.total_score)} баллов</span>
               </span>
             )}
             {status === 'passing' && !labsRequired && (

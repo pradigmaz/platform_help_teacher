@@ -16,6 +16,7 @@ import { GradeCell } from './GradeCell';
 import { canHaveGrade } from '../lib/journal-constants';
 import type { GradeData, Lesson, Student } from '../lib/journal-constants';
 import type { AttestationResult } from '@/lib/api';
+import { formatScoreValue } from '@/lib/score-format';
 import {
   buildJournalStudentRowModel,
   getAttestationGradeColor,
@@ -142,29 +143,29 @@ const JournalTableStudentRowInner = forwardRef<HTMLTableRowElement, JournalTable
                   className={`px-2 py-1 rounded-md text-sm font-semibold cursor-pointer transition-colors hover:opacity-80 ${getAttestationGradeColor(rowModel.attestation.grade)}`}
                   onClick={() => onStudentAttestationClick?.(student, rowModel.attestation!)}
                 >
-                  {rowModel.attestation.total_score.toFixed(1)}
+                  {formatScoreValue(rowModel.attestation.total_score)}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="left" className="p-3 max-w-[200px]">
                 <div className="space-y-1.5 text-xs">
                   <div className="font-semibold border-b pb-1 mb-1">
-                    {rowModel.attestation.grade.toUpperCase()} ({rowModel.attestation.total_score.toFixed(1)}/{rowModel.attestation.max_points})
+                    {`${rowModel.attestation.grade.toUpperCase()} (${formatScoreValue(rowModel.attestation.total_score)}/${formatScoreValue(rowModel.attestation.max_points)})`}
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Лабы:</span>
-                    <span>{rowModel.attestation.breakdown.labs_score.toFixed(1)}</span>
+                    <span>{formatScoreValue(rowModel.attestation.breakdown.labs_score)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Посещ.:</span>
-                    <span>{rowModel.attestation.breakdown.attendance_score.toFixed(1)}</span>
+                    <span>{formatScoreValue(rowModel.attestation.breakdown.attendance_score)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Актив.:</span>
-                    <span>{rowModel.attestation.breakdown.activity_score.toFixed(1)}</span>
+                    <span>{formatScoreValue(rowModel.attestation.breakdown.activity_score)}</span>
                   </div>
                   {!rowModel.attestation.is_passing && (
                     <div className="text-red-500 text-[10px] pt-1 border-t mt-1">
-                      Не хватает {(rowModel.attestation.min_passing_points - rowModel.attestation.total_score).toFixed(1)} б.
+                      Не хватает {formatScoreValue(rowModel.attestation.min_passing_points - rowModel.attestation.total_score)} б.
                     </div>
                   )}
                 </div>

@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Users, CheckCircle2, XCircle, TrendingUp, ArrowDown, ArrowUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatScoreValue } from '@/lib/score-format';
 import { motion } from 'motion/react';
 
 interface AttestationSummary {
@@ -42,7 +43,7 @@ export function AttestationSummaryCards({ summary }: SummaryCardsProps) {
           icon={<CheckCircle2 className="h-5 w-5" />}
           label="Зачёт"
           value={summary.passedCount}
-          description={`${passRate}% (≥${summary.minPassingPoints} б.)`}
+          description={`${passRate}% (≥${formatScoreValue(summary.minPassingPoints)} б.)`}
           color="success"
         />
         <StatCard
@@ -55,8 +56,8 @@ export function AttestationSummaryCards({ summary }: SummaryCardsProps) {
         <StatCard
           icon={<TrendingUp className="h-5 w-5" />}
           label="Средний балл"
-          value={summary.averageScore.toFixed(1)}
-          description={`из ${summary.maxPoints}`}
+          value={formatScoreValue(summary.averageScore)}
+          description={`из ${formatScoreValue(summary.maxPoints)}`}
           color="primary"
         />
       </div>
@@ -72,7 +73,7 @@ export function AttestationSummaryCards({ summary }: SummaryCardsProps) {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Минимум</p>
-                <p className="text-lg font-semibold">{summary.minScore}</p>
+                <p className="text-lg font-semibold">{formatScoreValue(summary.minScore)}</p>
               </div>
             </div>
 
@@ -81,9 +82,9 @@ export function AttestationSummaryCards({ summary }: SummaryCardsProps) {
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>0</span>
                 <span className="font-medium text-foreground">
-                  Средний: {summary.averageScore.toFixed(1)}
+                  Средний: {formatScoreValue(summary.averageScore)}
                 </span>
-                <span>{summary.maxPoints}</span>
+                <span>{formatScoreValue(summary.maxPoints)}</span>
               </div>
               <div className="relative h-3 bg-secondary rounded-full overflow-hidden">
                 {/* Passing threshold marker */}
@@ -98,7 +99,7 @@ export function AttestationSummaryCards({ summary }: SummaryCardsProps) {
                 />
               </div>
               <p className="text-xs text-center text-muted-foreground">
-                Порог зачёта: {summary.minPassingPoints} баллов
+                Порог зачёта: {formatScoreValue(summary.minPassingPoints)} баллов
               </p>
             </div>
 
@@ -109,7 +110,7 @@ export function AttestationSummaryCards({ summary }: SummaryCardsProps) {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Максимум</p>
-                <p className="text-lg font-semibold">{summary.maxScore}</p>
+                <p className="text-lg font-semibold">{formatScoreValue(summary.maxScore)}</p>
               </div>
             </div>
           </div>

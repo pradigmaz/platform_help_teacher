@@ -22,6 +22,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatScoreValue } from '@/lib/score-format';
 
 interface StudentDetailSheetProps {
   student: AttestationResult | null;
@@ -108,8 +109,8 @@ export function StudentDetailSheet({
               </div>
               
               <div className="text-center mb-3">
-                <span className="text-4xl font-bold">{student.total_score.toFixed(1)}</span>
-                <span className="text-xl text-muted-foreground">/{student.max_points}</span>
+                <span className="text-4xl font-bold">{formatScoreValue(student.total_score)}</span>
+                <span className="text-xl text-muted-foreground">/{formatScoreValue(student.max_points)}</span>
               </div>
               
               <Progress 
@@ -121,7 +122,7 @@ export function StudentDetailSheet({
               />
               
               <p className="text-xs text-center text-muted-foreground mt-2">
-                Порог зачёта: {student.min_passing_points} баллов
+                Порог зачёта: {formatScoreValue(student.min_passing_points)} баллов
               </p>
             </CardContent>
           </Card>
@@ -195,7 +196,7 @@ export function StudentDetailSheet({
                     <div>
                       <p className="font-medium text-yellow-600">Пограничный результат</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        До зачёта не хватает <span className="font-semibold">{pointsToPass.toFixed(1)} баллов</span>.
+                        До зачёта не хватает <span className="font-semibold">{formatScoreValue(pointsToPass)} баллов</span>.
                         Рекомендуется дополнительная активность или пересдача лабораторных.
                       </p>
                     </div>
@@ -218,7 +219,7 @@ export function StudentDetailSheet({
                     <div>
                       <p className="font-medium text-red-600">Требуется улучшение</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Для получения зачёта необходимо набрать ещё <span className="font-semibold">{pointsToPass.toFixed(1)} баллов</span>.
+                        Для получения зачёта необходимо набрать ещё <span className="font-semibold">{formatScoreValue(pointsToPass)} баллов</span>.
                       </p>
                       <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
                         <li>Сдать недостающие лабораторные работы</li>
@@ -270,8 +271,8 @@ function BreakdownCard({ icon, title, score, maxScore, color, details }: Breakdo
             <div className="flex items-center justify-between mb-1">
               <span className="font-medium text-sm">{title}</span>
               <span className="font-semibold">
-                {score.toFixed(1)}
-                <span className="text-muted-foreground font-normal">/{maxScore}</span>
+                {formatScoreValue(score)}
+                <span className="text-muted-foreground font-normal">/{formatScoreValue(maxScore)}</span>
               </span>
             </div>
             <Progress 
