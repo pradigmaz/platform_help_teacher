@@ -21,6 +21,7 @@ import {
   type SavedLessonState,
 } from './lessonSheetState';
 import { loadLessonSheetResources } from './lessonSheetQueries';
+import { isFutureLessonDate } from './lessonDateGuards';
 import { clearSheetDraft, saveLessonSheetDraft } from './sheetDraftStorage';
 import type { RestoredLessonDraft, SheetDraftContext } from './sheetDraftTypes';
 
@@ -187,6 +188,10 @@ export function useLessonData({
         toast.error('Для оценки нужно указать номер лабораторной');
         throw new Error('work_number_required');
       }
+      if (isFutureLessonDate(lesson.date) && attendanceUpdates.length > 0) {
+        toast.error('Посещаемость можно отмечать только в день занятия или позже');
+        throw new Error('future_attendance_blocked');
+      }
 
       saveLessonSheetDraft({
         kind: 'lesson',
@@ -237,8 +242,13 @@ export function useLessonData({
         grades: cloneGradeMap(nextState.grades),
       };
     } catch (err) {
-      console.error('Ошибка сохранения', err);
-      if ((err as Error).message === 'work_number_required') {
+      const localValidationError =
+        (err as Error).message === 'work_number_required' ||
+        (err as Error).message === 'future_attendance_blocked';
+      if (!localValidationError) {
+        console.error('Ошибка сохранения', err);
+      }
+      if (localValidationError) {
         throw err;
       }
       const detail =

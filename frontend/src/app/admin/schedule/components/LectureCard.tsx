@@ -1,6 +1,6 @@
 'use client';
 
-import { Users } from 'lucide-react';
+import { MapPin, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NoteButton } from '@/components/notes';
 import type { GroupedLecture } from '@/components/schedule';
@@ -95,6 +95,19 @@ export function LectureCard({ lecture, onClick }: LectureCardProps) {
           <Users className="h-3 w-3" />
           {lecture.groups.length} групп
         </span>
+        {lecture.room && (
+          <span className={cn(
+            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold shadow-sm ring-1',
+            isCancelled
+              ? 'border-red-300 bg-red-100 text-red-800 ring-red-200 dark:border-red-400/40 dark:bg-red-500/15 dark:text-red-100 dark:ring-red-400/20'
+              : isEndedEarly
+                ? 'border-yellow-300 bg-yellow-100 text-yellow-900 ring-yellow-200 dark:border-yellow-300/40 dark:bg-yellow-400/15 dark:text-yellow-100 dark:ring-yellow-300/20'
+                : 'border-amber-300 bg-amber-100 text-amber-950 ring-amber-200 dark:border-amber-300/40 dark:bg-amber-400/20 dark:text-amber-100 dark:ring-amber-300/20'
+          )}>
+            <MapPin className="h-3 w-3 shrink-0" />
+            ауд. {lecture.room}
+          </span>
+        )}
       </div>
 
       {/* Предмет */}

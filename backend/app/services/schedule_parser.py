@@ -212,7 +212,12 @@ class SyncScheduleParser:
                 ).scalar_one_or_none()
 
                 if existing:
-                    lessons_skipped += 1
+                    if existing.room != parsed.room:
+                        existing.room = parsed.room
+                        db.add(existing)
+                        lessons_updated += 1
+                    else:
+                        lessons_skipped += 1
                     continue
 
                 lesson = Lesson(
@@ -221,6 +226,7 @@ class SyncScheduleParser:
                     lesson_number=parsed.lesson_number,
                     subgroup=parsed.subgroup,
                     topic=parsed.subject or "",
+                    room=parsed.room,
                     lesson_type=LessonType(parsed.lesson_type) if parsed.lesson_type else LessonType.LECTURE,
                 )
                 db.add(lesson)

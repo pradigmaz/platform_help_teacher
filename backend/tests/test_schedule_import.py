@@ -1,6 +1,7 @@
 """
 Тесты для импорта расписания.
 """
+
 from datetime import date
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -101,6 +102,7 @@ class TestConflictDetection:
         parsed.lesson_type = "lecture"
         parsed.subject = "Новая тема"
         parsed.subgroup = None
+        parsed.room = "119Л/7к"
 
         group = MagicMock()
         group.id = uuid4()
@@ -110,6 +112,89 @@ class TestConflictDetection:
         assert result["action"] == "conflict"
         # Проверяем что конфликт добавлен в сессию
         assert db.add.called
+
+    @pytest.mark.asyncio
+    async def test_updates_room_without_conflict(self):
+        """Смена аудитории обновляется автоматически, не как конфликт расписания."""
+        from app.models.schedule import LessonType
+        from app.services.lesson_importer import LessonImporter
+
+        existing_lesson = MagicMock()
+        existing_lesson.id = uuid4()
+        existing_lesson.topic = "Математика"
+        existing_lesson.lesson_type = LessonType.LECTURE
+        existing_lesson.room = "101"
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = existing_lesson
+
+        db = MagicMock()
+        db.add = MagicMock()
+        db.execute = AsyncMock(return_value=mock_result)
+
+        importer = LessonImporter(db)
+
+        parsed = ParsedLesson(
+            date=date(2026, 3, 12),
+            lesson_number=2,
+            lesson_type="lecture",
+            subject="Математика",
+            groups=["ИС-241"],
+            subgroup=None,
+            room="119Л/7к",
+        )
+        group = MagicMock()
+        group.id = uuid4()
+
+        result = await importer.import_smart(parsed, group)
+
+        assert result["action"] == "updated"
+        assert existing_lesson.room == "119Л/7к"
+        db.add.assert_called_once_with(existing_lesson)
+
+
+class TestScheduleImportServiceOptimization:
+    """Проверки оптимизированного bulk-импорта."""
+
+    @pytest.mark.asyncio
+    async def test_process_lesson_reuses_created_lesson_within_same_import(self):
+        """Повтор того же слота в одном запуске не создаёт дубль после предзагрузки."""
+        from app.services.schedule_import_service import ScheduleImportService
+
+        group_id = uuid4()
+        group = MagicMock()
+        group.id = group_id
+
+        parsed = ParsedLesson(
+            date=date(2026, 3, 12),
+            lesson_number=2,
+            lesson_type="lecture",
+            subject="Математика",
+            groups=["ИС-241"],
+            subgroup=None,
+            room="119Л/7к",
+        )
+        service = ScheduleImportService(MagicMock())
+        stats = service._init_stats(total_parsed=2)
+        existing_lessons = {}
+
+        for _ in range(2):
+            await service._process_lesson(
+                parsed=parsed,
+                teacher=None,
+                semester="2025-2",
+                smart_update=True,
+                stats=stats,
+                group_parsed_keys={},
+                groups_by_name={"ИС-241": group},
+                subjects_by_name={},
+                existing_lessons=existing_lessons,
+                assignment_cache=set(),
+            )
+
+        assert stats["lessons_created"] == 1
+        assert stats["lessons_skipped"] == 1
+        assert len(existing_lessons) == 1
 
 
 class TestDeletedLessonDetection:
@@ -148,12 +233,7 @@ class TestDeletedLessonDetection:
         # Пустой set — занятие исчезло из расписания
         parsed_keys = set()
 
-        count = await importer.detect_deleted(
-            group,
-            date(2025, 1, 1),
-            date(2025, 1, 31),
-            parsed_keys
-        )
+        count = await importer.detect_deleted(group, date(2025, 1, 1), date(2025, 1, 31), parsed_keys)
 
         assert count == 1
         assert db.add.called
@@ -208,6 +288,7 @@ class TestAutoParserSyncImport:
         assert lesson.date == date(2026, 3, 12)
         assert lesson.lesson_number == 2
         assert lesson.topic == "Математика"
+        assert lesson.room == "101"
         assert stats["groups_created"] == 1
         assert stats["lessons_created"] == 1
         assert stats["lessons_updated"] == 0

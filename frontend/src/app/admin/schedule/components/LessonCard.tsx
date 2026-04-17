@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, MoreHorizontal, XCircle, Clock, BookOpen, RotateCcw } from 'lucide-react';
+import { Users, MoreHorizontal, XCircle, Clock, BookOpen, RotateCcw, MapPin } from 'lucide-react';
 import type { LessonAttendanceSummaryResponse } from '@/lib/api/types/schedule';
 import { cn } from '@/lib/utils';
 import { LESSON_TYPE_CONFIG } from '@/lib/schedule-constants';
@@ -21,6 +21,7 @@ export interface LessonData {
   lesson_number: number;
   lesson_type: string;
   topic: string | null;
+  room?: string | null;
   subject_name: string | null;
   work_number: number | null;
   subgroup: number | null;
@@ -124,6 +125,19 @@ export function LessonCard({ lesson, onClick, onAction }: LessonCardProps) {
           )}>
             <Users className="h-3 w-3" />
             {lesson.subgroup} п.г.
+          </span>
+        )}
+        {lesson.room && (
+          <span className={cn(
+            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold shadow-sm ring-1',
+            isCancelled
+              ? 'border-red-300 bg-red-100 text-red-800 ring-red-200 dark:border-red-400/40 dark:bg-red-500/15 dark:text-red-100 dark:ring-red-400/20'
+              : isEndedEarly
+                ? 'border-yellow-300 bg-yellow-100 text-yellow-900 ring-yellow-200 dark:border-yellow-300/40 dark:bg-yellow-400/15 dark:text-yellow-100 dark:ring-yellow-300/20'
+                : 'border-amber-300 bg-amber-100 text-amber-950 ring-amber-200 dark:border-amber-300/40 dark:bg-amber-400/20 dark:text-amber-100 dark:ring-amber-300/20'
+          )}>
+            <MapPin className="h-3 w-3 shrink-0" />
+            ауд. {lesson.room}
           </span>
         )}
       </div>

@@ -262,7 +262,9 @@ async def collect_group_report_data(
         total_students=len(students),
         passing_students=passing_count if report.show_grades and subject_ready else None,
         failing_students=failing_count if report.show_grades and subject_ready else None,
-        average_score=round(total_score_sum / len(students), 2) if students and report.show_grades and subject_ready else None,
+        average_score=round(total_score_sum / len(students), 2)
+        if students and report.show_grades and subject_ready
+        else None,
         max_points=max_points,
         min_passing_points=min_passing,
         grade_scale=grade_scale_json if report.show_grades else None,

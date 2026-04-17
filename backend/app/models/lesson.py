@@ -56,6 +56,7 @@ class Lesson(Base, TimestampMixin):
         SAEnum(LessonType, name="lessontype", create_constraint=False, native_enum=False), nullable=False
     )
     topic: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    room: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Номер лабы/практики (1, 2, 3...)
     work_number: Mapped[int | None] = mapped_column(Integer, nullable=True)

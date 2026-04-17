@@ -110,6 +110,7 @@ class CRUDLesson:
         lesson_type: LessonType,
         schedule_item_id: UUID | None = None,
         topic: str | None = None,
+        room: str | None = None,
         work_id: UUID | None = None,
         subgroup: int | None = None,
     ) -> Lesson:
@@ -120,6 +121,7 @@ class CRUDLesson:
             lesson_number=lesson_number,
             lesson_type=lesson_type,
             topic=topic,
+            room=room,
             work_id=work_id,
             subgroup=subgroup,
         )
@@ -139,6 +141,7 @@ class CRUDLesson:
         lesson_type: LessonType,
         schedule_item_id: UUID | None = None,
         topic: str | None = None,
+        room: str | None = None,
         work_id: UUID | None = None,
         subgroup: int | None = None,
     ) -> Lesson | None:
@@ -162,6 +165,7 @@ class CRUDLesson:
             lesson_type=lesson_type,
             schedule_item_id=schedule_item_id,
             topic=topic,
+            room=room,
             work_id=work_id,
             subgroup=subgroup,
         )
@@ -236,10 +240,13 @@ class CRUDLesson:
                     "subject_id": str(lesson.subject_id) if lesson.subject_id else None,
                     "subject_name": lesson.subject.name if lesson.subject else None,
                     "topic": lesson.topic,
+                    "room": lesson.room,
                     "is_cancelled": lesson.is_cancelled,
                     "ended_early": lesson.ended_early,
                     "groups": [],
                 }
+            elif grouped[key]["room"] != lesson.room:
+                grouped[key]["room"] = None
             grouped[key]["groups"].append(
                 {"id": str(lesson.group.id), "name": lesson.group.name, "lesson_id": str(lesson.id)}
             )

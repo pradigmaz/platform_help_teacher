@@ -63,6 +63,7 @@ class LessonBase(BaseModel):
     lesson_number: int = Field(ge=1, le=8)
     lesson_type: LessonType
     topic: str | None = None
+    room: str | None = None
     work_id: UUID | None = None
     subgroup: int | None = Field(None, ge=1, le=2)
 
@@ -180,6 +181,7 @@ class GroupedLectureResponse(BaseModel):
     subject_id: UUID | None = None
     subject_name: str | None = None
     topic: str | None = None
+    room: str | None = None
     is_cancelled: bool = False
     ended_early: bool = False
     groups: list[GroupedLectureGroupResponse]

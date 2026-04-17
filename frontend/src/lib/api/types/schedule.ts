@@ -67,6 +67,7 @@ export interface LessonCreate {
   lesson_number: number;
   lesson_type: LessonType;
   topic?: string;
+  room?: string | null;
   work_id?: string;
   subgroup?: number;
 }
@@ -87,6 +88,7 @@ export interface LessonResponse {
   lesson_number: number;
   lesson_type: LessonType;
   topic?: string;
+  room?: string | null;
   work_id?: string;
   work_number?: number | null;
   subgroup?: number;
@@ -170,6 +172,7 @@ export interface GroupedLectureResponse {
   subject_id: string | null;
   subject_name: string | null;
   topic: string | null;
+  room: string | null;
   is_cancelled: boolean;
   ended_early: boolean;
   groups: GroupedLectureGroup[];

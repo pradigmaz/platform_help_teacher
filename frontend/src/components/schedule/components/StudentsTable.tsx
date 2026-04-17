@@ -10,6 +10,8 @@ interface StudentsTableProps {
   attendance: Record<string, AttendanceStatus | null>;
   grades: Record<string, StudentGradeData>;
   canHaveGrade: boolean;
+  attendanceDisabled?: boolean;
+  attendanceDisabledReason?: string;
   lessonWorkNumber: number | null;
   availableWorkNumbers: number[];
   isLoading: boolean;
@@ -23,6 +25,8 @@ export function StudentsTable({
   attendance,
   grades,
   canHaveGrade,
+  attendanceDisabled = false,
+  attendanceDisabledReason,
   lessonWorkNumber,
   availableWorkNumbers,
   isLoading,
@@ -70,6 +74,8 @@ export function StudentsTable({
                 attendance={attendance[student.id] || null}
                 gradeData={grades[student.id]}
                 canHaveGrade={canHaveGrade}
+                attendanceDisabled={attendanceDisabled}
+                attendanceDisabledReason={attendanceDisabledReason}
                 lessonWorkNumber={lessonWorkNumber}
                 availableWorkNumbers={availableWorkNumbers}
                 onAttendanceChange={(status) => onAttendanceChange(student.id, status)}

@@ -3,7 +3,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
+import { toast } from 'sonner';
 import type { Student, GroupedLecture, AttendanceStatus, LessonStatus } from '../types';
+import { isFutureLessonDate } from './lessonDateGuards';
 import { setAttendanceStatusState } from './lessonSheetMutations';
 import { clearSheetDraft, saveLectureSheetDraft } from './sheetDraftStorage';
 import {
@@ -185,6 +187,14 @@ export function useLectureData({
           ),
       };
     });
+
+    if (
+      isFutureLessonDate(lecture.date) &&
+      items.some((item) => item.attendance_updates.length > 0)
+    ) {
+      toast.error('Посещаемость можно отмечать только в день занятия или позже');
+      throw new Error('future_attendance_blocked');
+    }
 
     const { data } = await api.post('/admin/lectures/grouped/sheet', {
       status,

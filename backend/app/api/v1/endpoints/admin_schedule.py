@@ -117,6 +117,7 @@ async def create_lesson(
         lesson_number=lesson_in.lesson_number,
         lesson_type=lesson_in.lesson_type,
         topic=lesson_in.topic,
+        room=lesson_in.room,
         work_id=lesson_in.work_id,
         subgroup=lesson_in.subgroup,
     )

@@ -6,6 +6,7 @@ import { Save, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import type { GroupedLecture, LessonStatus } from './types';
+import { isFutureLessonDate } from './hooks/lessonDateGuards';
 import { useLectureData } from './hooks/useLectureData';
 import { getGroupedLectureKey, type RestoredLectureDraft, type ScheduleDraftContext } from './hooks/sheetDraftTypes';
 import { LectureSheetHeader } from './components/LectureSheetHeader';
@@ -113,7 +114,9 @@ export function LectureSheet({
       onSave?.(status);
       onClose();
     } catch (err) {
-      console.error('Ошибка сохранения', err);
+      if ((err as Error).message !== 'future_attendance_blocked') {
+        console.error('Ошибка сохранения', err);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -126,6 +129,8 @@ export function LectureSheet({
   }, []);
 
   if (!lecture || !mounted) return null;
+  const attendanceDisabled = isFutureLessonDate(lecture.date);
+  const attendanceDisabledReason = 'Посещаемость можно отмечать только в день занятия или позже';
 
   const content = (
     <>
@@ -187,6 +192,8 @@ export function LectureSheet({
                   attendance={groupState.attendance}
                   isExpanded={expandedGroups.includes(group.id)}
                   isLoading={groupState.isLoading}
+                  attendanceDisabled={attendanceDisabled}
+                  attendanceDisabledReason={attendanceDisabledReason}
                   onToggle={() => toggleGroup(group.id)}
                   onAttendanceChange={(studentId, nextStatus) => handleAttendanceChange(group.id, studentId, nextStatus)}
                 />

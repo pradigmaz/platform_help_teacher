@@ -17,6 +17,8 @@ interface StudentRowProps {
   attendance: AttendanceStatus | null;
   gradeData?: StudentGradeData;
   canHaveGrade: boolean;
+  attendanceDisabled?: boolean;
+  attendanceDisabledReason?: string;
   lessonWorkNumber: number | null;
   availableWorkNumbers: number[];
   onAttendanceChange: (status: AttendanceStatus | null) => void;
@@ -30,6 +32,8 @@ export function StudentRow({
   attendance,
   gradeData,
   canHaveGrade,
+  attendanceDisabled = false,
+  attendanceDisabledReason,
   lessonWorkNumber,
   availableWorkNumbers,
   onAttendanceChange,
@@ -57,7 +61,12 @@ export function StudentRow({
       <span className="text-muted-foreground text-xs">{index + 1}</span>
       <span className="truncate" title={student.full_name}>{student.full_name}</span>
       <NoteButton entityType="student" entityId={student.id} size="sm" />
-      <AttendanceControl status={attendance} onStatusChange={onAttendanceChange} />
+      <AttendanceControl
+        status={attendance}
+        onStatusChange={onAttendanceChange}
+        disabled={attendanceDisabled}
+        disabledReason={attendanceDisabledReason}
+      />
       <div className="flex justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
         {hasGradeConflict ? (
           <div

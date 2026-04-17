@@ -9,8 +9,8 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Subject, TeacherSubjectAssignment
 from app.crud.crud_group_subject_offering import ensure_group_subject_offering
+from app.models import Subject, TeacherSubjectAssignment
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +159,8 @@ async def get_or_create_assignment_from_schedule(
     existing = result.scalar_one_or_none()
 
     if existing:
-        await ensure_group_subject_offering(db, group_id=group_id, subject_id=subject.id, semester=semester)
+        if semester is not None:
+            await ensure_group_subject_offering(db, group_id=group_id, subject_id=subject.id, semester=semester)
         return existing, False
 
     assignment = await assign_teacher_to_subject(db, teacher_id, subject.id, group_id, semester)

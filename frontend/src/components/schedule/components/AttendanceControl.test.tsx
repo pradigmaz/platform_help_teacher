@@ -38,4 +38,20 @@ describe('AttendanceControl', () => {
 
     expect(onStatusChange).toHaveBeenCalledWith(null);
   });
+
+  it('does not open the menu when attendance is disabled', () => {
+    const onStatusChange = vi.fn();
+
+    renderWithTooltip(
+      <AttendanceControl
+        status={null}
+        onStatusChange={onStatusChange}
+        disabled
+        disabledReason="Посещаемость можно отмечать только в день занятия или позже"
+      />
+    );
+
+    expect((screen.getByLabelText('Посещаемость недоступна') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('menuitem')).toBeNull();
+  });
 });

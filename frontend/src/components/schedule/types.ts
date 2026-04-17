@@ -17,6 +17,7 @@ export interface LessonData {
   lesson_number: number;
   lesson_type: string;
   topic: string | null;
+  room?: string | null;
   subject_id?: string | null;
   subject_name: string | null;
   work_number: number | null;
@@ -79,6 +80,7 @@ export interface GroupedLecture {
   subject_id: string | null;
   subject_name: string | null;
   topic: string | null;
+  room?: string | null;
   is_cancelled: boolean;
   ended_early?: boolean;
   groups: LectureGroup[];

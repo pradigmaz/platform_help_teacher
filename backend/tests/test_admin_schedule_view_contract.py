@@ -57,6 +57,7 @@ async def test_schedule_view_returns_summary_for_lessons_and_grouped_lectures():
         is_cancelled=False,
         cancellation_reason=None,
         ended_early=False,
+        room="108Комп/7к",
         subject=SimpleNamespace(name="Физика"),
         group=SimpleNamespace(name="ИТ-11"),
     )
@@ -66,6 +67,7 @@ async def test_schedule_view_returns_summary_for_lessons_and_grouped_lectures():
         "subject_id": str(subject_id),
         "subject_name": "Матан",
         "topic": "Интегралы",
+        "room": "119Л/7к",
         "is_cancelled": False,
         "ended_early": False,
         "groups": [
@@ -148,10 +150,12 @@ async def test_schedule_view_returns_summary_for_lessons_and_grouped_lectures():
         "expected_count": 8,
         "is_past": True,
     }
+    assert payload["lessons"][0]["room"] == "108Комп/7к"
     assert payload["grouped_lectures"][0]["summary"] == {
         "state": "complete",
         "marked_count": 20,
         "expected_count": 20,
         "is_past": True,
     }
+    assert payload["grouped_lectures"][0]["room"] == "119Л/7к"
     assert payload["grouped_lectures"][0]["ended_early"] is True

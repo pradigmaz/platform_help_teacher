@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import type { LessonData, LessonSheetSyncData } from './types';
 import { canHaveGrade } from './constants';
+import { isFutureLessonDate } from './hooks/lessonDateGuards';
 import { useLessonData } from './hooks/useLessonData';
 import type { RestoredLessonDraft, SheetDraftContext } from './hooks/sheetDraftTypes';
 import { SheetHeader, LessonStatus, LessonTopic, StudentsTable } from './components';
@@ -103,6 +104,8 @@ export function LessonSheet({
   if (!lesson || !mounted) return null;
 
   const lessonCanHaveGrade = canHaveGrade(lesson.lesson_type);
+  const attendanceDisabled = isFutureLessonDate(lesson.date);
+  const attendanceDisabledReason = 'Посещаемость можно отмечать только в день занятия или позже';
 
   const content = (
     <>
@@ -152,6 +155,8 @@ export function LessonSheet({
             attendance={attendance}
             grades={grades}
             canHaveGrade={lessonCanHaveGrade}
+            attendanceDisabled={attendanceDisabled}
+            attendanceDisabledReason={attendanceDisabledReason}
             lessonWorkNumber={workNumber}
             availableWorkNumbers={availableWorkNumbers}
             isLoading={isLoading}

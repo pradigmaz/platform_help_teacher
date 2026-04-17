@@ -56,6 +56,7 @@ async def get_schedule_view(
                 lesson_number=row.lesson_number,
                 lesson_type=row.lesson_type,
                 topic=row.topic,
+                room=row.room,
                 work_id=row.work_id,
                 work_number=row.work_number,
                 subgroup=row.subgroup,
@@ -75,6 +76,7 @@ async def get_schedule_view(
                 subject_id=item["subject_id"],
                 subject_name=item["subject_name"],
                 topic=item["topic"],
+                room=item.get("room"),
                 is_cancelled=summary_result.grouped_lecture_summaries[grouped_lecture_item_key(item)].is_cancelled,
                 ended_early=summary_result.grouped_lecture_summaries[grouped_lecture_item_key(item)].ended_early,
                 groups=[

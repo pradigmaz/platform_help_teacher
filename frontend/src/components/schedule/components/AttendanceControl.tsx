@@ -20,11 +20,46 @@ interface AttendanceControlProps {
   status: AttendanceStatus | null;
   onStatusChange: (status: AttendanceStatus | null) => void;
   className?: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export function AttendanceControl({ status, onStatusChange, className }: AttendanceControlProps) {
+export function AttendanceControl({
+  status,
+  onStatusChange,
+  className,
+  disabled = false,
+  disabledReason = 'Недоступно',
+}: AttendanceControlProps) {
   const attConfig = status ? ATTENDANCE_CONFIG[status] : null;
   const AttIcon = attConfig?.icon;
+  const label = attConfig?.label || 'Не отмечено';
+
+  if (disabled) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            disabled
+            className={cn(
+              'mx-auto flex h-7 min-w-9 cursor-not-allowed items-center justify-center gap-0.5 rounded-full px-1 opacity-55',
+              attConfig ? `${attConfig.color} ${attConfig.bg}` : 'text-muted-foreground/50 bg-muted/40',
+              className
+            )}
+            aria-label="Посещаемость недоступна"
+            title={disabledReason}
+          >
+            {AttIcon ? <AttIcon className="h-4 w-4" /> : <span>—</span>}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <p>{label}</p>
+          <p className="text-muted-foreground">{disabledReason}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <DropdownMenu modal={false}>
@@ -39,7 +74,7 @@ export function AttendanceControl({ status, onStatusChange, className }: Attenda
                 className
               )}
               aria-label="Выбрать статус посещаемости"
-              title={attConfig?.label || 'Не отмечено'}
+              title={label}
             >
               {AttIcon ? <AttIcon className="h-4 w-4" /> : <span>—</span>}
               <ChevronDown className="h-3 w-3 opacity-75" />
@@ -47,7 +82,7 @@ export function AttendanceControl({ status, onStatusChange, className }: Attenda
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
-          <p>{attConfig?.label || 'Не отмечено'}</p>
+          <p>{label}</p>
           <p className="text-muted-foreground">Выбрать статус</p>
         </TooltipContent>
         <DropdownMenuContent align="center" className="min-w-[170px] z-[10000]">

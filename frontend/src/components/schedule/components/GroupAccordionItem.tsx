@@ -13,6 +13,8 @@ interface GroupAccordionItemProps {
   attendance: Record<string, AttendanceStatus | null>;
   isExpanded: boolean;
   isLoading: boolean;
+  attendanceDisabled?: boolean;
+  attendanceDisabledReason?: string;
   onToggle: () => void;
   onAttendanceChange: (studentId: string, status: AttendanceStatus | null) => void;
 }
@@ -23,6 +25,8 @@ export function GroupAccordionItem({
   attendance,
   isExpanded,
   isLoading,
+  attendanceDisabled = false,
+  attendanceDisabledReason,
   onToggle,
   onAttendanceChange,
 }: GroupAccordionItemProps) {
@@ -92,6 +96,8 @@ export function GroupAccordionItem({
                     <AttendanceControl
                       status={attendance[student.id] ?? null}
                       onStatusChange={(status) => onAttendanceChange(student.id, status)}
+                      disabled={attendanceDisabled}
+                      disabledReason={attendanceDisabledReason}
                     />
                   </div>
                 );

@@ -25,23 +25,34 @@ class LessonImporter:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def import_smart(self, parsed: ParsedLesson, group: Group, subject_id: UUID | None = None) -> dict:
+    async def import_smart(
+        self,
+        parsed: ParsedLesson,
+        group: Group,
+        subject_id: UUID | None = None,
+        existing: Lesson | None = None,
+        existing_loaded: bool = False,
+    ) -> dict:
         """
         Умный импорт занятия с обнаружением конфликтов.
-        Returns: {"action": "created"|"skipped"|"conflict", "lesson": Lesson|None}
+        Returns: {"action": "created"|"updated"|"skipped"|"conflict", "lesson": Lesson|None}
         """
         lesson_type = LESSON_TYPE_ENUM_MAP.get(parsed.lesson_type, LessonType.LECTURE)
 
-        existing = await self._find_existing(group.id, parsed)
+        if not existing_loaded:
+            existing = await self._find_existing(group.id, parsed)
 
         if not existing:
             lesson = self._create_lesson(parsed, group, lesson_type, subject_id)
             self.db.add(lesson)
             return {"action": "created", "lesson": lesson}
 
+        room_updated = self._update_room(existing, parsed)
         changes = self._detect_changes(existing, parsed, lesson_type)
 
         if not changes:
+            if room_updated:
+                return {"action": "updated", "lesson": existing}
             return {"action": "skipped", "lesson": existing}
 
         await self._create_conflict(existing, parsed, lesson_type)
@@ -106,10 +117,19 @@ class LessonImporter:
             lesson_number=parsed.lesson_number,
             lesson_type=lesson_type,
             topic=parsed.subject,
+            room=parsed.room,
             subgroup=parsed.subgroup,
             is_cancelled=False,
             subject_id=subject_id,
         )
+
+    def _update_room(self, existing: Lesson, parsed: ParsedLesson) -> bool:
+        """Auto-sync room changes without creating schedule conflicts."""
+        if existing.room == parsed.room:
+            return False
+        existing.room = parsed.room
+        self.db.add(existing)
+        return True
 
     def _detect_changes(self, existing: Lesson, parsed: ParsedLesson, lesson_type: LessonType) -> dict:
         """Обнаружить изменения между существующим и новым занятием"""

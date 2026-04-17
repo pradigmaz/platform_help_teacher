@@ -58,13 +58,28 @@ async def test_group_report_requires_subject_selection_when_period_has_multiple_
     ]
 
     with (
-        patch("app.services.reports.group_report_collector.get_group", new=AsyncMock(return_value=SimpleNamespace(code="IT-11", name="ИТ-11", has_subgroups=True))),
+        patch(
+            "app.services.reports.group_report_collector.get_group",
+            new=AsyncMock(return_value=SimpleNamespace(code="IT-11", name="ИТ-11", has_subgroups=True)),
+        ),
         patch("app.services.reports.group_report_collector.get_user", new=AsyncMock(return_value=None)),
         patch("app.services.reports.group_report_collector.get_group_students", new=AsyncMock(return_value=[student])),
-        patch("app.services.reports.group_report_collector.get_semester_info", new=AsyncMock(return_value=(False, 70, 40, True))),
-        patch("app.services.reports.group_report_collector.get_semester_start_date", new=AsyncMock(return_value=date(2025, 9, 1))),
-        patch("app.services.reports.report_subject_helpers.list_group_subject_options_in_period", new=AsyncMock(return_value=subjects)),
-        patch("app.services.attestation.service.AttestationService.get_or_create_settings", new=AsyncMock(return_value=settings)),
+        patch(
+            "app.services.reports.group_report_collector.get_semester_info",
+            new=AsyncMock(return_value=(False, 70, 40, True)),
+        ),
+        patch(
+            "app.services.reports.group_report_collector.get_semester_start_date",
+            new=AsyncMock(return_value=date(2025, 9, 1)),
+        ),
+        patch(
+            "app.services.reports.report_subject_helpers.list_group_subject_options_in_period",
+            new=AsyncMock(return_value=subjects),
+        ),
+        patch(
+            "app.services.attestation.service.AttestationService.get_or_create_settings",
+            new=AsyncMock(return_value=settings),
+        ),
     ):
         result = await collect_group_report_data(
             db=mock_db,
@@ -106,13 +121,22 @@ async def test_student_report_uses_explicit_subject_for_second_attestation(mock_
 
     with (
         patch("app.services.reports.student_detail_collector.get_user", new=AsyncMock(return_value=student)),
-        patch("app.services.reports.student_detail_collector.get_group", new=AsyncMock(return_value=SimpleNamespace(code="IT-11"))),
-        patch("app.services.reports.student_detail_collector.get_semester_info", new=AsyncMock(return_value=(False, 70, 40, True))),
+        patch(
+            "app.services.reports.student_detail_collector.get_group",
+            new=AsyncMock(return_value=SimpleNamespace(code="IT-11")),
+        ),
+        patch(
+            "app.services.reports.student_detail_collector.get_semester_info",
+            new=AsyncMock(return_value=(False, 70, 40, True)),
+        ),
         patch(
             "app.services.reports.report_subject_helpers.list_group_subject_options_in_period",
             new=AsyncMock(return_value=[selected_subject, other_subject]),
         ),
-        patch("app.services.attestation.service.AttestationService.get_or_create_settings", new=AsyncMock(return_value=settings)),
+        patch(
+            "app.services.attestation.service.AttestationService.get_or_create_settings",
+            new=AsyncMock(return_value=settings),
+        ),
         patch("app.services.attestation.service.AttestationService.calculate_student_score", score_mock),
     ):
         result = await collect_student_report_data(
