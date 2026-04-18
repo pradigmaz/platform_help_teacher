@@ -7,6 +7,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    maxWorkers: 2,
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     setupFiles: [],
     exclude: ['tests/smoke/**/*.spec.ts'],

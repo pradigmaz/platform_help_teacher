@@ -9,7 +9,7 @@
     "start:smoke": "node ./scripts/start-smoke.mjs",
     "lint": "eslint",
     "test": "npm run test:unit",
-    "test:unit": "vitest --run",
+    "test:unit": "bash ./scripts/run-vitest-safe.sh",
     "test:smoke": "playwright test --config=playwright.config.ts",
     "test:smoke:perf": "playwright test tests/smoke/admin-critical-flow.perf.spec.ts --config=playwright.config.ts",
     "perf:admin:live": "node ./scripts/live-admin-flow-perf.mjs",
