@@ -1,5 +1,6 @@
 """Subject-aware helpers for attestation calculations."""
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -7,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud.crud_group_subject_offering import get_current_semester_key
+from app.crud.crud_group_subject_offering import get_current_semester_key, list_group_subject_ids_for_current_semester
 from app.models.attestation_settings import AttestationSettings
 from app.models.group_subject_offering import GroupSubjectOffering
 from app.models.lesson import Lesson
@@ -17,6 +18,7 @@ from app.models.subject import Subject
 
 LAB_RELEVANT_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
 TRANSFER_COUNT_KEYS = ("total_lessons", "present", "late", "excused", "absent")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -38,16 +40,7 @@ async def list_group_subject_ids_in_period(
     settings: AttestationSettings,
 ) -> tuple[UUID, ...]:
     """List distinct subjects for the active semester, preferring offerings over lessons."""
-    semester_key = await get_current_semester_key(db)
-    offerings_result = await db.execute(
-        select(GroupSubjectOffering.subject_id)
-        .where(
-            GroupSubjectOffering.group_id == group_id,
-            GroupSubjectOffering.semester == semester_key,
-        )
-        .distinct()
-    )
-    offering_subject_ids = tuple(subject_id for subject_id in offerings_result.scalars().all() if subject_id is not None)
+    offering_subject_ids = await list_group_subject_ids_for_current_semester(db, group_id=group_id)
     if offering_subject_ids:
         return offering_subject_ids
 
@@ -61,7 +54,14 @@ async def list_group_subject_ids_in_period(
         .where(Lesson.date <= period_end)
         .distinct()
     )
-    return tuple(subject_id for subject_id in lessons_result.scalars().all() if subject_id is not None)
+    fallback_subject_ids = tuple(subject_id for subject_id in lessons_result.scalars().all() if subject_id is not None)
+    if fallback_subject_ids:
+        logger.info(
+            "attestation_subject_scope_fallback_to_lessons group_id=%s subject_count=%s",
+            group_id,
+            len(fallback_subject_ids),
+        )
+    return fallback_subject_ids
 
 
 async def resolve_attestation_subject_scope(

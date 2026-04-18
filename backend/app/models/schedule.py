@@ -16,6 +16,7 @@ from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from .group import Group
+    from .group_subject_offering import GroupSubjectOffering
     from .subject import Subject
     from .user import User
 
@@ -71,6 +72,9 @@ class ScheduleItem(Base, TimestampMixin):
     subject_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    offering_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("group_subject_offerings.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     room: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Кто ведёт
@@ -94,6 +98,7 @@ class ScheduleItem(Base, TimestampMixin):
     group: Mapped["Group"] = relationship()
     teacher: Mapped[Optional["User"]] = relationship()
     subject_ref: Mapped[Optional["Subject"]] = relationship()
+    offering: Mapped[Optional["GroupSubjectOffering"]] = relationship()
 
     __table_args__ = (
         Index("idx_schedule_group_day", "group_id", "day_of_week"),

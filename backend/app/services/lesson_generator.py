@@ -88,6 +88,8 @@ class LessonGenerator:
                     date=current,
                     lesson_number=item.lesson_number,
                     lesson_type=item.lesson_type,
+                    subject_id=item.subject_id,
+                    offering_id=item.offering_id,
                     subgroup=item.subgroup,
                 )
                 if lesson:

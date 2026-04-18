@@ -1,5 +1,6 @@
 """Shared student lab queries for endpoints and dashboard bootstrap."""
 
+import logging
 from collections import defaultdict
 from typing import Any
 from uuid import UUID
@@ -9,11 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.endpoints.student.lab_response import format_submission, serialize_visibility_fields
 from app.core import error_messages as em
+from app.crud.crud_group_subject_offering import list_group_subject_ids_for_current_semester
 from app.models.lab import Lab
 from app.models.user import User
 from app.services.lab_visibility import LabVisibilityService
 from app.services.lab_visibility.models import LabVisibilityInfo
 from app.services.student_lab_service import resolve_lab_acceptance, student_lab_service
+
+logger = logging.getLogger(__name__)
 
 
 async def list_student_labs(
@@ -29,10 +33,27 @@ async def list_student_labs(
         group_id=current_user.group_id,
         subgroup=current_user.subgroup,
     )
-    group_subject_ids = await visibility_service.get_group_subject_ids(
-        group_id=current_user.group_id,
-        subgroup=current_user.subgroup,
+    offering_subject_ids = set(
+        await list_group_subject_ids_for_current_semester(db, group_id=current_user.group_id)
     )
+    if offering_subject_ids:
+        visible_by_subject = {
+            subject_id: work_numbers
+            for subject_id, work_numbers in visible_by_subject.items()
+            if subject_id in offering_subject_ids
+        }
+        group_subject_ids = offering_subject_ids
+    else:
+        group_subject_ids = await visibility_service.get_group_subject_ids(
+            group_id=current_user.group_id,
+            subgroup=current_user.subgroup,
+        )
+        if group_subject_ids:
+            logger.info(
+                "student_lab_subjects_fallback_to_lessons group_id=%s subject_count=%s",
+                current_user.group_id,
+                len(group_subject_ids),
+            )
 
     labs = await student_lab_service.get_published_labs(db)
 

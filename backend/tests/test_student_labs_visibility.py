@@ -11,7 +11,10 @@ from app.models.user import User, UserRole
 from app.services.deadline_semantics import calculate_visibility_state
 from app.services.lab_visibility.models import LabVisibilityInfo
 from app.services.lab_visibility.service import LabVisibilityService
-from app.services.lab_visibility.visibility_calculator import _calculate_single_lab_visibility, calculate_visibility_for_subject
+from app.services.lab_visibility.visibility_calculator import (
+    _calculate_single_lab_visibility,
+    calculate_visibility_for_subject,
+)
 
 
 def _build_lab(number: int, subject_id, *, sequential: bool = True) -> Lab:
@@ -35,6 +38,14 @@ def _build_student(group_id) -> User:
         group_id=group_id,
         subgroup=2,
         is_active=True,
+    )
+
+
+@pytest.fixture(autouse=True)
+def patch_current_semester_offerings(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.student.lab_queries.list_group_subject_ids_for_current_semester",
+        AsyncMock(return_value=()),
     )
 
 
@@ -194,6 +205,47 @@ class TestStudentLabsVisibility:
         result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
 
         assert [(lab["number"], lab["title"]) for lab in result] == [(1, "Lab 1")]
+
+    @pytest.mark.asyncio
+    async def test_offerings_hide_historical_subjects_even_if_lessons_still_exist(self, mock_db, monkeypatch):
+        visible_subject_id = uuid4()
+        stale_subject_id = uuid4()
+        group_id = uuid4()
+        student = _build_student(group_id)
+        labs = [_build_lab(1, visible_subject_id), _build_lab(1, stale_subject_id)]
+
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.lab_queries.list_group_subject_ids_for_current_semester",
+            AsyncMock(return_value=(visible_subject_id,)),
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_visible_lab_numbers_by_subject",
+            AsyncMock(return_value={visible_subject_id: [1], stale_subject_id: [1]}),
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_batch_visibility_info",
+            AsyncMock(return_value={1: LabVisibilityInfo(lab_number=1, is_visible=True)}),
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.student_lab_service.get_published_labs",
+            AsyncMock(return_value=labs),
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_submissions",
+            AsyncMock(return_value={}),
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_journal_grades_by_subject",
+            AsyncMock(return_value={}),
+        )
+        monkeypatch.setattr(
+            "app.api.v1.endpoints.student.labs.student_lab_service.get_student_position",
+            AsyncMock(return_value=1),
+        )
+
+        result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
+
+        assert [lab["subject_id"] for lab in result] == [str(visible_subject_id)]
 
     @pytest.mark.asyncio
     async def test_keeps_visibility_for_subjects_with_same_lab_numbers(self, mock_db, monkeypatch):

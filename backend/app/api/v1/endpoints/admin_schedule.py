@@ -3,12 +3,11 @@
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.core import error_messages as em
-from app.core.limiter import limiter
 from app.crud.crud_schedule import lesson as crud_lesson
 from app.crud.crud_schedule import schedule as crud_schedule
 from app.db.session import get_db
@@ -25,7 +24,11 @@ from app.schemas.schedule import (
     ScheduleItemUpdate,
 )
 from app.services.lesson_generator import lesson_generator
-from app.services.schedule_constants import today_msk
+from app.services.schedule_offering_resolution import (
+    combine_resolved_scopes,
+    resolve_schedule_offering_scope,
+    resolve_schedule_scope_from_item,
+)
 
 router = APIRouter()
 
@@ -41,6 +44,18 @@ async def create_schedule_item(
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Создать элемент расписания."""
+    try:
+        scope = await resolve_schedule_offering_scope(
+            db,
+            group_id=group_id,
+            reference_date=item_in.start_date,
+            subject_id=item_in.subject_id,
+            offering_id=item_in.offering_id,
+            require_existing=item_in.subject_id is not None or item_in.offering_id is not None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     item = await crud_schedule.create(
         db,
         group_id=group_id,
@@ -48,6 +63,8 @@ async def create_schedule_item(
         lesson_number=item_in.lesson_number,
         lesson_type=item_in.lesson_type,
         subject=item_in.subject,
+        subject_id=scope.subject_id,
+        offering_id=scope.offering_id,
         room=item_in.room,
         teacher_id=item_in.teacher_id,
         start_date=item_in.start_date,
@@ -82,7 +99,26 @@ async def update_schedule_item(
     if not item:
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
 
-    item = await crud_schedule.update(db, db_obj=item, **item_in.model_dump(exclude_unset=True))
+    payload = item_in.model_dump(exclude_unset=True)
+    if {"subject_id", "offering_id", "start_date"} & payload.keys():
+        try:
+            scope = await resolve_schedule_offering_scope(
+                db,
+                group_id=item.group_id,
+                reference_date=payload.get("start_date", item.start_date),
+                subject_id=payload.get("subject_id", item.subject_id),
+                offering_id=payload.get("offering_id", item.offering_id),
+                require_existing=(
+                    payload.get("subject_id", item.subject_id) is not None
+                    or payload.get("offering_id", item.offering_id) is not None
+                ),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        payload["subject_id"] = scope.subject_id
+        payload["offering_id"] = scope.offering_id
+
+    item = await crud_schedule.update(db, db_obj=item, **payload)
     return item
 
 
@@ -109,6 +145,25 @@ async def create_lesson(
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Создать занятие вручную."""
+    try:
+        explicit_scope = await resolve_schedule_offering_scope(
+            db,
+            group_id=lesson_in.group_id,
+            reference_date=lesson_in.date,
+            subject_id=lesson_in.subject_id,
+            offering_id=lesson_in.offering_id,
+            require_existing=lesson_in.subject_id is not None or lesson_in.offering_id is not None,
+        )
+        linked_scope = await resolve_schedule_scope_from_item(
+            db,
+            group_id=lesson_in.group_id,
+            reference_date=lesson_in.date,
+            schedule_item_id=lesson_in.schedule_item_id,
+        )
+        scope = combine_resolved_scopes(explicit_scope, linked_scope)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     lesson = await crud_lesson.create(
         db,
         group_id=lesson_in.group_id,
@@ -116,44 +171,14 @@ async def create_lesson(
         date=lesson_in.date,
         lesson_number=lesson_in.lesson_number,
         lesson_type=lesson_in.lesson_type,
+        subject_id=scope.subject_id,
+        offering_id=scope.offering_id,
         topic=lesson_in.topic,
         room=lesson_in.room,
         work_id=lesson_in.work_id,
         subgroup=lesson_in.subgroup,
     )
     return lesson
-
-
-@router.get("/lectures/grouped")
-async def get_grouped_lectures(
-    start_date: date = Query(...),
-    end_date: date = Query(...),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_superuser),
-):
-    """Получить лекции сгруппированные по (дата + пара + предмет)."""
-    return await crud_lesson.get_grouped_lectures(db, start_date, end_date)
-
-
-@router.get("/groups/{group_id}/students")
-async def get_group_students(
-    group_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_superuser),
-):
-    """Получить студентов группы для журнала."""
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
-
-    from app.models.group import Group
-
-    result = await db.execute(select(Group).options(selectinload(Group.users)).where(Group.id == group_id))
-    group = result.scalar_one_or_none()
-    if not group:
-        raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
-
-    students = sorted([u for u in group.users if u.is_active], key=lambda u: u.full_name)
-    return [{"id": str(s.id), "full_name": s.full_name} for s in students]
 
 
 @router.get("/groups/{group_id}/lessons", response_model=list[LessonResponse])
@@ -195,7 +220,23 @@ async def update_lesson(
     if not lesson:
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
 
-    lesson = await crud_lesson.update(db, db_obj=lesson, **lesson_in.model_dump(exclude_unset=True))
+    payload = lesson_in.model_dump(exclude_unset=True)
+    if {"subject_id", "offering_id"} & payload.keys():
+        try:
+            scope = await resolve_schedule_offering_scope(
+                db,
+                group_id=lesson.group_id,
+                reference_date=lesson.date,
+                subject_id=payload.get("subject_id"),
+                offering_id=payload.get("offering_id"),
+                require_existing=payload.get("subject_id") is not None or payload.get("offering_id") is not None,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        payload["subject_id"] = scope.subject_id
+        payload["offering_id"] = scope.offering_id
+
+    lesson = await crud_lesson.update(db, db_obj=lesson, **payload)
     return lesson
 
 
@@ -243,66 +284,3 @@ async def generate_lessons(
     return GenerateLessonsResponse(
         created_count=len(lessons), lessons=[LessonResponse.model_validate(l) for l in lessons]
     )
-
-
-# === Schedule Parser ===
-
-from pydantic import BaseModel
-
-from app.services.schedule_import_service import ScheduleImportService
-
-
-class ParseScheduleRequest(BaseModel):
-    """Запрос на парсинг расписания"""
-
-    teacher_name: str
-    start_date: date
-    end_date: date | None = None  # По умолчанию - сегодня
-
-
-class ParseScheduleResponse(BaseModel):
-    """Результат парсинга"""
-
-    total_parsed: int
-    groups_created: int
-    lessons_created: int
-    lessons_updated: int = 0
-    lessons_skipped: int
-    conflicts_created: int = 0
-    subjects_created: int = 0
-    assignments_created: int = 0
-    groups: list[str]
-    subjects: list[str] = []
-    semester_end_detected: bool = False
-    last_lesson_date: str | None = None
-    empty_weeks_count: int = 0
-
-
-@router.post("/schedule/parse", response_model=ParseScheduleResponse)
-@limiter.limit("5/hour")
-async def parse_schedule(
-    request: Request,
-    data: ParseScheduleRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_superuser),
-):
-    """
-    Парсинг расписания с kis.vgltu.ru.
-    Автоматически создаёт группы и занятия.
-    """
-    end_date = data.end_date or today_msk()
-
-    if data.start_date > end_date:
-        raise HTTPException(status_code=400, detail="start_date должна быть раньше end_date")
-
-    import_service = ScheduleImportService(db)
-
-    try:
-        stats = await import_service.import_from_parser(
-            teacher_name=data.teacher_name, start_date=data.start_date, end_date=end_date
-        )
-
-        return ParseScheduleResponse(**stats)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка парсинга: {str(e)}")

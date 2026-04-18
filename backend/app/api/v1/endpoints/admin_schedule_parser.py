@@ -6,14 +6,17 @@ import logging
 from datetime import timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api import deps
 from app.api.deps import get_current_teacher, get_db
 from app.core import error_messages as em
+from app.core.limiter import limiter
 from app.crud import crud_parse_history
 from app.crud import crud_schedule_parser as crud
 from app.models.user import User
+from app.schemas.schedule import ParseScheduleRequest, ParseScheduleResponse
 from app.schemas.schedule_parser import (
     ConflictResolveRequest,
     ParseHistoryResponse,
@@ -107,6 +110,31 @@ async def parse_now(db: AsyncSession = Depends(get_db), current_user: User = Dep
         await db.commit()
         logger.exception("Parse error")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/parse", response_model=ParseScheduleResponse)
+@limiter.limit("5/hour")
+async def parse_schedule(
+    request: Request,
+    data: ParseScheduleRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+):
+    """Парсинг расписания с kis.vgltu.ru."""
+    end_date = data.end_date or today_msk()
+    if data.start_date > end_date:
+        raise HTTPException(status_code=400, detail="start_date должна быть раньше end_date")
+
+    import_service = ScheduleImportService(db)
+    try:
+        stats = await import_service.import_from_parser(
+            teacher_name=data.teacher_name,
+            start_date=data.start_date,
+            end_date=end_date,
+        )
+        return ParseScheduleResponse(**stats)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Ошибка парсинга: {str(exc)}") from exc
 
 
 @router.get("/parse-history", response_model=list[ParseHistoryResponse])

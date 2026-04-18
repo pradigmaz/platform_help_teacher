@@ -9,8 +9,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.api.v1.endpoints.admin_schedule import ParseScheduleResponse
 from app.api.v1.endpoints.admin_schedule_parser import parse_now
+from app.schemas.schedule import ParseScheduleResponse
 from app.services.html_parser import ParsedLesson
 from app.services.schedule_parser import SyncScheduleParser
 from app.services.semester_utils import detect_semester_end, get_semester
@@ -124,6 +124,8 @@ class TestConflictDetection:
         existing_lesson.topic = "Математика"
         existing_lesson.lesson_type = LessonType.LECTURE
         existing_lesson.room = "101"
+        existing_lesson.subject_id = None
+        existing_lesson.offering_id = None
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = existing_lesson
@@ -151,6 +153,48 @@ class TestConflictDetection:
         assert result["action"] == "updated"
         assert existing_lesson.room == "119Л/7к"
         db.add.assert_called_once_with(existing_lesson)
+
+    @pytest.mark.asyncio
+    async def test_backfills_subject_scope_on_existing_lesson_without_conflict(self):
+        """Повторный импорт синхронизирует subject/offering даже без topic/type diff."""
+        from app.models.schedule import LessonType
+        from app.services.lesson_importer import LessonImporter
+
+        subject_id = uuid4()
+        offering_id = uuid4()
+        existing_lesson = MagicMock()
+        existing_lesson.id = uuid4()
+        existing_lesson.topic = "Математика"
+        existing_lesson.lesson_type = LessonType.LECTURE
+        existing_lesson.room = "101"
+        existing_lesson.subject_id = None
+        existing_lesson.offering_id = None
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = existing_lesson
+
+        db = MagicMock()
+        db.add = MagicMock()
+        db.execute = AsyncMock(return_value=mock_result)
+
+        importer = LessonImporter(db)
+        parsed = ParsedLesson(
+            date=date(2026, 3, 12),
+            lesson_number=2,
+            lesson_type="lecture",
+            subject="Математика",
+            groups=["ИС-241"],
+            subgroup=None,
+            room="101",
+        )
+        group = MagicMock()
+        group.id = uuid4()
+
+        result = await importer.import_smart(parsed, group, subject_id=subject_id, offering_id=offering_id)
+
+        assert result["action"] == "updated"
+        assert existing_lesson.subject_id == subject_id
+        assert existing_lesson.offering_id == offering_id
 
 
 class TestScheduleImportServiceOptimization:

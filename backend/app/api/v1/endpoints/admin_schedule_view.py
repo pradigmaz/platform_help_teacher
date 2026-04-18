@@ -1,11 +1,14 @@
 """Aggregate admin schedule view endpoint."""
 
 from datetime import UTC, date, datetime
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api import deps as api_deps
 from app.api.deps import get_current_teacher, get_db
+from app.core import error_messages as em
 from app.crud import crud_parse_history, crud_schedule_parser
 from app.crud.crud_schedule import lesson as crud_lesson
 from app.models import User
@@ -24,6 +27,38 @@ from app.services.schedule_attendance_summary import (
 )
 
 router = APIRouter()
+
+
+@router.get("/lectures/grouped")
+async def get_grouped_lectures(
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(api_deps.get_current_active_superuser),
+):
+    """Получить лекции сгруппированные по (дата + пара + предмет)."""
+    return await crud_lesson.get_grouped_lectures(db, start_date, end_date)
+
+
+@router.get("/groups/{group_id}/students")
+async def get_group_students(
+    group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(api_deps.get_current_active_superuser),
+):
+    """Получить студентов группы для журнала."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    from app.models.group import Group
+
+    result = await db.execute(select(Group).options(selectinload(Group.users)).where(Group.id == group_id))
+    group = result.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
+
+    students = sorted([u for u in group.users if u.is_active], key=lambda u: u.full_name)
+    return [{"id": str(s.id), "full_name": s.full_name} for s in students]
 
 
 @router.get("/schedule/view", response_model=ScheduleViewResponse)

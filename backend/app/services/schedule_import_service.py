@@ -14,6 +14,7 @@ from app.models.lesson import Lesson
 from app.models.subject import Subject
 from app.models.user import User
 from app.services.lesson_importer import LessonImporter
+from app.services.schedule_offering_resolution import resolve_schedule_offering_scope
 from app.services.schedule_parser import ParsedLesson, get_parser
 from app.services.semester_utils import detect_semester_end, find_teacher, get_semester
 
@@ -209,6 +210,14 @@ class ScheduleImportService:
                 group_parsed_keys[group_name] = set()
             group_parsed_keys[group_name].add((parsed.date, parsed.lesson_number, parsed.subgroup))
 
+            resolved_scope = await resolve_schedule_offering_scope(
+                self.db,
+                group_id=group.id,
+                reference_date=parsed.date,
+                subject_id=subject_id,
+                ensure=subject_id is not None,
+            )
+
             if teacher and parsed.subject:
                 assignment_key = (group_name, parsed.subject)
                 if assignment_key not in assignment_cache:
@@ -223,7 +232,12 @@ class ScheduleImportService:
             existing = existing_lessons.get(key)
             if smart_update:
                 result = await self._lesson_importer.import_smart(
-                    parsed, group, subject_id, existing=existing, existing_loaded=True
+                    parsed,
+                    group,
+                    resolved_scope.subject_id,
+                    resolved_scope.offering_id,
+                    existing=existing,
+                    existing_loaded=True,
                 )
                 if result["lesson"] is not None:
                     existing_lessons[key] = result["lesson"]
@@ -236,7 +250,12 @@ class ScheduleImportService:
                 elif result["action"] == "conflict":
                     stats["conflicts_created"] += 1
             else:
-                lesson = await self._lesson_importer.import_simple(parsed, group, subject_id)
+                lesson = await self._lesson_importer.import_simple(
+                    parsed,
+                    group,
+                    resolved_scope.subject_id,
+                    resolved_scope.offering_id,
+                )
                 if lesson:
                     stats["lessons_created"] += 1
                 else:

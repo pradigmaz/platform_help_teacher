@@ -30,6 +30,7 @@ class LessonImporter:
         parsed: ParsedLesson,
         group: Group,
         subject_id: UUID | None = None,
+        offering_id: UUID | None = None,
         existing: Lesson | None = None,
         existing_loaded: bool = False,
     ) -> dict:
@@ -43,22 +44,29 @@ class LessonImporter:
             existing = await self._find_existing(group.id, parsed)
 
         if not existing:
-            lesson = self._create_lesson(parsed, group, lesson_type, subject_id)
+            lesson = self._create_lesson(parsed, group, lesson_type, subject_id, offering_id)
             self.db.add(lesson)
             return {"action": "created", "lesson": lesson}
 
         room_updated = self._update_room(existing, parsed)
+        scope_updated = self._sync_scope(existing, subject_id, offering_id)
         changes = self._detect_changes(existing, parsed, lesson_type)
 
         if not changes:
-            if room_updated:
+            if room_updated or scope_updated:
                 return {"action": "updated", "lesson": existing}
             return {"action": "skipped", "lesson": existing}
 
         await self._create_conflict(existing, parsed, lesson_type)
         return {"action": "conflict", "lesson": existing}
 
-    async def import_simple(self, parsed: ParsedLesson, group: Group, subject_id: UUID | None = None) -> Lesson | None:
+    async def import_simple(
+        self,
+        parsed: ParsedLesson,
+        group: Group,
+        subject_id: UUID | None = None,
+        offering_id: UUID | None = None,
+    ) -> Lesson | None:
         """Импортировать одно занятие (без конфликтов)"""
         existing = await self._find_existing(group.id, parsed)
 
@@ -66,7 +74,7 @@ class LessonImporter:
             return None
 
         lesson_type = LESSON_TYPE_ENUM_MAP.get(parsed.lesson_type, LessonType.LECTURE)
-        lesson = self._create_lesson(parsed, group, lesson_type, subject_id)
+        lesson = self._create_lesson(parsed, group, lesson_type, subject_id, offering_id)
         self.db.add(lesson)
         return lesson
 
@@ -108,7 +116,12 @@ class LessonImporter:
         return result.scalar_one_or_none()
 
     def _create_lesson(
-        self, parsed: ParsedLesson, group: Group, lesson_type: LessonType, subject_id: UUID | None
+        self,
+        parsed: ParsedLesson,
+        group: Group,
+        lesson_type: LessonType,
+        subject_id: UUID | None,
+        offering_id: UUID | None,
     ) -> Lesson:
         """Создать объект занятия"""
         return Lesson(
@@ -121,6 +134,7 @@ class LessonImporter:
             subgroup=parsed.subgroup,
             is_cancelled=False,
             subject_id=subject_id,
+            offering_id=offering_id,
         )
 
     def _update_room(self, existing: Lesson, parsed: ParsedLesson) -> bool:
@@ -128,6 +142,15 @@ class LessonImporter:
         if existing.room == parsed.room:
             return False
         existing.room = parsed.room
+        self.db.add(existing)
+        return True
+
+    def _sync_scope(self, existing: Lesson, subject_id: UUID | None, offering_id: UUID | None) -> bool:
+        """Backfill subject/offering scope for existing lessons during parser reruns."""
+        if existing.subject_id == subject_id and existing.offering_id == offering_id:
+            return False
+        existing.subject_id = subject_id
+        existing.offering_id = offering_id
         self.db.add(existing)
         return True
 

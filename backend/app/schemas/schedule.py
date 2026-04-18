@@ -21,6 +21,8 @@ class ScheduleItemBase(BaseModel):
     lesson_number: int = Field(ge=1, le=8)
     lesson_type: LessonType
     subject: str | None = None
+    subject_id: UUID | None = None
+    offering_id: UUID | None = None
     room: str | None = None
     teacher_id: UUID | None = None
     start_date: date
@@ -38,6 +40,8 @@ class ScheduleItemUpdate(BaseModel):
     lesson_number: int | None = Field(None, ge=1, le=8)
     lesson_type: LessonType | None = None
     subject: str | None = None
+    subject_id: UUID | None = None
+    offering_id: UUID | None = None
     room: str | None = None
     teacher_id: UUID | None = None
     start_date: date | None = None
@@ -62,6 +66,8 @@ class LessonBase(BaseModel):
     date: date
     lesson_number: int = Field(ge=1, le=8)
     lesson_type: LessonType
+    subject_id: UUID | None = None
+    offering_id: UUID | None = None
     topic: str | None = None
     room: str | None = None
     work_id: UUID | None = None
@@ -74,6 +80,8 @@ class LessonCreate(LessonBase):
 
 
 class LessonUpdate(BaseModel):
+    subject_id: UUID | None = None
+    offering_id: UUID | None = None
     topic: str | None = None
     work_id: UUID | None = None
     work_number: int | None = Field(None, ge=1, le=20, description="Номер лабы/практики")
@@ -227,3 +235,29 @@ class GenerateLessonsResponse(BaseModel):
 
     created_count: int
     lessons: list[LessonResponse]
+
+
+class ParseScheduleRequest(BaseModel):
+    """Запрос на парсинг расписания"""
+
+    teacher_name: str
+    start_date: date
+    end_date: date | None = None  # По умолчанию - сегодня
+
+
+class ParseScheduleResponse(BaseModel):
+    """Результат парсинга"""
+
+    total_parsed: int
+    groups_created: int
+    lessons_created: int
+    lessons_updated: int = 0
+    lessons_skipped: int
+    conflicts_created: int = 0
+    subjects_created: int = 0
+    assignments_created: int = 0
+    groups: list[str]
+    subjects: list[str] = []
+    semester_end_detected: bool = False
+    last_lesson_date: str | None = None
+    empty_weeks_count: int = 0

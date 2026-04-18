@@ -16,6 +16,7 @@ from .schedule import LessonType
 
 if TYPE_CHECKING:
     from .group import Group
+    from .group_subject_offering import GroupSubjectOffering
     from .lesson_grade import LessonGrade
     from .schedule import ScheduleItem
     from .schedule_conflict import ScheduleConflict
@@ -45,6 +46,12 @@ class Lesson(Base, TimestampMixin):
     # Связь с предметом
     subject_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    offering_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("group_subject_offerings.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
     # Когда
@@ -87,6 +94,7 @@ class Lesson(Base, TimestampMixin):
     group: Mapped["Group"] = relationship()
     work: Mapped[Optional["Work"]] = relationship()
     subject: Mapped[Optional["Subject"]] = relationship()
+    offering: Mapped[Optional["GroupSubjectOffering"]] = relationship()
     grades: Mapped[list["LessonGrade"]] = relationship(back_populates="lesson")
     conflicts: Mapped[list["ScheduleConflict"]] = relationship(back_populates="lesson")
 

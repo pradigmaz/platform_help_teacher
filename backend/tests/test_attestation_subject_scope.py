@@ -31,33 +31,25 @@ class TestAttestationSubjectScope:
     @pytest.mark.asyncio
     async def test_list_group_subject_ids_prefers_offerings_over_period_lessons(self):
         subject_id = uuid4()
-        offering_result = MagicMock()
-        offering_result.scalars.return_value.all.return_value = [subject_id]
-        fallback_result = MagicMock()
-        fallback_result.scalars.return_value.all.return_value = [uuid4()]
         mock_db = AsyncMock()
-        mock_db.execute.side_effect = [offering_result, fallback_result]
 
         with patch(
-            "app.services.attestation.subject_scope.get_current_semester_key",
-            new=AsyncMock(return_value="2025-1"),
+            "app.services.attestation.subject_scope.list_group_subject_ids_for_current_semester",
+            new=AsyncMock(return_value=(subject_id,)),
         ):
             scope = await resolve_attestation_subject_scope(mock_db, uuid4(), _build_settings())
 
         assert scope.subject_id == subject_id
-        assert mock_db.execute.await_count == 1
+        assert mock_db.execute.await_count == 0
 
     @pytest.mark.asyncio
     async def test_resolve_requires_subject_when_period_has_multiple_disciplines(self):
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [uuid4(), uuid4()]
         mock_db = AsyncMock()
-        mock_db.execute.return_value = mock_result
 
         with (
             patch(
-                "app.services.attestation.subject_scope.get_current_semester_key",
-                new=AsyncMock(return_value="2025-1"),
+                "app.services.attestation.subject_scope.list_group_subject_ids_for_current_semester",
+                new=AsyncMock(return_value=(uuid4(), uuid4())),
             ),
             pytest.raises(ValueError, match="нужно выбрать предмет"),
         ):
@@ -66,14 +58,11 @@ class TestAttestationSubjectScope:
     @pytest.mark.asyncio
     async def test_resolve_autoselects_single_subject(self):
         subject_id = uuid4()
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [subject_id]
         mock_db = AsyncMock()
-        mock_db.execute.return_value = mock_result
 
         with patch(
-            "app.services.attestation.subject_scope.get_current_semester_key",
-            new=AsyncMock(return_value="2025-1"),
+            "app.services.attestation.subject_scope.list_group_subject_ids_for_current_semester",
+            new=AsyncMock(return_value=(subject_id,)),
         ):
             scope = await resolve_attestation_subject_scope(mock_db, uuid4(), _build_settings())
 

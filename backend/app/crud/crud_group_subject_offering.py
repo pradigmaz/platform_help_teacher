@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy import select
@@ -9,6 +10,7 @@ from app.models.automatic_pass_refusal import AutomaticPassRefusal
 from app.models.group_subject_offering import GroupSubjectOffering
 from app.models.user import User, UserRole
 from app.services.schedule_constants import today_msk
+from app.services.semester_utils import get_semester
 
 
 def build_semester_key(academic_year: int, semester: int) -> str:
@@ -76,6 +78,36 @@ async def get_group_subject_offering(
     return result.scalar_one_or_none()
 
 
+async def get_group_subject_offering_for_date(
+    db: AsyncSession,
+    *,
+    group_id: UUID,
+    subject_id: UUID,
+    lesson_date: date,
+) -> GroupSubjectOffering | None:
+    return await get_group_subject_offering(
+        db,
+        group_id=group_id,
+        subject_id=subject_id,
+        semester=get_semester(lesson_date),
+    )
+
+
+async def ensure_group_subject_offering_for_date(
+    db: AsyncSession,
+    *,
+    group_id: UUID,
+    subject_id: UUID,
+    lesson_date: date,
+) -> GroupSubjectOffering:
+    return await ensure_group_subject_offering(
+        db,
+        group_id=group_id,
+        subject_id=subject_id,
+        semester=get_semester(lesson_date),
+    )
+
+
 async def list_group_subject_offerings(
     db: AsyncSession,
     *,
@@ -106,6 +138,16 @@ async def list_group_subject_offerings_for_group(
         .order_by(GroupSubjectOffering.subject_id.asc())
     )
     return list(result.scalars().all())
+
+
+async def list_group_subject_ids_for_current_semester(
+    db: AsyncSession,
+    *,
+    group_id: UUID,
+) -> tuple[UUID, ...]:
+    semester = await get_current_semester_key(db)
+    offerings = await list_group_subject_offerings_for_group(db, group_id=group_id, semester=semester)
+    return tuple(offering.subject_id for offering in offerings if offering.subject_id is not None)
 
 
 async def list_offering_refusals(
