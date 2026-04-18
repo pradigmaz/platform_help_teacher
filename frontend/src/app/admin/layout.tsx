@@ -72,13 +72,13 @@ function AdminLayoutContent({
         )}
       />
       <AdminSidebar />
-      <div className="flex-1 flex flex-col relative z-10 transition-all duration-300 min-h-screen">
+      <div className="flex-1 min-w-0 flex flex-col relative z-10 transition-all duration-300 min-h-screen">
         <header className="h-14 lg:h-16 border-b border-border flex items-center justify-between px-4 lg:px-8 gap-4 bg-background/40 backdrop-blur-xl sticky top-0 z-30">
           <MobileSidebarTrigger />
           <div className="flex-1" />
           <AnimatedThemeToggler />
         </header>
-        <main className="flex-1 transition-all duration-300 overflow-y-auto">
+        <main className="flex-1 min-w-0 transition-all duration-300 overflow-y-auto">
           <BlurFade delay={0.1} duration={0.5}>
             <div
               className={cn(

@@ -78,8 +78,8 @@ export function AttestationTable({
   }
 
   return (
-    <Card className="overflow-hidden">
-      <Table>
+    <Card className="min-w-0 overflow-hidden">
+      <Table className={cn("min-w-[760px]", viewMode === 'all-students' && "min-w-[860px]")}>
         <TableHeader>
           <TableRow>
             <SortableHeader
@@ -143,7 +143,15 @@ export function AttestationTable({
             >
               {/* Student with avatar and progress */}
               <TableCell>
-                <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`Открыть детали: ${student.student_name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onStudentClick(student);
+                  }}
+                >
                   <Avatar className="h-9 w-9">
                     <AvatarFallback className="text-xs bg-primary/10 text-primary">
                       {getInitials(student.student_name)}
@@ -159,7 +167,7 @@ export function AttestationTable({
                       )}
                     />
                   </div>
-                </div>
+                </button>
               </TableCell>
 
               {/* Group (only in all-students mode) */}
@@ -216,13 +224,18 @@ interface SortableHeaderProps {
 
 function SortableHeader({ label, sortKey, currentKey, order, onClick, className }: SortableHeaderProps) {
   const isActive = sortKey === currentKey;
+  const ariaSort = isActive ? (order === 'asc' ? 'ascending' : 'descending') : undefined;
   
   return (
     <TableHead
-      className={cn("cursor-pointer select-none hover:bg-muted/50 transition-colors", className)}
-      onClick={() => onClick(sortKey)}
+      aria-sort={ariaSort}
+      className={cn("p-0", className)}
     >
-      <div className="flex items-center gap-1 justify-center">
+      <button
+        type="button"
+        className="flex h-10 w-full items-center justify-center gap-1 px-2 text-muted-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset transition-colors"
+        onClick={() => onClick(sortKey)}
+      >
         <span>{label}</span>
         {isActive ? (
           order === 'asc' ? (
@@ -233,7 +246,7 @@ function SortableHeader({ label, sortKey, currentKey, order, onClick, className 
         ) : (
           <ArrowUpDown className="h-3 w-3 opacity-30" />
         )}
-      </div>
+      </button>
     </TableHead>
   );
 }
