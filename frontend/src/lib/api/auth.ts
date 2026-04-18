@@ -2,6 +2,11 @@ import { api } from './client';
 import { buildAuthFingerprintHeaders } from './fingerprint-auth';
 import type { AuthResponse, User } from './types';
 
+export interface AuthStatusResponse {
+  authenticated: boolean;
+  user: User | null;
+}
+
 export const AuthAPI = {
   login: async (
     otp: string,
@@ -27,6 +32,11 @@ export const AuthAPI = {
   
   logout: async () => {
     await api.post('/auth/logout');
+  },
+
+  status: async () => {
+    const { data } = await api.get<AuthStatusResponse>('/auth/status');
+    return data;
   },
 
   me: async () => {

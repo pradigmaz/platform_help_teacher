@@ -56,6 +56,19 @@ test('renders audit logs and security tabs for admin audit', async ({ page }) =>
   await expect(page.getByText('XSS: 3')).toBeVisible();
 });
 
+test('opens the mobile admin navigation sheet with accessible description', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installAdminShellMocks(page);
+  await mockAdminGroupsList(page);
+
+  await page.goto('/admin/groups');
+
+  await page.getByRole('button', { name: 'Открыть меню' }).click();
+
+  await expect(page.getByText('Навигация администратора')).toBeVisible();
+  await expect(page.getByText('Основные разделы и быстрые переходы по административным страницам.')).toHaveCount(1);
+});
+
 test('renders admin settings profile and backup tabs', async ({ page }) => {
   await installAdminShellMocks(page);
   await mockAdminSettingsPage(page);

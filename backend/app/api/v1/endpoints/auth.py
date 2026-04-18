@@ -8,6 +8,7 @@ from fastapi_csrf_protect import CsrfProtect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.audit import ActionType, EntityType, audit_action
 from app.audit.deps import set_audit_extra
 from app.audit.middleware import SESSION_COOKIE_NAME
@@ -103,6 +104,25 @@ async def get_csrf_token(csrf_protect: CsrfProtect = Depends()):
 async def get_fingerprint_mode() -> dict[str, str]:
     """Expose the frontend fingerprint rollout mode for client-side prewarm."""
     return {"mode": settings.FRONTEND_FINGERPRINT_MODE}
+
+
+@router.get("/status")
+async def get_auth_status(request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Return auth state without emitting an expected 401 for anonymous login-page visits."""
+    if "access_token" not in request.cookies or SESSION_COOKIE_NAME not in request.cookies:
+        return {"authenticated": False, "user": None}
+
+    try:
+        user = await get_current_user(request, db)
+    except HTTPException as exc:
+        if exc.status_code == 401:
+            return {"authenticated": False, "user": None}
+        raise
+
+    return {
+        "authenticated": True,
+        "user": {"id": str(user.id), "full_name": user.full_name, "username": user.username, "role": user.role},
+    }
 
 
 @router.post("/otp")

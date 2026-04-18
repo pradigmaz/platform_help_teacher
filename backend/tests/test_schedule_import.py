@@ -240,6 +240,88 @@ class TestScheduleImportServiceOptimization:
         assert stats["lessons_skipped"] == 1
         assert len(existing_lessons) == 1
 
+    @pytest.mark.asyncio
+    async def test_import_counts_only_new_groups(self):
+        """groups_created отражает только реально созданные группы, а не все увиденные."""
+        from app.services.schedule_import_service import ScheduleImportService
+
+        parsed_lessons = [
+            ParsedLesson(
+                date=date(2026, 3, 12),
+                lesson_number=2,
+                lesson_type="lecture",
+                subject="Математика",
+                groups=["ИС-241"],
+                subgroup=None,
+                room="119Л/7к",
+            )
+        ]
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        db.rollback = AsyncMock()
+        service = ScheduleImportService(db)
+
+        async def fake_process_lesson(
+            parsed,
+            teacher,
+            semester,
+            smart_update,
+            stats,
+            group_parsed_keys,
+            groups_by_name,
+            subjects_by_name,
+            existing_lessons,
+            assignment_cache,
+        ):
+            for group_name in parsed.groups:
+                stats["groups"].add(group_name)
+
+        with (
+            patch("app.services.schedule_import_service.get_parser", AsyncMock(return_value=MagicMock(parse_range=AsyncMock(return_value=parsed_lessons)))),
+            patch("app.services.schedule_import_service.get_semester", return_value="2025-2"),
+            patch("app.services.schedule_import_service.find_teacher", AsyncMock(return_value=None)),
+            patch.object(service, "_prepare_groups", AsyncMock(return_value={"ИС-241": MagicMock(id=uuid4(), name="ИС-241")})),
+            patch.object(service, "_prepare_subjects", AsyncMock(return_value={})),
+            patch.object(service, "_load_existing_lessons", AsyncMock(return_value={})),
+            patch.object(service, "_process_lesson", side_effect=fake_process_lesson),
+        ):
+            stats = await service.import_from_parser("Миронов Г.Д.", date(2026, 3, 12), date(2026, 3, 12))
+
+        assert stats["groups_created"] == 0
+        assert stats["groups"] == ["ИС-241"]
+
+    @pytest.mark.asyncio
+    async def test_prepare_groups_increments_created_counter(self):
+        """Новые группы увеличивают groups_created при подготовке кеша."""
+        from app.services.schedule_import_service import ScheduleImportService
+
+        parsed_lessons = [
+            ParsedLesson(
+                date=date(2026, 3, 12),
+                lesson_number=2,
+                lesson_type="lecture",
+                subject="Математика",
+                groups=["ИС-241", "ИС-242"],
+                subgroup=None,
+                room="119Л/7к",
+            )
+        ]
+        db = MagicMock()
+        empty_result = MagicMock()
+        empty_scalars = MagicMock()
+        empty_scalars.all.return_value = []
+        empty_result.scalars.return_value = empty_scalars
+        db.execute = AsyncMock(return_value=empty_result)
+        db.add = MagicMock()
+        db.flush = AsyncMock()
+        service = ScheduleImportService(db)
+        stats = service._init_stats(total_parsed=1)
+
+        groups = await service._prepare_groups(parsed_lessons, stats)
+
+        assert set(groups) == {"ИС-241", "ИС-242"}
+        assert stats["groups_created"] == 2
+
 
 class TestDeletedLessonDetection:
     """test_deleted_lesson_detection — обнаружение удалений"""

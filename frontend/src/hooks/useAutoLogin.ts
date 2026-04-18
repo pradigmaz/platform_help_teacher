@@ -61,16 +61,23 @@ export function useAutoLogin(options: UseAutoLoginOptions = {}): UseAutoLoginRes
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const user = await AuthAPI.me();
-        if (user.role === 'admin' || user.role === 'teacher') {
+        const authStatus = await AuthAPI.status();
+        if (!authStatus.authenticated || !authStatus.user) {
+          setCheckingAuth(false);
+          return;
+        }
+
+        useAuthStore.getState().setUser(authStatus.user);
+
+        if (authStatus.user.role === 'admin' || authStatus.user.role === 'teacher') {
           router.replace('/admin');
           return;
-        } else if (user.role === 'student') {
+        } else if (authStatus.user.role === 'student') {
           router.replace('/dashboard');
           return;
         }
       } catch {
-        // Not logged in - show form
+        // Auth status check failed - show form
       }
       setCheckingAuth(false);
     };

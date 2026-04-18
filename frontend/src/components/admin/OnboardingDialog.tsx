@@ -59,7 +59,7 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
         
         const data = response.data;
         toast.success(
-          `Импортировано: ${data.lessons_created} занятий, ${data.groups_created} групп`
+          `Импортировано: ${data.lessons_created} занятий, новых групп: ${data.groups_created}`
         );
       }
       

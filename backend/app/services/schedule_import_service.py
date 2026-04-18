@@ -42,7 +42,7 @@ class ScheduleImportService:
 
         return group
 
-    async def _prepare_groups(self, parsed_lessons: list[ParsedLesson]) -> dict[str, Group]:
+    async def _prepare_groups(self, parsed_lessons: list[ParsedLesson], stats: dict) -> dict[str, Group]:
         group_names = sorted({group_name for parsed in parsed_lessons for group_name in parsed.groups})
         if not group_names:
             return {}
@@ -56,6 +56,7 @@ class ScheduleImportService:
                 group = Group(name=group_name, code=code)
                 self.db.add(group)
                 groups_by_name[group_name] = group
+                stats["groups_created"] += 1
                 logger.info(f"Created group: {group_name}")
 
         await self.db.flush()
@@ -128,7 +129,7 @@ class ScheduleImportService:
         group_parsed_keys: dict[str, set] = {}
 
         try:
-            groups_by_name = await self._prepare_groups(parsed_lessons)
+            groups_by_name = await self._prepare_groups(parsed_lessons, stats)
             subjects_by_name = await self._prepare_subjects(parsed_lessons, stats)
             existing_lessons = await self._load_existing_lessons(groups_by_name, start_date, end_date)
             assignment_cache: set[tuple[str, str]] = set()
@@ -160,7 +161,6 @@ class ScheduleImportService:
             logger.error(f"Import failed, rolled back: {e}")
             raise
 
-        stats["groups_created"] = len(stats["groups"])
         stats["groups"] = list(stats["groups"])
         stats["subjects"] = list(stats["subjects"])
 

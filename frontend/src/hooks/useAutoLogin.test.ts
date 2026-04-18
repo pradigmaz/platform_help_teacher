@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   authApi: {
     login: vi.fn(),
     devLogin: vi.fn(),
-    me: vi.fn(),
+    status: vi.fn(),
   },
   router: {
     push: vi.fn(),
@@ -51,7 +51,7 @@ describe('useAutoLogin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.primeAuthFingerprint.mockResolvedValue(undefined);
-    mocks.authApi.me.mockRejectedValue(new Error('Not authenticated'));
+    mocks.authApi.status.mockResolvedValue({ authenticated: false, user: null });
     mocks.authApi.login.mockResolvedValue({
       user: {
         full_name: 'Test User',
@@ -84,16 +84,23 @@ describe('useAutoLogin', () => {
     expect(window.location.search).toBe('?returnUrl=%2Freports');
   });
 
-  it('redirects already authenticated users via AuthAPI.me', async () => {
-    mocks.authApi.me.mockResolvedValue({
-      full_name: 'Admin User',
-      role: 'admin',
+  it('redirects already authenticated users via AuthAPI.status', async () => {
+    mocks.authApi.status.mockResolvedValue({
+      authenticated: true,
+      user: {
+        full_name: 'Admin User',
+        role: 'admin',
+      },
     });
 
     renderHook(() => useAutoLogin());
 
     await waitFor(() => {
-      expect(mocks.authApi.me).toHaveBeenCalledTimes(1);
+      expect(mocks.authApi.status).toHaveBeenCalledTimes(1);
+      expect(mocks.setUser).toHaveBeenCalledWith({
+        full_name: 'Admin User',
+        role: 'admin',
+      });
       expect(mocks.router.replace).toHaveBeenCalledWith('/admin');
     });
 
@@ -106,7 +113,7 @@ describe('useAutoLogin', () => {
     await waitFor(() => expect(result.current.checkingAuth).toBe(false));
 
     expect(mocks.primeAuthFingerprint).toHaveBeenCalledTimes(1);
-    expect(mocks.authApi.me).toHaveBeenCalledTimes(1);
+    expect(mocks.authApi.status).toHaveBeenCalledTimes(1);
   });
 
   it('does not wait for fingerprint prewarm before auto-login submit', async () => {

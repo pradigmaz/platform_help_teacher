@@ -16,6 +16,7 @@ import {
   SheetTrigger,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { AdminSidebarNav } from "./AdminSidebarNav";
 import { useAdminFeedbackCount } from "./useAdminFeedbackCount";
@@ -86,6 +87,7 @@ function MobileSidebarTrigger({ className }: MobileSidebarTriggerProps) {
         <SheetContent side="left" className="w-72 p-0 backdrop-blur-xl bg-background/95 border-r border-border">
           <SheetHeader className="sr-only">
             <SheetTitle>Навигация администратора</SheetTitle>
+            <SheetDescription>Основные разделы и быстрые переходы по административным страницам.</SheetDescription>
           </SheetHeader>
           <NavContent pathname={pathname} onClose={() => setIsOpen(false)} feedbackCount={feedbackCount} />
         </SheetContent>

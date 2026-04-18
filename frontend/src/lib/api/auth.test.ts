@@ -59,4 +59,13 @@ describe('AuthAPI fingerprint headers', () => {
       },
     );
   });
+
+  it('fetches auth status without fingerprint headers', async () => {
+    mocks.get.mockResolvedValue({ data: { authenticated: false, user: null } });
+
+    await AuthAPI.status();
+
+    expect(mocks.get).toHaveBeenCalledWith('/auth/status');
+    expect(mocks.buildAuthFingerprintHeaders).toHaveBeenCalledTimes(0);
+  });
 });
