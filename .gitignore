@@ -66,6 +66,7 @@ scripts/
 frontend/scripts/*
 !frontend/scripts/start-smoke.mjs
 !frontend/scripts/live-reports-flow-perf.mjs
+!frontend/scripts/run-vitest-safe.sh
 
 # Deploy scripts (Windows only)
 *.ps1
@@ -93,3 +94,4 @@ frontend/.ai
 backups/
 backup/
 deploy/.env.vps_*
+output/
