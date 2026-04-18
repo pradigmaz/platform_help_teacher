@@ -68,8 +68,6 @@ frontend/scripts/*
 !frontend/scripts/live-reports-flow-perf.mjs
 !frontend/scripts/run-vitest-safe.sh
 
-# Deploy scripts (Windows only)
-*.ps1
 deploy/openapi_temp.json
 .claude/
 
