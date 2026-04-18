@@ -347,6 +347,42 @@ class TestJournalGradeWriteService:
                 actor_id=uuid4(),
             )
 
+    @pytest.mark.asyncio
+    async def test_upsert_wraps_deadline_limit_as_validation_error(self, monkeypatch):
+        service = JournalGradeWriteService()
+        lesson = Lesson(
+            id=uuid4(),
+            group_id=uuid4(),
+            subject_id=uuid4(),
+            date=date.today(),
+            lesson_number=1,
+            lesson_type=LessonType.LAB,
+            work_number=1,
+            is_cancelled=False,
+        )
+        db = AsyncMock()
+        student_id = uuid4()
+        service.list_cell_grades = AsyncMock(return_value=[])
+        monkeypatch.setattr(
+            "app.services.journal_grade_service.validate_student_membership",
+            AsyncMock(),
+        )
+        monkeypatch.setattr(
+            "app.services.journal_grade_rules.get_max_allowed_grade",
+            AsyncMock(return_value=4),
+        )
+
+        with pytest.raises(JournalGradeValidationError, match="Максимальная оценка"):
+            await service.upsert_grade(
+                db=db,
+                lesson=lesson,
+                student_id=student_id,
+                grade=5,
+                work_number=1,
+                comment=None,
+                actor_id=uuid4(),
+            )
+
 
 class TestLessonSheetService:
     """Тесты atomic lesson sheet flow."""

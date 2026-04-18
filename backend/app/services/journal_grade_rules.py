@@ -49,4 +49,7 @@ async def validate_grade_limits(
     grade: int,
 ) -> None:
     max_allowed = await get_max_allowed_grade(db, lesson, student_id=student_id, work_number=work_number)
-    validate_grade_for_max(grade, max_allowed)
+    try:
+        validate_grade_for_max(grade, max_allowed)
+    except ValueError as exc:
+        raise JournalGradeRuleError(str(exc)) from exc

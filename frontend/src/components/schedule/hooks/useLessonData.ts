@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { AxiosError } from 'axios';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import api, { ApiError } from '@/lib/api';
 import type { Student, LessonData, LessonStatus, AttendanceStatus, StudentGradeData, LessonSheetSyncData } from '../types';
 import { canHaveGrade } from '../constants';
 import {
+  hasResolvedGradeWorkNumber,
+  stripIncompleteGradeSelections,
   updateGradeState,
   updateStudentWorkNumberState,
   setAttendanceStatusState,
@@ -74,7 +76,6 @@ export function useLessonData({
     if (!lesson) {
       return null;
     }
-
     return {
       id: lesson.id,
       group_id: lesson.group_id,
@@ -89,7 +90,6 @@ export function useLessonData({
 
   const loadData = useCallback(async (currentLesson: LessonSnapshot) => {
     setIsLoading(true);
-
     const initialLesson: SavedLessonState = {
       id: currentLesson.id,
       topic: currentLesson.topic ?? null,
@@ -111,7 +111,6 @@ export function useLessonData({
 
     try {
       const nextResources = await loadLessonSheetResources(currentLesson);
-
       setStudents(nextResources.students);
       setAttendance(nextResources.attendance);
       setGrades(nextResources.grades);
@@ -120,11 +119,12 @@ export function useLessonData({
       initialGradesRef.current = cloneGradeMap(nextResources.grades);
 
       if (restoredDraft?.lessonId === currentLesson.id) {
+        const restoredGrades = stripIncompleteGradeSelections(cloneGradeMap(restoredDraft.grades));
         setTopicState(restoredDraft.topic);
         setWorkNumberState(restoredDraft.workNumber);
         setStatusState(restoredDraft.status);
         setAttendance({ ...restoredDraft.attendance });
-        setGrades(cloneGradeMap(restoredDraft.grades));
+        setGrades(restoredGrades);
         setHasChanges(true);
       }
     } catch (err) {
@@ -157,6 +157,10 @@ export function useLessonData({
 
     const defaultWorkNumber =
       workNumber !== null && availableWorkNumbers.includes(workNumber) ? workNumber : null;
+    if (!hasResolvedGradeWorkNumber(selectedWorkNumber, defaultWorkNumber)) {
+      toast.error('Сначала укажите номер лабораторной');
+      return;
+    }
     setGrades((prev) =>
       updateGradeState(prev, studentId, grade, selectedWorkNumber ?? defaultWorkNumber)
     );
@@ -245,13 +249,15 @@ export function useLessonData({
       const localValidationError =
         (err as Error).message === 'work_number_required' ||
         (err as Error).message === 'future_attendance_blocked';
-      if (!localValidationError) {
+      const handledApiError = err instanceof ApiError && !err.isRetryable;
+      if (!localValidationError && !handledApiError) {
         console.error('Ошибка сохранения', err);
       }
       if (localValidationError) {
         throw err;
       }
       const detail =
+        (err instanceof ApiError ? err.message : undefined) ||
         ((err as AxiosError<{ detail?: string }>).response?.data?.detail as string | undefined) ||
         'Ошибка сохранения';
       toast.error(detail);

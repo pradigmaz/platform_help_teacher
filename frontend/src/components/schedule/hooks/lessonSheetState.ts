@@ -203,14 +203,7 @@ export const buildGradeUpdates = (
             grade: currentGrade.grade,
             work_number: currentGrade.work_number ?? null,
           };
-    if (
-      !isSameGrade(
-        initialGrades[studentId],
-        nextUpdate.grade === null
-          ? undefined
-          : { grade: nextUpdate.grade, work_number: nextUpdate.work_number ?? null }
-      )
-    ) {
+    if (!isSameGrade(initialGrade, currentGrade)) {
       updates.push(nextUpdate);
     }
     return updates;

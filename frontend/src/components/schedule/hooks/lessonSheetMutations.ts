@@ -74,3 +74,20 @@ export const updateStudentWorkNumberState = (
     },
   };
 };
+
+export const hasResolvedGradeWorkNumber = (
+  selectedWorkNumber: number | null,
+  defaultWorkNumber: number | null
+) => selectedWorkNumber !== null || defaultWorkNumber !== null;
+
+export const stripIncompleteGradeSelections = (
+  currentGrades: Record<string, StudentGradeData>
+) =>
+  Object.fromEntries(
+    Object.entries(currentGrades).filter(([, gradeData]) => {
+      if (gradeData.has_conflict || (gradeData.grade_items?.length ?? 0) > 1) {
+        return true;
+      }
+      return gradeData.grade === null || gradeData.work_number !== null;
+    })
+  ) as Record<string, StudentGradeData>;
