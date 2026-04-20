@@ -8,6 +8,7 @@ export interface GroupSubjectOffering {
   subject_name: string;
   semester: string;
   final_control_type: FinalControlType | null;
+  exam_prep_questions_count: number;
 }
 
 export interface AutomaticQueueStudent {
@@ -29,4 +30,21 @@ export interface AutomaticQueueResponse {
   automatic_places: number | null;
   total_labs: number;
   students: AutomaticQueueStudent[];
+}
+
+export interface ExamPrepContentValue {
+  text?: string;
+  content?: Record<string, unknown>;
+}
+
+export interface ExamPrepQuestion {
+  id: string;
+  prompt: string | ExamPrepContentValue;
+  answer?: string | ExamPrepContentValue | null;
+}
+
+export interface AdminExamPrepResponse {
+  offering_id: string;
+  questions_count: number;
+  questions: ExamPrepQuestion[];
 }

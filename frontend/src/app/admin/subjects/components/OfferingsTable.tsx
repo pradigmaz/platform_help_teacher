@@ -16,6 +16,7 @@ interface OfferingsTableProps {
   viewMode: OfferingsViewMode;
   onControlTypeChange: (offering: GroupSubjectOffering, value: FinalControlType | null) => void;
   onOpenQueue: (offering: GroupSubjectOffering) => void;
+  onOpenExamPrep: (offering: GroupSubjectOffering) => void;
 }
 
 const FINAL_CONTROL_LABELS: Record<FinalControlType, string> = {
@@ -61,18 +62,20 @@ function OfferingRow({
   savingOfferingId,
   onControlTypeChange,
   onOpenQueue,
+  onOpenExamPrep,
 }: {
   offering: GroupSubjectOffering;
   mode: OfferingsViewMode;
   savingOfferingId: string | null;
   onControlTypeChange: (offering: GroupSubjectOffering, value: FinalControlType | null) => void;
   onOpenQueue: (offering: GroupSubjectOffering) => void;
+  onOpenExamPrep: (offering: GroupSubjectOffering) => void;
 }) {
   const primaryLabel = mode === 'by_subject' ? offering.group_name : offering.subject_name;
   const secondaryLabel = mode === 'by_subject' ? offering.subject_name : offering.group_name;
 
   return (
-    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-border/50 bg-muted/20 p-4 xl:grid-cols-[minmax(0,1.2fr)_180px_220px_140px]">
+    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-border/50 bg-muted/20 p-4 xl:grid-cols-[minmax(0,1.2fr)_180px_220px_220px]">
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <div className="font-semibold text-foreground">{primaryLabel}</div>
@@ -110,15 +113,26 @@ function OfferingRow({
         </SelectContent>
       </Select>
 
-      <Button
-        variant={offering.final_control_type === 'exam' ? 'default' : 'outline'}
-        size="sm"
-        disabled={offering.final_control_type !== 'exam'}
-        onClick={() => onOpenQueue(offering)}
-        className="h-11"
-      >
-        Очередь
-      </Button>
+      <div className="flex flex-col gap-2 md:flex-row xl:flex-col">
+        <Button
+          variant={offering.final_control_type === 'exam' ? 'default' : 'outline'}
+          size="sm"
+          disabled={offering.final_control_type !== 'exam'}
+          onClick={() => onOpenQueue(offering)}
+          className="h-11"
+        >
+          Очередь
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={offering.final_control_type !== 'exam'}
+          onClick={() => onOpenExamPrep(offering)}
+          className="h-11"
+        >
+          Вопросы ({offering.exam_prep_questions_count})
+        </Button>
+      </div>
     </div>
   );
 }
@@ -133,6 +147,7 @@ function renderCards({
   savingOfferingId,
   onControlTypeChange,
   onOpenQueue,
+  onOpenExamPrep,
 }: {
   title: string;
   description: string;
@@ -143,6 +158,7 @@ function renderCards({
   savingOfferingId: string | null;
   onControlTypeChange: (offering: GroupSubjectOffering, value: FinalControlType | null) => void;
   onOpenQueue: (offering: GroupSubjectOffering) => void;
+  onOpenExamPrep: (offering: GroupSubjectOffering) => void;
 }) {
   const examsCount = offerings.filter((offering) => offering.final_control_type === 'exam').length;
   const unsetCount = offerings.filter((offering) => offering.final_control_type === null).length;
@@ -180,6 +196,7 @@ function renderCards({
             savingOfferingId={savingOfferingId}
             onControlTypeChange={onControlTypeChange}
             onOpenQueue={onOpenQueue}
+            onOpenExamPrep={onOpenExamPrep}
           />
         ))}
       </CardContent>
@@ -193,6 +210,7 @@ export function OfferingsTable({
   viewMode,
   onControlTypeChange,
   onOpenQueue,
+  onOpenExamPrep,
 }: OfferingsTableProps) {
   if (!offerings.length) {
     return (
@@ -231,6 +249,7 @@ export function OfferingsTable({
             savingOfferingId,
             onControlTypeChange,
             onOpenQueue,
+            onOpenExamPrep,
           }),
         )}
       </div>
@@ -260,11 +279,12 @@ export function OfferingsTable({
           metricLabel: 'Групп',
           offerings: subject.offerings,
           mode: viewMode,
-          savingOfferingId,
-          onControlTypeChange,
-          onOpenQueue,
-        }),
-      )}
+            savingOfferingId,
+            onControlTypeChange,
+            onOpenQueue,
+            onOpenExamPrep,
+          }),
+        )}
     </div>
   );
 }

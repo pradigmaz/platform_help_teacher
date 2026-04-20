@@ -6,6 +6,8 @@ import type {
   StudentLab,
   StudentLabDetail,
   StudentAttestation,
+  StudentExamPrepOffering,
+  StudentExamPrepResponse,
   StudentTeacherContacts,
   RelinkTelegramResponse,
   StudentActivities,
@@ -124,6 +126,16 @@ export const StudentAPI = {
     const params = new URLSearchParams({ attestation_type: attestationType });
     if (subjectId) params.append('subject_id', subjectId);
     const { data } = await api.get<StudentActivities>(`/student/activities?${params}`);
+    return data;
+  },
+
+  getExamPrepOfferings: async () => {
+    const { data } = await api.get<StudentExamPrepOffering[]>('/student/exam-prep/offerings');
+    return data;
+  },
+
+  getExamPrep: async (offeringId: string) => {
+    const { data } = await api.get<StudentExamPrepResponse>(`/student/exam-prep/${offeringId}`);
     return data;
   },
 };

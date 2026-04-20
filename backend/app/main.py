@@ -24,7 +24,6 @@ from app.api.v1.api import api_router
 from app.audit.deps import set_audit_extra
 from app.audit.middleware import AuditMiddleware
 from app.bots import vk_bot
-from app.bots.telegram_bot import bot
 from app.core.csrf import get_csrf_config  # noqa: F401 - loads config
 from app.core.csrf_middleware import CSRFMiddleware
 from app.core.limiter import limiter
@@ -32,6 +31,7 @@ from app.core.prestart_check import check_deployment_settings
 from app.core.redis import close_redis
 from app.db.session import AsyncSessionLocal
 from app.models import User, UserRole
+from app.services.bot.webhook_startup import delete_telegram_webhook, register_telegram_webhook
 from app.services.external_api import kis_client
 from app.services.pdf_service import pdf_service
 
@@ -46,18 +46,7 @@ async def lifespan(app: FastAPI):
     check_deployment_settings()
     logger.info("🚀 Application starting...")
 
-    if settings.TELEGRAM_WEBHOOK_URL:
-        webhook_url = f"{settings.TELEGRAM_WEBHOOK_URL}/api/v1/webhooks/telegram"
-        try:
-            await bot.set_webhook(
-                url=webhook_url,
-                secret_token=settings.TELEGRAM_WEBHOOK_SECRET,
-                drop_pending_updates=True,
-                allowed_updates=["message", "callback_query"],
-            )
-            logger.info("Webhook registered successfully.")
-        except Exception as e:
-            logger.error(f"CRITICAL: Failed to register Telegram webhook: {e}", exc_info=True)
+    await register_telegram_webhook()
 
     # --- VK BOT LONG POLL ---
     await vk_bot.start_longpoll()
@@ -105,7 +94,7 @@ async def lifespan(app: FastAPI):
     await kis_client.close()
     await pdf_service.close()
     with suppress(Exception):
-        await bot.delete_webhook()
+        await delete_telegram_webhook()
 
 
 # Отключаем Swagger/OpenAPI в production для безопасности

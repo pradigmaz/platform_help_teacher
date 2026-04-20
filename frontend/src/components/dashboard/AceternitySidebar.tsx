@@ -1,55 +1,18 @@
 "use client";
-import React, { useState } from "react";
-import Link from "next/link";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  IconLayoutDashboard,
-  IconFlask,
-  IconCalendar,
-  IconSettings,
   IconLogout,
-  IconSchool,
-  IconStar,
   IconMenu2,
   IconX,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "motion/react";
-import { cn } from "@/lib/utils";
 import { useRouter, usePathname } from "next/navigation";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { NotificationBell } from "./NotificationBell";
+import { SidebarLogo, SidebarLogoIcon } from "./sidebar-brand";
+import { getSidebarLinks, NavLink } from "./sidebar-links";
 import api from "@/lib/api";
-
-interface SidebarLinkItem {
-  label: string;
-  href: string;
-  icon: React.ReactNode;
-}
-
-// Локальный компонент ссылки без зависимости от SidebarProvider
-function NavLink({ 
-  link, 
-  open, 
-  onClick 
-}: { 
-  link: SidebarLinkItem; 
-  open: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <Link
-      href={link.href}
-      className="flex items-center justify-start gap-3 py-2.5 px-2 rounded-lg hover:bg-accent transition-colors"
-      onClick={onClick}
-    >
-      {link.icon}
-      {open && (
-        <span className="text-foreground text-base whitespace-pre">
-          {link.label}
-        </span>
-      )}
-    </Link>
-  );
-}
+import { StudentAPI } from "@/lib/api/student";
 
 interface AceternitySidebarProps {
   children: React.ReactNode;
@@ -65,64 +28,40 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [hasExamPrep, setHasExamPrep] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadExamPrepOfferings = async () => {
+      try {
+        const offerings = await StudentAPI.getExamPrepOfferings();
+        if (!cancelled) {
+          setHasExamPrep(offerings.length > 0);
+        }
+      } catch {
+        if (!cancelled) {
+          setHasExamPrep(false);
+        }
+      }
+    };
+
+    void loadExamPrepOfferings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Close mobile menu on navigation
   const handleLinkClick = () => {
     setOpen(false);
   };
 
-  const links = [
-    {
-      label: "Обзор",
-      href: "/dashboard",
-      icon: (
-        <IconLayoutDashboard className={cn(
-          "h-6 w-6 shrink-0",
-          pathname === "/dashboard" ? "text-primary" : "text-muted-foreground"
-        )} />
-      ),
-    },
-    {
-      label: "Лабораторные",
-      href: "/dashboard/labs",
-      icon: (
-        <IconFlask className={cn(
-          "h-6 w-6 shrink-0",
-          pathname?.startsWith("/dashboard/labs") ? "text-primary" : "text-muted-foreground"
-        )} />
-      ),
-    },
-    {
-      label: "Посещаемость",
-      href: "/dashboard/attendance",
-      icon: (
-        <IconCalendar className={cn(
-          "h-6 w-6 shrink-0",
-          pathname === "/dashboard/attendance" ? "text-primary" : "text-muted-foreground"
-        )} />
-      ),
-    },
-    {
-      label: "Баллы",
-      href: "/dashboard/activities",
-      icon: (
-        <IconStar className={cn(
-          "h-6 w-6 shrink-0",
-          pathname === "/dashboard/activities" ? "text-primary" : "text-muted-foreground"
-        )} />
-      ),
-    },
-    {
-      label: "Настройки",
-      href: "/dashboard/settings",
-      icon: (
-        <IconSettings className={cn(
-          "h-6 w-6 shrink-0",
-          pathname === "/dashboard/settings" ? "text-primary" : "text-muted-foreground"
-        )} />
-      ),
-    },
-  ];
+  const links = useMemo(
+    () => getSidebarLinks(pathname, hasExamPrep || pathname?.startsWith("/dashboard/exam-prep") === true),
+    [hasExamPrep, pathname],
+  );
 
   const handleLogout = async () => {
     console.log('[Component:AceternitySidebar] Logout initiated');
@@ -156,7 +95,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
       >
         <div className="flex flex-col h-full justify-between px-4 py-4">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
-            {open ? <Logo /> : <LogoIcon />}
+            {open ? <SidebarLogo /> : <SidebarLogoIcon />}
             <div className="mt-8 flex flex-col gap-1">
               {links.map((link, idx) => (
                 <NavLink key={idx} link={link} open={open} onClick={handleLinkClick} />
@@ -211,7 +150,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
         >
           <IconMenu2 className="h-6 w-6 text-foreground" />
         </button>
-        <LogoIcon />
+        <SidebarLogoIcon />
         <div className="w-10" /> {/* Spacer for centering */}
       </header>
 
@@ -234,7 +173,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
               className="md:hidden fixed top-0 left-0 h-dvh w-[280px] max-w-[85vw] bg-background z-[101] flex flex-col border-r border-border shadow-xl"
             >
               <div className="flex items-center justify-between p-4 border-b border-border">
-                <Logo />
+                <SidebarLogo />
                 <button
                   onClick={() => setOpen(false)}
                   className="p-2 rounded-lg hover:bg-accent"
@@ -291,36 +230,3 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
     </div>
   );
 }
-
-const Logo = () => {
-  return (
-    <a
-      href="/dashboard"
-      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal"
-    >
-      <div className="h-7 w-7 shrink-0 rounded-lg bg-primary flex items-center justify-center">
-        <IconSchool className="h-5 w-5 text-primary-foreground" />
-      </div>
-      <motion.span
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="font-semibold whitespace-pre text-foreground text-lg"
-      >
-        Студент
-      </motion.span>
-    </a>
-  );
-};
-
-const LogoIcon = () => {
-  return (
-    <a
-      href="/dashboard"
-      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal"
-    >
-      <div className="h-7 w-7 shrink-0 rounded-lg bg-primary flex items-center justify-center">
-        <IconSchool className="h-5 w-5 text-primary-foreground" />
-      </div>
-    </a>
-  );
-};

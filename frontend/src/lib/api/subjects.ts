@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { AutomaticQueueResponse, FinalControlType, GroupSubjectOffering } from './types';
+import type { AdminExamPrepResponse, AutomaticQueueResponse, FinalControlType, GroupSubjectOffering, ExamPrepQuestion } from './types';
 
 export const SubjectsAPI = {
   listOfferings: async (semester?: string) => {
@@ -18,6 +18,19 @@ export const SubjectsAPI = {
 
   getAutomaticQueue: async (offeringId: string) => {
     const { data } = await api.get<AutomaticQueueResponse>(`/admin/subjects/offerings/${offeringId}/automatic-queue`);
+    return data;
+  },
+
+  getExamPrep: async (offeringId: string) => {
+    const { data } = await api.get<AdminExamPrepResponse>(`/admin/subjects/offerings/${offeringId}/exam-prep`);
+    return data;
+  },
+
+  updateExamPrep: async (offeringId: string, questions: ExamPrepQuestion[]) => {
+    const { data } = await api.put<AdminExamPrepResponse>(
+      `/admin/subjects/offerings/${offeringId}/exam-prep`,
+      { questions },
+    );
     return data;
   },
 

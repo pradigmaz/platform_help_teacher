@@ -8,6 +8,7 @@ from .activities import router as activities_router
 from .attendance import router as attendance_router
 from .attestation import router as attestation_router
 from .bootstrap import router as bootstrap_router
+from .exam_prep import router as exam_prep_router
 from .labs import router as labs_router
 from .misc import router as misc_router
 from .notifications import router as notifications_router
@@ -20,6 +21,7 @@ router.include_router(bootstrap_router, tags=["student-dashboard"])
 router.include_router(attendance_router, tags=["student-attendance"])
 router.include_router(labs_router, tags=["student-labs"])
 router.include_router(attestation_router, tags=["student-attestation"])
+router.include_router(exam_prep_router, tags=["student-exam-prep"])
 router.include_router(misc_router, tags=["student-misc"])
 router.include_router(activities_router, tags=["student-activities"])
 router.include_router(notifications_router, tags=["student-notifications"])

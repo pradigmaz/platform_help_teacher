@@ -1,9 +1,10 @@
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -31,6 +32,11 @@ class GroupSubjectOffering(Base, TimestampMixin):
     semester: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     final_control_type: Mapped[FinalControlType | None] = mapped_column(
         SQLEnum(FinalControlType, name="finalcontroltype", create_constraint=False, native_enum=False),
+        nullable=True,
+        default=None,
+    )
+    exam_prep_questions: Mapped[list[dict[str, Any]] | None] = mapped_column(
+        JSONB,
         nullable=True,
         default=None,
     )

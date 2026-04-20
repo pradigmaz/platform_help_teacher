@@ -25,6 +25,9 @@ export * from './student';
 // Subjects
 export * from './subjects';
 
+// Exam prep
+export * from './exam-prep';
+
 // Schedule
 export * from './schedule';
 

@@ -14,7 +14,8 @@ from app.services.semester_utils import get_semester
 
 
 def build_semester_key(academic_year: int, semester: int) -> str:
-    return f"{academic_year}-{semester}"
+    semester_year = academic_year if semester == 1 else academic_year + 1
+    return f"{semester_year}-{semester}"
 
 
 async def get_current_semester_key(db: AsyncSession) -> str:

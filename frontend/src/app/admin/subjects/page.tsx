@@ -9,6 +9,8 @@ import { SubjectsAPI, type AutomaticQueueResponse, type FinalControlType, type G
 import { OfferingsFilters, type OfferingControlFilter } from './components/OfferingsFilters';
 import { OfferingsTable, type OfferingsViewMode } from './components/OfferingsTable';
 import { AutomaticQueueDialog } from './components/AutomaticQueueDialog';
+import { ExamPrepEditorSheet } from './components/ExamPrepEditorSheet';
+import { notifyAdminOfferingsChanged } from '@/components/admin/useAdminExamOfferings';
 
 export default function AdminSubjectsPage() {
   const [offerings, setOfferings] = useState<GroupSubjectOffering[]>([]);
@@ -17,6 +19,7 @@ export default function AdminSubjectsPage() {
   const [queueOffering, setQueueOffering] = useState<GroupSubjectOffering | null>(null);
   const [queue, setQueue] = useState<AutomaticQueueResponse | null>(null);
   const [queueLoading, setQueueLoading] = useState(false);
+  const [examPrepOffering, setExamPrepOffering] = useState<GroupSubjectOffering | null>(null);
   const [search, setSearch] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [controlFilter, setControlFilter] = useState<OfferingControlFilter>('all');
@@ -42,6 +45,7 @@ export default function AdminSubjectsPage() {
     try {
       const updated = await SubjectsAPI.updateOffering(offering.id, value);
       setOfferings((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      notifyAdminOfferingsChanged();
       toast.success('Форма контроля обновлена');
       if (queueOffering?.id === updated.id) {
         setQueueOffering(updated);
@@ -64,6 +68,32 @@ export default function AdminSubjectsPage() {
     } finally {
       setQueueLoading(false);
     }
+  }
+
+  function handleExamPrepSaved(questionsCount: number) {
+    if (!examPrepOffering) {
+      return;
+    }
+
+    notifyAdminOfferingsChanged();
+    setOfferings((current) =>
+      current.map((item) =>
+        item.id === examPrepOffering.id
+          ? {
+              ...item,
+              exam_prep_questions_count: questionsCount,
+            }
+          : item,
+      ),
+    );
+    setExamPrepOffering((current) =>
+      current
+        ? {
+            ...current,
+            exam_prep_questions_count: questionsCount,
+          }
+        : current,
+    );
   }
 
   async function handleDecline(studentId: string) {
@@ -219,6 +249,7 @@ export default function AdminSubjectsPage() {
             viewMode={viewMode}
             onControlTypeChange={handleControlTypeChange}
             onOpenQueue={openQueue}
+            onOpenExamPrep={setExamPrepOffering}
           />
         )}
       </BlurFade>
@@ -231,6 +262,12 @@ export default function AdminSubjectsPage() {
         loading={queueLoading}
         onDecline={handleDecline}
         onRestore={handleRestore}
+      />
+      <ExamPrepEditorSheet
+        open={Boolean(examPrepOffering)}
+        onOpenChange={(open) => !open && setExamPrepOffering(null)}
+        offering={examPrepOffering}
+        onSaved={handleExamPrepSaved}
       />
     </div>
   );

@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/collapsible";
 import { HoverBorderGradient } from "@/components/ui/hover-border-gradient";
 import { cn } from "@/lib/utils";
-import { adminSidebarItems } from "./admin-sidebar-config";
+import { getAdminSidebarItems } from "./admin-sidebar-config";
+import { useAdminExamOfferings } from "./useAdminExamOfferings";
 
 interface AdminSidebarNavProps {
   pathname: string;
@@ -53,13 +54,23 @@ export function AdminSidebarNav({
   isCollapsed,
   onClose,
 }: AdminSidebarNavProps) {
-  const [openSubmenus, setOpenSubmenus] = React.useState<string[]>(() =>
-    adminSidebarItems.flatMap((item) =>
+  const { hasExams } = useAdminExamOfferings();
+  const sidebarItems = React.useMemo(() => getAdminSidebarItems({ hasExams }), [hasExams]);
+  const [openSubmenus, setOpenSubmenus] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    const activeParentHrefs = sidebarItems.flatMap((item) =>
       item.subItems?.some((subItem) => pathname === subItem.href || pathname.startsWith(`${subItem.href}/`))
         ? [item.href]
         : []
-    )
-  );
+    );
+
+    if (!activeParentHrefs.length) {
+      return;
+    }
+
+    setOpenSubmenus((current) => Array.from(new Set([...current, ...activeParentHrefs])));
+  }, [pathname, sidebarItems]);
 
   const toggleSubmenu = (href: string) => {
     setOpenSubmenus((current) =>
@@ -76,7 +87,7 @@ export function AdminSidebarNav({
       </div>
       <nav className="flex-1 px-2 overflow-y-auto">
         <div className="space-y-2">
-          {adminSidebarItems.map((item) => {
+          {sidebarItems.map((item) => {
             const isActive = pathname === item.href;
             const hasSubItems = Boolean(item.subItems?.length);
             const isSubItemActive = item.subItems?.some(
