@@ -3,24 +3,46 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  useAdminExamOfferings: vi.fn(),
-  refetch: vi.fn(),
+  listGroups: vi.fn(),
+  createBank: vi.fn(),
+  replace: vi.fn(),
+  searchParams: new URLSearchParams(),
 }));
 
-vi.mock('next/link', () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
-}));
-
-vi.mock('@/components/admin/useAdminExamOfferings', () => ({
-  useAdminExamOfferings: mocks.useAdminExamOfferings,
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mocks.replace }),
+  useSearchParams: () => mocks.searchParams,
 }));
 
 vi.mock('@/components/ui/blur-fade', () => ({
   BlurFade: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('@/app/admin/subjects/components/ExamPrepEditorSheet', () => ({
-  ExamPrepEditorSheet: ({ open }: { open: boolean }) => (open ? <div>editor open</div> : null),
+vi.mock('@/lib/api', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
+  return {
+    ...actual,
+    ExamBanksAPI: {
+      listGroups: mocks.listGroups,
+      createBank: mocks.createBank,
+    },
+  };
+});
+
+vi.mock('./components/ExamQuestionBankEditorSheet', () => ({
+  ExamQuestionBankEditorSheet: ({ open }: { open: boolean }) => (open ? <div>editor open</div> : null),
+}));
+
+vi.mock('./components/ExamBankAssignmentDialog', () => ({
+  ExamBankAssignmentDialog: () => null,
+}));
+
+vi.mock('./components/ExamBankSplitDialog', () => ({
+  ExamBankSplitDialog: () => null,
+}));
+
+vi.mock('./components/ExamOfferingContextSheet', () => ({
+  ExamOfferingContextSheet: ({ open }: { open: boolean }) => (open ? <div>offering context</div> : null),
 }));
 
 import AdminExamsPage from './page';
@@ -28,50 +50,79 @@ import AdminExamsPage from './page';
 describe('AdminExamsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.searchParams = new URLSearchParams();
   });
 
-  it('renders empty state when there are no exam offerings', () => {
-    mocks.useAdminExamOfferings.mockReturnValue({
-      examOfferings: [],
-      isLoading: false,
-      error: false,
-      refetch: mocks.refetch,
-    });
+  it('renders empty state when there are no exam groups', async () => {
+    mocks.listGroups.mockResolvedValue([]);
 
     render(<AdminExamsPage />);
 
-    expect(screen.getByText('Экзаменов пока нет')).toBeTruthy();
-    expect(screen.getByText('Открыть предметы групп')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('Экзаменов пока нет')).toBeTruthy();
+    });
   });
 
-  it('renders exam offerings and opens editor sheet', async () => {
-    mocks.useAdminExamOfferings.mockReturnValue({
-      examOfferings: [
-        {
-          id: 'offering-1',
-          group_id: 'group-1',
-          group_name: 'ИВТ-31',
-          subject_id: 'subject-1',
-          subject_name: 'Компьютерные сети',
-          semester: '2025-2',
-          final_control_type: 'exam',
-          exam_prep_questions_count: 3,
-        },
-      ],
-      isLoading: false,
-      error: false,
-      refetch: mocks.refetch,
-    });
+  it('renders grouped banks and opens editor for a bank', async () => {
+    mocks.listGroups.mockResolvedValue([
+      {
+        subject_id: 'subject-1',
+        subject_name: 'Компьютерные сети',
+        semester: '2025-2',
+        banks: [
+          {
+            bank_id: 'bank-1',
+            subject_id: 'subject-1',
+            subject_name: 'Компьютерные сети',
+            semester: '2025-2',
+            questions_count: 3,
+            offerings: [
+              {
+                offering_id: 'offering-1',
+                group_id: 'group-1',
+                group_name: 'ИВТ-31',
+                subject_id: 'subject-1',
+                subject_name: 'Компьютерные сети',
+                semester: '2025-2',
+                questions_count: 3,
+              },
+            ],
+          },
+        ],
+        unassigned_offerings: [],
+      },
+    ]);
 
     render(<AdminExamsPage />);
 
-    expect(screen.getByText('Компьютерные сети')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('Компьютерные сети')).toBeTruthy();
+    });
+
     expect(screen.getByText('ИВТ-31')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Открыть вопросы' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Редактировать банк' }));
 
     await waitFor(() => {
       expect(screen.getByText('editor open')).toBeTruthy();
+    });
+  });
+
+  it('opens offering context from query string', async () => {
+    mocks.searchParams = new URLSearchParams('offering=offering-1');
+    mocks.listGroups.mockResolvedValue([
+      {
+        subject_id: 'subject-1',
+        subject_name: 'Компьютерные сети',
+        semester: '2025-2',
+        banks: [],
+        unassigned_offerings: [],
+      },
+    ]);
+
+    render(<AdminExamsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('offering context')).toBeTruthy();
     });
   });
 });

@@ -9,6 +9,7 @@ from .attestation_settings import AttestationSettings, AttestationType
 from .backup_settings import BackupSettings
 from .base import Base, TimestampMixin
 from .device import Device
+from .exam_question_bank import ExamQuestionBank
 from .feedback import Feedback, FeedbackStatus, FeedbackType
 from .feedback_attachment import FeedbackAttachment
 from .group import Group
@@ -46,6 +47,7 @@ __all__ = [
     "User",
     "UserRole",
     "Device",
+    "ExamQuestionBank",
     "LectureGroup",
     "Group",
     "Lecture",

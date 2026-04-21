@@ -14,6 +14,7 @@ export { AttestationAPI } from './attestation';
 export { WorksAPI, WorkSubmissionsAPI } from './works';
 export { ActivitiesAPI } from './activities';
 export { StudentAPI } from './student';
+export { ExamBanksAPI } from './exam-banks';
 export { ScheduleAPI } from './schedule';
 export { JournalAPI } from './journal';
 export { ReportsAPI, PublicReportAPI } from './reports';

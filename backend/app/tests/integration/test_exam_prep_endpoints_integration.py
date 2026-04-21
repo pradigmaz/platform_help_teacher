@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app.api.deps import get_current_active_superuser, get_current_teacher, get_current_user
 from app.api.deps import get_db as deps_get_db
+from app.api.v1.endpoints.admin_exam_banks import router as admin_exam_banks_router
 from app.api.v1.endpoints.admin_subject_offerings import router as admin_router
 from app.api.v1.endpoints.student.exam_prep import router as student_router
 from app.db.session import get_db as session_get_db
@@ -37,16 +38,44 @@ def make_admin_user() -> User:
 
 
 def make_offering(*, final_control_type: FinalControlType, questions: list[dict] | None = None):
+    exam_question_bank = None
+    if questions:
+        exam_question_bank = SimpleNamespace(
+            id=uuid4(),
+            subject_id=uuid4(),
+            semester="2099-1",
+            questions=questions,
+            subject=SimpleNamespace(name="Компьютерные сети"),
+            offerings=[],
+        )
     return SimpleNamespace(
         id=uuid4(),
         group_id=uuid4(),
         subject_id=uuid4(),
         semester="2099-1",
         final_control_type=final_control_type,
+        exam_question_bank_id=exam_question_bank.id if exam_question_bank else None,
+        exam_question_bank=exam_question_bank,
         exam_prep_questions=questions or [],
         subject=SimpleNamespace(name="Компьютерные сети"),
         group=SimpleNamespace(name="ИС-101"),
     )
+
+
+def make_bank(*, offerings: list[SimpleNamespace] | None = None, questions: list[dict] | None = None):
+    subject_id = offerings[0].subject_id if offerings else uuid4()
+    bank = SimpleNamespace(
+        id=uuid4(),
+        subject_id=subject_id,
+        semester="2099-1",
+        questions=questions or [],
+        subject=SimpleNamespace(name="Компьютерные сети"),
+        offerings=offerings or [],
+    )
+    for offering in offerings or []:
+        offering.exam_question_bank_id = bank.id
+        offering.exam_question_bank = bank
+    return bank
 
 
 @pytest.mark.asyncio
@@ -147,10 +176,16 @@ async def test_student_exam_prep_detail_returns_payload_and_404():
 
 
 @pytest.mark.asyncio
-async def test_admin_exam_prep_roundtrip_updates_questions_count():
+async def test_admin_subject_offerings_count_questions_from_assigned_bank():
     admin = make_admin_user()
     db = SimpleNamespace(commit=AsyncMock())
     offering = make_offering(final_control_type=FinalControlType.EXAM)
+    bank = make_bank(
+        offerings=[offering],
+        questions=[{"id": "exam-q1", "prompt": {"text": "Что такое маршрутизация?"}}],
+    )
+    offering.subject_id = bank.subject_id
+    offering.subject = bank.subject
 
     async def override_admin() -> User:
         return admin
@@ -159,9 +194,6 @@ async def test_admin_exam_prep_roundtrip_updates_questions_count():
         return db
 
     with patch(
-        "app.api.v1.endpoints.admin_subject_offerings._get_offering_or_404",
-        new=AsyncMock(return_value=offering),
-    ), patch(
         "app.api.v1.endpoints.admin_subject_offerings.list_group_subject_offerings",
         new=AsyncMock(return_value=[offering]),
     ):
@@ -173,28 +205,130 @@ async def test_admin_exam_prep_roundtrip_updates_questions_count():
                 session_get_db: override_db,
             },
         ) as client:
-            empty_response = await client.get(f"/admin/subjects/offerings/{offering.id}/exam-prep")
-            save_response = await client.put(
-                f"/admin/subjects/offerings/{offering.id}/exam-prep",
-                json={
-                    "questions": [
-                        {
-                            "id": "exam-q1",
-                            "prompt": {"text": "Что такое маршрутизация?"},
-                            "answer": {"text": "Выбор пути передачи пакета"},
-                        }
-                    ]
-                },
-            )
             offerings_response = await client.get("/admin/subjects/offerings", params={"semester": "2099-1"})
 
-    assert empty_response.status_code == 200
-    assert empty_response.json()["questions_count"] == 0
-
-    assert save_response.status_code == 200
-    assert save_response.json()["questions_count"] == 1
-    assert save_response.json()["questions"][0]["answer"]["text"] == "Выбор пути передачи пакета"
-    assert db.commit.await_count == 1
-
     assert offerings_response.status_code == 200
-    assert offerings_response.json()[0]["exam_prep_questions_count"] == 1
+    payload = offerings_response.json()[0]
+    assert payload["exam_prep_questions_count"] == 1
+    assert payload["exam_question_bank_id"] == str(bank.id)
+
+
+@pytest.mark.asyncio
+async def test_admin_exam_bank_groups_and_context_return_shared_state():
+    admin = make_admin_user()
+    db = AsyncMock()
+    offering_a = make_offering(final_control_type=FinalControlType.EXAM)
+    offering_b = make_offering(final_control_type=FinalControlType.EXAM)
+    offering_b.group = SimpleNamespace(name="ИС-102")
+    bank = make_bank(
+        offerings=[offering_a],
+        questions=[{"id": "q1", "prompt": {"text": "Что такое DNS?"}}],
+    )
+    offering_a.subject_id = bank.subject_id
+    offering_b.subject_id = bank.subject_id
+    offering_a.subject = bank.subject
+    offering_b.subject = bank.subject
+
+    async def override_admin() -> User:
+        return admin
+
+    async def override_db():
+        return db
+
+    execute_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [bank]))
+
+    with patch(
+        "app.api.v1.endpoints.admin_exam_banks.list_group_subject_offerings",
+        new=AsyncMock(return_value=[offering_a, offering_b]),
+    ), patch(
+        "app.api.v1.endpoints.admin_exam_banks.get_current_semester_key",
+        new=AsyncMock(return_value="2099-1"),
+    ), patch.object(db, "execute", AsyncMock(return_value=execute_result)), patch(
+        "app.api.v1.endpoints.admin_exam_banks.get_exam_offering_or_404",
+        new=AsyncMock(return_value=offering_b),
+    ):
+        async with router_client(
+            (admin_exam_banks_router, "/admin/exams"),
+            dependency_overrides={
+                get_current_teacher: override_admin,
+                session_get_db: override_db,
+            },
+        ) as client:
+            groups_response = await client.get("/admin/exams/groups")
+            context_response = await client.get(f"/admin/exams/offerings/{offering_b.id}/context")
+
+    assert groups_response.status_code == 200
+    groups_payload = groups_response.json()
+    assert groups_payload[0]["banks"][0]["questions_count"] == 1
+    assert groups_payload[0]["unassigned_offerings"][0]["group_name"] == "ИС-102"
+
+    assert context_response.status_code == 200
+    context_payload = context_response.json()
+    assert context_payload["bank"] is None
+    assert context_payload["compatible_banks"][0]["bank_id"] == str(bank.id)
+
+
+@pytest.mark.asyncio
+async def test_assign_and_split_exam_bank_update_offering_links():
+    admin = make_admin_user()
+    added_items: list[SimpleNamespace] = []
+
+    def add_item(item):
+        added_items.append(item)
+
+    db = SimpleNamespace(commit=AsyncMock(), add=add_item, flush=AsyncMock())
+    offering_a = make_offering(final_control_type=FinalControlType.EXAM)
+    offering_b = make_offering(final_control_type=FinalControlType.EXAM)
+    offering_b.group = SimpleNamespace(name="ИС-102")
+    bank = make_bank(
+        offerings=[offering_a],
+        questions=[{"id": "q1", "prompt": {"text": "Что такое DNS?"}}],
+    )
+    offering_a.subject_id = bank.subject_id
+    offering_b.subject_id = bank.subject_id
+    offering_a.subject = bank.subject
+    offering_b.subject = bank.subject
+
+    async def override_admin() -> User:
+        return admin
+
+    async def override_db():
+        return db
+
+    async def get_bank(*_args, **_kwargs):
+        return bank
+
+    async def get_offering(*_args):
+        if _args[-1] == offering_a.id:
+            return offering_a
+        return offering_b
+
+    with patch("app.api.v1.endpoints.admin_exam_banks.get_exam_question_bank_or_404", new=get_bank), patch(
+        "app.api.v1.endpoints.admin_exam_banks.get_exam_offering_or_404",
+        new=get_offering,
+    ):
+        async with router_client(
+            (admin_exam_banks_router, "/admin/exams"),
+            dependency_overrides={
+                get_current_active_superuser: override_admin,
+                get_current_teacher: override_admin,
+                session_get_db: override_db,
+            },
+        ) as client:
+            assign_response = await client.post(
+                f"/admin/exams/banks/{bank.id}/assign",
+                json={"offering_ids": [str(offering_b.id)]},
+            )
+            # Mirror ORM state after assign: the relationship and FK point to the same shared bank.
+            offering_b.exam_question_bank_id = bank.id
+            bank.offerings = [offering_a, offering_b]
+            split_response = await client.post(
+                f"/admin/exams/banks/{bank.id}/split",
+                json={"offering_ids": [str(offering_b.id)]},
+            )
+
+    assert assign_response.status_code == 200
+    assert assign_response.json()["bank_id"] == str(bank.id)
+    assert split_response.status_code == 200
+    assert offering_b.exam_question_bank is not bank
+    assert offering_b.exam_question_bank in added_items

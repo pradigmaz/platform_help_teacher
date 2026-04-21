@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
+    from .exam_question_bank import ExamQuestionBank
     from .group import Group
     from .subject import Subject
 
@@ -35,6 +36,11 @@ class GroupSubjectOffering(Base, TimestampMixin):
         nullable=True,
         default=None,
     )
+    exam_question_bank_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("exam_question_banks.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     exam_prep_questions: Mapped[list[dict[str, Any]] | None] = mapped_column(
         JSONB,
         nullable=True,
@@ -43,3 +49,4 @@ class GroupSubjectOffering(Base, TimestampMixin):
 
     group: Mapped["Group"] = relationship()
     subject: Mapped["Subject"] = relationship()
+    exam_question_bank: Mapped["ExamQuestionBank | None"] = relationship(back_populates="offerings")

@@ -13,6 +13,7 @@ from app.api.deps import get_current_user, get_db
 from app.crud.crud_group_subject_offering import get_current_semester_key, list_group_subject_offerings_for_group
 from app.models.group_subject_offering import FinalControlType, GroupSubjectOffering
 from app.models.user import User
+from app.services.exam_question_banks import get_exam_questions_count_for_offering, get_exam_questions_for_offering
 
 router = APIRouter()
 
@@ -46,7 +47,7 @@ def _serialize_exam_offering(offering: GroupSubjectOffering) -> StudentExamPrepO
         subject_id=offering.subject_id,
         subject_name=offering.subject.name if offering.subject else "Unknown",
         semester=offering.semester,
-        questions_count=len(offering.exam_prep_questions or []),
+        questions_count=get_exam_questions_count_for_offering(offering),
     )
 
 
@@ -62,7 +63,7 @@ async def _get_student_exam_offering_or_404(
     semester = await get_current_semester_key(db)
     result = await db.execute(
         select(GroupSubjectOffering)
-        .options(selectinload(GroupSubjectOffering.subject))
+        .options(selectinload(GroupSubjectOffering.subject), selectinload(GroupSubjectOffering.exam_question_bank))
         .where(
             GroupSubjectOffering.id == offering_id,
             GroupSubjectOffering.group_id == current_user.group_id,
@@ -111,6 +112,6 @@ async def get_student_exam_prep(
         subject_id=offering.subject_id,
         subject_name=offering.subject.name if offering.subject else "Unknown",
         semester=offering.semester,
-        questions_count=len(offering.exam_prep_questions or []),
-        questions=[StudentExamPrepQuestion.model_validate(question) for question in (offering.exam_prep_questions or [])],
+        questions_count=get_exam_questions_count_for_offering(offering),
+        questions=[StudentExamPrepQuestion.model_validate(question) for question in get_exam_questions_for_offering(offering)],
     )

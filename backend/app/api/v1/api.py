@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     admin_attestation,
     admin_audit,
     admin_audit_export,
+    admin_exam_banks,
     admin_impersonate,
     admin_journal,
     admin_lab_queue,
@@ -104,6 +105,7 @@ api_router.include_router(admin_schedule.router, prefix="/admin", tags=["admin_s
 api_router.include_router(admin_schedule_sheet.router, prefix="/admin", tags=["admin_schedule"])
 api_router.include_router(admin_schedule_view.router, prefix="/admin", tags=["admin_schedule"])
 api_router.include_router(admin_journal.router, prefix="/admin/journal", tags=["admin_journal"])
+api_router.include_router(admin_exam_banks.router, prefix="/admin/exams", tags=["admin_exam_banks"])
 api_router.include_router(admin_subject_offerings.router, prefix="/admin/subjects", tags=["admin_subject_offerings"])
 api_router.include_router(admin_subjects.router, prefix="/admin/subjects", tags=["admin_subjects"])
 api_router.include_router(

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { BookOpenCheck, GraduationCap, Layers3, NotebookTabs } from 'lucide-react';
 import { toast } from 'sonner';
 import { BlurFade } from '@/components/ui/blur-fade';
@@ -9,17 +10,16 @@ import { SubjectsAPI, type AutomaticQueueResponse, type FinalControlType, type G
 import { OfferingsFilters, type OfferingControlFilter } from './components/OfferingsFilters';
 import { OfferingsTable, type OfferingsViewMode } from './components/OfferingsTable';
 import { AutomaticQueueDialog } from './components/AutomaticQueueDialog';
-import { ExamPrepEditorSheet } from './components/ExamPrepEditorSheet';
 import { notifyAdminOfferingsChanged } from '@/components/admin/useAdminExamOfferings';
 
 export default function AdminSubjectsPage() {
+  const router = useRouter();
   const [offerings, setOfferings] = useState<GroupSubjectOffering[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingOfferingId, setSavingOfferingId] = useState<string | null>(null);
   const [queueOffering, setQueueOffering] = useState<GroupSubjectOffering | null>(null);
   const [queue, setQueue] = useState<AutomaticQueueResponse | null>(null);
   const [queueLoading, setQueueLoading] = useState(false);
-  const [examPrepOffering, setExamPrepOffering] = useState<GroupSubjectOffering | null>(null);
   const [search, setSearch] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [controlFilter, setControlFilter] = useState<OfferingControlFilter>('all');
@@ -70,30 +70,8 @@ export default function AdminSubjectsPage() {
     }
   }
 
-  function handleExamPrepSaved(questionsCount: number) {
-    if (!examPrepOffering) {
-      return;
-    }
-
-    notifyAdminOfferingsChanged();
-    setOfferings((current) =>
-      current.map((item) =>
-        item.id === examPrepOffering.id
-          ? {
-              ...item,
-              exam_prep_questions_count: questionsCount,
-            }
-          : item,
-      ),
-    );
-    setExamPrepOffering((current) =>
-      current
-        ? {
-            ...current,
-            exam_prep_questions_count: questionsCount,
-          }
-        : current,
-    );
+  function openExamPrep(offering: GroupSubjectOffering) {
+    router.push(`/admin/exams?offering=${offering.id}`);
   }
 
   async function handleDecline(studentId: string) {
@@ -249,7 +227,7 @@ export default function AdminSubjectsPage() {
             viewMode={viewMode}
             onControlTypeChange={handleControlTypeChange}
             onOpenQueue={openQueue}
-            onOpenExamPrep={setExamPrepOffering}
+            onOpenExamPrep={openExamPrep}
           />
         )}
       </BlurFade>
@@ -262,12 +240,6 @@ export default function AdminSubjectsPage() {
         loading={queueLoading}
         onDecline={handleDecline}
         onRestore={handleRestore}
-      />
-      <ExamPrepEditorSheet
-        open={Boolean(examPrepOffering)}
-        onOpenChange={(open) => !open && setExamPrepOffering(null)}
-        offering={examPrepOffering}
-        onSaved={handleExamPrepSaved}
       />
     </div>
   );

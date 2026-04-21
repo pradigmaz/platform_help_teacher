@@ -8,6 +8,7 @@ export interface GroupSubjectOffering {
   subject_name: string;
   semester: string;
   final_control_type: FinalControlType | null;
+  exam_question_bank_id?: string | null;
   exam_prep_questions_count: number;
 }
 

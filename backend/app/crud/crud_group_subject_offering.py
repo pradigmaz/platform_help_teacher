@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.attestation_settings import AttestationSettings, AttestationType
 from app.models.automatic_pass_refusal import AutomaticPassRefusal
+from app.models.exam_question_bank import ExamQuestionBank
 from app.models.group_subject_offering import GroupSubjectOffering
 from app.models.user import User, UserRole
 from app.services.schedule_constants import today_msk
@@ -69,7 +70,16 @@ async def get_group_subject_offering(
 ) -> GroupSubjectOffering | None:
     result = await db.execute(
         select(GroupSubjectOffering)
-        .options(selectinload(GroupSubjectOffering.group), selectinload(GroupSubjectOffering.subject))
+        .options(
+            selectinload(GroupSubjectOffering.group),
+            selectinload(GroupSubjectOffering.subject),
+            selectinload(GroupSubjectOffering.exam_question_bank)
+            .selectinload(ExamQuestionBank.offerings)
+            .selectinload(GroupSubjectOffering.group),
+            selectinload(GroupSubjectOffering.exam_question_bank)
+            .selectinload(ExamQuestionBank.offerings)
+            .selectinload(GroupSubjectOffering.subject),
+        )
         .where(
             GroupSubjectOffering.group_id == group_id,
             GroupSubjectOffering.subject_id == subject_id,
@@ -116,7 +126,16 @@ async def list_group_subject_offerings(
 ) -> list[GroupSubjectOffering]:
     result = await db.execute(
         select(GroupSubjectOffering)
-        .options(selectinload(GroupSubjectOffering.group), selectinload(GroupSubjectOffering.subject))
+        .options(
+            selectinload(GroupSubjectOffering.group),
+            selectinload(GroupSubjectOffering.subject),
+            selectinload(GroupSubjectOffering.exam_question_bank)
+            .selectinload(ExamQuestionBank.offerings)
+            .selectinload(GroupSubjectOffering.group),
+            selectinload(GroupSubjectOffering.exam_question_bank)
+            .selectinload(ExamQuestionBank.offerings)
+            .selectinload(GroupSubjectOffering.subject),
+        )
         .where(GroupSubjectOffering.semester == semester)
         .order_by(GroupSubjectOffering.semester.asc(), GroupSubjectOffering.group_id.asc(), GroupSubjectOffering.subject_id.asc())
     )
@@ -131,7 +150,15 @@ async def list_group_subject_offerings_for_group(
 ) -> list[GroupSubjectOffering]:
     result = await db.execute(
         select(GroupSubjectOffering)
-        .options(selectinload(GroupSubjectOffering.subject))
+        .options(
+            selectinload(GroupSubjectOffering.subject),
+            selectinload(GroupSubjectOffering.exam_question_bank)
+            .selectinload(ExamQuestionBank.offerings)
+            .selectinload(GroupSubjectOffering.group),
+            selectinload(GroupSubjectOffering.exam_question_bank)
+            .selectinload(ExamQuestionBank.offerings)
+            .selectinload(GroupSubjectOffering.subject),
+        )
         .where(
             GroupSubjectOffering.group_id == group_id,
             GroupSubjectOffering.semester == semester,
