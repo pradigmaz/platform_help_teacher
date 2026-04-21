@@ -28,7 +28,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [hasExamPrep, setHasExamPrep] = useState(false);
+  const [hasExamPrep, setHasExamPrep] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,9 +40,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
           setHasExamPrep(offerings.length > 0);
         }
       } catch {
-        if (!cancelled) {
-          setHasExamPrep(false);
-        }
+        // Keep the link visible on transient failures so the feature does not disappear from navigation.
       }
     };
 
@@ -59,7 +57,7 @@ export function AceternitySidebarLayout({ children, user }: AceternitySidebarPro
   };
 
   const links = useMemo(
-    () => getSidebarLinks(pathname, hasExamPrep || pathname?.startsWith("/dashboard/exam-prep") === true),
+    () => getSidebarLinks(pathname, hasExamPrep !== false || pathname?.startsWith("/dashboard/exam-prep") === true),
     [hasExamPrep, pathname],
   );
 

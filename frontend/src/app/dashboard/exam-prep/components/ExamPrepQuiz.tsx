@@ -41,6 +41,9 @@ export function ExamPrepQuiz({ questions }: { questions: ExamPrepQuestion[] }) {
 
   function answerCurrent(result: 'known' | 'repeat') {
     setStats((current) => ({ ...current, [result]: current[result] + 1 }));
+    if (result === 'repeat' && currentQuestion) {
+      setSessionQuestions((current) => [...current, currentQuestion]);
+    }
     setCurrentIndex((current) => current + 1);
     setShowAnswer(false);
   }

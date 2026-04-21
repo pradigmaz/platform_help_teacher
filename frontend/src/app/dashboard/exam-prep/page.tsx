@@ -18,11 +18,14 @@ export default function ExamPrepPage() {
   const [payload, setPayload] = useState<StudentExamPrepResponse | null>(null);
   const [loadingOfferings, setLoadingOfferings] = useState(true);
   const [loadingPayload, setLoadingPayload] = useState(false);
+  const [offeringsLoadFailed, setOfferingsLoadFailed] = useState(false);
+  const [payloadLoadFailed, setPayloadLoadFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const loadOfferings = async () => {
       setLoadingOfferings(true);
+      setOfferingsLoadFailed(false);
       try {
         const nextOfferings = await StudentAPI.getExamPrepOfferings();
         if (!cancelled) {
@@ -31,6 +34,7 @@ export default function ExamPrepPage() {
         }
       } catch {
         if (!cancelled) {
+          setOfferingsLoadFailed(true);
           toast.error('Не удалось загрузить экзамены для подготовки');
         }
       } finally {
@@ -50,12 +54,14 @@ export default function ExamPrepPage() {
   useEffect(() => {
     if (!selectedOfferingId) {
       setPayload(null);
+      setPayloadLoadFailed(false);
       return;
     }
 
     let cancelled = false;
     const loadPayload = async () => {
       setPayload(null);
+      setPayloadLoadFailed(false);
       setLoadingPayload(true);
       try {
         const nextPayload = await StudentAPI.getExamPrep(selectedOfferingId);
@@ -65,6 +71,7 @@ export default function ExamPrepPage() {
       } catch {
         if (!cancelled) {
           setPayload(null);
+          setPayloadLoadFailed(true);
           toast.error('Не удалось загрузить вопросы для подготовки');
         }
       } finally {
@@ -99,10 +106,21 @@ export default function ExamPrepPage() {
               <GraduationCap className="h-6 w-6 text-muted-foreground" />
             </div>
             <div className="space-y-2">
-              <div className="text-xl font-semibold text-foreground">Подготовка пока недоступна</div>
-              <div className="max-w-xl text-sm text-muted-foreground">
-                Раздел появляется, когда для одного из предметов текущего семестра преподаватель выставляет форму контроля «Экзамен».
-              </div>
+              {offeringsLoadFailed ? (
+                <>
+                  <div className="text-xl font-semibold text-foreground">Не удалось загрузить экзамены</div>
+                  <div className="max-w-xl text-sm text-muted-foreground">
+                    Список экзаменов временно недоступен. Попробуй обновить страницу чуть позже.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xl font-semibold text-foreground">Подготовка пока недоступна</div>
+                  <div className="max-w-xl text-sm text-muted-foreground">
+                    Раздел появляется, когда для одного из предметов текущего семестра преподаватель выставляет форму контроля «Экзамен».
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -184,7 +202,10 @@ export default function ExamPrepPage() {
             <TabsTrigger value="quiz">Квиз</TabsTrigger>
           </TabsList>
           <TabsContent value="questions">
-            <ExamPrepQuestionList questions={payload.questions} />
+            <ExamPrepQuestionList
+              key={selectedOfferingId || payload.offering_id}
+              questions={payload.questions}
+            />
           </TabsContent>
           <TabsContent value="cards">
             <ExamPrepFlashcards
@@ -196,6 +217,15 @@ export default function ExamPrepPage() {
             <ExamPrepQuiz questions={payload.questions} />
           </TabsContent>
         </Tabs>
+      ) : payloadLoadFailed ? (
+        <Card className="border-dashed border-border/60 bg-background/80 shadow-sm">
+          <CardContent className="py-14 text-center">
+            <div className="text-xl font-semibold text-foreground">Не удалось загрузить вопросы</div>
+            <div className="mt-2 text-sm text-muted-foreground">
+              Банк вопросов временно недоступен. Попробуй открыть экзамен ещё раз чуть позже.
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <Card className="border-dashed border-border/60 bg-background/80 shadow-sm">
           <CardContent className="py-14 text-center">

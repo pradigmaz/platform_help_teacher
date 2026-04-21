@@ -70,6 +70,19 @@ describe('ExamPrepPage', () => {
     });
   });
 
+  it('renders an error state when exam offerings load fails', async () => {
+    mocks.getExamPrepOfferings.mockRejectedValue(new Error('network failed'));
+
+    render(<ExamPrepPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Не удалось загрузить экзамены')).toBeTruthy();
+      expect(mocks.toast.error).toHaveBeenCalledWith('Не удалось загрузить экзамены для подготовки');
+    });
+
+    expect(screen.queryByText('Подготовка пока недоступна')).toBeNull();
+  });
+
   it('renders selected exam payload and default questions tab', async () => {
     mocks.getExamPrepOfferings.mockResolvedValue([
       {
@@ -145,6 +158,7 @@ describe('ExamPrepPage', () => {
     });
 
     expect(screen.queryByText('questions:1')).toBeNull();
-    expect(screen.getByText('Вопросы ещё не добавлены')).toBeTruthy();
+    expect(screen.getByText('Не удалось загрузить вопросы')).toBeTruthy();
+    expect(screen.queryByText('Вопросы ещё не добавлены')).toBeNull();
   });
 });
