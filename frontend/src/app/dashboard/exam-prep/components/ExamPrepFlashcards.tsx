@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BookOpenText, RotateCcw, Shuffle } from 'lucide-react';
 import Stack from '@/components/Stack';
 import { Badge } from '@/components/ui/badge';
@@ -14,12 +14,6 @@ export function ExamPrepFlashcards({ questions }: { questions: ExamPrepQuestion[
   const [deck, setDeck] = useState<ExamPrepQuestion[]>(questions);
   const [showAnswer, setShowAnswer] = useState(false);
   const [stats, setStats] = useState({ known: 0, repeat: 0 });
-
-  useEffect(() => {
-    setDeck(questions);
-    setShowAnswer(false);
-    setStats({ known: 0, repeat: 0 });
-  }, [questions]);
 
   const currentQuestion = deck[0];
   const cards = useMemo(

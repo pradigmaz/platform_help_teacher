@@ -31,6 +31,7 @@ from app.services.exam_question_banks import (
     get_exam_question_bank_or_404,
     get_exam_questions_count_for_offering,
     validate_bank_assignment,
+    validate_bank_reassignment,
 )
 
 router = APIRouter()
@@ -108,6 +109,7 @@ async def create_exam_question_bank(
     await db.flush()
     for offering in offerings:
         validate_bank_assignment(bank, offering)
+        validate_bank_reassignment(offering)
         offering.exam_question_bank = bank
     await db.commit()
     return serialize_bank_detail(await get_exam_question_bank_or_404(db, bank.id))
@@ -137,6 +139,7 @@ async def assign_exam_question_bank(
     for offering_id in payload.offering_ids:
         offering = await get_exam_offering_or_404(db, offering_id)
         validate_bank_assignment(bank, offering)
+        validate_bank_reassignment(offering, target_bank_id=bank.id)
         offering.exam_question_bank = bank
     await db.commit()
     return serialize_bank_detail(await get_exam_question_bank_or_404(db, bank_id))
@@ -152,6 +155,9 @@ async def split_exam_question_bank(
     source_bank = await get_exam_question_bank_or_404(db, bank_id)
     if len(source_bank.offerings) <= 1:
         raise HTTPException(status_code=400, detail="Нельзя разделить банк, к которому привязана только одна группа")
+    selected_offering_ids = set(payload.offering_ids)
+    if len(selected_offering_ids) >= len(source_bank.offerings):
+        raise HTTPException(status_code=400, detail="Нельзя перенести все группы в новый банк")
 
     next_bank = ExamQuestionBank(
         subject_id=source_bank.subject_id,
@@ -160,7 +166,7 @@ async def split_exam_question_bank(
     )
     db.add(next_bank)
     await db.flush()
-    for offering_id in payload.offering_ids:
+    for offering_id in selected_offering_ids:
         offering = await get_exam_offering_or_404(db, offering_id)
         if offering.exam_question_bank_id != source_bank.id:
             raise HTTPException(status_code=400, detail="Можно разделить только уже привязанные к банку группы")

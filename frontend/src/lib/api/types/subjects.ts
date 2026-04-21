@@ -43,9 +43,3 @@ export interface ExamPrepQuestion {
   prompt: string | ExamPrepContentValue;
   answer?: string | ExamPrepContentValue | null;
 }
-
-export interface AdminExamPrepResponse {
-  offering_id: string;
-  questions_count: number;
-  questions: ExamPrepQuestion[];
-}

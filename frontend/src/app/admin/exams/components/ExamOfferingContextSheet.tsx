@@ -29,11 +29,14 @@ export function ExamOfferingContextSheet({
 
   useEffect(() => {
     if (!open || !offeringId) {
+      setContext(null);
+      setLoading(false);
       return;
     }
 
     let cancelled = false;
     const loadContext = async () => {
+      setContext(null);
       setLoading(true);
       try {
         const response = await ExamBanksAPI.getOfferingContext(offeringId);
@@ -42,6 +45,7 @@ export function ExamOfferingContextSheet({
         }
       } catch {
         if (!cancelled) {
+          setContext(null);
           toast.error('Не удалось загрузить контекст экзамена');
         }
       } finally {
@@ -58,7 +62,7 @@ export function ExamOfferingContextSheet({
   }, [offeringId, open]);
 
   async function handleCreateBank() {
-    if (!context) {
+    if (!context || context.offering.offering_id !== offeringId) {
       return;
     }
     setSaving(true);
@@ -76,7 +80,7 @@ export function ExamOfferingContextSheet({
   }
 
   async function handleAttachBank(bankId: string) {
-    if (!context) {
+    if (!context || context.offering.offering_id !== offeringId) {
       return;
     }
     setSaving(true);

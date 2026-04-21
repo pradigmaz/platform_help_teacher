@@ -79,3 +79,15 @@ def validate_bank_assignment(bank: ExamQuestionBank, offering: GroupSubjectOffer
         raise HTTPException(status_code=400, detail="Привязать банк можно только к экзаменационной связке")
     if bank.subject_id != offering.subject_id or bank.semester != offering.semester:
         raise HTTPException(status_code=400, detail="Банк можно привязать только к тому же предмету и семестру")
+
+
+def validate_bank_reassignment(offering: GroupSubjectOffering, *, target_bank_id: UUID | None = None) -> None:
+    current_bank_id = offering.exam_question_bank_id
+    if current_bank_id is None:
+        return
+    if target_bank_id is not None and current_bank_id == target_bank_id:
+        return
+    raise HTTPException(
+        status_code=400,
+        detail="Группа уже привязана к другому банку. Сначала разделите текущую привязку или выберите группу без банка.",
+    )

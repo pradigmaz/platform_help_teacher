@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as React from 'react';
 
 const mocks = vi.hoisted(() => ({
   getExamPrepOfferings: vi.fn(),
@@ -19,6 +20,26 @@ vi.mock('@/lib/api', () => ({
     getExamPrep: mocks.getExamPrep,
   },
 }));
+
+vi.mock('@/components/ui/select', () => {
+  const SelectContext = React.createContext<{ onValueChange?: (value: string) => void }>({});
+  return {
+    Select: ({
+      children,
+      onValueChange,
+    }: {
+      children: React.ReactNode;
+      onValueChange?: (value: string) => void;
+    }) => <SelectContext.Provider value={{ onValueChange }}>{children}</SelectContext.Provider>,
+    SelectTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    SelectValue: ({ placeholder }: { placeholder?: string }) => <div>{placeholder}</div>,
+    SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    SelectItem: ({ children, value }: { children: React.ReactNode; value: string }) => {
+      const { onValueChange } = React.useContext(SelectContext);
+      return <button onClick={() => onValueChange?.(value)}>{children}</button>;
+    },
+  };
+});
 
 vi.mock('./components/ExamPrepQuestionList', () => ({
   ExamPrepQuestionList: ({ questions }: { questions: Array<{ id: string }> }) => <div>questions:{questions.length}</div>,
@@ -81,5 +102,49 @@ describe('ExamPrepPage', () => {
       expect(mocks.getExamPrep).toHaveBeenCalledWith('offering-1');
       expect(screen.getByText('questions:2')).toBeTruthy();
     });
+  });
+
+  it('clears stale questions when switching exam and next payload load fails', async () => {
+    mocks.getExamPrepOfferings.mockResolvedValue([
+      {
+        offering_id: 'offering-1',
+        subject_id: 'subject-1',
+        subject_name: 'Компьютерные сети',
+        semester: '2025-2',
+        questions_count: 1,
+      },
+      {
+        offering_id: 'offering-2',
+        subject_id: 'subject-2',
+        subject_name: 'Теория автоматов',
+        semester: '2025-2',
+        questions_count: 2,
+      },
+    ]);
+    mocks.getExamPrep.mockResolvedValueOnce({
+      offering_id: 'offering-1',
+      subject_id: 'subject-1',
+      subject_name: 'Компьютерные сети',
+      semester: '2025-2',
+      questions_count: 1,
+      questions: [{ id: 'q1', prompt: { text: 'Что такое DNS?' } }],
+    });
+    mocks.getExamPrep.mockRejectedValueOnce(new Error('load failed'));
+
+    render(<ExamPrepPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('questions:1')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Теория автоматов' }));
+
+    await waitFor(() => {
+      expect(mocks.getExamPrep).toHaveBeenCalledWith('offering-2');
+      expect(mocks.toast.error).toHaveBeenCalledWith('Не удалось загрузить вопросы для подготовки');
+    });
+
+    expect(screen.queryByText('questions:1')).toBeNull();
+    expect(screen.getByText('Вопросы ещё не добавлены')).toBeTruthy();
   });
 });

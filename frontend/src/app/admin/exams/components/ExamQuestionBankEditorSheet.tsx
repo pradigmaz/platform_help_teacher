@@ -53,11 +53,15 @@ export function ExamQuestionBankEditorSheet({
 
   useEffect(() => {
     if (!open || !bankId) {
+      setBank(null);
+      setQuestions([]);
+      setLoading(false);
       return;
     }
 
     let cancelled = false;
     const loadBank = async () => {
+      setBank(null);
       setLoading(true);
       setQuestions([]);
       try {
@@ -68,6 +72,8 @@ export function ExamQuestionBankEditorSheet({
         }
       } catch {
         if (!cancelled) {
+          setBank(null);
+          setQuestions([]);
           toast.error('Не удалось загрузить банк вопросов');
         }
       } finally {
@@ -107,7 +113,7 @@ export function ExamQuestionBankEditorSheet({
   }
 
   async function handleSave() {
-    if (!bankId) {
+    if (!bankId || !bank || bank.bank_id !== bankId) {
       return;
     }
     if (questions.some((question) => !hasExamPrepContent(question.prompt))) {
@@ -240,7 +246,7 @@ export function ExamQuestionBankEditorSheet({
 
         <div className="flex items-center justify-between border-t border-border/60 px-6 py-4">
           <div className="text-sm text-muted-foreground">Сохранение обновит student-режимы для всех привязанных групп.</div>
-          <Button type="button" onClick={handleSave} disabled={saving || loading || !bankId}>
+          <Button type="button" onClick={handleSave} disabled={saving || loading || !bankId || !bank || bank.bank_id !== bankId}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Сохранить
           </Button>

@@ -55,6 +55,7 @@ export default function ExamPrepPage() {
 
     let cancelled = false;
     const loadPayload = async () => {
+      setPayload(null);
       setLoadingPayload(true);
       try {
         const nextPayload = await StudentAPI.getExamPrep(selectedOfferingId);
@@ -63,6 +64,7 @@ export default function ExamPrepPage() {
         }
       } catch {
         if (!cancelled) {
+          setPayload(null);
           toast.error('Не удалось загрузить вопросы для подготовки');
         }
       } finally {
@@ -185,7 +187,10 @@ export default function ExamPrepPage() {
             <ExamPrepQuestionList questions={payload.questions} />
           </TabsContent>
           <TabsContent value="cards">
-            <ExamPrepFlashcards questions={payload.questions} />
+            <ExamPrepFlashcards
+              key={selectedOfferingId || payload.offering_id}
+              questions={payload.questions}
+            />
           </TabsContent>
           <TabsContent value="quiz">
             <ExamPrepQuiz questions={payload.questions} />
