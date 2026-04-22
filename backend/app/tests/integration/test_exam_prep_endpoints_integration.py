@@ -94,12 +94,15 @@ async def test_student_exam_prep_offerings_list_filters_non_exam_items():
     async def override_db():
         return db
 
-    with patch(
-        "app.api.v1.endpoints.student.exam_prep.get_current_semester_key",
-        new=AsyncMock(return_value="2099-1"),
-    ), patch(
-        "app.api.v1.endpoints.student.exam_prep.list_group_subject_offerings_for_group",
-        new=AsyncMock(return_value=[credit_offering, exam_offering]),
+    with (
+        patch(
+            "app.api.v1.endpoints.student.exam_prep.get_current_semester_key",
+            new=AsyncMock(return_value="2099-1"),
+        ),
+        patch(
+            "app.api.v1.endpoints.student.exam_prep.list_group_subject_offerings_for_group",
+            new=AsyncMock(return_value=[credit_offering, exam_offering]),
+        ),
     ):
         async with router_client(
             (student_router, "/student"),
@@ -237,20 +240,25 @@ async def test_admin_exam_bank_groups_and_context_return_shared_state():
 
     execute_result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [bank]))
 
-    with patch(
-        "app.api.v1.endpoints.admin_exam_banks.list_group_subject_offerings",
-        new=AsyncMock(return_value=[offering_a, offering_b]),
-    ), patch(
-        "app.api.v1.endpoints.admin_exam_banks.get_current_semester_key",
-        new=AsyncMock(return_value="2099-1"),
-    ), patch.object(db, "execute", AsyncMock(return_value=execute_result)), patch(
-        "app.api.v1.endpoints.admin_exam_banks.get_exam_offering_or_404",
-        new=AsyncMock(return_value=offering_b),
+    with (
+        patch(
+            "app.api.v1.endpoints.admin_exam_banks.list_group_subject_offerings",
+            new=AsyncMock(return_value=[offering_a, offering_b]),
+        ),
+        patch(
+            "app.api.v1.endpoints.admin_exam_banks.get_current_semester_key",
+            new=AsyncMock(return_value="2099-1"),
+        ),
+        patch.object(db, "execute", AsyncMock(return_value=execute_result)),
+        patch(
+            "app.api.v1.endpoints.admin_exam_banks.get_exam_offering_or_404",
+            new=AsyncMock(return_value=offering_b),
+        ),
     ):
         async with router_client(
             (admin_exam_banks_router, "/admin/exams"),
             dependency_overrides={
-                get_current_teacher: override_admin,
+                get_current_active_superuser: override_admin,
                 session_get_db: override_db,
             },
         ) as client:
@@ -303,9 +311,12 @@ async def test_assign_and_split_exam_bank_update_offering_links():
             return offering_a
         return offering_b
 
-    with patch("app.api.v1.endpoints.admin_exam_banks.get_exam_question_bank_or_404", new=get_bank), patch(
-        "app.api.v1.endpoints.admin_exam_banks.get_exam_offering_or_404",
-        new=get_offering,
+    with (
+        patch("app.api.v1.endpoints.admin_exam_banks.get_exam_question_bank_or_404", new=get_bank),
+        patch(
+            "app.api.v1.endpoints.admin_exam_banks.get_exam_offering_or_404",
+            new=get_offering,
+        ),
     ):
         async with router_client(
             (admin_exam_banks_router, "/admin/exams"),
@@ -403,9 +414,12 @@ async def test_assign_exam_bank_rejects_offering_from_other_bank():
     async def get_offering(*_args, **_kwargs):
         return offering
 
-    with patch("app.api.v1.endpoints.admin_exam_banks.get_exam_question_bank_or_404", new=get_bank), patch(
-        "app.api.v1.endpoints.admin_exam_banks.get_exam_offering_or_404",
-        new=get_offering,
+    with (
+        patch("app.api.v1.endpoints.admin_exam_banks.get_exam_question_bank_or_404", new=get_bank),
+        patch(
+            "app.api.v1.endpoints.admin_exam_banks.get_exam_offering_or_404",
+            new=get_offering,
+        ),
     ):
         async with router_client(
             (admin_exam_banks_router, "/admin/exams"),

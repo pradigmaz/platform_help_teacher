@@ -35,11 +35,6 @@ export interface AttestationSettings {
   late_coef: number;
   absent_coef: number;
   
-  // Дедлайны
-  late_max_grade: number;
-  very_late_max_grade: number;
-  late_threshold_days: number;
-  
   // Опциональные компоненты
   self_works_enabled: boolean;
   self_works_weight: number;
@@ -81,9 +76,6 @@ export interface AttestationSettingsUpdate {
   grade_3_coef: number;
   late_coef: number;
   absent_coef: number;
-  late_max_grade: number;
-  very_late_max_grade: number;
-  late_threshold_days: number;
   self_works_enabled: boolean;
   self_works_weight: number;
   self_works_count: number;

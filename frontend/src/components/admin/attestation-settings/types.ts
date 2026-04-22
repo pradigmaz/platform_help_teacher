@@ -8,9 +8,6 @@ export interface AttestationFormState {
   grade_3_coef: number;
   late_coef: number;
   absent_coef: number;
-  late_max_grade: number;
-  very_late_max_grade: number;
-  late_threshold_days: number;
   self_works_enabled: boolean;
   self_works_weight: number;
   self_works_count: number;
@@ -32,9 +29,6 @@ export const DEFAULT_FORM_STATE: AttestationFormState = {
   grade_3_coef: 0.4,
   late_coef: 0.5,
   absent_coef: 0,
-  late_max_grade: 4,
-  very_late_max_grade: 3,
-  late_threshold_days: 7,
   self_works_enabled: false,
   self_works_weight: 0,
   self_works_count: 2,

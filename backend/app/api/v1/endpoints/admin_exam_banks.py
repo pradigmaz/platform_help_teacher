@@ -78,7 +78,7 @@ async def _list_bank_groups(db: AsyncSession, *, semester: str) -> list[ExamSubj
 async def list_exam_question_bank_groups(
     semester: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(deps.get_current_teacher),
+    current_user: User = Depends(deps.get_current_active_superuser),
 ) -> list[ExamSubjectGroupResponse]:
     return await _list_bank_groups(db, semester=semester or await get_current_semester_key(db))
 
@@ -87,7 +87,7 @@ async def list_exam_question_bank_groups(
 async def get_exam_question_bank(
     bank_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(deps.get_current_teacher),
+    current_user: User = Depends(deps.get_current_active_superuser),
 ) -> ExamQuestionBankDetailResponse:
     return serialize_bank_detail(await get_exam_question_bank_or_404(db, bank_id))
 
@@ -179,7 +179,7 @@ async def split_exam_question_bank(
 async def get_exam_offering_context(
     offering_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(deps.get_current_teacher),
+    current_user: User = Depends(deps.get_current_active_superuser),
 ) -> ExamOfferingContextResponse:
     offering = await get_exam_offering_or_404(db, offering_id)
     if offering.final_control_type != FinalControlType.EXAM:
