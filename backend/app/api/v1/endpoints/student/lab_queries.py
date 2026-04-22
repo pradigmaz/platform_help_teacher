@@ -33,9 +33,7 @@ async def list_student_labs(
         group_id=current_user.group_id,
         subgroup=current_user.subgroup,
     )
-    offering_subject_ids = set(
-        await list_group_subject_ids_for_current_semester(db, group_id=current_user.group_id)
-    )
+    offering_subject_ids = set(await list_group_subject_ids_for_current_semester(db, group_id=current_user.group_id))
     if offering_subject_ids:
         visible_by_subject = {
             subject_id: work_numbers
@@ -85,7 +83,7 @@ async def list_student_labs(
     student_position = await student_lab_service.get_student_position(db, current_user)
 
     result: list[dict[str, Any]] = []
-    prev_accepted = True
+    accepted_by_subject_number: dict[UUID, dict[int, bool]] = defaultdict(dict)
 
     for lab in relevant_labs:
         submission = submissions.get(lab.id)
@@ -98,7 +96,13 @@ async def list_student_labs(
             variant_number = ((student_position - 1) % len(lab.variants)) + 1
 
         visibility_info = visibility_by_subject.get(lab.subject_id, {}).get(lab.number)
-        is_available = (prev_accepted or not lab.is_sequential) and bool(visibility_info and visibility_info.is_visible)
+        previous_lab_accepted = (
+            accepted_by_subject_number.get(lab.subject_id, {}).get(lab.number - 1)
+            if lab.subject_id is not None and lab.number > 1
+            else None
+        )
+        sequential_gate_open = not lab.is_sequential or previous_lab_accepted is not False
+        is_available = sequential_gate_open and bool(visibility_info and visibility_info.is_visible)
 
         result.append(
             {
@@ -126,10 +130,8 @@ async def list_student_labs(
             }
         )
 
-        if is_accepted:
-            prev_accepted = True
-        elif lab.is_sequential:
-            prev_accepted = False
+        if lab.subject_id is not None:
+            accepted_by_subject_number[lab.subject_id][lab.number] = is_accepted
 
     return result
 

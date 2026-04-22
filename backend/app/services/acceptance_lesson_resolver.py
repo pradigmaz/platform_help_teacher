@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Lesson, User
 from app.models.schedule import LessonType
+from app.services.schedule_attendance_summary import is_schedule_slot_past
 from app.services.schedule_constants import today_msk
 
 _ACCEPTANCE_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
@@ -105,6 +106,15 @@ async def find_latest_lesson_for_student(
     lessons = list(result.scalars().all())
     if not lessons:
         return None
+
+    if on_or_before is None:
+        lessons = [
+            lesson
+            for lesson in lessons
+            if lesson.date < target_date or is_schedule_slot_past(lesson.date, lesson.lesson_number)
+        ]
+        if not lessons:
+            return None
 
     latest_date = lessons[0].date
     latest_number = lessons[0].lesson_number
