@@ -28,11 +28,21 @@ def evaluate_deadline_state(
     deadline_4_lessons: int | None,
     extension_bonus: int = 0,
     is_excused_origin: bool = False,
+    deadline_active: bool = True,
     visible_from: date | None = None,
     today: date | None = None,
 ) -> DeadlineVisibilityState:
     """Shared deadline evaluation DTO for teacher-side validation and student-side read paths."""
     if is_excused_origin:
+        return DeadlineVisibilityState(
+            deadline_5_status=None,
+            deadline_4_status=None,
+            lessons_until_deadline_5=None,
+            lessons_until_deadline_4=None,
+            current_max_grade=5,
+            lesson_index=lesson_index,
+        )
+    if not deadline_active:
         return DeadlineVisibilityState(
             deadline_5_status=None,
             deadline_4_status=None,
@@ -85,6 +95,7 @@ def max_allowed_grade_for_lesson_index(
     *,
     extension_bonus: int = 0,
     is_excused_origin: bool = False,
+    deadline_active: bool = True,
 ) -> int:
     """Teacher-side max grade semantics shared by single and batch validators."""
     return evaluate_deadline_state(
@@ -93,6 +104,7 @@ def max_allowed_grade_for_lesson_index(
         deadline_4_lessons=deadline_4_lessons,
         extension_bonus=extension_bonus,
         is_excused_origin=is_excused_origin,
+        deadline_active=deadline_active,
     ).current_max_grade
 
 
@@ -105,6 +117,7 @@ def calculate_visibility_state(
     deadline_4_lessons: int | None,
     extension_bonus: int = 0,
     is_excused_origin: bool = False,
+    deadline_active: bool = True,
 ) -> DeadlineVisibilityState:
     """Student-side deadline view derived from the same lesson-index semantics."""
     return evaluate_deadline_state(
@@ -113,6 +126,7 @@ def calculate_visibility_state(
         deadline_4_lessons=deadline_4_lessons,
         extension_bonus=extension_bonus,
         is_excused_origin=is_excused_origin,
+        deadline_active=deadline_active,
         visible_from=visible_from,
         today=today,
     )

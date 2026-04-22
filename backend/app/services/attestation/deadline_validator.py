@@ -14,7 +14,10 @@ from app.models.attendance import Attendance, AttendanceStatus
 from app.models.lab import Lab
 from app.models.lesson import Lesson
 from app.models.schedule import LessonType
-from app.services.deadline_context import build_deadline_context_for_current_lesson
+from app.services.deadline_context import (
+    build_deadline_context_for_current_lesson,
+    resolve_last_work_number_index,
+)
 from app.services.deadline_engine import evaluate_deadline_context
 from app.services.deadline_inputs import load_active_extension_bonus
 from app.services.deadline_lesson_loader import load_ordered_deadline_lessons, load_origin_lessons
@@ -37,6 +40,7 @@ async def _get_origin_lesson_for_group(
             group_id=current_lesson.group_id,
             subject_id=current_lesson.subject_id,
             work_numbers={lab_number},
+            subgroup=current_lesson.subgroup,
         )
     ).get(lab_number)
 
@@ -44,12 +48,14 @@ async def _get_origin_lesson_for_group(
 async def _get_lesson_positions(
     db: AsyncSession,
     origin_lesson: Lesson,
+    subgroup: int | None,
 ) -> dict[UUID, int]:
     """Build lesson position map for deadline evaluation from the origin lesson onward."""
     ordered_lessons = await load_ordered_deadline_lessons(
         db,
         group_id=origin_lesson.group_id,
         subject_id=origin_lesson.subject_id,
+        subgroup=subgroup,
         since_date=origin_lesson.date,
     )
     return {lesson_id: idx for idx, (lesson_id, _, _, _) in enumerate(ordered_lessons)}
@@ -111,12 +117,18 @@ async def get_deadline_trace_for_lab(
         db,
         group_id=origin_lesson.group_id,
         subject_id=origin_lesson.subject_id,
+        subgroup=current_lesson.subgroup,
         since_date=origin_lesson.date,
     )
-    lesson_positions = await _get_lesson_positions(db, origin_lesson)
+    lesson_positions = await _get_lesson_positions(db, origin_lesson, current_lesson.subgroup)
+    activation_index = resolve_last_work_number_index(
+        [work_number for _, work_number, _, _ in ordered_lessons],
+        lab.number,
+    )
+    activation_lesson_id = ordered_lessons[activation_index][0] if activation_index is not None else origin_lesson.id
     context = build_deadline_context_for_current_lesson(
         lab_number=lab.number,
-        origin_lesson_id=origin_lesson.id,
+        origin_lesson_id=activation_lesson_id,
         current_lesson_id=current_lesson.id,
         lesson_positions=lesson_positions,
         extension_bonus=bonus_lessons,

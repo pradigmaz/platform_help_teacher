@@ -13,7 +13,10 @@ from app.models.attendance import Attendance, AttendanceStatus
 from app.models.lab import Lab
 from app.models.lesson import Lesson
 from app.models.schedule import LessonType
-from app.services.deadline_context import build_deadline_context_for_current_lesson
+from app.services.deadline_context import (
+    build_deadline_context_for_current_lesson,
+    resolve_last_work_number_index,
+)
 from app.services.deadline_engine import evaluate_deadline_context
 from app.services.deadline_inputs import load_active_extension_bonus_map
 from app.services.deadline_lesson_loader import load_ordered_deadline_lessons, load_origin_lessons
@@ -34,6 +37,7 @@ async def _get_origin_lessons_for_group(
         group_id=current_lesson.group_id,
         subject_id=current_lesson.subject_id,
         work_numbers=work_numbers,
+        subgroup=current_lesson.subgroup,
     )
 
 
@@ -108,6 +112,7 @@ async def get_max_allowed_grades_batch(
             db,
             group_id=lesson.group_id,
             subject_id=lesson.subject_id,
+            subgroup=lesson.subgroup,
             since_date=min_date,
         )
     else:
@@ -115,6 +120,17 @@ async def get_max_allowed_grades_batch(
 
     # Строим индекс: lesson_id -> position
     lesson_positions = {lid: idx for idx, (lid, _, _, _) in enumerate(all_lessons)}
+    activation_lesson_ids = {
+        lab_number: all_lessons[activation_index][0]
+        for lab_number in labs
+        if (
+            activation_index := resolve_last_work_number_index(
+                [work_number for _, work_number, _, _ in all_lessons],
+                lab_number,
+            )
+        )
+        is not None
+    }
     # 6. Вычисляем max_grade для каждого item
     results: dict[tuple[UUID, int | None], int] = {}
 
@@ -144,7 +160,7 @@ async def get_max_allowed_grades_batch(
 
         context = build_deadline_context_for_current_lesson(
             lab_number=lab_num,
-            origin_lesson_id=origin_lesson.id,
+            origin_lesson_id=activation_lesson_ids.get(lab_num, origin_lesson.id),
             current_lesson_id=lesson.id,
             lesson_positions=lesson_positions,
             extension_bonus=extension_bonus_by_lab_id.get(lab.id, 0),

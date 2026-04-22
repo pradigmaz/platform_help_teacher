@@ -35,11 +35,16 @@ function getLabSummaryText({ visible, pending, required }: ReturnType<typeof get
 /** Get nearest deadline (by lessons count) */
 function getNearestDeadline(labs: QuickStatsProps['labs']): { title: string; lessonsLeft: number } | null {
   const upcoming = labs
-    .filter(l => l.deadline_5_lessons && !isLabAccepted(l))
-    .sort((a, b) => (a.deadline_5_lessons ?? Infinity) - (b.deadline_5_lessons ?? Infinity));
+    .filter(
+      l =>
+        !isLabAccepted(l) &&
+        l.deadline_5_status === 'active' &&
+        typeof l.lessons_until_deadline_5 === 'number',
+    )
+    .sort((a, b) => (a.lessons_until_deadline_5 ?? Infinity) - (b.lessons_until_deadline_5 ?? Infinity));
   
   if (upcoming.length === 0) return null;
-  return { title: upcoming[0].title, lessonsLeft: upcoming[0].deadline_5_lessons! };
+  return { title: upcoming[0].title, lessonsLeft: upcoming[0].lessons_until_deadline_5! };
 }
 
 /** Format lessons left */

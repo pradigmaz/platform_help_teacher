@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
 
-from app.services.deadline_context import DeadlineContext
+from app.services.deadline_context import DeadlineContext, resolve_last_work_number_index
 from app.services.deadline_semantics import DeadlineVisibilityState, apply_extension_bonus
 
 if TYPE_CHECKING:
@@ -43,9 +43,9 @@ def resolve_effective_deadline_date(
     if effective_deadline_lessons is None:
         return None
 
-    origin_index = next(
-        (idx for idx, (work_number, _) in enumerate(ordered_lessons) if work_number == lab_number),
-        None,
+    origin_index = resolve_last_work_number_index(
+        [work_number for work_number, _ in ordered_lessons],
+        lab_number,
     )
     if origin_index is None:
         return None

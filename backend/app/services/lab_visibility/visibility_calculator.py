@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
@@ -14,6 +14,7 @@ from app.services.deadline_engine import evaluate_deadline_context
 from app.services.deadline_lesson_loader import build_deadline_lesson_filter, load_ordered_deadline_lessons
 from app.services.deadline_trace import resolve_effective_deadline_date
 from app.services.lab_visibility.models import LabVisibilityInfo
+from app.services.schedule_attendance_summary import is_schedule_slot_past
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ async def calculate_visibility_for_subject(
     labs_deadlines: dict[int, tuple],
     subject_id: UUID | None,
     today: date,
+    now: datetime,
     labs_ids: dict[int, UUID] | None = None,
     extensions_map: dict[UUID, int] | None = None,
     excused_lab_numbers: set[int] | None = None,
@@ -54,27 +56,20 @@ async def calculate_visibility_for_subject(
     dates_result = await db.execute(dates_query)
     lab_dates = {row.work_number: (row.min_date, row.max_date) for row in dates_result.all()}
 
-    # 2. Все фактические lab/practice-слоты до today для подсчёта дедлайнов.
-    # Важно: сюда входят и слоты без work_number, как в teacher-side validator.
-    ordered_lessons = [
-        (work_number, lesson_date, lesson_number)
-        for _, work_number, lesson_date, lesson_number in await load_ordered_deadline_lessons(
-            db,
-            group_id=group_id,
-            subject_id=subject_id,
-            subgroup=subgroup,
-            until_date=today,
-        )
-    ]
-    ordered_lessons_for_trace = [
-        (work_number, lesson_date)
-        for _, work_number, lesson_date, _ in await load_ordered_deadline_lessons(
-            db,
-            group_id=group_id,
-            subject_id=subject_id,
-            subgroup=subgroup,
-        )
-    ]
+    # 2. Полная последовательность слотов нужна для trace и активации дедлайна
+    # от последнего origin-slot, а past-подмножество — для slot-aware подсчёта.
+    ordered_lessons = await load_ordered_deadline_lessons(
+        db,
+        group_id=group_id,
+        subject_id=subject_id,
+        subgroup=subgroup,
+    )
+    past_lesson_ids = {
+        lesson_id
+        for lesson_id, _, lesson_date, lesson_number in ordered_lessons
+        if is_schedule_slot_past(lesson_date, lesson_number, now)
+    }
+    ordered_lessons_for_trace = [(work_number, lesson_date) for _, work_number, lesson_date, _ in ordered_lessons]
 
     # 3. Строим результат для каждой лабы
     result = {}
@@ -83,6 +78,7 @@ async def calculate_visibility_for_subject(
             lab_number=lab_number,
             lab_dates=lab_dates,
             ordered_lessons=ordered_lessons,
+            past_lesson_ids=past_lesson_ids,
             labs_deadlines=labs_deadlines,
             labs_ids=labs_ids,
             extensions_map=extensions_map,
@@ -97,7 +93,8 @@ async def calculate_visibility_for_subject(
 def _calculate_single_lab_visibility(
     lab_number: int,
     lab_dates: dict[int, tuple[date, date]],
-    ordered_lessons: Sequence[tuple[int | None, date, int]],
+    ordered_lessons: Sequence[tuple[UUID, int | None, date, int]],
+    past_lesson_ids: set[UUID],
     labs_deadlines: dict[int, tuple],
     labs_ids: dict[int, UUID],
     extensions_map: dict[UUID, int],
@@ -124,13 +121,14 @@ def _calculate_single_lab_visibility(
     # Дедлайны и продления
     deadline_5, deadline_4 = labs_deadlines.get(lab_number, (None, None))
     ordered_lessons_for_trace = ordered_lessons_for_trace or [
-        (work_number, lesson_date) for work_number, lesson_date, _ in ordered_lessons
+        (work_number, lesson_date) for _, work_number, lesson_date, _ in ordered_lessons
     ]
 
     lab_id = labs_ids.get(lab_number)
     context = build_deadline_context_for_visibility(
         lab_number=lab_number,
         ordered_lessons=ordered_lessons,
+        past_lesson_ids=past_lesson_ids,
         lab_id=lab_id,
         extensions_map=extensions_map,
         excused_lab_numbers=excused_lab_numbers,

@@ -34,6 +34,7 @@ def evaluate_deadline_context(
         deadline_4_lessons=deadline_4_lessons,
         extension_bonus=context.extension_bonus,
         is_excused_origin=context.is_excused_origin,
+        deadline_active=context.deadline_active,
         visible_from=visible_from,
         today=today,
     )

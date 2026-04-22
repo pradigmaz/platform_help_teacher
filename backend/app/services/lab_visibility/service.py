@@ -90,6 +90,7 @@ class LabVisibilityService:
                 labs_deadlines=labs_deadlines,
                 subject_id=subject_id,
                 today=today,
+                now=now,
                 labs_ids=labs_ids,
                 extensions_map=extensions_map,
                 excused_lab_numbers=excused_lab_numbers,
