@@ -12,9 +12,6 @@ interface LabsConfig {
   grade_4_points: number;
   grade_3_points: number;
   grade_2_points: number;
-  late_max_grade: number;
-  very_late_max_grade: number;
-  late_threshold_days: number;
 }
 
 interface Props {
@@ -69,30 +66,6 @@ export function LabsSettingsNew({ config, onChange }: Props) {
                 onChange={e => onChange('grade_2_points', Number(e.target.value))} />
             </div>
           </div>
-        </div>
-
-        <div className="border-t pt-4">
-          <p className="text-sm font-medium mb-2">Ограничение оценки при просрочке</p>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <Label className="text-xs">Макс при просрочке</Label>
-              <Input type="number" min={2} max={5} value={config.late_max_grade}
-                onChange={e => onChange('late_max_grade', Number(e.target.value))} />
-            </div>
-            <div>
-              <Label className="text-xs">Макс при сильной</Label>
-              <Input type="number" min={2} max={5} value={config.very_late_max_grade}
-                onChange={e => onChange('very_late_max_grade', Number(e.target.value))} />
-            </div>
-            <div>
-              <Label className="text-xs">Граница (дней)</Label>
-              <Input type="number" value={config.late_threshold_days}
-                onChange={e => onChange('late_threshold_days', Number(e.target.value))} />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Просрочил ≤{config.late_threshold_days} дней → макс {config.late_max_grade}, больше → макс {config.very_late_max_grade}
-          </p>
         </div>
       </CardContent>
     </Card>
