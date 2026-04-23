@@ -24,6 +24,7 @@ from app.services.attestation.subject_scope import (
     resolve_attestation_subject_scope,
 )
 from app.services.attestation.submission_fallbacks import get_submission_grade_fallbacks_batch
+from app.services.offering_policy_resolver import resolve_offering_policy_for_group_subject
 
 logger = logging.getLogger(__name__)
 
@@ -212,8 +213,14 @@ async def get_group_labs_stats(
     results_map: dict[UUID, Any] | None = None,
     subject_id: UUID | None = None,
 ) -> dict[UUID, LabStatsMap]:
-    total_labs = settings.get_labs_count()
     resolved, subject_id = await _resolve_subject_id(db, group_id, settings, subject_id)
+    policy = await resolve_offering_policy_for_group_subject(
+        db,
+        group_id=group_id,
+        subject_id=subject_id,
+        settings=settings,
+    )
+    required_labs = policy.labs_required_for(settings.attestation_type)
     states_by_student = (
         await _load_completed_states_by_student(
             db, group_id, [student.id for student in students], settings, subject_id
@@ -230,7 +237,7 @@ async def get_group_labs_stats(
             if result is not None
             else sum(1 for state in states_by_student.get(student.id, {}).values() if state.is_completed)
         )
-        total = result.breakdown.labs_required if result is not None else total_labs
+        total = result.breakdown.labs_required if result is not None else required_labs
         stats[student.id] = {"completed": completed, "total": total}
     return stats
 
@@ -243,8 +250,14 @@ async def get_lab_progress(
     has_subgroups: bool = False,
     subject_id: UUID | None = None,
 ) -> tuple[list[LabProgress], dict[str, list[LabProgress]] | None]:
-    total_labs = settings.get_labs_count()
     resolved, subject_id = await _resolve_subject_id(db, group_id, settings, subject_id)
+    policy = await resolve_offering_policy_for_group_subject(
+        db,
+        group_id=group_id,
+        subject_id=subject_id,
+        settings=settings,
+    )
+    total_labs = policy.total_labs
     states_by_student = (
         await _load_completed_states_by_student(
             db, group_id, [student.id for student in students], settings, subject_id

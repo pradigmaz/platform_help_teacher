@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 async def list_student_labs(
     db: AsyncSession,
     current_user: User,
+    subject_id: UUID | None = None,
 ) -> list[dict[str, Any]]:
     """Build student labs list with availability and submission state."""
     if not current_user.group_id:
@@ -34,6 +35,8 @@ async def list_student_labs(
         subgroup=current_user.subgroup,
     )
     offering_subject_ids = set(await list_group_subject_ids_for_current_semester(db, group_id=current_user.group_id))
+    if subject_id is not None:
+        offering_subject_ids = {subject_id} if not offering_subject_ids or subject_id in offering_subject_ids else set()
     if offering_subject_ids:
         visible_by_subject = {
             subject_id: work_numbers

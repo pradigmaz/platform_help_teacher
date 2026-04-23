@@ -60,6 +60,7 @@ class LabScoreCalculator:
         settings: AttestationSettings,
         transfer_grades: list[ExternalGradePayload] | None = None,
         submission_grades: list[ExternalGradePayload] | None = None,
+        labs_required_override: int | None = None,
     ) -> LabScoreResult:
         """
         Расчёт баллов за лабораторные.
@@ -76,7 +77,7 @@ class LabScoreCalculator:
         Args:
             transfer_grades: Снапшоты оценок из переводов [{work_number, grade, lesson_id?}]
         """
-        labs_count = settings.get_labs_count()
+        labs_count = labs_required_override if labs_required_override is not None else settings.get_labs_count()
         max_score = settings.get_max_component_points(settings.labs_weight)
         points_per_work = settings.get_points_per_work(settings.labs_weight, labs_count)
 

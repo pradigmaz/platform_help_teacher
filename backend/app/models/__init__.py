@@ -3,9 +3,9 @@ from app.audit.models import StudentAuditLog
 
 from .activity import Activity
 from .announcement import Announcement
-from .automatic_pass_refusal import AutomaticPassRefusal
 from .attendance import Attendance, AttendanceStatus
 from .attestation_settings import AttestationSettings, AttestationType
+from .automatic_pass_refusal import AutomaticPassRefusal
 from .backup_settings import BackupSettings
 from .base import Base, TimestampMixin
 from .device import Device
@@ -15,6 +15,7 @@ from .feedback_attachment import FeedbackAttachment
 from .group import Group
 from .group_report import GroupReport, ReportType
 from .group_subject_offering import FinalControlType, GroupSubjectOffering
+from .group_subject_offering_policy import GroupSubjectOfferingPolicy
 from .lab import Lab
 from .lab_deadline_extension import LabDeadlineExtension
 from .lab_settings import GradingScale, LabSettings
@@ -96,5 +97,6 @@ __all__ = [
     "StudentAuditLog",
     "GroupSubjectOffering",
     "FinalControlType",
+    "GroupSubjectOfferingPolicy",
     "AutomaticPassRefusal",
 ]

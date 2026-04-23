@@ -25,6 +25,7 @@ from app.services.attendance_period import (
     load_attendance_by_student_for_lessons,
     load_period_lessons,
 )
+from app.services.offering_policy_resolver import resolve_offering_policy_for_group_subject
 
 from .calculator import AttestationCalculator
 from .lab_progress import dedupe_lesson_grade_rows, dedupe_transfer_lab_grades
@@ -66,6 +67,12 @@ class BatchScoreCalculator:
             group_id=group_id,
             settings=settings,
             requested_subject_id=subject_id,
+        )
+        policy = await resolve_offering_policy_for_group_subject(
+            self.db,
+            group_id=group_id,
+            subject_id=subject_scope.subject_id,
+            settings=settings,
         )
         subject_scope_at = perf_counter()
 
@@ -130,6 +137,7 @@ class BatchScoreCalculator:
                         activity_map,
                         transfers_map,
                         subject_scope,
+                        policy.labs_required_for(attestation_type),
                     )
                 )
             except Exception as exc:
@@ -172,6 +180,7 @@ class BatchScoreCalculator:
         activity_map: dict[UUID, float],
         transfers_map: dict[UUID, list[StudentTransfer]],
         subject_scope: AttestationSubjectScope,
+        labs_required: int,
     ) -> AttestationResult:
         subgroup = student.subgroup
         relevant_lessons = get_relevant_lessons_for_subgroup(lessons_by_subgroup, subgroup)
@@ -187,6 +196,7 @@ class BatchScoreCalculator:
             settings,
             transfer_lab_grades,
             submission_grades_map.get(student.id, []),
+            labs_required_override=labs_required,
         )
         attendance_result = self.calculator.calculate_attendance(
             attendance,

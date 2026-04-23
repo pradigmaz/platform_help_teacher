@@ -83,7 +83,7 @@ async def resolve_current_attestation(
                 "grade": "-",
                 "is_passing": False,
                 "error": "Для расчёта аттестации нужно выбрать предмет",
-                "lab_progress_plan": await resolve_student_lab_progress_plan(db, current_user),
+                "lab_progress_plan": None,
             }
 
     preferred = await calculate_student_attestation_response(

@@ -20,9 +20,9 @@ from app.db.session import get_db
 from app.models.group_subject_offering import FinalControlType, GroupSubjectOffering
 from app.models.user import User, UserRole
 from app.services.attestation.automatic_queue import list_offering_automatic_queue
-from app.services.attestation.lab_count_sync import DEFAULT_TOTAL_LABS_COUNT
 from app.services.exam_question_banks import get_exam_questions_count_for_offering
-from app.services.lab_settings_service import lab_settings_service
+from app.services.offering_policy_resolver import resolve_offering_policy
+from app.services.offering_policy_validation import EffectiveOfferingPolicy
 
 router = APIRouter()
 
@@ -73,12 +73,11 @@ def _require_exam_offering(offering: GroupSubjectOffering) -> None:
         raise HTTPException(status_code=400, detail="Автомат доступен только для экзаменационной связки")
 
 
-async def _load_automatic_settings(db: AsyncSession) -> tuple[bool, int | None, int]:
-    lab_settings = await lab_settings_service.get_lab_settings(db)
-    automatic_enabled = lab_settings.automatic_enabled if lab_settings else True
-    automatic_places = lab_settings.automatic_places if lab_settings else None
-    total_labs = lab_settings.labs_count if lab_settings else DEFAULT_TOTAL_LABS_COUNT
-    return automatic_enabled, automatic_places, total_labs
+async def _load_automatic_settings(
+    db: AsyncSession,
+    offering: GroupSubjectOffering,
+) -> EffectiveOfferingPolicy:
+    return await resolve_offering_policy(db, offering)
 
 
 async def _require_automatic_pass_mutation_allowed(
@@ -86,9 +85,9 @@ async def _require_automatic_pass_mutation_allowed(
     offering: GroupSubjectOffering,
 ) -> None:
     _require_exam_offering(offering)
-    automatic_enabled, _, _ = await _load_automatic_settings(db)
-    if not automatic_enabled:
-        raise HTTPException(status_code=400, detail="Автоматы отключены в глобальных настройках лабораторных")
+    policy = await _load_automatic_settings(db, offering)
+    if not policy.automatic_enabled:
+        raise HTTPException(status_code=400, detail="Автомат отключён для выбранной связки предмета")
 
 
 def _serialize_offering(offering: GroupSubjectOffering) -> GroupSubjectOfferingResponse:
@@ -123,19 +122,19 @@ async def _get_offering_or_404(db: AsyncSession, offering_id: UUID) -> GroupSubj
 
 async def _build_automatic_queue_response(db: AsyncSession, offering: GroupSubjectOffering) -> AutomaticQueueResponse:
     _require_exam_offering(offering)
-    automatic_enabled, automatic_places, total_labs = await _load_automatic_settings(db)
+    policy = await _load_automatic_settings(db, offering)
     students = await list_offering_automatic_queue(
         db,
         offering=offering,
-        total_labs=total_labs,
-        automatic_places=automatic_places,
+        total_labs=policy.automatic_required_labs_total,
+        automatic_places=policy.automatic_places,
     )
     return AutomaticQueueResponse(
         offering_id=offering.id,
         final_control_type=offering.final_control_type,
-        automatic_enabled=automatic_enabled,
-        automatic_places=automatic_places,
-        total_labs=total_labs,
+        automatic_enabled=policy.automatic_enabled,
+        automatic_places=policy.automatic_places,
+        total_labs=policy.automatic_required_labs_total,
         students=[
             AutomaticQueueStudentResponse(
                 student_id=entry.student_id,

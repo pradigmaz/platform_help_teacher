@@ -10,6 +10,7 @@ from app.models.lab import Lab
 from app.models.submission import Submission, SubmissionStatus
 from app.schemas.report import LabSubmission
 from app.services.lab_progress_read_model import normalize_lab_progress
+from app.services.offering_policy_resolver import resolve_offering_policy_for_group_subject
 
 from .report_lab_service import (
     _load_lab_catalog_by_number,
@@ -60,8 +61,14 @@ async def get_student_lab_submissions(
     settings,
     subject_id: UUID | None = None,
 ) -> list[LabSubmission]:
-    total_labs = settings.get_labs_count()
     resolved, subject_id = await _resolve_subject_id(db, group_id, settings, subject_id)
+    policy = await resolve_offering_policy_for_group_subject(
+        db,
+        group_id=group_id,
+        subject_id=subject_id,
+        settings=settings,
+    )
+    total_labs = policy.total_labs
     catalog_by_number = await _load_lab_catalog_by_number(db, total_labs, subject_id)
     journal_grades = (
         await _load_student_journal_grades(db, group_id, student_id, settings, subject_id) if resolved else {}

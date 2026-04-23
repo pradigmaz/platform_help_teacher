@@ -27,9 +27,16 @@ class AttestationCalculator:
         settings: AttestationSettings,
         transfer_grades: list[dict] | None = None,
         submission_grades: list[dict] | None = None,
+        labs_required_override: int | None = None,
     ) -> LabScoreResult:
         """Расчёт баллов за лабораторные (с учётом снапшотов переводов)"""
-        return self._lab_calc.calculate(lesson_grades, settings, transfer_grades, submission_grades)
+        return self._lab_calc.calculate(
+            lesson_grades,
+            settings,
+            transfer_grades,
+            submission_grades,
+            labs_required_override,
+        )
 
     def calculate_attendance(
         self,

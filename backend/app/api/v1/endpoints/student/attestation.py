@@ -13,13 +13,12 @@ from app.core import error_messages as em
 from app.models.attestation_settings import AttestationType
 from app.models.user import User
 from app.schemas.attestation import AttestationSubjectOption
-from app.services.attestation.lab_count_sync import DEFAULT_TOTAL_LABS_COUNT
-from app.services.attestation.settings import AttestationSettingsManager
+from app.services.attestation.automatic_queue import resolve_student_automatic_offering
 from app.services.attestation.student_automatic_progress import resolve_student_automatic_progress
 from app.services.attestation.student_lab_progress_plan import build_student_lab_progress_plan
 from app.services.attestation.subject_scope import list_group_subject_options_in_period
 from app.services.attestation_service import AttestationService
-from app.services.lab_settings_service import lab_settings_service
+from app.services.offering_policy_resolver import resolve_offering_policy
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -53,29 +52,37 @@ async def resolve_student_lab_progress_plan(
     current_user: User,
     *,
     subject_id: UUID | None = None,
-) -> dict[str, int | str | bool | None]:
+) -> dict[str, int | str | bool | None] | None:
     """Resolve the shared lab thresholds that should be visible to a student."""
-    attestation_settings = await AttestationSettingsManager(db).get_or_create_settings(AttestationType.FIRST)
-    lab_settings = await lab_settings_service.get_lab_settings(db)
-    total_labs = lab_settings.labs_count if lab_settings else DEFAULT_TOTAL_LABS_COUNT
-    automatic_enabled = lab_settings.automatic_enabled if lab_settings else True
-    automatic_places = lab_settings.automatic_places if lab_settings else None
+    offering_resolution = await resolve_student_automatic_offering(
+        db,
+        student=current_user,
+        subject_id=subject_id,
+    )
+    if offering_resolution.offering is None and offering_resolution.reason == "subject_required":
+        return None
+
+    policy = await resolve_offering_policy(db, offering_resolution.offering)
     automatic_progress = await resolve_student_automatic_progress(
         db,
         student=current_user,
         subject_id=subject_id,
-        total_labs=total_labs,
-        automatic_places=automatic_places,
-        automatic_enabled=automatic_enabled,
+        total_labs=policy.automatic_required_labs_total,
+        automatic_places=policy.automatic_places,
+        automatic_enabled=policy.automatic_enabled,
+        offering=offering_resolution.offering,
     )
-    effective_automatic_enabled = automatic_enabled and automatic_progress.automatic_reason in {None, "refused"}
+    effective_automatic_enabled = policy.automatic_enabled and automatic_progress.automatic_reason in {None, "refused"}
 
     return build_student_lab_progress_plan(
-        total_labs=total_labs,
-        first_required=attestation_settings.labs_count_first,
-        second_required=attestation_settings.labs_count_second,
+        total_labs=policy.total_labs,
+        first_required=policy.labs_required_first,
+        second_required=policy.labs_required_second_extra,
+        second_total_required=policy.labs_required_second_total,
+        exam_admission_required_labs=policy.exam_admission_required_labs,
+        automatic_required_labs_total=policy.automatic_required_labs_total,
         automatic_enabled=effective_automatic_enabled,
-        automatic_places=automatic_places,
+        automatic_places=policy.automatic_places,
         completed_count=automatic_progress.completed_count,
         automatic_remaining=automatic_progress.automatic_remaining,
         automatic_queue_position=automatic_progress.queue_position,

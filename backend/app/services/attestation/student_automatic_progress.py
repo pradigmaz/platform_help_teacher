@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.group_subject_offering import GroupSubjectOffering
 from app.models.user import User
 from app.services.attestation.automatic_queue import (
     list_offering_automatic_queue,
@@ -33,6 +34,7 @@ async def resolve_student_automatic_progress(
     total_labs: int,
     automatic_places: int | None,
     automatic_enabled: bool,
+    offering: GroupSubjectOffering | None = None,
 ) -> StudentAutomaticProgress:
     if total_labs <= 0:
         return StudentAutomaticProgress(0, 0, None, None, None, "total_missing", False)
@@ -40,20 +42,22 @@ async def resolve_student_automatic_progress(
     if not automatic_enabled:
         return StudentAutomaticProgress(0, total_labs, None, None, None, "disabled", False)
 
-    offering_resolution = await resolve_student_automatic_offering(
-        db,
-        student=student,
-        subject_id=subject_id,
-    )
-    if offering_resolution.offering is None:
-        return StudentAutomaticProgress(0, total_labs, None, None, None, offering_resolution.reason, False)
+    if offering is None:
+        offering_resolution = await resolve_student_automatic_offering(
+            db,
+            student=student,
+            subject_id=subject_id,
+        )
+        if offering_resolution.offering is None:
+            return StudentAutomaticProgress(0, total_labs, None, None, None, offering_resolution.reason, False)
+        offering = offering_resolution.offering
 
-    if not offering_allows_automatic(offering_resolution.offering):
+    if not offering_allows_automatic(offering):
         return StudentAutomaticProgress(0, total_labs, None, None, None, "not_exam", False)
 
     entries = await list_offering_automatic_queue(
         db,
-        offering=offering_resolution.offering,
+        offering=offering,
         total_labs=total_labs,
         automatic_places=automatic_places,
     )

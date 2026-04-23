@@ -11,6 +11,7 @@ from app.db.session import get_db as session_get_db
 from app.models.group_subject_offering import FinalControlType
 from app.models.user import User, UserRole
 from app.services.attestation.lab_count_sync import DEFAULT_TOTAL_LABS_COUNT
+from app.services.offering_policy_validation import EffectiveOfferingPolicy
 from tests.support.http import router_client
 
 
@@ -34,6 +35,26 @@ def make_offering(final_control_type: FinalControlType) -> SimpleNamespace:
         group=SimpleNamespace(name="ИС-101"),
         subject=SimpleNamespace(name="Компьютерные сети"),
         exam_question_bank_id=None,
+    )
+
+
+def make_policy(
+    offering_id,
+    *,
+    automatic_enabled: bool = True,
+    automatic_places: int | None = 3,
+    total_labs: int = DEFAULT_TOTAL_LABS_COUNT,
+) -> EffectiveOfferingPolicy:
+    return EffectiveOfferingPolicy(
+        offering_id=offering_id,
+        source="explicit",
+        total_labs=total_labs,
+        labs_required_first=min(8, total_labs),
+        labs_required_second_total=total_labs,
+        exam_admission_required_labs=total_labs,
+        automatic_enabled=automatic_enabled,
+        automatic_places=automatic_places,
+        automatic_required_labs_total=total_labs,
     )
 
 
@@ -151,7 +172,7 @@ async def test_disabled_automatic_settings_block_refusal_mutation():
     offering = make_offering(FinalControlType.EXAM)
     db = SimpleNamespace(commit=AsyncMock(), get=AsyncMock())
     upsert_refusal = AsyncMock()
-    disabled_settings = SimpleNamespace(automatic_enabled=False, automatic_places=3, labs_count=7)
+    disabled_policy = make_policy(offering.id, automatic_enabled=False, total_labs=7)
 
     async def override_user() -> User:
         return admin
@@ -165,8 +186,8 @@ async def test_disabled_automatic_settings_block_refusal_mutation():
             new=AsyncMock(return_value=offering),
         ),
         patch(
-            "app.api.v1.endpoints.admin_subject_offerings.lab_settings_service.get_lab_settings",
-            new=AsyncMock(return_value=disabled_settings),
+            "app.api.v1.endpoints.admin_subject_offerings.resolve_offering_policy",
+            new=AsyncMock(return_value=disabled_policy),
         ),
         patch(
             "app.api.v1.endpoints.admin_subject_offerings.upsert_automatic_pass_refusal",
@@ -186,20 +207,20 @@ async def test_disabled_automatic_settings_block_refusal_mutation():
             )
 
     assert response.status_code == 400
-    assert "автоматы отключены" in response.json()["detail"].lower()
+    assert "автомат отключ" in response.json()["detail"].lower()
     upsert_refusal.assert_not_awaited()
     db.commit.assert_not_awaited()
     db.get.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_automatic_queue_uses_global_defaults_when_lab_settings_missing():
+async def test_automatic_queue_uses_offering_policy_thresholds():
     admin = make_user(UserRole.ADMIN)
     offering = make_offering(FinalControlType.EXAM)
     queue_entry = SimpleNamespace(
         student_id=uuid4(),
         student_name="Студент Тестов",
-        completed_count=DEFAULT_TOTAL_LABS_COUNT,
+        completed_count=6,
         automatic_remaining=0,
         completion_at=None,
         queue_position=1,
@@ -211,14 +232,16 @@ async def test_automatic_queue_uses_global_defaults_when_lab_settings_missing():
     async def override_user() -> User:
         return admin
 
+    policy = make_policy(offering.id, automatic_places=2, total_labs=6)
+
     with (
         patch(
             "app.api.v1.endpoints.admin_subject_offerings._get_offering_or_404",
             new=AsyncMock(return_value=offering),
         ),
         patch(
-            "app.api.v1.endpoints.admin_subject_offerings.lab_settings_service.get_lab_settings",
-            new=AsyncMock(return_value=None),
+            "app.api.v1.endpoints.admin_subject_offerings.resolve_offering_policy",
+            new=AsyncMock(return_value=policy),
         ),
         patch(
             "app.api.v1.endpoints.admin_subject_offerings.list_offering_automatic_queue",
@@ -237,6 +260,6 @@ async def test_automatic_queue_uses_global_defaults_when_lab_settings_missing():
     assert response.status_code == 200
     payload = response.json()
     assert payload["automatic_enabled"] is True
-    assert payload["automatic_places"] is None
-    assert payload["total_labs"] == DEFAULT_TOTAL_LABS_COUNT
+    assert payload["automatic_places"] == 2
+    assert payload["total_labs"] == 6
     assert payload["students"][0]["student_name"] == "Студент Тестов"

@@ -25,6 +25,7 @@ from app.services.attendance_period import (
     load_attendance_by_student_for_lessons,
     load_period_lessons,
 )
+from app.services.offering_policy_resolver import resolve_offering_policy_for_group_subject
 
 from .calculator import AttestationCalculator
 from .lab_progress import dedupe_lesson_grade_rows, dedupe_transfer_lab_grades
@@ -65,6 +66,12 @@ class StudentScoreCalculator:
             settings=settings,
             requested_subject_id=subject_id,
         )
+        policy = await resolve_offering_policy_for_group_subject(
+            self.db,
+            group_id=group_id,
+            subject_id=subject_scope.subject_id,
+            settings=settings,
+        )
 
         student = await self._get_student(student_id)
         if not student:
@@ -104,6 +111,7 @@ class StudentScoreCalculator:
             settings,
             transfer_lab_grades,
             submission_grades,
+            labs_required_override=policy.labs_required_for(attestation_type),
         )
         attendance_result = self.calculator.calculate_attendance(
             attendance_records,
