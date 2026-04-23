@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { AutomaticQueueResponse, FinalControlType, GroupSubjectOffering } from './types';
+import type { AutomaticQueueResponse, FinalControlType, GroupSubjectOffering, OfferingPolicy } from './types';
 
 export const SubjectsAPI = {
   listOfferings: async (semester?: string) => {
@@ -18,6 +18,16 @@ export const SubjectsAPI = {
 
   getAutomaticQueue: async (offeringId: string) => {
     const { data } = await api.get<AutomaticQueueResponse>(`/admin/subjects/offerings/${offeringId}/automatic-queue`);
+    return data;
+  },
+
+  getOfferingPolicy: async (offeringId: string) => {
+    const { data } = await api.get<OfferingPolicy>(`/admin/subjects/offerings/${offeringId}/policy`);
+    return data;
+  },
+
+  updateOfferingPolicy: async (offeringId: string, policy: Omit<OfferingPolicy, 'offering_id' | 'source' | 'second_extra_required' | 'automatic_extra_required'>) => {
+    const { data } = await api.put<OfferingPolicy>(`/admin/subjects/offerings/${offeringId}/policy`, policy);
     return data;
   },
 

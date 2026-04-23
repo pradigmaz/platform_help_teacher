@@ -33,6 +33,20 @@ export interface AutomaticQueueResponse {
   students: AutomaticQueueStudent[];
 }
 
+export interface OfferingPolicy {
+  offering_id: string;
+  source: 'explicit' | 'legacy' | string;
+  total_labs: number;
+  labs_required_first: number;
+  labs_required_second_total: number;
+  exam_admission_required_labs: number;
+  automatic_enabled: boolean;
+  automatic_places: number | null;
+  automatic_required_labs_total: number;
+  second_extra_required: number;
+  automatic_extra_required: number;
+}
+
 export interface ExamPrepContentValue {
   text?: string;
   content?: Record<string, unknown>;

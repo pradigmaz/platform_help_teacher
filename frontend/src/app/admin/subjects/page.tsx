@@ -10,6 +10,7 @@ import { SubjectsAPI, type AutomaticQueueResponse, type FinalControlType, type G
 import { OfferingsFilters, type OfferingControlFilter } from './components/OfferingsFilters';
 import { OfferingsTable, type OfferingsViewMode } from './components/OfferingsTable';
 import { AutomaticQueueDialog } from './components/AutomaticQueueDialog';
+import { OfferingPolicyPanel } from './components/OfferingPolicyPanel';
 import { notifyAdminOfferingsChanged } from '@/components/admin/useAdminExamOfferings';
 
 export default function AdminSubjectsPage() {
@@ -206,6 +207,10 @@ export default function AdminSubjectsPage() {
             onSubjectChange={setSelectedSubject}
           />
         </div>
+      </BlurFade>
+
+      <BlurFade delay={0.19}>
+        <OfferingPolicyPanel offerings={offerings} />
       </BlurFade>
 
       <BlurFade delay={0.2}>

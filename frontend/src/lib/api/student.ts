@@ -53,11 +53,14 @@ export const StudentAPI = {
     );
   },
 
-  getLabs: async (options?: { forceRefresh?: boolean }) => {
+  getLabs: async (options?: { forceRefresh?: boolean; subjectId?: string }) => {
+    const cacheKey = options?.subjectId ? `${STUDENT_LABS_CACHE_KEY}:${options.subjectId}` : STUDENT_LABS_CACHE_KEY;
     return loadCached(
-      STUDENT_LABS_CACHE_KEY,
+      cacheKey,
       async () => {
-        const { data } = await api.get<StudentLab[]>('/student/labs');
+        const { data } = await api.get<StudentLab[]>('/student/labs', {
+          params: options?.subjectId ? { subject_id: options.subjectId } : undefined,
+        });
         return data;
       },
       {
@@ -81,7 +84,7 @@ export const StudentAPI = {
 
   markLabReady: async (labId: string) => {
     const { data } = await api.post<{ status: string; submission_id: string; variant_number?: number; message: string }>(`/student/labs/${labId}/ready`);
-    invalidateCached(STUDENT_LABS_CACHE_KEY);
+    invalidateCachedByPrefix(STUDENT_LABS_CACHE_KEY);
     invalidateCached(`${STUDENT_LAB_DETAIL_CACHE_PREFIX}${labId}`);
     invalidateCached(STUDENT_DASHBOARD_BOOTSTRAP_CACHE_KEY);
     return data;
@@ -89,7 +92,7 @@ export const StudentAPI = {
 
   cancelLabReady: async (labId: string) => {
     const { data } = await api.post<{ status: string; message: string }>(`/student/labs/${labId}/cancel-ready`);
-    invalidateCached(STUDENT_LABS_CACHE_KEY);
+    invalidateCachedByPrefix(STUDENT_LABS_CACHE_KEY);
     invalidateCached(`${STUDENT_LAB_DETAIL_CACHE_PREFIX}${labId}`);
     invalidateCached(STUDENT_DASHBOARD_BOOTSTRAP_CACHE_KEY);
     return data;
@@ -142,7 +145,7 @@ export const StudentAPI = {
 
 export function resetStudentApiCacheForTests() {
   invalidateCached(STUDENT_ATTENDANCE_CACHE_KEY);
-  invalidateCached(STUDENT_LABS_CACHE_KEY);
+  invalidateCachedByPrefix(STUDENT_LABS_CACHE_KEY);
   invalidateCached(STUDENT_DASHBOARD_BOOTSTRAP_CACHE_KEY);
   invalidateCachedByPrefix(STUDENT_LAB_DETAIL_CACHE_PREFIX);
 }
