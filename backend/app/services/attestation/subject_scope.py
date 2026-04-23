@@ -2,19 +2,20 @@
 
 import logging
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud.crud_group_subject_offering import get_current_semester_key, list_group_subject_ids_for_current_semester
 from app.models.attestation_settings import AttestationSettings
 from app.models.group_subject_offering import GroupSubjectOffering
 from app.models.lesson import Lesson
 from app.models.schedule import LessonType
 from app.models.student_transfer import StudentTransfer
 from app.models.subject import Subject
+from app.services.semester_utils import get_semester
 
 LAB_RELEVANT_LESSON_TYPES = (LessonType.LAB, LessonType.PRACTICE)
 TRANSFER_COUNT_KEYS = ("total_lessons", "present", "late", "excused", "absent")
@@ -39,12 +40,22 @@ async def list_group_subject_ids_in_period(
     group_id: UUID,
     settings: AttestationSettings,
 ) -> tuple[UUID, ...]:
-    """List distinct subjects for the active semester, preferring offerings over lessons."""
-    offering_subject_ids = await list_group_subject_ids_for_current_semester(db, group_id=group_id)
+    """List distinct subjects for the attestation period, preferring offerings over lessons."""
+    period_start, period_end = settings.get_effective_period()
+    period_semester_keys = build_period_semester_keys(period_start, period_end)
+    offerings_result = await db.execute(
+        select(GroupSubjectOffering.subject_id)
+        .where(GroupSubjectOffering.group_id == group_id)
+        .where(GroupSubjectOffering.subject_id.isnot(None))
+        .where(GroupSubjectOffering.semester.in_(period_semester_keys))
+        .distinct()
+    )
+    offering_subject_ids = tuple(
+        subject_id for subject_id in offerings_result.scalars().all() if subject_id is not None
+    )
     if offering_subject_ids:
         return offering_subject_ids
 
-    period_start, period_end = settings.get_effective_period()
     lessons_result = await db.execute(
         select(Lesson.subject_id)
         .where(Lesson.group_id == group_id)
@@ -99,13 +110,14 @@ async def list_group_subject_options_in_period(
     settings: AttestationSettings,
 ) -> list[Subject]:
     """List subject records available for attestation in the period."""
-    semester_key = await get_current_semester_key(db)
+    period_start, period_end = settings.get_effective_period()
+    period_semester_keys = build_period_semester_keys(period_start, period_end)
     offerings_result = await db.execute(
         select(Subject)
         .join(GroupSubjectOffering, GroupSubjectOffering.subject_id == Subject.id)
         .where(
             GroupSubjectOffering.group_id == group_id,
-            GroupSubjectOffering.semester == semester_key,
+            GroupSubjectOffering.semester.in_(period_semester_keys),
         )
         .distinct()
         .order_by(Subject.name.asc())
@@ -114,7 +126,6 @@ async def list_group_subject_options_in_period(
     if offering_subjects:
         return offering_subjects
 
-    period_start, period_end = settings.get_effective_period()
     lessons_result = await db.execute(
         select(Subject)
         .join(Lesson, Lesson.subject_id == Subject.id)
@@ -127,6 +138,33 @@ async def list_group_subject_options_in_period(
         .order_by(Subject.name.asc())
     )
     return list(lessons_result.scalars().all())
+
+
+def build_period_semester_keys(period_start: date, period_end: date) -> tuple[str, ...]:
+    """Return every semester key touched by an attestation period."""
+    if period_end < period_start:
+        raise ValueError("Период аттестации не может заканчиваться раньше начала")
+
+    semesters: list[str] = []
+    cursor = period_start
+    while cursor <= period_end:
+        semester = get_semester(cursor)
+        if not semesters or semesters[-1] != semester:
+            semesters.append(semester)
+        next_boundary = _get_next_semester_boundary(cursor)
+        if next_boundary <= cursor:
+            break
+        cursor = next_boundary
+    return tuple(semesters)
+
+
+def _get_next_semester_boundary(current: date) -> date:
+    """Return the next date where semester identity can change."""
+    if current.month <= 1:
+        return date(current.year, 2, 1)
+    if current.month < 9:
+        return date(current.year, 9, 1)
+    return date(current.year + 1, 2, 1)
 
 
 def apply_lesson_subject_scope(query, subject_id: UUID | None):

@@ -1,6 +1,7 @@
 """API эндпоинты для управления расписанием и занятиями."""
 
 from datetime import date
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -28,12 +29,10 @@ from app.services.schedule_offering_resolution import (
     combine_resolved_scopes,
     resolve_schedule_offering_scope,
     resolve_schedule_scope_from_item,
+    validate_schedule_item_date_range,
 )
 
 router = APIRouter()
-
-
-# === Schedule Items ===
 
 
 @router.post("/groups/{group_id}/schedule", response_model=ScheduleItemResponse)
@@ -45,6 +44,12 @@ async def create_schedule_item(
 ):
     """Создать элемент расписания."""
     try:
+        validate_schedule_item_date_range(
+            start_date=item_in.start_date,
+            end_date=item_in.end_date,
+            subject_id=item_in.subject_id,
+            offering_id=item_in.offering_id,
+        )
         scope = await resolve_schedule_offering_scope(
             db,
             group_id=group_id,
@@ -100,11 +105,21 @@ async def update_schedule_item(
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
 
     payload = item_in.model_dump(exclude_unset=True)
+    try:
+        validate_schedule_item_date_range(
+            start_date=payload.get("start_date", item.start_date),
+            end_date=payload.get("end_date", item.end_date),
+            subject_id=payload.get("subject_id", item.subject_id),
+            offering_id=payload.get("offering_id", item.offering_id),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     if {"subject_id", "offering_id", "start_date"} & payload.keys():
         try:
             scope = await resolve_schedule_offering_scope(
                 db,
-                group_id=item.group_id,
+                group_id=cast(UUID, item.group_id),
                 reference_date=payload.get("start_date", item.start_date),
                 subject_id=payload.get("subject_id", item.subject_id),
                 offering_id=payload.get("offering_id", item.offering_id),
@@ -133,9 +148,6 @@ async def delete_schedule_item(
     if not deleted:
         raise HTTPException(status_code=404, detail=em.LESSON_NOT_FOUND)
     return {"status": "deleted"}
-
-
-# === Lessons ===
 
 
 @router.post("/lessons", response_model=LessonResponse)

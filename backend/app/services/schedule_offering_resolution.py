@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,7 @@ from app.crud.crud_group_subject_offering import (
     get_group_subject_offering_for_date,
 )
 from app.models.group_subject_offering import GroupSubjectOffering
+from app.services.semester_utils import get_semester
 
 
 @dataclass(frozen=True)
@@ -53,6 +55,8 @@ async def resolve_schedule_offering_scope(
             raise ValueError("Семестровое назначение предмета не найдено")
         if offering.group_id != group_id:
             raise ValueError("Семестровое назначение не принадлежит выбранной группе")
+        if offering.semester != get_semester(reference_date):
+            raise ValueError("Семестровое назначение не соответствует дате занятия")
         if subject_id is not None and offering.subject_id != subject_id:
             raise ValueError("Предмет не совпадает с выбранным семестровым назначением")
         return ResolvedOfferingScope(subject_id=offering.subject_id, offering_id=offering.id)
@@ -94,8 +98,8 @@ async def resolve_schedule_scope_from_item(
         db,
         group_id=group_id,
         reference_date=reference_date,
-        subject_id=item.subject_id,
-        offering_id=item.offering_id,
+        subject_id=cast(UUID | None, item.subject_id),
+        offering_id=cast(UUID | None, item.offering_id),
         require_existing=False,
     )
 
@@ -121,3 +125,22 @@ async def _resolve_offering_by_subject(
         subject_id=subject_id,
         lesson_date=reference_date,
     )
+
+
+def validate_schedule_item_date_range(
+    *,
+    start_date: date,
+    end_date: date | None,
+    subject_id: UUID | None,
+    offering_id: UUID | None,
+) -> None:
+    """Reject subject-bound schedule items that span multiple semesters."""
+    if end_date is None:
+        return
+    if end_date < start_date:
+        raise ValueError("Дата окончания не может быть раньше даты начала")
+    if subject_id is None and offering_id is None:
+        return
+    if get_semester(start_date) == get_semester(end_date):
+        return
+    raise ValueError("Предметное расписание не может пересекать границу семестра")

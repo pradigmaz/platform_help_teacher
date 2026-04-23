@@ -14,6 +14,7 @@ from app.crud.crud_schedule import schedule as schedule_crud
 from app.models.lesson import Lesson
 from app.models.schedule import DayOfWeek, WeekParity
 from app.services.schedule_constants import WEEKDAY_SUNDAY
+from app.services.schedule_offering_resolution import ResolvedOfferingScope, resolve_schedule_offering_scope
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,10 @@ class LessonGenerator:
                 if item.end_date and item.end_date < current:
                     continue
 
+                scope = await self._resolve_item_scope_for_date(db, group_id=group_id, item=item, lesson_date=current)
+                if scope is None:
+                    continue
+
                 # Создаём занятие (если не существует)
                 lesson = await lesson_crud.get_or_create(
                     db,
@@ -88,8 +93,8 @@ class LessonGenerator:
                     date=current,
                     lesson_number=item.lesson_number,
                     lesson_type=item.lesson_type,
-                    subject_id=item.subject_id,
-                    offering_id=item.offering_id,
+                    subject_id=scope.subject_id,
+                    offering_id=scope.offering_id,
                     subgroup=item.subgroup,
                 )
                 if lesson:
@@ -99,6 +104,65 @@ class LessonGenerator:
 
         logger.info(f"Generated {len(lessons)} lessons for group {group_id}")
         return lessons
+
+    async def _resolve_item_scope_for_date(
+        self,
+        db: AsyncSession,
+        *,
+        group_id: UUID,
+        item,
+        lesson_date: date,
+    ) -> ResolvedOfferingScope | None:
+        require_existing = item.subject_id is not None or item.offering_id is not None
+        if not require_existing:
+            return ResolvedOfferingScope(subject_id=None, offering_id=None)
+
+        try:
+            return await resolve_schedule_offering_scope(
+                db,
+                group_id=group_id,
+                reference_date=lesson_date,
+                subject_id=item.subject_id,
+                offering_id=item.offering_id,
+                require_existing=True,
+            )
+        except ValueError:
+            if item.subject_id is None or item.offering_id is None:
+                logger.warning(
+                    "schedule_item_scope_invalid item_id=%s group_id=%s lesson_date=%s subject_id=%s offering_id=%s",
+                    item.id,
+                    group_id,
+                    lesson_date,
+                    item.subject_id,
+                    item.offering_id,
+                )
+                return None
+
+        logger.warning(
+            "schedule_item_stale_offering_fallback item_id=%s group_id=%s lesson_date=%s offering_id=%s",
+            item.id,
+            group_id,
+            lesson_date,
+            item.offering_id,
+        )
+        try:
+            return await resolve_schedule_offering_scope(
+                db,
+                group_id=group_id,
+                reference_date=lesson_date,
+                subject_id=item.subject_id,
+                offering_id=None,
+                require_existing=True,
+            )
+        except ValueError:
+            logger.warning(
+                "schedule_item_scope_unresolved_after_fallback item_id=%s group_id=%s lesson_date=%s subject_id=%s",
+                item.id,
+                group_id,
+                lesson_date,
+                item.subject_id,
+            )
+            return None
 
 
 lesson_generator = LessonGenerator()
