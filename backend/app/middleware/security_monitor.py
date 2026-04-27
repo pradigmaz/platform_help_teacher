@@ -5,6 +5,7 @@ Security Monitor Middleware — детекция атак в реальном в
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
 import jwt
@@ -20,6 +21,12 @@ from app.services.security_monitor import StrikeLevel, get_security_detector
 from app.services.security_monitor.constants import MESSAGES_RU
 
 logger = logging.getLogger(__name__)
+
+
+def strip_query_from_url(url: str) -> str:
+    """Return URL without query params for path-based IDOR checks."""
+    parts = urlsplit(url)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", parts.fragment))
 
 
 class SecurityMonitorMiddleware(BaseHTTPMiddleware):
@@ -86,7 +93,7 @@ class SecurityMonitorMiddleware(BaseHTTPMiddleware):
             if response.status_code == 404:
                 post_result = await detector.check_and_record(
                     ip_address=ip,
-                    url=full_url,
+                    url=strip_query_from_url(full_url),
                     user_id=user_id,
                     response_status=404,
                     fingerprint=fingerprint,

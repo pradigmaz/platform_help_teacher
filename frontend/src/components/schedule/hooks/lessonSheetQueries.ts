@@ -37,8 +37,7 @@ async function loadLessonStudents(currentLesson: LessonSnapshot): Promise<Studen
   }
 
   try {
-    const { data: groupData } = await api.get(`/groups/${currentLesson.group_id}`);
-    const students = groupData.students || [];
+    const { data: students } = await api.get<Student[]>(`/admin/groups/${currentLesson.group_id}/students`);
 
     if (currentLesson.subgroup === null || currentLesson.subgroup === undefined) {
       return students;

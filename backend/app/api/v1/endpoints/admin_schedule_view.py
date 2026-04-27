@@ -58,7 +58,7 @@ async def get_group_students(
         raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
 
     students = sorted([u for u in group.users if u.is_active], key=lambda u: u.full_name)
-    return [{"id": str(s.id), "full_name": s.full_name} for s in students]
+    return [{"id": str(s.id), "full_name": s.full_name, "subgroup": s.subgroup} for s in students]
 
 
 @router.get("/schedule/view", response_model=ScheduleViewResponse)
