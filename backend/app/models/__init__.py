@@ -24,8 +24,6 @@ from .lecture_group import LectureGroup  # Must be before Group and Lecture
 from .lecture_image import LectureImage
 from .lesson import Lesson
 from .lesson_grade import LessonGrade
-from .note import EntityType as NoteEntityType
-from .note import Note, NoteColor
 from .notification_settings import NotificationSettings
 from .parse_history import ParseHistory
 from .report_view import ReportView
@@ -79,9 +77,6 @@ __all__ = [
     "ScheduleConflict",
     "ConflictType",
     "ParseHistory",
-    "Note",
-    "NoteEntityType",
-    "NoteColor",
     "GroupReport",
     "ReportType",
     "ReportView",

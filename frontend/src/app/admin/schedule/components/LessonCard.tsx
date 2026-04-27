@@ -4,7 +4,6 @@ import { Users, MoreHorizontal, XCircle, Clock, BookOpen, RotateCcw, MapPin } fr
 import type { LessonAttendanceSummaryResponse } from '@/lib/api/types/schedule';
 import { cn } from '@/lib/utils';
 import { LESSON_TYPE_CONFIG } from '@/lib/schedule-constants';
-import { NoteButton } from '@/components/notes';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,7 +68,6 @@ export function LessonCard({ lesson, onClick, onAction }: LessonCardProps) {
         </span>
         
         <div className="flex items-center gap-0.5 -mr-1 -mt-0.5">
-          <NoteButton entityType="lesson" entityId={lesson.id} size="sm" />
           <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
             <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-black/10 dark:hover:bg-white/10">

@@ -4,7 +4,6 @@ import { BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NoteButton } from '@/components/notes';
 import {
   Select,
   SelectContent,
@@ -100,9 +99,6 @@ export function LessonTopic({
             №{currentWorkNumber}
           </div>
         )}
-      </div>
-      <div className="flex justify-end">
-        <NoteButton entityType="lesson" entityId={lesson.id} size="md" />
       </div>
     </div>
   );

@@ -24,7 +24,6 @@ from .attendance_helpers import (
 )
 from .base_helpers import get_filtered_teacher_contacts, get_group, get_group_students, get_user
 from .labs_helpers import calculate_grade_distribution
-from .notes_helpers import get_students_notes
 from .report_builder import build_empty_report
 from .report_lab_service import get_group_labs_stats, get_lab_progress
 from .report_subject_helpers import resolve_report_subject_context
@@ -135,12 +134,6 @@ async def _load_attendance_section(
     )
 
 
-async def _load_notes_map(db: AsyncSession, report: GroupReport, students: list[Any]) -> dict[UUID, list[str]]:
-    if not report.show_notes:
-        return {}
-    return await get_students_notes(db, [student.id for student in students], visible_only=True)
-
-
 def _sort_students_data(students_data: list[Any], report: GroupReport) -> None:
     if report.show_rating and report.show_grades:
         students_data.sort(key=lambda student: student.total_score or 0, reverse=True)
@@ -218,7 +211,6 @@ async def collect_group_report_data(
             results_map,
             attendance_section.student_stats,
             labs_data,
-            await _load_notes_map(db, report, students),
             report,
         )
         _sort_students_data(students_data, report)
@@ -257,7 +249,6 @@ async def collect_group_report_data(
         show_grades=report.show_grades,
         is_early_semester=is_early,
         show_attendance=report.show_attendance,
-        show_notes=report.show_notes,
         show_rating=report.show_rating,
         total_students=len(students),
         passing_students=passing_count if report.show_grades and subject_ready else None,

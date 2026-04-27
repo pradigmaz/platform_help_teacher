@@ -12,7 +12,6 @@ import { useJournalData, AttestationPeriod, SemesterInfo } from './hooks/useJour
 import { useJournalSheetRecovery } from './hooks/useJournalSheetRecovery';
 import { LessonSheet } from '@/components/schedule';
 import { ExportDialog } from '@/components/journal';
-import { NotesProvider } from '@/components/notes';
 import {
   Select,
   SelectContent,
@@ -277,9 +276,5 @@ function JournalPageContent() {
 }
 
 export default function JournalPage() {
-  return (
-    <NotesProvider>
-      <JournalPageContent />
-    </NotesProvider>
-  );
+  return <JournalPageContent />;
 }

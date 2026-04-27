@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, addWeeks, format, getDay, startOfWeek } from 'date-fns';
 import api, { ScheduleAPI } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
-import { useNotesActionsContext } from '@/components/notes';
 import type { GroupedLecture, LessonSheetData } from '@/components/schedule';
 import {
   clearSheetDraft,
@@ -30,7 +29,6 @@ function getInitialRecoveredDraft(): RestoredSheetDraft | null {
 }
 
 export function useScheduleAdminPage() {
-  const { loadNotesBatch } = useNotesActionsContext();
   const [lessons, setLessons] = useState<LessonData[]>([]);
   const [groupedLectures, setGroupedLectures] = useState<GroupedLecture[]>([]);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
@@ -52,15 +50,6 @@ export function useScheduleAdminPage() {
   const weekEnd = useMemo(() => addDays(weekStart, 5), [weekStart]);
   const weekStartIso = useMemo(() => format(weekStart, 'yyyy-MM-dd'), [weekStart]);
   const weekEndIso = useMemo(() => format(weekEnd, 'yyyy-MM-dd'), [weekEnd]);
-  const noteLessonIds = useMemo(
-    () => [
-      ...lessons.map((lesson) => lesson.id),
-      ...groupedLectures.flatMap((lecture) => lecture.groups.map((group) => group.lesson_id)),
-    ],
-    [groupedLectures, lessons]
-  );
-  const noteLessonIdsKey = noteLessonIds.join('|');
-
   const clearRestoredDraft = useCallback(() => {
     clearSheetDraft();
     setRestoredDraft(null);
@@ -132,13 +121,6 @@ export function useScheduleAdminPage() {
     },
     [weekEndIso, weekStartIso]
   );
-
-  useEffect(() => {
-    if (noteLessonIds.length === 0) {
-      return;
-    }
-    void loadNotesBatch('lesson', noteLessonIds);
-  }, [loadNotesBatch, noteLessonIds, noteLessonIdsKey]);
 
   useEffect(() => {
     void loadScheduleView();

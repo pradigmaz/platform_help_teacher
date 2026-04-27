@@ -96,7 +96,6 @@ class ReportService:
             show_names=settings.show_names,
             show_grades=settings.show_grades,
             show_attendance=settings.show_attendance,
-            show_notes=settings.show_notes,
             show_rating=settings.show_rating,
         )
 
@@ -152,7 +151,7 @@ class ReportService:
         if "expires_in_days" in update_dict and update_dict["expires_in_days"]:
             report.expires_at = datetime.now(UTC) + timedelta(days=update_dict["expires_in_days"])
 
-        for field in ["show_names", "show_grades", "show_attendance", "show_notes", "show_rating", "is_active"]:
+        for field in ["show_names", "show_grades", "show_attendance", "show_rating", "is_active"]:
             if field in update_dict and update_dict[field] is not None:
                 setattr(report, field, update_dict[field])
 

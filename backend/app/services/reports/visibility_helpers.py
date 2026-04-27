@@ -26,9 +26,6 @@ def apply_visibility_filter(data: dict[str, Any], report: GroupReport) -> dict[s
         ]:
             filtered.pop(key, None)
 
-    if not report.show_notes:
-        filtered.pop("notes", None)
-
     if not report.show_rating:
         filtered.pop("rank_in_group", None)
         filtered.pop("group_average_score", None)

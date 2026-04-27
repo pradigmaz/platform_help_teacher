@@ -8,7 +8,6 @@ export interface ReportCreate {
   show_names?: boolean;
   show_grades?: boolean;
   show_attendance?: boolean;
-  show_notes?: boolean;
   show_rating?: boolean;
 }
 
@@ -19,7 +18,6 @@ export interface ReportUpdate {
   show_names?: boolean;
   show_grades?: boolean;
   show_attendance?: boolean;
-  show_notes?: boolean;
   show_rating?: boolean;
   is_active?: boolean;
 }
@@ -36,7 +34,6 @@ export interface Report {
   show_names: boolean;
   show_grades: boolean;
   show_attendance: boolean;
-  show_notes: boolean;
   show_rating: boolean;
   is_active: boolean;
   views_count: number;
@@ -76,7 +73,6 @@ export interface PublicStudentData {
   labs_completed?: number;
   labs_total?: number;
   needs_attention: boolean;
-  notes?: string[];
 }
 
 export interface AttendanceDistribution {
@@ -147,7 +143,6 @@ export interface PublicReportData {
   show_names: boolean;
   show_grades: boolean;
   show_attendance: boolean;
-  show_notes: boolean;
   show_rating: boolean;
   is_early_semester?: boolean;
   total_students: number;
@@ -233,7 +228,6 @@ export interface StudentDetailData {
   lab_submissions?: LabSubmissionPublic[];
   activity_records?: ActivityRecordPublic[];
   total_activity_points?: number;
-  notes?: string[];
   recommendations?: string[];
   needs_attention: boolean;
 }

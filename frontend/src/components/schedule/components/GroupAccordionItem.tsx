@@ -3,7 +3,6 @@
 import { ChevronDown, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { NoteButton } from '@/components/notes';
 import type { Student, AttendanceStatus, LectureGroup } from '../types';
 import { AttendanceControl } from './AttendanceControl';
 
@@ -50,7 +49,6 @@ export function GroupAccordionItem({
           )}
         </CollapsibleTrigger>
         <div className="flex items-center gap-2">
-          <NoteButton entityType="lesson" entityId={group.lesson_id} size="sm" />
           <CollapsibleTrigger>
             <ChevronDown className={cn(
               'h-4 w-4 text-muted-foreground transition-transform',
@@ -63,10 +61,9 @@ export function GroupAccordionItem({
       <CollapsibleContent>
         <div className="border rounded-lg overflow-hidden mx-2 mb-2">
           {/* Table header */}
-          <div className="grid grid-cols-[32px_1fr_32px_40px] gap-2 px-2 py-2 bg-muted text-[10px] font-medium text-muted-foreground uppercase">
+          <div className="grid grid-cols-[32px_1fr_40px] gap-2 px-2 py-2 bg-muted text-[10px] font-medium text-muted-foreground uppercase">
             <span>#</span>
             <span>ФИО</span>
-            <span></span>
             <span className="text-center">Посещ.</span>
           </div>
 
@@ -86,13 +83,12 @@ export function GroupAccordionItem({
                   <div
                     key={student.id}
                     className={cn(
-                      'grid grid-cols-[32px_1fr_32px_40px] gap-2 px-2 py-2 items-center text-sm',
+                      'grid grid-cols-[32px_1fr_40px] gap-2 px-2 py-2 items-center text-sm',
                       idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'
                     )}
                   >
                     <span className="text-muted-foreground text-xs">{idx + 1}</span>
                     <span className="truncate" title={student.full_name}>{student.full_name}</span>
-                    <NoteButton entityType="student" entityId={student.id} size="sm" />
                     <AttendanceControl
                       status={attendance[student.id] ?? null}
                       onStatusChange={(status) => onAttendanceChange(student.id, status)}

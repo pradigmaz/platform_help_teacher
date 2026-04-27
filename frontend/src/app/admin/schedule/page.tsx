@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { LessonSheet, LectureSheet, type LessonSheetData } from '@/components/schedule';
 import { getGroupedLectureKey } from '@/components/schedule/hooks/sheetDraftTypes';
-import { NotesProvider } from '@/components/notes';
 import { 
   WeekNavigation, 
   ScheduleGrid, 
@@ -196,10 +195,8 @@ function SchedulePageContent() {
 
 export default function SchedulePage() {
   return (
-    <NotesProvider>
-      <TooltipProvider delayDuration={150}>
-        <SchedulePageContent />
-      </TooltipProvider>
-    </NotesProvider>
+    <TooltipProvider delayDuration={150}>
+      <SchedulePageContent />
+    </TooltipProvider>
   );
 }

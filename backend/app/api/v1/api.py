@@ -14,7 +14,6 @@ from app.api.v1.endpoints import (
     admin_lab_schedule,
     admin_labs,
     admin_lectures,
-    admin_notes,
     admin_offering_policies,
     admin_rate_limit,
     admin_reports,
@@ -115,7 +114,6 @@ api_router.include_router(
     prefix="/admin/schedule",
     tags=["admin_schedule_parser"],
 )
-api_router.include_router(admin_notes.router, prefix="/admin/notes", tags=["admin_notes"])
 api_router.include_router(admin_lectures.router, prefix="/admin/lectures", tags=["admin_lectures"])
 api_router.include_router(admin_reports.router, prefix="/admin", tags=["admin_reports"])
 api_router.include_router(admin_audit_export.router, prefix="/admin/audit", tags=["admin_audit_export"])

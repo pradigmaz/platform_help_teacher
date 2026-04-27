@@ -5,10 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { GroupAccordionItem } from './GroupAccordionItem';
 
-vi.mock('@/components/notes', () => ({
-  NoteButton: () => <button type="button" aria-label="note" />,
-}));
-
 const group = {
   id: 'group-1',
   name: 'ПИ-101',

@@ -5,10 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { StudentRow } from './StudentRow';
 
-vi.mock('@/components/notes', () => ({
-  NoteButton: () => <button type="button" aria-label="note" />,
-}));
-
 const baseStudent = {
   id: 'student-1',
   full_name: 'Жогов Никита Андреевич',

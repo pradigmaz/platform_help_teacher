@@ -58,7 +58,6 @@ class GroupReport(Base, TimestampMixin):
     show_names: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     show_grades: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     show_attendance: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    show_notes: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     show_rating: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Статус

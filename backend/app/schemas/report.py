@@ -24,7 +24,6 @@ class ReportCreate(BaseModel):
     show_names: bool = True
     show_grades: bool = True
     show_attendance: bool = True
-    show_notes: bool = True
     show_rating: bool = True
 
 
@@ -37,7 +36,6 @@ class ReportUpdate(BaseModel):
     show_names: bool | None = None
     show_grades: bool | None = None
     show_attendance: bool | None = None
-    show_notes: bool | None = None
     show_rating: bool | None = None
     is_active: bool | None = None
 
@@ -56,7 +54,6 @@ class ReportResponse(BaseModel):
     show_names: bool
     show_grades: bool
     show_attendance: bool
-    show_notes: bool
     show_rating: bool
     is_active: bool
     views_count: int
@@ -109,9 +106,6 @@ class PublicStudentData(BaseModel):
     # Флаги
     needs_attention: bool = Field(False, description="Требует внимания (не сдаёт)")
     calculation_error: bool = Field(False, description="Ошибка расчёта аттестации")
-
-    # Заметки (если show_notes)
-    notes: list[str] | None = None
 
 
 class ReportSubjectOption(BaseModel):
@@ -203,7 +197,6 @@ class PublicReportData(BaseModel):
     show_names: bool
     show_grades: bool
     show_attendance: bool
-    show_notes: bool
     show_rating: bool
 
     # Флаг раннего семестра (не показывать предупреждения о незачёте)
@@ -337,9 +330,6 @@ class StudentDetailData(BaseModel):
     # Активность
     activity_records: list[ActivityRecord] | None = None
     total_activity_points: float | None = None
-
-    # Заметки
-    notes: list[str] | None = None
 
     # Рекомендации (для не сдающих)
     recommendations: list[str] | None = None

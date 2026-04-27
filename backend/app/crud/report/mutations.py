@@ -28,7 +28,6 @@ class ReportMutations:
         show_names: bool = True,
         show_grades: bool = True,
         show_attendance: bool = True,
-        show_notes: bool = True,
         show_rating: bool = True,
     ) -> GroupReport:
         """
@@ -66,7 +65,6 @@ class ReportMutations:
             show_names=show_names,
             show_grades=show_grades,
             show_attendance=show_attendance,
-            show_notes=show_notes,
             show_rating=show_rating,
         )
 
@@ -88,7 +86,6 @@ class ReportMutations:
         show_names: bool | None = None,
         show_grades: bool | None = None,
         show_attendance: bool | None = None,
-        show_notes: bool | None = None,
         show_rating: bool | None = None,
         is_active: bool | None = None,
     ) -> GroupReport:
@@ -127,8 +124,6 @@ class ReportMutations:
             report.show_grades = show_grades
         if show_attendance is not None:
             report.show_attendance = show_attendance
-        if show_notes is not None:
-            report.show_notes = show_notes
         if show_rating is not None:
             report.show_rating = show_rating
 

@@ -10,7 +10,7 @@ from app.schemas.report import PublicStudentData
 
 
 def build_student_data(
-    student: User, result: Any, att_stats: dict, lab_stats: dict, notes: list[str], report: GroupReport
+    student: User, result: Any, att_stats: dict, lab_stats: dict, report: GroupReport
 ) -> PublicStudentData:
     """Построить данные студента."""
     is_passing = result.is_passing if result else False
@@ -35,7 +35,6 @@ def build_student_data(
         labs_completed=lab_stats.get("completed") if report.show_grades else None,
         labs_total=lab_stats.get("total") if report.show_grades else None,
         needs_attention=not is_passing,
-        notes=notes if report.show_notes and notes else None,
     )
 
 
@@ -44,7 +43,6 @@ def process_students(
     results_map: dict,
     attendance_data: dict,
     labs_data: dict,
-    notes_map: dict,
     report: GroupReport,
 ) -> tuple[list[PublicStudentData], int, int, float]:
     """Обработка данных студентов.
@@ -71,7 +69,7 @@ def process_students(
         if result:
             total_score_sum += result.total_score
 
-        student_data = build_student_data(student, result, att_stats, lab_stats, notes_map.get(student.id, []), report)
+        student_data = build_student_data(student, result, att_stats, lab_stats, report)
         students_data.append(student_data)
 
     return students_data, passing_count, failing_count, total_score_sum

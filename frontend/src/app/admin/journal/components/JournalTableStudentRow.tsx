@@ -10,7 +10,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { NoteButton } from '@/components/notes';
 import { AttendanceCell } from './AttendanceCell';
 import { GradeCell } from './GradeCell';
 import { canHaveGrade } from '../lib/journal-constants';
@@ -72,7 +71,6 @@ const JournalTableStudentRowInner = forwardRef<HTMLTableRowElement, JournalTable
             </Badge>
           )}
           <div className="flex items-center gap-0.5 ml-auto shrink-0">
-            <NoteButton entityType="student" entityId={student.id} size="sm" />
             {attestationPeriod && (
               <Tooltip>
                 <TooltipTrigger asChild>

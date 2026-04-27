@@ -21,15 +21,6 @@ test('renders the admin group detail screen', async ({ page }) => {
 });
 
 test('renders the admin journal screen with loaded journal data', async ({ page }) => {
-  let notesBatchRequests = 0;
-  await page.route('**/api/v1/admin/notes/batch**', async (route) => {
-    notesBatchRequests += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({}),
-    });
-  });
   await installAdminShellMocks(page);
   await mockAdminJournalView(page);
 
@@ -38,7 +29,6 @@ test('renders the admin journal screen with loaded journal data', async ({ page 
   await expect(page.getByRole('heading', { name: 'Журнал' })).toBeVisible();
   await expect(page.getByText('Smoke Student')).toBeVisible();
   await expect(page.getByText('03.04')).toBeVisible();
-  expect(notesBatchRequests).toBe(0);
 });
 
 test('renders audit logs and security tabs for admin audit', async ({ page }) => {

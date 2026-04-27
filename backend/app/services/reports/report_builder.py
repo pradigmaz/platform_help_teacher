@@ -35,7 +35,6 @@ def build_empty_report(
         show_names=report.show_names,
         show_grades=report.show_grades,
         show_attendance=report.show_attendance,
-        show_notes=report.show_notes,
         show_rating=report.show_rating,
         is_early_semester=False,
         total_students=0,

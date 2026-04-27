@@ -26,7 +26,6 @@ export function CreateReportDialog({ open, onOpenChange, groupId, onSuccess }: C
   const [showNames, setShowNames] = useState(true);
   const [showGrades, setShowGrades] = useState(true);
   const [showAttendance, setShowAttendance] = useState(true);
-  const [showNotes, setShowNotes] = useState(true);
   const [showRating, setShowRating] = useState(true);
 
   const resetForm = () => {
@@ -36,7 +35,6 @@ export function CreateReportDialog({ open, onOpenChange, groupId, onSuccess }: C
     setShowNames(true);
     setShowGrades(true);
     setShowAttendance(true);
-    setShowNotes(true);
     setShowRating(true);
   };
 
@@ -56,7 +54,6 @@ export function CreateReportDialog({ open, onOpenChange, groupId, onSuccess }: C
         show_names: showNames,
         show_grades: showGrades,
         show_attendance: showAttendance,
-        show_notes: showNotes,
         show_rating: showRating,
       });
       toast.success('Отчёт создан');
@@ -128,10 +125,6 @@ export function CreateReportDialog({ open, onOpenChange, groupId, onSuccess }: C
               <div className="flex items-center justify-between">
                 <Label htmlFor="show-attendance" className="font-normal">Посещаемость</Label>
                 <Switch id="show-attendance" checked={showAttendance} onCheckedChange={setShowAttendance} />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-notes" className="font-normal">Заметки</Label>
-                <Switch id="show-notes" checked={showNotes} onCheckedChange={setShowNotes} />
               </div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="show-rating" className="font-normal">Рейтинг в группе</Label>

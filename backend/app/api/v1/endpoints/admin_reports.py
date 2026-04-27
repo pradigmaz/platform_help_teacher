@@ -59,7 +59,6 @@ async def _report_to_response(report: GroupReport, db: AsyncSession) -> ReportRe
         show_names=report.show_names,
         show_grades=report.show_grades,
         show_attendance=report.show_attendance,
-        show_notes=report.show_notes,
         show_rating=report.show_rating,
         is_active=report.is_active,
         views_count=report.views_count,
@@ -118,7 +117,6 @@ async def create_report(
         show_names=report_in.show_names,
         show_grades=report_in.show_grades,
         show_attendance=report_in.show_attendance,
-        show_notes=report_in.show_notes,
         show_rating=report_in.show_rating,
     )
 
@@ -193,7 +191,6 @@ async def update_report(
         show_names=report_in.show_names,
         show_grades=report_in.show_grades,
         show_attendance=report_in.show_attendance,
-        show_notes=report_in.show_notes,
         show_rating=report_in.show_rating,
         is_active=report_in.is_active,
     )

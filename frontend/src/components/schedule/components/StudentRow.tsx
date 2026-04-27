@@ -7,7 +7,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { NoteButton } from '@/components/notes';
 import type { Student, AttendanceStatus, StudentGradeData } from '../types';
 import { AttendanceControl } from './AttendanceControl';
 
@@ -54,13 +53,12 @@ export function StudentRow({
   return (
     <div
       className={cn(
-        'grid grid-cols-[32px_1fr_32px_40px_208px] gap-2 px-2 py-2 items-center text-sm group',
+        'grid grid-cols-[32px_1fr_40px_208px] gap-2 px-2 py-2 items-center text-sm group',
         index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
       )}
     >
       <span className="text-muted-foreground text-xs">{index + 1}</span>
       <span className="truncate" title={student.full_name}>{student.full_name}</span>
-      <NoteButton entityType="student" entityId={student.id} size="sm" />
       <AttendanceControl
         status={attendance}
         onStatusChange={onAttendanceChange}

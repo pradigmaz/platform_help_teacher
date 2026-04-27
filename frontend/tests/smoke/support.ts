@@ -162,13 +162,6 @@ export async function installAdminShellMocks(page: Page): Promise<void> {
     });
   });
 
-  await page.route('**/api/v1/admin/notes**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([]),
-    });
-  });
 }
 
 export async function mockAdminGroupDetail(page: Page): Promise<void> {

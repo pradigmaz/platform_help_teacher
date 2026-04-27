@@ -18,7 +18,6 @@ from .attendance_helpers import (
     snapshot_to_stats,
 )
 from .base_helpers import get_group, get_group_students, get_user
-from .notes_helpers import get_student_notes
 from .report_lab_detail_service import get_student_lab_submissions
 from .report_subject_helpers import resolve_report_subject_context
 from .semester_helpers import get_semester_info
@@ -114,11 +113,6 @@ async def collect_student_report_data(
         activity_records = await get_student_activity(db, student_id)
         total_activity_points = sum(activity.points for activity in activity_records)
 
-    notes = None
-    if report.show_notes:
-        notes_list = await get_student_notes(db, student_id, visible_only=True)
-        notes = [note.content for note in notes_list]
-
     group_average = None
     rank_in_group = None
     total_in_group = None
@@ -175,7 +169,6 @@ async def collect_student_report_data(
         lab_submissions=lab_submissions,
         activity_records=activity_records,
         total_activity_points=total_activity_points if report.show_grades else None,
-        notes=notes,
         recommendations=recommendations,
         needs_attention=not is_passing if subject_ready else False,
     )
