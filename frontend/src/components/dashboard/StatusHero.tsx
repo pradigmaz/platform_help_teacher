@@ -91,7 +91,7 @@ export function StatusHero({ attestation, isLoading }: StatusHeroProps) {
           <EmptyState
             icon={<Icon className="h-8 w-8" />}
             title="Данные аттестации недоступны"
-            description="Информация появится после начала семестра"
+            description={attestation?.error || 'Информация появится после начала семестра'}
           />
           <LabProgressPlanSummary attestation={attestation} />
         </div>

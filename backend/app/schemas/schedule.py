@@ -138,6 +138,7 @@ class GroupedLectureSheetSaveItem(BaseModel):
 
 class GroupedLectureSheetSaveRequest(BaseModel):
     status: Literal["normal", "cancelled", "early"]
+    topic: str | None = None
     items: list[GroupedLectureSheetSaveItem] = Field(default_factory=list)
 
 

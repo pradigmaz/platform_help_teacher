@@ -6,7 +6,8 @@ from uuid import uuid4
 import pytest
 
 from app.models.schedule import LessonType
-from app.services.attestation.subject_scope import build_period_semester_keys
+from app.services.attestation import subject_scope as subject_scope_module
+from app.services.attestation.subject_scope import build_period_semester_keys, resolve_attestation_subject_scope
 from app.services.lesson_generator import WEEKDAY_MAP, LessonGenerator
 from app.services.schedule_offering_resolution import (
     ResolvedOfferingScope,
@@ -18,6 +19,24 @@ from app.services.schedule_offering_resolution import (
 def test_build_period_semester_keys_includes_every_semester_in_period():
     assert build_period_semester_keys(date(2025, 9, 1), date(2026, 1, 31)) == ("2025-1",)
     assert build_period_semester_keys(date(2026, 1, 20), date(2026, 2, 10)) == ("2025-1", "2026-2")
+
+
+@pytest.mark.asyncio
+async def test_requested_subject_scope_disables_legacy_unscoped_in_multi_subject_period(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    subject_a = uuid4()
+    subject_b = uuid4()
+    monkeypatch.setattr(
+        subject_scope_module,
+        "list_group_subject_ids_in_period",
+        AsyncMock(return_value=(subject_a, subject_b)),
+    )
+
+    scope = await resolve_attestation_subject_scope(AsyncMock(), uuid4(), AsyncMock(), subject_a)
+
+    assert scope.subject_id == subject_a
+    assert scope.allow_legacy_unscoped is False
 
 
 @pytest.mark.asyncio

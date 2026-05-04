@@ -44,6 +44,8 @@ async def _load_student_submissions_by_work(
         .where(Lab.number >= 1)
         .where(Lab.number <= total_labs)
     )
+    if subject_id is not None:
+        query = query.where(Lab.subject_id == subject_id)
     result = await db.execute(query)
     ranked: dict[int, tuple[Submission, bool]] = {}
     for submission, work_number, lab_subject_id in result.all():

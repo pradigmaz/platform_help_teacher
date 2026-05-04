@@ -70,8 +70,8 @@ export interface AttestationSettingsUpdate {
   labs_weight: number;
   attendance_weight: number;
   activity_reserve: number;
-  labs_count_first: number;
-  labs_count_second: number;
+  labs_count_first?: number | null;
+  labs_count_second?: number | null;
   grade_4_coef: number;
   grade_3_coef: number;
   late_coef: number;

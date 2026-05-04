@@ -113,10 +113,6 @@ class GradeExportRow(BaseModel):
         default_factory=dict,
         description="Оценки по работам: work_key → оценка (2-5 или None)",
     )
-    average_grade: float | None = Field(
-        default=None,
-        description="Средний балл",
-    )
     grades_count: int = Field(default=0, description="Количество оценок")
 
 

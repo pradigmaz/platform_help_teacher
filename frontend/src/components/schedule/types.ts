@@ -19,6 +19,7 @@ export interface LessonData {
   topic: string | null;
   room?: string | null;
   subject_id?: string | null;
+  offering_id?: string | null;
   subject_name: string | null;
   work_number: number | null;
   subgroup: number | null;

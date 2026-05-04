@@ -148,7 +148,7 @@ export function AutomaticQueueDialog({
                   </div>
                   <div className="mt-2 text-2xl font-bold text-foreground">{declinedCount}</div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {queue.automatic_enabled ? 'При отказе место уходит следующему' : 'Глобально отключено'}
+                    {queue.automatic_enabled ? 'При отказе место уходит следующему' : 'Отключено для связки'}
                   </div>
                 </div>
               </div>

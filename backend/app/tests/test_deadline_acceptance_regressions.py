@@ -111,6 +111,40 @@ async def test_list_student_labs_keeps_sequential_gate_within_subject(monkeypatc
     assert availability[(str(subject_b), 2)] is True
 
 
+@pytest.mark.asyncio
+async def test_list_student_labs_rejects_subject_outside_current_offerings(monkeypatch: pytest.MonkeyPatch):
+    current_user = cast(User, SimpleNamespace(id=uuid4(), group_id=uuid4(), subgroup=None))
+    known_subject = uuid4()
+    requested_subject = uuid4()
+    get_published_labs = AsyncMock()
+
+    class _VisibilityService:
+        def __init__(self, db):
+            self.db = db
+
+        async def get_visible_lab_numbers_by_subject(self, *, group_id, subgroup):
+            return {known_subject: {1, 2}}
+
+    monkeypatch.setattr("app.api.v1.endpoints.student.lab_queries.LabVisibilityService", _VisibilityService)
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.student.lab_queries.list_group_subject_ids_for_current_semester",
+        AsyncMock(return_value=[known_subject]),
+    )
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_published_labs",
+        get_published_labs,
+    )
+
+    result = await list_student_labs(
+        db=cast(AsyncSession, SimpleNamespace()),
+        current_user=current_user,
+        subject_id=requested_subject,
+    )
+
+    assert result == []
+    get_published_labs.assert_not_awaited()
+
+
 def _lesson(*, lesson_date: date, lesson_number: int, student, subject_id):
     return SimpleNamespace(
         id=uuid4(),

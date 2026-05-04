@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from typing import cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -196,7 +196,7 @@ async def get_journal_view(
         ]
     subject_ids_set = {subject.id for subject in subjects}
     if resolved_subject_id is not None and resolved_subject_id not in subject_ids_set:
-        resolved_subject_id = None
+        raise HTTPException(status_code=400, detail="Предмет не найден в выбранном семестре")
 
     lessons_query = (
         select(Lesson)

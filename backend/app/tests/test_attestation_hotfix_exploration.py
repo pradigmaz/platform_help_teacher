@@ -244,14 +244,12 @@ class TestScenarioB_ErrorHandling:
         report.show_names = True
         report.show_grades = True
         report.show_attendance = True
-        report.show_notes = False
 
         result_data = build_student_data(
             student=student,
             result=None,
             att_stats={"rate": 0.8, "present": 10, "absent": 2, "late": 1, "excused": 0},
             lab_stats={"completed": 3, "total": 4},
-            notes=[],
             report=report,
         )
 
@@ -278,14 +276,12 @@ class TestScenarioB_ErrorHandling:
         report.show_names = True
         report.show_grades = True
         report.show_attendance = True
-        report.show_notes = False
 
         result_data = build_student_data(
             student=student,
             result=None,
             att_stats={},
             lab_stats={},
-            notes=[],
             report=report,
         )
 

@@ -5,12 +5,15 @@ import { ru } from 'date-fns/locale';
 import { X, Calendar, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import type { GroupedLecture } from '../types';
 import { LESSON_TIMES } from '../constants';
 
 interface LectureSheetHeaderProps {
   lecture: GroupedLecture;
+  topic: string;
   onClose: () => void;
+  onTopicChange: (topic: string) => void;
 }
 
 function formatGroupsRange(groups: { name: string }[]): string {
@@ -38,7 +41,12 @@ function formatGroupsRange(groups: { name: string }[]): string {
   return numbers.join(', ');
 }
 
-export function LectureSheetHeader({ lecture, onClose }: LectureSheetHeaderProps) {
+export function LectureSheetHeader({
+  lecture,
+  topic,
+  onClose,
+  onTopicChange,
+}: LectureSheetHeaderProps) {
   const timeSlot = LESSON_TIMES[lecture.lesson_number - 1] || '';
   const groupsDisplay = formatGroupsRange(lecture.groups);
 
@@ -63,14 +71,27 @@ export function LectureSheetHeader({ lecture, onClose }: LectureSheetHeaderProps
         </Badge>
       </div>
       
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <BookOpen className="h-4 w-4" />
-        {lecture.subject_name || 'Предмет'}
+      <div className="space-y-1">
+        <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          Предмет
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <BookOpen className="h-4 w-4" />
+          {lecture.subject_name || 'Предмет'}
+        </div>
       </div>
       
-      {lecture.topic && (
-        <p className="text-sm mt-2">{lecture.topic}</p>
-      )}
+      <div className="mt-2 space-y-1">
+        <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          Тема
+        </div>
+        <Input
+          value={topic}
+          onChange={(event) => onTopicChange(event.target.value)}
+          placeholder="Введите тему лекции..."
+          className="h-9"
+        />
+      </div>
     </div>
   );
 }

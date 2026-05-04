@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { LabsAPI, Lab } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,7 +10,9 @@ import { LabViewHeader, LabInfoBadges, LabContentTabs, LabQuestions } from '@/co
 export default function LabViewPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const labId = params.id as string;
+  const subjectId = searchParams.get('subject_id');
 
   const [loading, setLoading] = useState(true);
   const [lab, setLab] = useState<Lab | null>(null);
@@ -32,7 +34,7 @@ export default function LabViewPage() {
   }, [loadLab]);
 
   const handleDelete = () => {
-    router.push('/admin/labs');
+    router.push(subjectId ? `/admin/labs?subject_id=${subjectId}` : '/admin/labs');
   };
 
   if (loading) {
@@ -48,7 +50,7 @@ export default function LabViewPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <LabViewHeader lab={lab} onLabUpdate={setLab} onDelete={handleDelete} />
+      <LabViewHeader lab={lab} onLabUpdate={setLab} onDelete={handleDelete} subjectId={subjectId} />
       <LabInfoBadges lab={lab} />
       <LabContentTabs lab={lab} />
       <LabQuestions lab={lab} />

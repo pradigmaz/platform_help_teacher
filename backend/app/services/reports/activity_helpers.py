@@ -5,20 +5,35 @@
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.activity import Activity
+from app.models.attestation_settings import AttestationType
 from app.schemas.report import ActivityRecord
 
 
-async def get_student_activity(db: AsyncSession, student_id: UUID) -> list[ActivityRecord]:
+async def get_student_activity(
+    db: AsyncSession,
+    student_id: UUID,
+    *,
+    attestation_type: AttestationType | None = None,
+    subject_id: UUID | None = None,
+    include_legacy_unscoped: bool = True,
+) -> list[ActivityRecord]:
     """Получить записи активности студента."""
     query = (
         select(Activity)
         .where(Activity.student_id == student_id, Activity.is_active)
         .order_by(Activity.created_at.desc())
     )
+    if attestation_type is not None:
+        query = query.where(Activity.attestation_type == attestation_type)
+    if subject_id is not None:
+        subject_filter = Activity.subject_id == subject_id
+        if include_legacy_unscoped:
+            subject_filter = or_(subject_filter, Activity.subject_id.is_(None))
+        query = query.where(subject_filter)
     result = await db.execute(query)
     activities = result.scalars().all()
 

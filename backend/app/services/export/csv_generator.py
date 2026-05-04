@@ -5,6 +5,7 @@ import logging
 from io import StringIO
 
 from app.schemas.export import JournalExportData
+from app.services.export.grade_columns import grade_column_label, grade_work_keys
 
 logger = logging.getLogger(__name__)
 
@@ -85,30 +86,9 @@ def generate_grades_csv(data: JournalExportData) -> str:
     # Заголовки
     headers = ["ФИО", "Подгруппа"]
 
-    # Собираем уникальные ключи работ
-    work_keys: set[str] = set()
-    for row_data in data.grade_rows:
-        work_keys.update(row_data.grades_by_work.keys())
-
-    sorted_work_keys = sorted(work_keys)
-
-    # Добавляем колонки работ
-    for key in sorted_work_keys:
-        parts = key.split("_")
-        if len(parts) >= 2:
-            date_str = parts[0]
-            try:
-                from datetime import datetime
-
-                dt = datetime.strptime(date_str, "%Y-%m-%d")
-                col_header = dt.strftime("%d.%m")
-            except ValueError:
-                col_header = key
-        else:
-            col_header = key
-        headers.append(col_header)
-
-    headers.extend(["Кол-во", "Средняя"])
+    sorted_work_keys = grade_work_keys(data)
+    headers.extend(grade_column_label(key, multiline=False) for key in sorted_work_keys)
+    headers.append("Кол-во")
     writer.writerow(headers)
 
     # Данные студентов
@@ -125,8 +105,6 @@ def generate_grades_csv(data: JournalExportData) -> str:
 
         # Статистика
         row.append(row_data.grades_count)
-        avg_val = f"{row_data.average_grade:.2f}" if row_data.average_grade else ""
-        row.append(avg_val)
 
         writer.writerow(row)
 

@@ -33,7 +33,7 @@ interface UseLectureDataReturn {
   expandedGroups: string[];
   toggleGroup: (groupId: string) => void;
   setAttendanceStatus: (groupId: string, studentId: string, status: AttendanceStatus | null) => void;
-  saveLectureSheet: (status: LessonStatus) => Promise<void>;
+  saveLectureSheet: (status: LessonStatus, topic: string) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -151,7 +151,7 @@ export function useLectureData({
     });
   }, []);
 
-  const saveLectureSheet = useCallback(async (status: LessonStatus) => {
+  const saveLectureSheet = useCallback(async (status: LessonStatus, topic: string) => {
     if (!lecture) {
       return;
     }
@@ -161,6 +161,7 @@ export function useLectureData({
       context: draftContext,
       lectureKey: getGroupedLectureKey(lecture),
       status,
+      topic,
       attendanceByGroup: Object.fromEntries(
         lecture.groups.map((group) => [group.id, groupsData[group.id]?.attendance || {}])
       ),
@@ -198,6 +199,7 @@ export function useLectureData({
 
     const { data } = await api.post('/admin/lectures/grouped/sheet', {
       status,
+      topic: topic || null,
       items,
     });
 

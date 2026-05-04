@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -10,25 +11,57 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { FlaskConical, Calendar, Eye, Pencil, Trash2 } from 'lucide-react';
+import { FlaskConical, Calendar, Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { BlurFade } from '@/components/ui/blur-fade';
 import type { Lab } from '@/lib/api/types/labs';
+import type { AdminLabSubjectOption } from './subjectOptions';
 
 interface LabsTableProps {
   labs: Lab[];
+  subjects: AdminLabSubjectOption[];
+  selectedSubjectId: string | null;
+  onSubjectChange: (subjectId: string) => void;
+  onCreate: () => void;
   onDelete: (id: string) => void;
 }
 
-export function LabsTable({ labs, onDelete }: LabsTableProps) {
+export function LabsTable({ labs, subjects, selectedSubjectId, onSubjectChange, onCreate, onDelete }: LabsTableProps) {
+  const subjectQuery = selectedSubjectId ? `?subject_id=${selectedSubjectId}` : '';
+
   return (
     <BlurFade delay={0.35}>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FlaskConical className="w-5 h-5" />
-            Список лабораторных
-          </CardTitle>
-          <CardDescription>Всего: {labs.length}</CardDescription>
+        <CardHeader className="gap-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <FlaskConical className="w-5 h-5" />
+                Список лабораторных
+              </CardTitle>
+              <CardDescription>Всего по выбранному предмету: {labs.length}</CardDescription>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div className="min-w-0 space-y-1.5">
+                <div className="text-sm font-medium">Предмет</div>
+                <Select value={selectedSubjectId ?? ''} onValueChange={onSubjectChange}>
+                  <SelectTrigger className="w-full bg-background sm:w-[420px]">
+                    <SelectValue placeholder="Выберите предмет" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjects.map((subject) => (
+                      <SelectItem key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={onCreate} disabled={!selectedSubjectId}>
+                <Plus className="mr-2 h-4 w-4" />
+                Создать лабу
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {labs.length === 0 ? (
@@ -73,12 +106,12 @@ export function LabsTable({ labs, onDelete }: LabsTableProps) {
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="ghost" size="icon" asChild className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <a href={`/admin/labs/${lab.id}`}>
+                        <a href={`/admin/labs/${lab.id}${subjectQuery}`}>
                           <Eye className="h-4 w-4" />
                         </a>
                       </Button>
                       <Button variant="ghost" size="icon" asChild className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <a href={`/admin/labs/${lab.id}/edit`}>
+                        <a href={`/admin/labs/${lab.id}/edit${subjectQuery}`}>
                           <Pencil className="h-4 w-4" />
                         </a>
                       </Button>

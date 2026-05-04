@@ -6,13 +6,16 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-from app.schemas.export import (
-    JournalExportData,
+from app.schemas.export import JournalExportData
+from app.services.export.grade_columns import (
+    grade_column_label,
+    grade_lesson_subgroups,
+    grade_work_keys,
+    is_other_subgroup_lesson,
 )
 
 logger = logging.getLogger(__name__)
 
-# Цвета для статусов посещаемости
 STATUS_COLORS = {
     "PRESENT": "90EE90",  # светло-зелёный
     "LATE": "FFD700",  # жёлтый
@@ -20,7 +23,6 @@ STATUS_COLORS = {
     "ABSENT": "FF6B6B",  # красный
 }
 
-# Символы для статусов
 STATUS_SYMBOLS = {
     "PRESENT": "✓",
     "LATE": "О",
@@ -28,9 +30,9 @@ STATUS_SYMBOLS = {
     "ABSENT": "Н",
 }
 
-# Стили
 HEADER_FONT = Font(bold=True, size=10)
 HEADER_FILL = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+INACTIVE_SUBGROUP_FILL = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
 HEADER_ALIGNMENT = Alignment(horizontal="center", vertical="center", wrap_text=True)
 CELL_ALIGNMENT = Alignment(horizontal="center", vertical="center")
 THIN_BORDER = Border(
@@ -64,11 +66,13 @@ def _apply_header_style(cell) -> None:
     cell.border = THIN_BORDER
 
 
-def _apply_cell_style(cell, status: str | None = None) -> None:
+def _apply_cell_style(cell, status: str | None = None, inactive: bool = False) -> None:
     """Применить стиль к ячейке данных."""
     cell.alignment = CELL_ALIGNMENT
     cell.border = THIN_BORDER
-    if status and status in STATUS_COLORS:
+    if inactive:
+        cell.fill = INACTIVE_SUBGROUP_FILL
+    elif status and status in STATUS_COLORS:
         cell.fill = PatternFill(
             start_color=STATUS_COLORS[status],
             end_color=STATUS_COLORS[status],
@@ -86,17 +90,14 @@ def generate_attendance_sheet(wb: Workbook, data: JournalExportData) -> None:
     """
     ws = wb.create_sheet("Посещаемость")
 
-    # Заголовки: №, ФИО, Подгруппа, [занятия...], Всего, Присут., Отсут., Опозд., Уваж., %
     headers = ["№", "ФИО", "Подгр."]
 
-    # Добавляем колонки занятий
-    lesson_keys = []
+    lesson_columns = []
     for lesson in data.lessons:
         col_header = f"{lesson.date.strftime('%d.%m')}\n№{lesson.lesson_number}"
         headers.append(col_header)
-        lesson_keys.append(f"{lesson.date}_{lesson.lesson_number}")
+        lesson_columns.append((f"{lesson.date}_{lesson.lesson_number}", lesson.subgroup))
 
-    # Статистические колонки
     headers.extend(["Всего", "Присут.", "Отсут.", "Опозд.", "Уваж.", "%"])
 
     # Записываем заголовки
@@ -122,14 +123,14 @@ def generate_attendance_sheet(wb: Workbook, data: JournalExportData) -> None:
 
         # Посещаемость по занятиям
         col_offset = 4
-        for i, key in enumerate(lesson_keys):
+        for i, (key, lesson_subgroup) in enumerate(lesson_columns):
+            inactive = is_other_subgroup_lesson(lesson_subgroup, row_data.subgroup)
             status = row_data.attendance_by_date.get(key, "")
-            symbol = STATUS_SYMBOLS.get(status, "")
+            symbol = "" if inactive else STATUS_SYMBOLS.get(status, "")
             cell = ws.cell(row=row_idx, column=col_offset + i, value=symbol)
-            _apply_cell_style(cell, status)
+            _apply_cell_style(cell, status, inactive=inactive)
 
-        # Статистика
-        stats_col = col_offset + len(lesson_keys)
+        stats_col = col_offset + len(lesson_columns)
         stats = row_data.stats
 
         cell = ws.cell(row=row_idx, column=stats_col, value=stats.get("total", 0))
@@ -167,34 +168,13 @@ def generate_grades_sheet(wb: Workbook, data: JournalExportData) -> None:
     """
     ws = wb.create_sheet("Оценки")
 
-    # Заголовки: №, ФИО, Подгруппа, [работы...], Кол-во, Средняя
     headers = ["№", "ФИО", "Подгр."]
 
-    # Собираем уникальные ключи работ из всех строк
-    work_keys: set[str] = set()
-    for row_data in data.grade_rows:
-        work_keys.update(row_data.grades_by_work.keys())
+    sorted_work_keys = grade_work_keys(data)
+    lesson_subgroups_by_key = grade_lesson_subgroups(data)
+    headers.extend(grade_column_label(key, multiline=True) for key in sorted_work_keys)
 
-    # Сортируем ключи по дате и номеру
-    sorted_work_keys = sorted(work_keys)
-
-    # Добавляем колонки работ
-    for key in sorted_work_keys:
-        parts = key.split("_")
-        if len(parts) >= 2:
-            date_str = parts[0]
-            try:
-                from datetime import datetime
-
-                dt = datetime.strptime(date_str, "%Y-%m-%d")
-                col_header = f"{dt.strftime('%d.%m')}"
-            except ValueError:
-                col_header = key
-        else:
-            col_header = key
-        headers.append(col_header)
-
-    headers.extend(["Кол-во", "Средняя"])
+    headers.append("Кол-во")
 
     # Записываем заголовки
     for col_idx, header in enumerate(headers, 1):
@@ -220,18 +200,15 @@ def generate_grades_sheet(wb: Workbook, data: JournalExportData) -> None:
         # Оценки по работам
         col_offset = 4
         for i, key in enumerate(sorted_work_keys):
+            inactive = is_other_subgroup_lesson(lesson_subgroups_by_key.get(key), row_data.subgroup)
             grade = row_data.grades_by_work.get(key)
-            cell = ws.cell(row=row_idx, column=col_offset + i, value=grade if grade else "")
-            _apply_cell_style(cell)
+            cell = ws.cell(row=row_idx, column=col_offset + i, value="" if inactive else grade if grade else "")
+            _apply_cell_style(cell, inactive=inactive)
 
         # Статистика
         stats_col = col_offset + len(sorted_work_keys)
 
         cell = ws.cell(row=row_idx, column=stats_col, value=row_data.grades_count)
-        _apply_cell_style(cell)
-
-        avg_val = f"{row_data.average_grade:.2f}" if row_data.average_grade else "-"
-        cell = ws.cell(row=row_idx, column=stats_col + 1, value=avg_val)
         _apply_cell_style(cell)
 
     _auto_column_width(ws)
@@ -266,12 +243,6 @@ def generate_summary_sheet(wb: Workbook, data: JournalExportData) -> None:
     if data.attendance_rows:
         avg_attendance = sum(r.attendance_rate for r in data.attendance_rows) / len(data.attendance_rows)
         info_rows.append(("Средняя посещаемость:", f"{avg_attendance:.1f}%"))
-
-    # Средняя оценка группы
-    grades_with_avg = [r for r in data.grade_rows if r.average_grade is not None]
-    if grades_with_avg:
-        avg_grade = sum(r.average_grade for r in grades_with_avg if r.average_grade is not None) / len(grades_with_avg)
-        info_rows.append(("Средняя оценка:", f"{avg_grade:.2f}"))
 
     # Записываем данные
     for row_idx, (label, value) in enumerate(info_rows, 1):

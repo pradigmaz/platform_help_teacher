@@ -2,7 +2,6 @@
 
 import { MapPin, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NoteButton } from '@/components/notes';
 import type { GroupedLecture } from '@/components/schedule';
 import { ScheduleAttendanceBadge } from './ScheduleAttendanceBadge';
 
@@ -54,7 +53,7 @@ export function LectureCard({ lecture, onClick }: LectureCardProps) {
         !isCancelled && !isEndedEarly && 'bg-blue-500/10 border-l-blue-500'
       )}
     >
-      {/* Header: группы + заметки */}
+      {/* Header: группы */}
       <div className="flex min-w-0 items-start justify-between gap-1">
         <span className={cn(
           'font-bold text-sm truncate flex-1',
@@ -64,15 +63,6 @@ export function LectureCard({ lecture, onClick }: LectureCardProps) {
         )}>
           {groupsDisplay}
         </span>
-        <div className="flex items-center gap-0.5 -mr-1 -mt-0.5">
-          {lecture.groups.length > 0 && (
-            <NoteButton 
-              entityType="lesson" 
-              entityId={lecture.groups[0].lesson_id} 
-              size="sm" 
-            />
-          )}
-        </div>
       </div>
 
       {/* Тип + кол-во групп */}

@@ -110,7 +110,12 @@ async def collect_student_report_data(
     activity_records = None
     total_activity_points = 0.0
     if report.show_grades and subject_ready:
-        activity_records = await get_student_activity(db, student_id)
+        activity_records = await get_student_activity(
+            db,
+            student_id,
+            attestation_type=att_type,
+            subject_id=effective_subject_id,
+        )
         total_activity_points = sum(activity.points for activity in activity_records)
 
     group_average = None

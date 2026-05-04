@@ -28,6 +28,8 @@ export interface ScheduleItemCreate {
   end_date?: string;
   week_parity?: WeekParity;
   subgroup?: number;
+  subject_id?: string | null;
+  offering_id?: string | null;
 }
 
 export interface ScheduleItemUpdate {
@@ -42,6 +44,8 @@ export interface ScheduleItemUpdate {
   week_parity?: WeekParity;
   subgroup?: number;
   is_active?: boolean;
+  subject_id?: string | null;
+  offering_id?: string | null;
 }
 
 export interface ScheduleItemResponse {
@@ -57,6 +61,8 @@ export interface ScheduleItemResponse {
   end_date?: string;
   week_parity?: WeekParity;
   subgroup?: number;
+  subject_id?: string | null;
+  offering_id?: string | null;
   is_active: boolean;
 }
 
@@ -70,6 +76,8 @@ export interface LessonCreate {
   room?: string | null;
   work_id?: string;
   subgroup?: number;
+  subject_id?: string | null;
+  offering_id?: string | null;
 }
 
 export interface LessonUpdate {
@@ -95,6 +103,8 @@ export interface LessonResponse {
   is_cancelled: boolean;
   cancellation_reason?: string;
   ended_early: boolean;
+  subject_id?: string | null;
+  offering_id?: string | null;
   subject_name?: string | null;
   group_name?: string | null;
   summary?: LessonAttendanceSummaryResponse | null;

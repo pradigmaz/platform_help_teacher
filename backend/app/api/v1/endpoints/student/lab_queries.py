@@ -36,7 +36,9 @@ async def list_student_labs(
     )
     offering_subject_ids = set(await list_group_subject_ids_for_current_semester(db, group_id=current_user.group_id))
     if subject_id is not None:
-        offering_subject_ids = {subject_id} if not offering_subject_ids or subject_id in offering_subject_ids else set()
+        if offering_subject_ids and subject_id not in offering_subject_ids:
+            return []
+        offering_subject_ids = {subject_id}
     if offering_subject_ids:
         visible_by_subject = {
             subject_id: work_numbers

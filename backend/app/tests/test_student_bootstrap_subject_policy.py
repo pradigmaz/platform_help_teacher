@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.api.v1.endpoints.student.attestation import resolve_student_lab_progress_plan
 from app.api.v1.endpoints.student.bootstrap import resolve_current_attestation
 
 
@@ -30,3 +31,21 @@ async def test_bootstrap_multi_subject_attestation_does_not_return_unscoped_lab_
     assert payload is not None
     assert payload["subject_id"] is None
     assert payload["lab_progress_plan"] is None
+
+
+@pytest.mark.asyncio
+async def test_student_lab_progress_plan_does_not_fallback_when_offering_is_missing():
+    user = SimpleNamespace(group_id=uuid4())
+    resolve_policy = AsyncMock()
+
+    with (
+        patch(
+            "app.api.v1.endpoints.student.attestation.resolve_student_automatic_offering",
+            new=AsyncMock(return_value=SimpleNamespace(offering=None, reason="offering_missing")),
+        ),
+        patch("app.api.v1.endpoints.student.attestation.resolve_offering_policy", new=resolve_policy),
+    ):
+        payload = await resolve_student_lab_progress_plan(AsyncMock(), user, subject_id=uuid4())
+
+    assert payload is None
+    resolve_policy.assert_not_awaited()

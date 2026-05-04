@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Save, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ import { getGroupedLectureKey, type RestoredLectureDraft, type ScheduleDraftCont
 import { LectureSheetHeader } from './components/LectureSheetHeader';
 import { LessonStatus as LessonStatusComponent } from './components/LessonStatus';
 import { GroupAccordionItem } from './components/GroupAccordionItem';
+import { buildAttendanceUpdates } from './hooks/lessonSheetState';
 
 interface LectureSheetProps {
   lecture: GroupedLecture | null;
@@ -40,7 +41,7 @@ export function LectureSheet({
   restoredDraft = null,
 }: LectureSheetProps) {
   const [status, setStatus] = useState<LessonStatus>(() => getInitialStatus(lecture));
-  const [hasChanges, setHasChanges] = useState(false);
+  const [topic, setTopic] = useState(() => lecture?.topic ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [width, setWidth] = useState(DEFAULT_SHEET_WIDTH);
   const isResizing = useRef(false);
@@ -80,8 +81,12 @@ export function LectureSheet({
       restoredDraft && lecture && restoredDraft.lectureKey === getGroupedLectureKey(lecture)
         ? restoredDraft.status
         : getInitialStatus(lecture);
+    const nextTopic =
+      restoredDraft && lecture && restoredDraft.lectureKey === getGroupedLectureKey(lecture)
+        ? restoredDraft.topic
+        : lecture?.topic ?? '';
     setStatus(nextStatus);
-    setHasChanges(Boolean(restoredDraft));
+    setTopic(nextTopic);
   }, [lecture, restoredDraft]);
 
   const {
@@ -93,14 +98,27 @@ export function LectureSheet({
     isLoading,
   } = useLectureData({ lecture, isOpen, draftContext, restoredDraft });
 
+  const hasChanges = useMemo(() => {
+    if (!lecture) {
+      return false;
+    }
+
+    return (
+      status !== getInitialStatus(lecture) ||
+      (topic || null) !== (lecture.topic || null) ||
+      Object.values(groupsData).some(
+        (groupState) =>
+          buildAttendanceUpdates(groupState.initialAttendance, groupState.attendance).length > 0
+      )
+    );
+  }, [groupsData, lecture, status, topic]);
+
   const handleStatusChange = (newStatus: LessonStatus) => {
     setStatus(newStatus);
-    setHasChanges(true);
   };
 
   const handleAttendanceChange = useCallback((groupId: string, studentId: string, nextStatus: import('./types').AttendanceStatus | null) => {
     setAttendanceStatus(groupId, studentId, nextStatus);
-    setHasChanges(true);
   }, [setAttendanceStatus]);
 
   const handleSave = async () => {
@@ -108,9 +126,8 @@ export function LectureSheet({
     setIsSaving(true);
 
     try {
-      await saveLectureSheet(status);
+      await saveLectureSheet(status, topic);
 
-      setHasChanges(false);
       onSave?.(status);
       onClose();
     } catch (err) {
@@ -162,7 +179,12 @@ export function LectureSheet({
           </div>
         </div>
 
-        <LectureSheetHeader lecture={lecture} onClose={onClose} />
+        <LectureSheetHeader
+          lecture={lecture}
+          topic={topic}
+          onTopicChange={setTopic}
+          onClose={onClose}
+        />
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">

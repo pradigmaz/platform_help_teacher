@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { LabsAPI, Lab } from '@/lib/api';
 import { LabEditor, LabData, normalizeVariant } from '@/components/labs';
@@ -13,8 +13,11 @@ import Link from 'next/link';
 export default function EditLabPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const labId = params.id as string;
   const isNew = labId === 'new';
+  const subjectId = searchParams.get('subject_id');
+  const backHref = subjectId ? `/admin/labs?subject_id=${subjectId}` : '/admin/labs';
 
   const [loading, setLoading] = useState(!isNew);
   const [lab, setLab] = useState<Lab | null>(null);
@@ -53,9 +56,10 @@ export default function EditLabPage() {
           deadline_5_lessons: data.deadline_5_lessons,
           deadline_4_lessons: data.deadline_4_lessons,
           is_sequential: data.is_sequential,
+          subject_id: data.subject_id ?? subjectId ?? undefined,
         });
         toast.success('Лабораторная создана');
-        router.push(`/admin/labs/${created.id}/edit`);
+        router.push(`/admin/labs/${created.id}/edit${subjectId ? `?subject_id=${subjectId}` : ''}`);
       } else {
         await LabsAPI.adminUpdate(labId, {
           number: data.number,
@@ -70,6 +74,7 @@ export default function EditLabPage() {
           deadline_5_lessons: data.deadline_5_lessons,
           deadline_4_lessons: data.deadline_4_lessons,
           is_sequential: data.is_sequential,
+          subject_id: data.subject_id ?? lab?.subject_id,
         });
         toast.success('Лабораторная сохранена');
       }
@@ -103,12 +108,13 @@ export default function EditLabPage() {
     deadline_5_lessons: lab.deadline_5_lessons,
     deadline_4_lessons: lab.deadline_4_lessons,
     is_sequential: lab.is_sequential,
+    subject_id: lab.subject_id,
   } : undefined;
 
   return (
     <div className="p-6">
       <div className="mb-6">
-        <Link href="/admin/labs">
+        <Link href={backHref}>
           <Button variant="ghost" size="sm">
             <IconArrowLeft className="h-4 w-4 mr-2" />
             Назад к списку

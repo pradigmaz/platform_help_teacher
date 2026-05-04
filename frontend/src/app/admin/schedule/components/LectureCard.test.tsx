@@ -1,12 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { GroupedLecture } from '@/components/schedule';
 import { LectureCard } from './LectureCard';
-
-vi.mock('@/components/notes', () => ({
-  NoteButton: () => <button type="button">note</button>,
-}));
 
 const lecture: GroupedLecture = {
   date: '2026-04-16',

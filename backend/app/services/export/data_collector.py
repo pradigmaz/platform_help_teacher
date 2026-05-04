@@ -105,7 +105,6 @@ class ExportDataCollector:
 
             # Формируем grades_by_work
             grades_by_work: dict[str, int | None] = {}
-            total_grade = 0
             grades_count = 0
 
             for record in student_grades:
@@ -114,12 +113,7 @@ class ExportDataCollector:
                     work_num = record.work_number if record.work_number else 0
                     key = f"{record.lesson.date}_{record.lesson.lesson_number}_{work_num}"
                     grades_by_work[key] = record.grade
-
-                    total_grade += record.grade
                     grades_count += 1
-
-            # Расчёт среднего балла
-            average_grade = round(total_grade / grades_count, 2) if grades_count > 0 else None
 
             rows.append(
                 GradeExportRow(
@@ -127,7 +121,6 @@ class ExportDataCollector:
                     student_name=student.full_name,
                     subgroup=student.subgroup,
                     grades_by_work=grades_by_work,
-                    average_grade=average_grade,
                     grades_count=grades_count,
                 )
             )

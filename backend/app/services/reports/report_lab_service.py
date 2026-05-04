@@ -131,13 +131,16 @@ async def _load_lab_catalog_by_number(
     total_labs: int,
     subject_id: UUID | None,
 ) -> dict[int, Lab]:
-    result = await db.execute(
+    query = (
         select(Lab)
         .where(Lab.deleted_at.is_(None))
         .where(Lab.number >= 1)
         .where(Lab.number <= total_labs)
         .order_by(Lab.number.asc(), Lab.created_at.desc())
     )
+    if subject_id is not None:
+        query = query.where(Lab.subject_id == subject_id)
+    result = await db.execute(query)
     selected: dict[int, Lab] = {}
     for lab in result.scalars().all():
         current = selected.get(lab.number)

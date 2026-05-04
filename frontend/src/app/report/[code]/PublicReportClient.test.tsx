@@ -169,7 +169,6 @@ function createReportData(attestationType: 'first' | 'second') {
     show_names: true,
     show_grades: true,
     show_attendance: true,
-    show_notes: true,
     show_rating: true,
     total_students: 1,
     students: [{ id: 'student-1', needs_attention: false }],

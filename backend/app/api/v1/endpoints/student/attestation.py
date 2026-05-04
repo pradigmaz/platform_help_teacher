@@ -59,7 +59,7 @@ async def resolve_student_lab_progress_plan(
         student=current_user,
         subject_id=subject_id,
     )
-    if offering_resolution.offering is None and offering_resolution.reason == "subject_required":
+    if offering_resolution.offering is None and offering_resolution.reason in {"subject_required", "offering_missing"}:
         return None
 
     policy = await resolve_offering_policy(db, offering_resolution.offering)

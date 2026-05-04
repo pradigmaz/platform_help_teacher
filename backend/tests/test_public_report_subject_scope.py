@@ -32,7 +32,6 @@ def _make_report(*, group_id, created_by, show_grades=True, show_attendance=True
         show_names=True,
         show_grades=show_grades,
         show_attendance=show_attendance,
-        show_notes=False,
         show_rating=False,
     )
 

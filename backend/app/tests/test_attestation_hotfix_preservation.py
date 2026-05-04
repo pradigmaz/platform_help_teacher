@@ -128,7 +128,6 @@ class TestPreservationB_SuccessfulCalculation:
         report.show_names = True
         report.show_grades = True
         report.show_attendance = True
-        report.show_notes = False
 
         result = MagicMock()
         result.is_passing = True
@@ -143,7 +142,6 @@ class TestPreservationB_SuccessfulCalculation:
             result=result,
             att_stats={"rate": 0.9, "present": 12, "absent": 1, "late": 0, "excused": 0},
             lab_stats={"completed": 4, "total": 4},
-            notes=[],
             report=report,
         )
 
@@ -162,7 +160,6 @@ class TestPreservationB_SuccessfulCalculation:
         report.show_names = True
         report.show_grades = True
         report.show_attendance = True
-        report.show_notes = False
 
         result = MagicMock()
         result.is_passing = False
@@ -177,7 +174,6 @@ class TestPreservationB_SuccessfulCalculation:
             result=result,
             att_stats={},
             lab_stats={},
-            notes=[],
             report=report,
         )
 

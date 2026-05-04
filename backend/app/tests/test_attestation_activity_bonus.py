@@ -1,5 +1,7 @@
 """Tests for treating attestation activity as a capped bonus."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 from pydantic import ValidationError
 
@@ -86,3 +88,86 @@ def test_score_preview_describes_activity_as_bonus_cap():
     activity_row = next(row for row in preview if "Активность" in row.component)
     assert activity_row.max_points == 3.5
     assert "бонус" in activity_row.unit_label.lower()
+
+
+def test_settings_update_schema_allows_omitting_legacy_lab_thresholds():
+    settings = AttestationSettingsUpdate(
+        attestation_type=AttestationType.FIRST,
+        labs_weight=70.0,
+        attendance_weight=30.0,
+        activity_reserve=10.0,
+        grade_4_coef=0.7,
+        grade_3_coef=0.4,
+        late_coef=0.5,
+        absent_coef=0.0,
+        self_works_enabled=False,
+        self_works_weight=0.0,
+        self_works_count=2,
+        colloquium_enabled=False,
+        colloquium_weight=0.0,
+        colloquium_count=1,
+        activity_enabled=True,
+        expected_lessons_per_week=2,
+        semester_start_date=None,
+    )
+
+    assert settings.labs_count_first is None
+    assert settings.labs_count_second is None
+
+
+@pytest.mark.asyncio
+async def test_update_settings_preserves_legacy_lab_thresholds_when_omitted():
+    existing = AttestationSettings(
+        attestation_type=AttestationType.FIRST,
+        labs_weight=70.0,
+        attendance_weight=30.0,
+        activity_reserve=10.0,
+        labs_count_first=4,
+        labs_count_second=6,
+        grade_4_coef=0.7,
+        grade_3_coef=0.4,
+        late_coef=0.5,
+        absent_coef=0.0,
+        self_works_enabled=False,
+        self_works_weight=0.0,
+        self_works_count=2,
+        colloquium_enabled=False,
+        colloquium_weight=0.0,
+        colloquium_count=1,
+        activity_enabled=True,
+        expected_lessons_per_week=2,
+    )
+    db = AsyncMock()
+    manager = AttestationSettingsManager(db)
+    manager.get_or_create_settings = AsyncMock(return_value=existing)
+    manager._sync_lab_counts = AsyncMock(return_value=set())
+    manager._invalidate_caches = AsyncMock()
+
+    settings = AttestationSettingsUpdate(
+        attestation_type=AttestationType.FIRST,
+        labs_weight=60.0,
+        attendance_weight=40.0,
+        activity_reserve=10.0,
+        grade_4_coef=0.7,
+        grade_3_coef=0.4,
+        late_coef=0.5,
+        absent_coef=0.0,
+        self_works_enabled=False,
+        self_works_weight=0.0,
+        self_works_count=2,
+        colloquium_enabled=False,
+        colloquium_weight=0.0,
+        colloquium_count=1,
+        activity_enabled=True,
+        expected_lessons_per_week=2,
+        semester_start_date=None,
+    )
+
+    await manager.update_settings(settings)
+
+    assert existing.labs_count_first == 4
+    assert existing.labs_count_second == 6
+    manager._sync_lab_counts.assert_awaited_once_with(
+        first_required_override=None,
+        second_required_override=None,
+    )

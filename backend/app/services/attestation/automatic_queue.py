@@ -1,9 +1,9 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, time
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.crud_group_subject_offering import (
@@ -118,6 +118,16 @@ def build_automatic_queue_entries(
     return entries
 
 
+def _get_offering_date_range(semester: str) -> tuple[date, date]:
+    semester_year, semester_number = semester.split("-", 1)
+    year = int(semester_year)
+    if semester_number == "1":
+        return date(year, 9, 1), date(year + 1, 1, 31)
+    if semester_number == "2":
+        return date(year, 2, 1), date(year, 8, 31)
+    raise ValueError(f"Неизвестный семестр связки предмета: {semester}")
+
+
 async def resolve_student_automatic_offering(
     db: AsyncSession,
     *,
@@ -155,10 +165,15 @@ async def load_completion_map(
     db: AsyncSession,
     *,
     student_ids: list[UUID],
+    group_id: UUID,
     subject_id: UUID,
+    offering_id: UUID,
+    semester: str,
     total_labs: int,
 ) -> dict[UUID, dict[int, datetime]]:
     completion_map: dict[UUID, dict[int, datetime]] = defaultdict(dict)
+    period_start, period_end = _get_offering_date_range(semester)
+    completion_timestamp = func.coalesce(Submission.accepted_at, Submission.updated_at, Submission.created_at)
 
     lesson_grades_result = await db.execute(
         select(LessonGrade.student_id, LessonGrade.work_number, LessonGrade.updated_at, LessonGrade.created_at, LessonGrade.grade)
@@ -167,7 +182,18 @@ async def load_completion_map(
         .where(LessonGrade.work_number.is_not(None))
         .where(LessonGrade.work_number >= 1)
         .where(LessonGrade.work_number <= total_labs)
+        .where(Lesson.group_id == group_id)
         .where(Lesson.subject_id == subject_id)
+        .where(
+            or_(
+                Lesson.offering_id == offering_id,
+                and_(
+                    Lesson.offering_id.is_(None),
+                    Lesson.date >= period_start,
+                    Lesson.date <= period_end,
+                ),
+            )
+        )
         .where(Lesson.is_cancelled.is_(False))
     )
     for student_id, work_number, updated_at, created_at, grade in lesson_grades_result.all():
@@ -183,12 +209,28 @@ async def load_completion_map(
     submission_result = await db.execute(
         select(Submission.user_id, Lab.number, Submission.accepted_at, Submission.updated_at, Submission.created_at)
         .join(Lab, Submission.lab_id == Lab.id)
+        .join(User, Submission.user_id == User.id)
+        .outerjoin(Lesson, Submission.lesson_id == Lesson.id)
         .where(Submission.user_id.in_(student_ids))
+        .where(User.group_id == group_id)
         .where(Submission.status == SubmissionStatus.ACCEPTED)
         .where(Lab.subject_id == subject_id)
         .where(Lab.deleted_at.is_(None))
         .where(Lab.number >= 1)
         .where(Lab.number <= total_labs)
+        .where(completion_timestamp.is_not(None))
+        .where(completion_timestamp >= datetime.combine(period_start, time.min))
+        .where(completion_timestamp <= datetime.combine(period_end, time.max))
+        .where(
+            or_(
+                Lesson.id.is_(None),
+                and_(
+                    Lesson.group_id == group_id,
+                    Lesson.subject_id == subject_id,
+                    or_(Lesson.offering_id == offering_id, Lesson.offering_id.is_(None)),
+                ),
+            )
+        )
     )
     for student_id, work_number, accepted_at, updated_at, created_at in submission_result.all():
         _register_completion(
@@ -215,7 +257,10 @@ async def list_offering_automatic_queue(
     completion_map = await load_completion_map(
         db,
         student_ids=[student.id for student in students],
+        group_id=offering.group_id,
         subject_id=offering.subject_id,
+        offering_id=offering.id,
+        semester=offering.semester,
         total_labs=total_labs,
     )
     refusals = await list_offering_refusals(db, offering_id=offering.id)

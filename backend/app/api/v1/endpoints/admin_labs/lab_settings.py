@@ -36,9 +36,8 @@ async def update_lab_settings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
-    """Обновить глобальные настройки лабораторных."""
-    try:
-        settings = await lab_settings_service.update_lab_settings(db, settings_in)
-        return settings
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    """Не изменять legacy-настройки после перехода на policy связок."""
+    raise HTTPException(
+        status_code=410,
+        detail="Глобальные настройки лабораторных доступны только как legacy fallback. Используйте настройки связки группа / предмет / семестр.",
+    )

@@ -98,6 +98,8 @@ async def get_schedule_view(
                 is_cancelled=row.is_cancelled,
                 cancellation_reason=row.cancellation_reason,
                 ended_early=row.ended_early,
+                subject_id=row.subject_id,
+                offering_id=row.offering_id,
                 subject_name=row.subject.name if row.subject else None,
                 group_name=row.group.name if row.group else None,
                 summary=summary_result.lesson_summaries.get(row.id),

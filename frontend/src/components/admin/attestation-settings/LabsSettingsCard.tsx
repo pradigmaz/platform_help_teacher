@@ -1,15 +1,16 @@
 'use client';
 
+import Link from 'next/link';
+import { AlertTriangle, FlaskConical } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { FlaskConical } from 'lucide-react';
 import type { AttestationFormState } from './types';
 
 interface LabsSettingsCardProps {
   form: AttestationFormState;
-  attestationType: 'first' | 'second';
   totalLabsCount: number;
   secondTotalLabsCount: number;
   automaticExtraLabsCount: number;
@@ -18,7 +19,6 @@ interface LabsSettingsCardProps {
 
 export function LabsSettingsCard({
   form,
-  attestationType,
   totalLabsCount,
   secondTotalLabsCount,
   automaticExtraLabsCount,
@@ -33,6 +33,20 @@ export function LabsSettingsCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex flex-col gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300 md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <div className="font-medium">Пороги лабораторных теперь настраиваются по связке</div>
+              <div className="text-xs opacity-90">
+                Здесь остаются вес лабораторного блока и коэффициенты оценок. Количество лаб, допуск и автомат правятся в группе / предмете / семестре.
+              </div>
+            </div>
+          </div>
+          <Button asChild size="sm" variant="outline" className="shrink-0 bg-background/70">
+            <Link href="/admin/labs">Открыть раздел лабораторных</Link>
+          </Button>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <Label>Вес (%)</Label>
@@ -42,47 +56,43 @@ export function LabsSettingsCard({
             </div>
           </div>
           <div>
-            <Label>Всего лаб в семестре</Label>
-            <Input type="number" value={totalLabsCount} readOnly className="bg-muted" />
+            <Label htmlFor="legacy_total_labs">Всего лаб в семестре</Label>
+            <Input id="legacy_total_labs" type="number" value={totalLabsCount} readOnly className="bg-muted" />
             <p className="mt-1 text-xs text-muted-foreground">
-              Значение приходит из глобальных настроек лабораторных.
+              Legacy fallback. Активное значение берётся из policy выбранной связки.
             </p>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label>Кол-во для 1-й атт.</Label>
+            <Label htmlFor="legacy_labs_count_first">Кол-во для 1-й атт.</Label>
             <Input
+              id="legacy_labs_count_first"
               type="number"
               value={form.labs_count_first}
-              onChange={e => onUpdate('labs_count_first', +e.target.value)}
               min={1}
               max={totalLabsCount}
-              readOnly={attestationType === 'second'}
-              className={attestationType === 'second' ? 'bg-muted' : undefined}
+              readOnly
+              className="bg-muted"
             />
-            {attestationType === 'second' && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Порог 1-й аттестации редактируется на вкладке «1-я аттестация».
-              </p>
-            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Legacy-порог. Для активного изменения откройте настройки связок.
+            </p>
           </div>
           <div>
-            <Label>Доп. лаб ко 2-й атт.</Label>
+            <Label htmlFor="legacy_labs_count_second">Доп. лаб ко 2-й атт.</Label>
             <Input
+              id="legacy_labs_count_second"
               type="number"
               value={form.labs_count_second}
-              onChange={e => onUpdate('labs_count_second', +e.target.value)}
               min={0}
               max={Math.max(totalLabsCount - form.labs_count_first, 0)}
-              readOnly={attestationType === 'first'}
-              className={attestationType === 'first' ? 'bg-muted' : undefined}
+              readOnly
+              className="bg-muted"
             />
-            {attestationType === 'first' && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Доп. лабы ко 2-й аттестации редактируются на вкладке «2-я аттестация».
-              </p>
-            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Legacy-порог. Новая policy хранит суммарный порог 2-й аттестации по связке.
+            </p>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -96,8 +106,8 @@ export function LabsSettingsCard({
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Сейчас логика такая: {form.labs_count_first} к 1-й аттестации, ещё {form.labs_count_second} ко 2-й,
-          суммарно {secondTotalLabsCount}. Для автомата нужно добрать ещё {automaticExtraLabsCount} из общего total {totalLabsCount}.
+          Legacy fallback: {form.labs_count_first} к 1-й аттестации, ещё {form.labs_count_second} ко 2-й,
+          суммарно {secondTotalLabsCount}. Для активных предметных требований используйте policy связки.
         </p>
         <div className="grid grid-cols-2 gap-4">
           <div>

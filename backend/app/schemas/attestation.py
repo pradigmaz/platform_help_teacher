@@ -87,6 +87,18 @@ class AttestationSettingsUpdate(AttestationSettingsBase):
     """Схема обновления настроек"""
 
     attestation_type: AttestationType
+    labs_count_first: int | None = Field(  # type: ignore[assignment]
+        default=None,
+        ge=1,
+        le=20,
+        description="Legacy fallback для 1-й аттестации",
+    )
+    labs_count_second: int | None = Field(
+        default=None,
+        ge=0,
+        le=20,
+        description="Legacy fallback для 2-й аттестации",
+    )  # type: ignore[assignment]
 
 
 class ScorePreview(BaseModel):

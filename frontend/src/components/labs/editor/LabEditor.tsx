@@ -61,6 +61,7 @@ function LabEditorInner({ initialData, onSave, className }: LabEditorProps) {
     deadline_5_lessons: initialData?.deadline_5_lessons,
     deadline_4_lessons: initialData?.deadline_4_lessons,
     is_sequential: initialData?.is_sequential ?? true,
+    subject_id: initialData?.subject_id,
   }));
 
   const [saving, setSaving] = useState(false);

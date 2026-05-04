@@ -446,6 +446,7 @@ class TestLessonSheetService:
         )
         payload = GroupedLectureSheetSaveRequest(
             status="normal",
+            topic="Новая тема лекции",
             items=[
                 GroupedLectureSheetSaveItem(lesson_id=lesson_a.id),
                 GroupedLectureSheetSaveItem(lesson_id=lesson_b.id),
@@ -460,4 +461,6 @@ class TestLessonSheetService:
         )
 
         assert service.save_sheet.await_count == 2
+        for call in service.save_sheet.await_args_list:
+            assert call.kwargs["payload"].topic == "Новая тема лекции"
         assert [item["lesson_id"] for item in result["items"]] == [lesson_a.id, lesson_b.id]

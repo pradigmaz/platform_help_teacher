@@ -1,15 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Plus, FlaskConical, Settings, Users, Clock } from 'lucide-react';
+import { FlaskConical, Settings, Users, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import { LabsAPI, SubjectsAPI, type GroupSubjectOffering } from '@/lib/api';
 import { LabQueueAPI } from '@/lib/api/lab-queue';
 import type { LabQueue, SubmissionDetail } from '@/lib/api/types/lab-queue';
-import type { Lab, LabSettings } from '@/lib/api/types/labs';
+import type { Lab } from '@/lib/api/types/labs';
 
 import { BlurFade } from '@/components/ui/blur-fade';
 import { Sparkles } from '@/components/ui/sparkles';
@@ -17,30 +16,24 @@ import { Sparkles } from '@/components/ui/sparkles';
 import {
   LabsTable,
   StatsCards,
-  SettingsDialog,
+  SubjectPolicyDialog,
   QueueDialog,
   GradeDialog,
   RejectDialog,
   DeadlineExtensionsDialog,
 } from './components';
+import { getAdminLabSubjectOptions, getSelectedSubjectOption } from './components/subjectOptions';
 
 export default function AdminLabsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Labs state
   const [labs, setLabs] = useState<Lab[]>([]);
+  const [offerings, setOfferings] = useState<GroupSubjectOffering[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Settings state
-  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  const [labSettings, setLabSettings] = useState<LabSettings>({
-    labs_count: 10,
-    automatic_enabled: true,
-    automatic_places: null,
-    grading_scale: '10',
-    default_max_grade: 10,
-    is_configured: true,
-  });
+  const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
 
   // Queue state
   const [queueDialogOpen, setQueueDialogOpen] = useState(false);
@@ -58,14 +51,46 @@ export default function AdminLabsPage() {
   const [extensionsDialogOpen, setExtensionsDialogOpen] = useState(false);
 
   const prefetchCreateLabRoute = useCallback(() => {
-    router.prefetch('/admin/labs/new');
+    const href = selectedSubjectId ? `/admin/labs/new?subject_id=${selectedSubjectId}` : '/admin/labs/new';
+    router.prefetch(href);
     void import('@/app/admin/labs/new/page');
-  }, [router]);
+  }, [router, selectedSubjectId]);
+
+  const fetchLabs = useCallback(async (subjectId: string) => {
+    try {
+      setLabs(await LabsAPI.adminList(subjectId));
+    } catch { toast.error('Ошибка загрузки лабораторных работ'); }
+  }, []);
+
+  const fetchOfferings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const nextOfferings = await SubjectsAPI.listOfferings();
+      const subjects = getAdminLabSubjectOptions(nextOfferings);
+      const requestedSubjectId = searchParams.get('subject_id');
+      const nextSubjectId = subjects.some((subject) => subject.id === requestedSubjectId)
+        ? requestedSubjectId
+        : subjects[0]?.id ?? null;
+      setOfferings(nextOfferings);
+      setSelectedSubjectId(nextSubjectId);
+      if (!nextSubjectId) {
+        setLabs([]);
+      }
+    } catch {
+      toast.error('Ошибка загрузки предметов');
+    } finally {
+      setLoading(false);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
-    fetchLabs();
-    fetchSettings();
-  }, []);
+    fetchOfferings();
+  }, [fetchOfferings]);
+
+  useEffect(() => {
+    if (!selectedSubjectId) return;
+    fetchLabs(selectedSubjectId);
+  }, [fetchLabs, selectedSubjectId]);
 
   useEffect(() => {
     if (loading) {
@@ -81,29 +106,14 @@ export default function AdminLabsPage() {
     };
   }, [loading, prefetchCreateLabRoute]);
 
-  const fetchLabs = async () => {
-    try {
-      const response = await api.get('/admin/labs');
-      setLabs(response.data);
-    } catch { toast.error('Ошибка загрузки лабораторных работ'); }
-    finally { setLoading(false); }
-  };
-
-  const fetchSettings = async () => {
-    try {
-      const response = await api.get('/admin/lab-settings');
-      setLabSettings(response.data);
-      // Если настройки не сконфигурированы — открываем диалог
-      if (!response.data.is_configured) {
-        setSettingsDialogOpen(true);
-      }
-    } catch { console.error('Ошибка загрузки настроек'); }
-  };
-
   const fetchQueue = async () => {
+    if (!selectedSubjectId) {
+      toast.error('Выберите предмет');
+      return;
+    }
     setQueueLoading(true);
     try {
-      const data = await LabQueueAPI.getQueue();
+      const data = await LabQueueAPI.getQueue(selectedSubjectId);
       setQueue(data);
     } catch { toast.error('Ошибка загрузки очереди'); }
     finally { setQueueLoading(false); }
@@ -112,21 +122,10 @@ export default function AdminLabsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Удалить лабораторную работу?')) return;
     try {
-      await api.delete(`/admin/labs/${id}`);
+      await LabsAPI.adminDelete(id);
       toast.success('Удалено');
-      fetchLabs();
+      if (selectedSubjectId) await fetchLabs(selectedSubjectId);
     } catch { toast.error('Ошибка удаления'); }
-  };
-
-  const handleSaveSettings = async () => {
-    try {
-      const response = await api.patch('/admin/lab-settings', labSettings);
-      toast.success('Настройки сохранены');
-      setLabSettings(response.data);
-      setSettingsDialogOpen(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Ошибка сохранения настроек');
-    }
   };
 
   const handleSelectSubmission = async (submissionId: string) => {
@@ -165,9 +164,23 @@ export default function AdminLabsPage() {
     fetchQueue();
   };
 
-  const completedLabs = labs.length;
-  const progressPercent = labSettings.labs_count > 0 
-    ? Math.round((completedLabs / labSettings.labs_count) * 100) : 0;
+  const subjectOptions = useMemo(() => getAdminLabSubjectOptions(offerings), [offerings]);
+  const selectedSubject = getSelectedSubjectOption(subjectOptions, selectedSubjectId);
+  const createdLabs = labs.length;
+  const publishedLabs = labs.filter((lab) => lab.is_published).length;
+
+  const handleSubjectChange = useCallback((subjectId: string) => {
+    setSelectedSubjectId(subjectId);
+    setLabs([]);
+  }, []);
+
+  const openCreateLab = () => {
+    if (!selectedSubjectId) {
+      toast.error('Выберите предмет');
+      return;
+    }
+    router.push(`/admin/labs/new?subject_id=${selectedSubjectId}`);
+  };
 
   if (loading) {
     return (
@@ -206,37 +219,30 @@ export default function AdminLabsPage() {
           <Button variant="outline" onClick={openQueueDialog}>
             <Users className="mr-2 h-4 w-4" /> Очередь на сдачу
           </Button>
-          <Button variant="outline" onClick={() => setSettingsDialogOpen(true)}>
-            <Settings className="mr-2 h-4 w-4" /> Настройки
-          </Button>
-          <Button asChild className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
-            <Link
-              href="/admin/labs/new"
-              onMouseEnter={prefetchCreateLabRoute}
-              onFocus={prefetchCreateLabRoute}
-            >
-              <Plus className="mr-2 h-4 w-4" /> Создать
-            </Link>
+          <Button variant="outline" onClick={() => setPolicyDialogOpen(true)}>
+            <Settings className="mr-2 h-4 w-4" /> Настройки по предметам
           </Button>
         </div>
 
-        <StatsCards completedLabs={completedLabs} plannedLabs={labSettings.labs_count} progressPercent={progressPercent} />
+        <StatsCards createdLabs={createdLabs} publishedLabs={publishedLabs} selectedSubjectName={selectedSubject?.name ?? ''} />
 
-        <LabsTable labs={labs} onDelete={handleDelete} />
+        <LabsTable
+          labs={labs}
+          subjects={subjectOptions}
+          selectedSubjectId={selectedSubjectId}
+          onSubjectChange={handleSubjectChange}
+          onCreate={openCreateLab}
+          onDelete={handleDelete}
+        />
       </div>
 
       {/* Dialogs */}
-      <SettingsDialog 
-        open={settingsDialogOpen} 
-        onOpenChange={(open) => {
-          // Не позволяем закрыть диалог если настройки не сконфигурированы
-          if (!open && !labSettings.is_configured) return;
-          setSettingsDialogOpen(open);
-        }} 
-        settings={labSettings} 
-        setSettings={setLabSettings} 
-        onSave={handleSaveSettings}
-        isInitialSetup={!labSettings.is_configured}
+      <SubjectPolicyDialog
+        open={policyDialogOpen}
+        onOpenChange={setPolicyDialogOpen}
+        subjects={subjectOptions}
+        selectedSubjectId={selectedSubjectId}
+        onSubjectChange={handleSubjectChange}
       />
       <QueueDialog
         open={queueDialogOpen} onOpenChange={setQueueDialogOpen} queue={queue} loading={queueLoading}

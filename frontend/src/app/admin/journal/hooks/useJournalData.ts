@@ -59,6 +59,14 @@ function mapLessons(lessons: JournalViewResponse['lessons']): Lesson[] {
   }));
 }
 
+export function resolveSubjectSelection(currentSubjectId: string, subjects: Subject[]): string {
+  if (currentSubjectId !== 'all' && subjects.some((subject) => subject.id === currentSubjectId)) {
+    return currentSubjectId;
+  }
+
+  return subjects[0]?.id ?? 'all';
+}
+
 export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
   const filters = useJournalFilters();
   const {
@@ -151,8 +159,23 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
           isCurrentSemesterSelected,
       });
 
+      const responseSubjects = mapSubjects(response.subjects);
+      const resolvedSubjectId =
+        response.resolved.subject_id ?? resolveSubjectSelection(selectedSubjectId, responseSubjects);
+
+      if (
+        response.resolved.subject_id === null &&
+        selectedSubjectId === 'all' &&
+        resolvedSubjectId !== 'all'
+      ) {
+        setGroups(mapGroups(response.groups));
+        setSubjects(responseSubjects);
+        setSelectedSubjectId(resolvedSubjectId);
+        return;
+      }
+
       setGroups(mapGroups(response.groups));
-      setSubjects(mapSubjects(response.subjects));
+      setSubjects(responseSubjects);
       setLessons(mapLessons(response.lessons));
       setStudents(mapStudents(response.students));
       setAttendance(response.attendance);
@@ -161,14 +184,13 @@ export function useJournalData({ lessonIdParam }: UseJournalDataProps) {
       setStats(response.stats);
       setResolvedStatsFilters({
         groupId: response.resolved.group_id ?? '',
-        subjectId: response.resolved.subject_id ?? 'all',
+        subjectId: response.resolved.subject_id ?? selectedSubjectId,
         startDate: response.resolved.week_start,
         endDate: response.resolved.week_end,
         lessonsCount: response.lessons.length,
       });
 
       const resolvedGroupId = response.resolved.group_id ?? '';
-      const resolvedSubjectId = response.resolved.subject_id ?? 'all';
       const resolvedWeekStart = response.resolved.week_start;
       const shouldSyncGroup = resolvedGroupId !== selectedGroupId;
       const shouldSyncSubject = resolvedSubjectId !== selectedSubjectId;

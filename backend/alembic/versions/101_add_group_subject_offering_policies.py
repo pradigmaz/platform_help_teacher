@@ -7,12 +7,13 @@ Create Date: 2026-04-23
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "101_add_group_subject_offering_policies"
 down_revision = "100_add_exam_question_banks"
@@ -94,13 +95,14 @@ def upgrade() -> None:
         sa.select(attestation_settings_table).where(attestation_settings_table.c.attestation_type == "SECOND")
     ).mappings().first()
 
-    total_labs = int(lab_row["labs_count"]) if lab_row and lab_row["labs_count"] is not None else 10
-    labs_required_first = int(first_row["labs_count_first"]) if first_row else min(8, total_labs)
-    second_extra = int(second_row["labs_count_second"]) if second_row else max(total_labs - labs_required_first, 0)
-    labs_required_second_total = labs_required_first + second_extra
+    total_labs = max(int(lab_row["labs_count"]) if lab_row and lab_row["labs_count"] is not None else 10, 0)
+    raw_labs_required_first = int(first_row["labs_count_first"]) if first_row else min(8, total_labs)
+    labs_required_first = min(max(raw_labs_required_first, 0), total_labs)
+    second_extra = max(int(second_row["labs_count_second"]) if second_row else total_labs - labs_required_first, 0)
+    labs_required_second_total = min(max(labs_required_first + second_extra, labs_required_first), total_labs)
     automatic_enabled = bool(lab_row["automatic_enabled"]) if lab_row else True
     automatic_places = lab_row["automatic_places"] if lab_row else None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     rows = connection.execute(sa.select(offering_table.c.id)).mappings()
     for row in rows:

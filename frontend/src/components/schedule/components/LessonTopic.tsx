@@ -42,12 +42,14 @@ export function LessonTopic({
 
   return (
     <div className="space-y-3">
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-        Тема занятия
-      </Label>
-      <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 py-2 bg-muted rounded-md">
-        <BookOpen className="h-4 w-4" />
-        {lesson.subject_name || 'Предмет'}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Предмет
+        </Label>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 py-2 bg-muted rounded-md">
+          <BookOpen className="h-4 w-4" />
+          {lesson.subject_name || 'Предмет'}
+        </div>
       </div>
       
       {showWorkNumberInput && onWorkNumberChange && (
@@ -87,19 +89,26 @@ export function LessonTopic({
         </div>
       )}
       
-      <div className="relative">
-        <Input
-          value={topic}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Введите тему занятия..."
-          className={currentWorkNumber ? "pr-16" : ""}
-        />
-        {currentWorkNumber && (
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded">
-            №{currentWorkNumber}
+      {!showWorkNumberInput && (
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Тема занятия
+          </Label>
+          <div className="relative">
+            <Input
+              value={topic}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="Введите тему занятия..."
+              className={currentWorkNumber ? "pr-16" : ""}
+            />
+            {currentWorkNumber && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded">
+                №{currentWorkNumber}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

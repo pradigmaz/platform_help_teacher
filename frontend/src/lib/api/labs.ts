@@ -61,8 +61,10 @@ export const LabsAPI = {
     return data;
   },
 
-  adminList: async () => {
-    const { data } = await api.get<Lab[]>('/admin/labs');
+  adminList: async (subjectId?: string) => {
+    const { data } = await api.get<Lab[]>('/admin/labs', {
+      params: subjectId ? { subject_id: subjectId } : undefined,
+    });
     return data;
   },
 

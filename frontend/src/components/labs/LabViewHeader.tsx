@@ -33,9 +33,10 @@ interface LabViewHeaderProps {
   lab: Lab;
   onLabUpdate: (lab: Lab) => void;
   onDelete: () => void;
+  subjectId?: string | null;
 }
 
-export function LabViewHeader({ lab, onLabUpdate, onDelete }: LabViewHeaderProps) {
+export function LabViewHeader({ lab, onLabUpdate, onDelete, subjectId }: LabViewHeaderProps) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -79,11 +80,12 @@ export function LabViewHeader({ lab, onLabUpdate, onDelete }: LabViewHeaderProps
     toast.success('Ссылка скопирована');
     setTimeout(() => setCopied(false), 2000);
   };
+  const subjectQuery = subjectId ? `?subject_id=${subjectId}` : '';
 
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
-        <Link href="/admin/labs">
+        <Link href={`/admin/labs${subjectQuery}`}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -128,7 +130,7 @@ export function LabViewHeader({ lab, onLabUpdate, onDelete }: LabViewHeaderProps
           {lab.is_published ? 'Снять с публикации' : 'Опубликовать'}
         </Button>
 
-        <Link href={`/admin/labs/${lab.id}/edit`}>
+        <Link href={`/admin/labs/${lab.id}/edit${subjectQuery}`}>
           <Button variant="outline" size="sm" className="gap-1.5">
             <Pencil className="h-4 w-4" />
             Редактировать

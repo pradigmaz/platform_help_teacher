@@ -13,6 +13,7 @@ import {
 import { getGroupedLectureKey, type RestoredSheetDraft } from '@/components/schedule/hooks/sheetDraftTypes';
 import type { LessonData } from '../components';
 import type { ScheduleConflict } from '../components/ConflictResolver';
+import { mapScheduleLesson } from './scheduleViewModel';
 
 function getInitialWeek(): Date {
   const today = new Date();
@@ -67,24 +68,7 @@ export function useScheduleAdminPage() {
         const wasRunning = lastParseRunningRef.current;
         const isRunningNow = data.parse_status.is_running;
 
-        setLessons(
-          data.lessons.map((lesson) => ({
-            id: lesson.id,
-            date: lesson.date,
-            lesson_number: lesson.lesson_number,
-            lesson_type: lesson.lesson_type,
-            topic: lesson.topic ?? null,
-            room: lesson.room ?? null,
-            subject_name: lesson.subject_name ?? null,
-            work_number: lesson.work_number ?? null,
-            subgroup: lesson.subgroup ?? null,
-            is_cancelled: lesson.is_cancelled,
-            ended_early: lesson.ended_early,
-            group_id: lesson.group_id,
-            group_name: lesson.group_name ?? null,
-            summary: lesson.summary ?? null,
-          }))
-        );
+        setLessons(data.lessons.map(mapScheduleLesson));
         setGroupedLectures(
           data.grouped_lectures.map((lecture) => ({
             date: lecture.date,

@@ -1,21 +1,16 @@
 """Group settings and invite codes."""
 
-import logging
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import models, schemas
 from app.api import deps
-from app.core import error_messages as em
 from app.db.session import get_db
 from app.services.group_service import GroupService
 
-logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -26,37 +21,11 @@ async def update_lab_settings(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(deps.get_current_active_superuser),
 ) -> Any:
-    """Обновить настройки лабораторных для группы."""
-    result = await db.execute(select(models.Group).where(models.Group.id == group_id))
-    group = result.scalar_one_or_none()
-
-    if not group:
-        raise HTTPException(status_code=404, detail=em.GROUP_NOT_FOUND)
-
-    try:
-        field_updates = {
-            "labs_count": lab_settings.labs_count,
-            "grading_scale": lab_settings.grading_scale,
-            "default_max_grade": lab_settings.default_max_grade,
-        }
-        for field_name, value in field_updates.items():
-            if value is not None:
-                setattr(group, field_name, value)
-
-        await db.commit()
-        await db.refresh(group)
-
-        count_query = select(func.count(models.User.id)).where(models.User.group_id == group_id)
-        count_result = await db.execute(count_query)
-        students_count = count_result.scalar() or 0
-
-        group_resp = schemas.GroupResponse.model_validate(group)
-        group_resp.students_count = students_count
-        return group_resp
-    except SQLAlchemyError as e:
-        await db.rollback()
-        logger.error(f"Error updating lab settings: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=em.DATABASE_ERROR)
+    """Не изменять legacy-настройки группы после перехода на policy связок."""
+    raise HTTPException(
+        status_code=410,
+        detail="Групповые настройки лабораторных доступны только как legacy fallback. Используйте настройки связки группа / предмет / семестр.",
+    )
 
 
 @router.post("/{group_id}/regenerate-invite-code")

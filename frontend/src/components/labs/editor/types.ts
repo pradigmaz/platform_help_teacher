@@ -62,6 +62,7 @@ export interface LabData {
   deadline_5_lessons?: number | null;
   deadline_4_lessons?: number | null;
   is_sequential: boolean;
+  subject_id?: string;
 }
 
 export interface LabEditorProps {

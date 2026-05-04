@@ -62,7 +62,7 @@ export function StudentsTable({
         </div>
 
         {/* Rows */}
-        <div className="divide-y max-h-[340px] overflow-y-auto">
+        <div className="divide-y max-h-[460px] overflow-y-auto">
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground text-sm">Загрузка...</div>
           ) : (

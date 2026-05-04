@@ -51,7 +51,6 @@ interface UseLessonDataReturn {
   setGrade: (studentId: string, grade: number, workNumber: number | null) => void;
   setStudentWorkNumber: (studentId: string, workNumber: number) => void;
   saveAll: () => Promise<LessonSheetSyncData | null>;
-  resetChanges: () => void;
 }
 
 export function useLessonData({
@@ -68,7 +67,6 @@ export function useLessonData({
   const [workNumber, setWorkNumberState] = useState<number | null>(null);
   const [status, setStatusState] = useState<LessonStatus>('normal');
   const [isLoading, setIsLoading] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
   const initialAttendanceRef = useRef<Record<string, AttendanceStatus | null>>({});
   const initialGradesRef = useRef<Record<string, StudentGradeData>>({});
   const initialLessonRef = useRef<SavedLessonState | null>(null);
@@ -107,7 +105,6 @@ export function useLessonData({
     setTopicState(initialLesson.topic || '');
     setWorkNumberState(initialLesson.work_number ?? null);
     setStatusState(getLessonStatus(initialLesson));
-    setHasChanges(false);
 
     try {
       const nextResources = await loadLessonSheetResources(currentLesson);
@@ -125,7 +122,6 @@ export function useLessonData({
         setStatusState(restoredDraft.status);
         setAttendance({ ...restoredDraft.attendance });
         setGrades(restoredGrades);
-        setHasChanges(true);
       }
     } catch (err) {
       console.error('Ошибка загрузки данных занятия', err);
@@ -140,13 +136,27 @@ export function useLessonData({
     }
   }, [lessonSnapshot, isOpen, loadData]);
 
-  const setTopic = (value: string) => { setTopicState(value); setHasChanges(true); };
-  const setWorkNumber = (value: number | null) => { setWorkNumberState(value); setHasChanges(true); };
-  const setStatus = (value: LessonStatus) => { setStatusState(value); setHasChanges(true); };
+  const hasChanges = useMemo(() => {
+    const initialLesson = initialLessonRef.current;
+    if (!initialLesson) {
+      return false;
+    }
+
+    return (
+      (topic || null) !== (initialLesson.topic || null) ||
+      workNumber !== (initialLesson.work_number ?? null) ||
+      status !== getLessonStatus(initialLesson) ||
+      buildAttendanceUpdates(initialAttendanceRef.current, attendance).length > 0 ||
+      buildGradeUpdates(initialGradesRef.current, grades).length > 0
+    );
+  }, [attendance, grades, status, topic, workNumber]);
+
+  const setTopic = (value: string) => { setTopicState(value); };
+  const setWorkNumber = (value: number | null) => { setWorkNumberState(value); };
+  const setStatus = (value: LessonStatus) => { setStatusState(value); };
 
   const setAttendanceStatus = (studentId: string, nextStatus: AttendanceStatus | null) => {
     setAttendance((prev) => setAttendanceStatusState(prev, studentId, nextStatus));
-    setHasChanges(true);
   };
 
   const setGrade = (studentId: string, grade: number, selectedWorkNumber: number | null) => {
@@ -164,7 +174,6 @@ export function useLessonData({
     setGrades((prev) =>
       updateGradeState(prev, studentId, grade, selectedWorkNumber ?? defaultWorkNumber)
     );
-    setHasChanges(true);
   };
 
   const setStudentWorkNumber = (studentId: string, nextWorkNumber: number) => {
@@ -174,7 +183,6 @@ export function useLessonData({
     }
 
     setGrades((prev) => updateStudentWorkNumberState(prev, studentId, nextWorkNumber));
-    setHasChanges(true);
   };
 
   const saveAll = async () => {
@@ -238,7 +246,6 @@ export function useLessonData({
       setTopicState(nextState.lesson.topic || '');
       setWorkNumberState(nextState.lesson.work_number ?? null);
       setStatusState(getLessonStatus(nextState.lesson));
-      setHasChanges(false);
       clearSheetDraft();
       return {
         lesson: nextState.lesson,
@@ -267,17 +274,6 @@ export function useLessonData({
     }
   };
 
-  const resetChanges = () => {
-    if (initialLessonRef.current) {
-      setTopicState(initialLessonRef.current.topic || '');
-      setWorkNumberState(initialLessonRef.current.work_number ?? null);
-      setStatusState(getLessonStatus(initialLessonRef.current));
-    }
-    setAttendance({ ...initialAttendanceRef.current });
-    setGrades(cloneGradeMap(initialGradesRef.current));
-    setHasChanges(false);
-  };
-
   return {
     students,
     attendance,
@@ -295,6 +291,5 @@ export function useLessonData({
     setGrade,
     setStudentWorkNumber,
     saveAll,
-    resetChanges,
   };
 }

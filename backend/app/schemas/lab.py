@@ -146,6 +146,7 @@ class LabOut(BaseModel):
     deadline_5_lessons: int | None = None
     deadline_4_lessons: int | None = None
     is_published: bool = False
+    subject_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

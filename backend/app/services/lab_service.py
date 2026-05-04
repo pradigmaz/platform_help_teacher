@@ -45,6 +45,11 @@ class LabService:
                 f"Несоответствие предмета: lab.subject_id={subject_id}, lesson.subject_id={lesson.subject_id}"
             )
 
+    @staticmethod
+    def _require_subject_scope(subject_id: UUID | None) -> None:
+        if subject_id is None:
+            raise ValueError("Лабораторная должна быть привязана к предмету")
+
     async def _sync_origin_lesson(self, db: AsyncSession, lab: Lab) -> None:
         """Обновить legacy origin lesson для совместимости read-path'ов."""
         if not lab.subject_id:
@@ -114,6 +119,8 @@ class LabService:
         if data.get("lesson_id") and not data.get("subject_id"):
             data["subject_id"] = await self._sync_subject_from_lesson(db, data["lesson_id"])
 
+        self._require_subject_scope(data.get("subject_id"))
+
         # BUG-9: проверяем согласованность subject_id и lesson_id
         await self._validate_subject_lesson_consistency(db, data.get("subject_id"), data.get("lesson_id"))
 
@@ -141,6 +148,8 @@ class LabService:
         # BUG-9: проверяем согласованность subject_id и lesson_id
         final_subject_id = update_data.get("subject_id", lab.subject_id)
         final_lesson_id = update_data.get("lesson_id", lab.lesson_id)
+        if "subject_id" in update_data or "lesson_id" in update_data:
+            self._require_subject_scope(final_subject_id)
         await self._validate_subject_lesson_consistency(db, final_subject_id, final_lesson_id)
 
         for field, value in update_data.items():

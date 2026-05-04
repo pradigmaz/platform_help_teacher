@@ -44,6 +44,7 @@ export interface RestoredLectureDraft {
   context: ScheduleDraftContext;
   lectureKey: string;
   status: LessonStatus;
+  topic: string;
   attendanceByGroup: Record<string, Record<string, AttendanceStatus | null>>;
   savedAt: string;
 }

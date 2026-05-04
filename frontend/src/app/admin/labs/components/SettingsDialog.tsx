@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,61 +13,43 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { LabSettings } from '@/lib/api/types/labs';
-import { Settings } from 'lucide-react';
+import { AlertTriangle, Settings } from 'lucide-react';
 
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: LabSettings;
-  setSettings: React.Dispatch<React.SetStateAction<LabSettings>>;
-  onSave: () => void;
-  isInitialSetup?: boolean;
+  onOpenOfferingPolicies: () => void;
 }
 
-function getNumberValue(value: string, fallback: number) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function getNullableNumberValue(value: string) {
-  if (value.trim() === '') {
-    return null;
-  }
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-export function SettingsDialog({ open, onOpenChange, settings, setSettings, onSave, isInitialSetup }: SettingsDialogProps) {
+export function SettingsDialog({ open, onOpenChange, settings, onOpenOfferingPolicies }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
-            {isInitialSetup ? 'Настройка лабораторных' : 'Настройки лабораторных'}
+            Legacy-настройки лабораторных
           </DialogTitle>
           <DialogDescription>
-            {isInitialSetup 
-              ? 'Укажите общее количество лабораторных и квоту мест на автомат для начала работы.'
-              : 'Здесь задаются общее количество лабораторных и квота мест на автомат.'}
+            Эти значения больше не редактируются как активная правда. Рабочие пороги задаются по связке группа / предмет / семестр.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          <div className="flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <div className="font-medium">Readonly fallback на время rollout</div>
+              <div className="text-xs opacity-90">
+                Если у связки ещё нет policy row, backend может подставить эти legacy-значения. Новые изменения вносятся только в настройках связок.
+              </div>
+            </div>
+          </div>
           <div className="grid gap-2">
-            <Label htmlFor="labs_count">Общее количество лабораторных</Label>
-            <Input
-              id="labs_count"
-              type="number"
-              min={1}
-              max={50}
-              value={settings.labs_count}
-              onChange={(e) => setSettings({
-                ...settings,
-                labs_count: getNumberValue(e.target.value, 10),
-              })}
-            />
+            <Label htmlFor="labs_count">Legacy total лабораторных</Label>
+            <Input id="labs_count" type="number" value={settings.labs_count} readOnly className="bg-muted" />
             <p className="text-xs text-muted-foreground">
-              Используется как общий total для аттестаций и автомата.
+              Историческое значение. Активный total теперь хранится в policy выбранного предмета.
             </p>
           </div>
           <div className="grid gap-2">
@@ -82,10 +63,7 @@ export function SettingsDialog({ open, onOpenChange, settings, setSettings, onSa
               <Switch
                 id="automatic_enabled"
                 checked={settings.automatic_enabled}
-                onCheckedChange={(checked) => setSettings({
-                  ...settings,
-                  automatic_enabled: checked,
-                })}
+                disabled
               />
             </div>
           </div>
@@ -96,22 +74,27 @@ export function SettingsDialog({ open, onOpenChange, settings, setSettings, onSa
               type="number"
               min={0}
               max={1000}
+              readOnly
               disabled={!settings.automatic_enabled}
               value={settings.automatic_places ?? ''}
-              onChange={(e) => setSettings({
-                ...settings,
-                automatic_places: getNullableNumberValue(e.target.value),
-              })}
               placeholder="Без квоты"
+              className="bg-muted"
             />
             <p className="text-xs text-muted-foreground">
-              Квота хранится глобально. Когда автоматы включены, места получают те, кто раньше всех закроют все лабы.
+              Legacy-квота хранится глобально и больше не должна правиться с этой страницы.
             </p>
           </div>
         </div>
         <DialogFooter>
-          {!isInitialSetup && <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>}
-          <Button onClick={onSave}>{isInitialSetup ? 'Начать работу' : 'Сохранить'}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Закрыть</Button>
+          <Button
+            onClick={() => {
+              onOpenChange(false);
+              onOpenOfferingPolicies();
+            }}
+          >
+            Настроить по предметам здесь
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

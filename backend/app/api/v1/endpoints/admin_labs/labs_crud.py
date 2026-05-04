@@ -112,7 +112,10 @@ async def create_lab(
     current_user: User = Depends(deps.get_current_active_superuser),
 ):
     """Создать лабораторную работу."""
-    lab = await lab_service.create(db, lab_in)
+    try:
+        lab = await lab_service.create(db, lab_in)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     await _invalidate_labs_cache()
     return lab
 
@@ -128,7 +131,10 @@ async def update_lab(
     lab = await lab_service.get_by_id(db, lab_id)
     if not lab:
         raise HTTPException(status_code=404, detail=em.LAB_NOT_FOUND)
-    lab = await lab_service.update(db, lab, lab_in)
+    try:
+        lab = await lab_service.update(db, lab, lab_in)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     await _invalidate_labs_cache()
     return lab
 

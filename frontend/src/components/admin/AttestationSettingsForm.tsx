@@ -19,6 +19,7 @@ import {
   AttestationFormState,
   DEFAULT_FORM_STATE,
 } from './attestation-settings';
+import { buildGlobalAttestationSettingsPayload } from './attestation-settings/buildSavePayload';
 
 function clampFirstLabsCount(value: number, totalLabsCount: number) {
   const normalizedTotal = Math.max(totalLabsCount, 1);
@@ -143,11 +144,7 @@ export function AttestationSettingsForm() {
     }
     setSaving(true);
     try {
-      await AttestationAPI.updateSettings({
-        attestation_type: attestationType,
-        ...normalizedForm,
-        semester_start_date: normalizedForm.semester_start_date || null,
-      });
+      await AttestationAPI.updateSettings(buildGlobalAttestationSettingsPayload(attestationType, normalizedForm));
       setHasChanges(false);
       toast.success('Настройки сохранены');
     } catch (e: unknown) {
@@ -155,6 +152,15 @@ export function AttestationSettingsForm() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const resetEditableSettings = () => {
+    setForm((current) => ({
+      ...DEFAULT_FORM_STATE,
+      labs_count_first: current.labs_count_first,
+      labs_count_second: current.labs_count_second,
+    }));
+    setHasChanges(false);
   };
 
   const secondTotalLabsCount = normalizedForm.labs_count_first + normalizedForm.labs_count_second;
@@ -180,10 +186,7 @@ export function AttestationSettingsForm() {
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={() => {
-                  setForm(getNormalizedFormState(DEFAULT_FORM_STATE, totalLabsCount));
-                  setHasChanges(false);
-                }}
+                onClick={resetEditableSettings}
                 disabled={!hasChanges || saving}
               >
                 <RotateCcw className="w-4 h-4 mr-2" />Сбросить
@@ -233,7 +236,6 @@ export function AttestationSettingsForm() {
         <BlurFade delay={0.35}>
           <LabsSettingsCard
             form={normalizedForm}
-            attestationType={attestationType}
             totalLabsCount={totalLabsCount}
             secondTotalLabsCount={secondTotalLabsCount}
             automaticExtraLabsCount={automaticExtraLabsCount}

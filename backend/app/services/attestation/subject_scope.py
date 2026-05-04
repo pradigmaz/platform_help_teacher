@@ -22,6 +22,10 @@ TRANSFER_COUNT_KEYS = ("total_lessons", "present", "late", "excused", "absent")
 logger = logging.getLogger(__name__)
 
 
+def _allow_legacy_unscoped(period_subject_ids: tuple[UUID, ...]) -> bool:
+    return len(period_subject_ids) <= 1
+
+
 @dataclass(frozen=True)
 class AttestationSubjectScope:
     """Resolved subject context for a single attestation calculation."""
@@ -90,7 +94,7 @@ async def resolve_attestation_subject_scope(
         return AttestationSubjectScope(
             subject_id=requested_subject_id,
             period_subject_ids=period_subject_ids,
-            allow_legacy_unscoped=True,
+            allow_legacy_unscoped=_allow_legacy_unscoped(period_subject_ids),
         )
 
     if len(period_subject_ids) > 1:

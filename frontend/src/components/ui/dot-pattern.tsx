@@ -54,7 +54,6 @@ interface DotPatternProps extends React.SVGProps<SVGSVGElement> {
  *   className="opacity-50"
  * />
  *
- * @notes
  * - The component is client-side only ("use client")
  * - Automatically responds to container size changes
  * - When glow is enabled, dots will animate with random delays and durations
