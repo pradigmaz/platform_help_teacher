@@ -12,7 +12,10 @@ export default function NewLabPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const subjectId = searchParams.get('subject_id');
-  const backHref = subjectId ? `/admin/labs?subject_id=${subjectId}` : '/admin/labs';
+  const offeringId = searchParams.get('offering_id');
+  const backHref = subjectId
+    ? `/admin/labs?subject_id=${subjectId}${offeringId ? `&offering_id=${offeringId}` : ''}`
+    : '/admin/labs';
 
   const handleSave = async (data: LabData) => {
     if (!subjectId) {
@@ -37,7 +40,7 @@ export default function NewLabPage() {
         subject_id: subjectId,
       });
       toast.success('Лабораторная создана');
-      router.push(`/admin/labs/${created.id}/edit?subject_id=${subjectId}`);
+      router.push(`/admin/labs/${created.id}/edit?subject_id=${subjectId}${offeringId ? `&offering_id=${offeringId}` : ''}`);
     } catch (e) {
       console.error(e);
       toast.error('Ошибка создания');

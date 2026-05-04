@@ -17,7 +17,9 @@ export default function EditLabPage() {
   const labId = params.id as string;
   const isNew = labId === 'new';
   const subjectId = searchParams.get('subject_id');
-  const backHref = subjectId ? `/admin/labs?subject_id=${subjectId}` : '/admin/labs';
+  const offeringId = searchParams.get('offering_id');
+  const contextQuery = subjectId ? `?subject_id=${subjectId}${offeringId ? `&offering_id=${offeringId}` : ''}` : '';
+  const backHref = `/admin/labs${contextQuery}`;
 
   const [loading, setLoading] = useState(!isNew);
   const [lab, setLab] = useState<Lab | null>(null);
@@ -59,7 +61,7 @@ export default function EditLabPage() {
           subject_id: data.subject_id ?? subjectId ?? undefined,
         });
         toast.success('Лабораторная создана');
-        router.push(`/admin/labs/${created.id}/edit${subjectId ? `?subject_id=${subjectId}` : ''}`);
+        router.push(`/admin/labs/${created.id}/edit${contextQuery}`);
       } else {
         await LabsAPI.adminUpdate(labId, {
           number: data.number,

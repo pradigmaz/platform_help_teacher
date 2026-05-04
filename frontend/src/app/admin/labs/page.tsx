@@ -22,7 +22,7 @@ import {
   RejectDialog,
   DeadlineExtensionsDialog,
 } from './components';
-import { getAdminLabSubjectOptions, getSelectedSubjectOption } from './components/subjectOptions';
+import { getAdminLabOfferingOptions, getSelectedOfferingOption } from './components/subjectOptions';
 
 export default function AdminLabsPage() {
   const router = useRouter();
@@ -31,7 +31,7 @@ export default function AdminLabsPage() {
   // Labs state
   const [labs, setLabs] = useState<Lab[]>([]);
   const [offerings, setOfferings] = useState<GroupSubjectOffering[]>([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [selectedOfferingId, setSelectedOfferingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
 
@@ -50,11 +50,17 @@ export default function AdminLabsPage() {
   // Extensions state
   const [extensionsDialogOpen, setExtensionsDialogOpen] = useState(false);
 
+  const offeringOptions = useMemo(() => getAdminLabOfferingOptions(offerings), [offerings]);
+  const selectedOffering = getSelectedOfferingOption(offeringOptions, selectedOfferingId);
+  const selectedSubjectId = selectedOffering?.subjectId ?? null;
+
   const prefetchCreateLabRoute = useCallback(() => {
-    const href = selectedSubjectId ? `/admin/labs/new?subject_id=${selectedSubjectId}` : '/admin/labs/new';
+    const href = selectedSubjectId
+      ? `/admin/labs/new?subject_id=${selectedSubjectId}${selectedOfferingId ? `&offering_id=${selectedOfferingId}` : ''}`
+      : '/admin/labs/new';
     router.prefetch(href);
     void import('@/app/admin/labs/new/page');
-  }, [router, selectedSubjectId]);
+  }, [router, selectedOfferingId, selectedSubjectId]);
 
   const fetchLabs = useCallback(async (subjectId: string) => {
     try {
@@ -66,14 +72,17 @@ export default function AdminLabsPage() {
     setLoading(true);
     try {
       const nextOfferings = await SubjectsAPI.listOfferings();
-      const subjects = getAdminLabSubjectOptions(nextOfferings);
+      const nextOptions = getAdminLabOfferingOptions(nextOfferings);
+      const requestedOfferingId = searchParams.get('offering_id');
       const requestedSubjectId = searchParams.get('subject_id');
-      const nextSubjectId = subjects.some((subject) => subject.id === requestedSubjectId)
-        ? requestedSubjectId
-        : subjects[0]?.id ?? null;
+      const nextOfferingId =
+        nextOptions.find((offering) => offering.id === requestedOfferingId)?.id ??
+        nextOptions.find((offering) => offering.subjectId === requestedSubjectId)?.id ??
+        nextOptions[0]?.id ??
+        null;
       setOfferings(nextOfferings);
-      setSelectedSubjectId(nextSubjectId);
-      if (!nextSubjectId) {
+      setSelectedOfferingId(nextOfferingId);
+      if (!nextOfferingId) {
         setLabs([]);
       }
     } catch {
@@ -164,13 +173,11 @@ export default function AdminLabsPage() {
     fetchQueue();
   };
 
-  const subjectOptions = useMemo(() => getAdminLabSubjectOptions(offerings), [offerings]);
-  const selectedSubject = getSelectedSubjectOption(subjectOptions, selectedSubjectId);
   const createdLabs = labs.length;
   const publishedLabs = labs.filter((lab) => lab.is_published).length;
 
-  const handleSubjectChange = useCallback((subjectId: string) => {
-    setSelectedSubjectId(subjectId);
+  const handleOfferingChange = useCallback((offeringId: string) => {
+    setSelectedOfferingId(offeringId);
     setLabs([]);
   }, []);
 
@@ -179,7 +186,7 @@ export default function AdminLabsPage() {
       toast.error('Выберите предмет');
       return;
     }
-    router.push(`/admin/labs/new?subject_id=${selectedSubjectId}`);
+    router.push(`/admin/labs/new?subject_id=${selectedSubjectId}${selectedOfferingId ? `&offering_id=${selectedOfferingId}` : ''}`);
   };
 
   if (loading) {
@@ -224,13 +231,13 @@ export default function AdminLabsPage() {
           </Button>
         </div>
 
-        <StatsCards createdLabs={createdLabs} publishedLabs={publishedLabs} selectedSubjectName={selectedSubject?.name ?? ''} />
+        <StatsCards createdLabs={createdLabs} publishedLabs={publishedLabs} selectedOfferingLabel={selectedOffering?.label ?? ''} />
 
         <LabsTable
           labs={labs}
-          subjects={subjectOptions}
-          selectedSubjectId={selectedSubjectId}
-          onSubjectChange={handleSubjectChange}
+          offerings={offeringOptions}
+          selectedOfferingId={selectedOfferingId}
+          onOfferingChange={handleOfferingChange}
           onCreate={openCreateLab}
           onDelete={handleDelete}
         />
@@ -240,9 +247,9 @@ export default function AdminLabsPage() {
       <SubjectPolicyDialog
         open={policyDialogOpen}
         onOpenChange={setPolicyDialogOpen}
-        subjects={subjectOptions}
-        selectedSubjectId={selectedSubjectId}
-        onSubjectChange={handleSubjectChange}
+        offerings={offeringOptions}
+        selectedOfferingId={selectedOfferingId}
+        onOfferingChange={handleOfferingChange}
       />
       <QueueDialog
         open={queueDialogOpen} onOpenChange={setQueueDialogOpen} queue={queue} loading={queueLoading}

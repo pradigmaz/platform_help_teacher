@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GroupSubjectOffering } from '@/lib/api';
-import { getAdminLabSubjectOptions } from './subjectOptions';
+import { getAdminLabOfferingOptions } from './subjectOptions';
 
 function offering(overrides: Partial<GroupSubjectOffering>): GroupSubjectOffering {
   return {
@@ -17,9 +17,9 @@ function offering(overrides: Partial<GroupSubjectOffering>): GroupSubjectOfferin
   };
 }
 
-describe('getAdminLabSubjectOptions', () => {
-  it('deduplicates offerings into subjects and keeps concrete offering options', () => {
-    const subjects = getAdminLabSubjectOptions([
+describe('getAdminLabOfferingOptions', () => {
+  it('keeps every group-subject offering as a concrete admin option', () => {
+    const offerings = getAdminLabOfferingOptions([
       offering({ id: 'offering-1', group_name: 'ИС1-233-ОТ' }),
       offering({ id: 'offering-2', group_name: 'ИС1-234-ОТ' }),
       offering({
@@ -29,15 +29,15 @@ describe('getAdminLabSubjectOptions', () => {
       }),
     ]);
 
-    expect(subjects).toHaveLength(2);
-    expect(subjects.find((subject) => subject.id === 'subject-1')).toEqual({
-      id: 'subject-1',
-      name: 'Тестирование информационных систем',
-      offeringIds: ['offering-1', 'offering-2'],
-      offerings: [
-        { id: 'offering-1', subjectId: 'subject-1', label: 'ИС1-233-ОТ / 2026-2' },
-        { id: 'offering-2', subjectId: 'subject-1', label: 'ИС1-234-ОТ / 2026-2' },
-      ],
+    expect(offerings).toHaveLength(3);
+    expect(offerings.map((option) => option.id)).toContain('offering-1');
+    expect(offerings.find((option) => option.id === 'offering-1')).toEqual({
+      id: 'offering-1',
+      subjectId: 'subject-1',
+      subjectName: 'Тестирование информационных систем',
+      groupName: 'ИС1-233-ОТ',
+      semester: '2026-2',
+      label: 'ИС1-233-ОТ / Тестирование информационных систем / 2026-2',
     });
   });
 });

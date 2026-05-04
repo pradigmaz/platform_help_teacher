@@ -13,6 +13,8 @@ export default function LabViewPage() {
   const searchParams = useSearchParams();
   const labId = params.id as string;
   const subjectId = searchParams.get('subject_id');
+  const offeringId = searchParams.get('offering_id');
+  const contextQuery = subjectId ? `?subject_id=${subjectId}${offeringId ? `&offering_id=${offeringId}` : ''}` : '';
 
   const [loading, setLoading] = useState(true);
   const [lab, setLab] = useState<Lab | null>(null);
@@ -34,7 +36,7 @@ export default function LabViewPage() {
   }, [loadLab]);
 
   const handleDelete = () => {
-    router.push(subjectId ? `/admin/labs?subject_id=${subjectId}` : '/admin/labs');
+    router.push(`/admin/labs${contextQuery}`);
   };
 
   if (loading) {
@@ -50,7 +52,7 @@ export default function LabViewPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <LabViewHeader lab={lab} onLabUpdate={setLab} onDelete={handleDelete} subjectId={subjectId} />
+      <LabViewHeader lab={lab} onLabUpdate={setLab} onDelete={handleDelete} contextQuery={contextQuery} />
       <LabInfoBadges lab={lab} />
       <LabContentTabs lab={lab} />
       <LabQuestions lab={lab} />

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SubjectsAPI, type OfferingPolicy } from '@/lib/api';
 import { SubjectPolicyDialog } from './SubjectPolicyDialog';
-import type { AdminLabSubjectOption } from './subjectOptions';
+import type { AdminLabOfferingOption } from './subjectOptions';
 
 vi.mock('@/lib/api', () => ({
   SubjectsAPI: {
@@ -52,27 +52,34 @@ function deferredPolicy() {
   return { promise, resolve };
 }
 
-const subjects: AdminLabSubjectOption[] = [
+const offerings: AdminLabOfferingOption[] = [
   {
-    id: 'subject-1',
-    name: 'Базы данных',
-    offeringIds: ['offering-1', 'offering-2'],
-    offerings: [
-      { id: 'offering-1', subjectId: 'subject-1', label: 'ИС-21 / 2026-1' },
-      { id: 'offering-2', subjectId: 'subject-1', label: 'ИС-22 / 2026-1' },
-    ],
+    id: 'offering-1',
+    subjectId: 'subject-1',
+    subjectName: 'Базы данных',
+    groupName: 'ИС-21',
+    semester: '2026-1',
+    label: 'ИС-21 / Базы данных / 2026-1',
+  },
+  {
+    id: 'offering-2',
+    subjectId: 'subject-1',
+    subjectName: 'Базы данных',
+    groupName: 'ИС-22',
+    semester: '2026-1',
+    label: 'ИС-22 / Базы данных / 2026-1',
   },
 ];
 
-const twoSubjects: AdminLabSubjectOption[] = [
-  subjects[0],
+const twoOfferings: AdminLabOfferingOption[] = [
+  offerings[0],
   {
-    id: 'subject-2',
-    name: 'Информатика',
-    offeringIds: ['offering-3'],
-    offerings: [
-      { id: 'offering-3', subjectId: 'subject-2', label: 'ИС-23 / 2026-1' },
-    ],
+    id: 'offering-3',
+    subjectId: 'subject-2',
+    subjectName: 'Информатика',
+    groupName: 'ИС-23',
+    semester: '2026-1',
+    label: 'ИС-23 / Информатика / 2026-1',
   },
 ];
 
@@ -89,9 +96,9 @@ describe('SubjectPolicyDialog', () => {
       <SubjectPolicyDialog
         open
         onOpenChange={vi.fn()}
-        subjects={subjects}
-        selectedSubjectId="subject-1"
-        onSubjectChange={vi.fn()}
+        offerings={offerings}
+        selectedOfferingId="offering-1"
+        onOfferingChange={vi.fn()}
       />,
     );
 
@@ -115,9 +122,9 @@ describe('SubjectPolicyDialog', () => {
       <SubjectPolicyDialog
         open
         onOpenChange={vi.fn()}
-        subjects={twoSubjects}
-        selectedSubjectId="subject-1"
-        onSubjectChange={vi.fn()}
+        offerings={twoOfferings}
+        selectedOfferingId="offering-1"
+        onOfferingChange={vi.fn()}
       />,
     );
 
@@ -126,9 +133,9 @@ describe('SubjectPolicyDialog', () => {
       <SubjectPolicyDialog
         open
         onOpenChange={vi.fn()}
-        subjects={twoSubjects}
-        selectedSubjectId="subject-2"
-        onSubjectChange={vi.fn()}
+        offerings={twoOfferings}
+        selectedOfferingId="offering-3"
+        onOfferingChange={vi.fn()}
       />,
     );
     await waitFor(() => expect(SubjectsAPI.getOfferingPolicy).toHaveBeenCalledWith('offering-3'));

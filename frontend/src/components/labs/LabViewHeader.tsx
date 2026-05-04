@@ -33,10 +33,10 @@ interface LabViewHeaderProps {
   lab: Lab;
   onLabUpdate: (lab: Lab) => void;
   onDelete: () => void;
-  subjectId?: string | null;
+  contextQuery?: string;
 }
 
-export function LabViewHeader({ lab, onLabUpdate, onDelete, subjectId }: LabViewHeaderProps) {
+export function LabViewHeader({ lab, onLabUpdate, onDelete, contextQuery = '' }: LabViewHeaderProps) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -80,12 +80,11 @@ export function LabViewHeader({ lab, onLabUpdate, onDelete, subjectId }: LabView
     toast.success('Ссылка скопирована');
     setTimeout(() => setCopied(false), 2000);
   };
-  const subjectQuery = subjectId ? `?subject_id=${subjectId}` : '';
 
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
-        <Link href={`/admin/labs${subjectQuery}`}>
+        <Link href={`/admin/labs${contextQuery}`}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>

@@ -14,19 +14,22 @@ import {
 import { FlaskConical, Calendar, Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { BlurFade } from '@/components/ui/blur-fade';
 import type { Lab } from '@/lib/api/types/labs';
-import type { AdminLabSubjectOption } from './subjectOptions';
+import type { AdminLabOfferingOption } from './subjectOptions';
 
 interface LabsTableProps {
   labs: Lab[];
-  subjects: AdminLabSubjectOption[];
-  selectedSubjectId: string | null;
-  onSubjectChange: (subjectId: string) => void;
+  offerings: AdminLabOfferingOption[];
+  selectedOfferingId: string | null;
+  onOfferingChange: (offeringId: string) => void;
   onCreate: () => void;
   onDelete: (id: string) => void;
 }
 
-export function LabsTable({ labs, subjects, selectedSubjectId, onSubjectChange, onCreate, onDelete }: LabsTableProps) {
-  const subjectQuery = selectedSubjectId ? `?subject_id=${selectedSubjectId}` : '';
+export function LabsTable({ labs, offerings, selectedOfferingId, onOfferingChange, onCreate, onDelete }: LabsTableProps) {
+  const selectedOffering = offerings.find((offering) => offering.id === selectedOfferingId) ?? null;
+  const subjectQuery = selectedOffering
+    ? `?subject_id=${selectedOffering.subjectId}&offering_id=${selectedOffering.id}`
+    : '';
 
   return (
     <BlurFade delay={0.35}>
@@ -38,25 +41,25 @@ export function LabsTable({ labs, subjects, selectedSubjectId, onSubjectChange, 
                 <FlaskConical className="w-5 h-5" />
                 Список лабораторных
               </CardTitle>
-              <CardDescription>Всего по выбранному предмету: {labs.length}</CardDescription>
+              <CardDescription>Всего по предмету выбранной связки: {labs.length}</CardDescription>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <div className="min-w-0 space-y-1.5">
-                <div className="text-sm font-medium">Предмет</div>
-                <Select value={selectedSubjectId ?? ''} onValueChange={onSubjectChange}>
+                <div className="text-sm font-medium">Группа / предмет</div>
+                <Select value={selectedOfferingId ?? ''} onValueChange={onOfferingChange}>
                   <SelectTrigger className="w-full bg-background sm:w-[420px]">
-                    <SelectValue placeholder="Выберите предмет" />
+                    <SelectValue placeholder="Выберите связку" />
                   </SelectTrigger>
                   <SelectContent>
-                    {subjects.map((subject) => (
-                      <SelectItem key={subject.id} value={subject.id}>
-                        {subject.name}
+                    {offerings.map((offering) => (
+                      <SelectItem key={offering.id} value={offering.id}>
+                        {offering.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={onCreate} disabled={!selectedSubjectId}>
+              <Button onClick={onCreate} disabled={!selectedOfferingId}>
                 <Plus className="mr-2 h-4 w-4" />
                 Создать лабу
               </Button>

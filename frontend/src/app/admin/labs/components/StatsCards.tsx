@@ -8,10 +8,10 @@ import { NumberTicker } from '@/components/ui/number-ticker';
 interface StatsCardsProps {
   createdLabs: number;
   publishedLabs: number;
-  selectedSubjectName: string;
+  selectedOfferingLabel: string;
 }
 
-export function StatsCards({ createdLabs, publishedLabs, selectedSubjectName }: StatsCardsProps) {
+export function StatsCards({ createdLabs, publishedLabs, selectedOfferingLabel }: StatsCardsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <BlurFade delay={0.15}>
@@ -49,10 +49,10 @@ export function StatsCards({ createdLabs, publishedLabs, selectedSubjectName }: 
               <BookOpenCheck className="w-12 h-12 text-green-500" />
             </div>
             <div className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-              Текущий предмет
+              Текущая связка
             </div>
             <div className="mt-2 max-w-[90%] whitespace-normal break-words text-lg font-semibold leading-snug text-green-600 dark:text-green-400">
-              {selectedSubjectName || 'Предмет не выбран'}
+              {selectedOfferingLabel || 'Связка не выбрана'}
             </div>
           </div>
         </MetricCard>

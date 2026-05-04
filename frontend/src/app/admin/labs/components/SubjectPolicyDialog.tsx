@@ -17,16 +17,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { SubjectsAPI, type OfferingPolicy } from '@/lib/api';
-import type { AdminLabSubjectOption } from './subjectOptions';
+import type { AdminLabOfferingOption } from './subjectOptions';
 
 type EditablePolicy = Omit<OfferingPolicy, 'offering_id' | 'source' | 'second_extra_required' | 'automatic_extra_required'>;
 
 interface SubjectPolicyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  subjects: AdminLabSubjectOption[];
-  selectedSubjectId: string | null;
-  onSubjectChange: (subjectId: string) => void;
+  offerings: AdminLabOfferingOption[];
+  selectedOfferingId: string | null;
+  onOfferingChange: (offeringId: string) => void;
 }
 
 function toEditable(policy: OfferingPolicy): EditablePolicy {
@@ -53,20 +53,18 @@ function setNumberField<K extends keyof EditablePolicy>(
 export function SubjectPolicyDialog({
   open,
   onOpenChange,
-  subjects,
-  selectedSubjectId,
-  onSubjectChange,
+  offerings,
+  selectedOfferingId,
+  onOfferingChange,
 }: SubjectPolicyDialogProps) {
-  const selectedSubject = useMemo(
-    () => subjects.find((subject) => subject.id === selectedSubjectId) ?? null,
-    [selectedSubjectId, subjects],
+  const selectedOffering = useMemo(
+    () => offerings.find((offering) => offering.id === selectedOfferingId) ?? null,
+    [selectedOfferingId, offerings],
   );
   const [policy, setPolicy] = useState<EditablePolicy | null>(null);
   const [source, setSource] = useState<string | null>(null);
-  const [selectedOfferingId, setSelectedOfferingId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const offeringOptions = useMemo(() => selectedSubject?.offerings ?? [], [selectedSubject]);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,17 +95,10 @@ export function SubjectPolicyDialog({
   }, [open, selectedOfferingId]);
 
   useEffect(() => {
-    if (!open || subjects.length === 0 || selectedSubjectId) return;
-    onSubjectChange(subjects[0].id);
-  }, [onSubjectChange, open, selectedSubjectId, subjects]);
-
-  useEffect(() => {
-    if (!open) return;
-    const hasCurrent = offeringOptions.some((offering) => offering.id === selectedOfferingId);
-    if (!hasCurrent) {
-      setSelectedOfferingId(offeringOptions[0]?.id ?? '');
-    }
-  }, [offeringOptions, open, selectedOfferingId]);
+    if (!open || offerings.length === 0) return;
+    if (selectedOfferingId && offerings.some((offering) => offering.id === selectedOfferingId)) return;
+    onOfferingChange(offerings[0].id);
+  }, [offerings, onOfferingChange, open, selectedOfferingId]);
 
   const savePolicy = useCallback(async () => {
     if (!selectedOfferingId || !policy) return;
@@ -131,36 +122,20 @@ export function SubjectPolicyDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Настройки предмета
+            Настройки связки
           </DialogTitle>
           <DialogDescription>Количество лабораторных, пороги аттестации, допуск и автомат.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="admin-labs-policy-subject">Предмет</Label>
-            <Select value={selectedSubjectId ?? ''} onValueChange={onSubjectChange}>
-              <SelectTrigger id="admin-labs-policy-subject" className="bg-background">
-                <SelectValue placeholder="Выберите предмет" />
-              </SelectTrigger>
-              <SelectContent>
-                {subjects.map((subject) => (
-                  <SelectItem key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="admin-labs-policy-offering">Связка</Label>
-            <Select value={selectedOfferingId} onValueChange={setSelectedOfferingId} disabled={!offeringOptions.length}>
+            <Label htmlFor="admin-labs-policy-offering">Группа / предмет / семестр</Label>
+            <Select value={selectedOfferingId ?? ''} onValueChange={onOfferingChange}>
               <SelectTrigger id="admin-labs-policy-offering" className="bg-background">
-                <SelectValue placeholder="Выберите группу и семестр" />
+                <SelectValue placeholder="Выберите связку" />
               </SelectTrigger>
               <SelectContent>
-                {offeringOptions.map((offering) => (
+                {offerings.map((offering) => (
                   <SelectItem key={offering.id} value={offering.id}>
                     {offering.label}
                   </SelectItem>
@@ -168,6 +143,12 @@ export function SubjectPolicyDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {selectedOffering ? (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
+              {selectedOffering.groupName}: {selectedOffering.subjectName}, {selectedOffering.semester}
+            </div>
+          ) : null}
 
           {loading ? <div className="text-sm text-muted-foreground">Загрузка настроек…</div> : null}
 
