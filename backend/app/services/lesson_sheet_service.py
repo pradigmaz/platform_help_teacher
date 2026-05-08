@@ -40,21 +40,23 @@ class LessonSheetService:
             if lesson is None:
                 raise LessonSheetValidationError(f"Занятие {item.lesson_id} не найдено")
 
-            sheet_payload = {
-                "lesson_work_number": None,
-                "status": payload.status,
-                "attendance_updates": item.attendance_updates,
-                "grade_updates": [],
-            }
             if "topic" in payload.model_fields_set:
-                sheet_payload["topic"] = payload.topic
+                sheet_payload = LessonSheetSaveRequest(
+                    lesson_work_number=None,
+                    status=payload.status,
+                    attendance_updates=item.attendance_updates,
+                    grade_updates=[],
+                    topic=payload.topic,
+                )
+            else:
+                sheet_payload = LessonSheetSaveRequest(
+                    lesson_work_number=None,
+                    status=payload.status,
+                    attendance_updates=item.attendance_updates,
+                    grade_updates=[],
+                )
 
-            result = await self.save_sheet(
-                db=db,
-                lesson=lesson,
-                payload=LessonSheetSaveRequest(**sheet_payload),
-                actor_id=actor_id,
-            )
+            result = await self.save_sheet(db=db, lesson=lesson, payload=sheet_payload, actor_id=actor_id)
             items.append(
                 {
                     "lesson_id": lesson.id,

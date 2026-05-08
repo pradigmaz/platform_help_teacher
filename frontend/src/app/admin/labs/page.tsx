@@ -99,7 +99,7 @@ export default function AdminLabsPage() {
   useEffect(() => {
     if (!selectedSubjectId) return;
     fetchLabs(selectedSubjectId);
-  }, [fetchLabs, selectedSubjectId]);
+  }, [fetchLabs, selectedOfferingId, selectedSubjectId]);
 
   useEffect(() => {
     if (loading) {

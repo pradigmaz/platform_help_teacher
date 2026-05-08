@@ -129,7 +129,7 @@ export function LabViewHeader({ lab, onLabUpdate, onDelete, contextQuery = '' }:
           {lab.is_published ? 'Снять с публикации' : 'Опубликовать'}
         </Button>
 
-        <Link href={`/admin/labs/${lab.id}/edit${subjectQuery}`}>
+        <Link href={`/admin/labs/${lab.id}/edit${contextQuery}`}>
           <Button variant="outline" size="sm" className="gap-1.5">
             <Pencil className="h-4 w-4" />
             Редактировать

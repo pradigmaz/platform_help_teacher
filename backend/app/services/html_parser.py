@@ -165,7 +165,7 @@ class ScheduleHtmlParser:
         for child in table_div.children:
             if isinstance(child, Tag) and child.name == "div":
                 style = child.get("style", "")
-                if "margin-bottom" in style:
+                if isinstance(style, str) and "margin-bottom" in style:
                     day_blocks.append(child)
 
         if day_blocks:
