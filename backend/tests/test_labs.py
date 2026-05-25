@@ -143,7 +143,7 @@ class TestLabService:
         """Тест создания лабы."""
         from app.services.lab_service import LabService
         service = LabService()
-        lab_in = LabCreate(title="Новая лаба", number=1)
+        lab_in = LabCreate(title="Новая лаба", number=1, subject_id=uuid4())
         
         result = await service.create(mock_db, lab_in)
         

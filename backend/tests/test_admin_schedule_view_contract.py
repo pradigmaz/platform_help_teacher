@@ -60,6 +60,8 @@ async def test_schedule_view_returns_summary_for_lessons_and_grouped_lectures():
         room="108Комп/7к",
         subject=SimpleNamespace(name="Физика"),
         group=SimpleNamespace(name="ИТ-11"),
+        subject_id=subject_id,
+        offering_id=uuid4(),
     )
     grouped_item = {
         "date": "2026-04-02",

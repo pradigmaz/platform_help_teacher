@@ -28,6 +28,13 @@ async def mock_db() -> AsyncGenerator[AsyncMock, None]:
     db.flush = AsyncMock()
     db.add = MagicMock()
     db.delete = AsyncMock()
+    
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    mock_result.scalar.return_value = None
+    mock_result.scalars.return_value.all.return_value = []
+    db.execute = AsyncMock(return_value=mock_result)
+    
     yield db
 
 

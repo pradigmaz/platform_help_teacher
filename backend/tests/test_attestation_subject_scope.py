@@ -34,7 +34,7 @@ class TestAttestationSubjectScope:
         mock_db = AsyncMock()
 
         with patch(
-            "app.services.attestation.subject_scope.list_group_subject_ids_for_current_semester",
+            "app.services.attestation.subject_scope.list_group_subject_ids_in_period",
             new=AsyncMock(return_value=(subject_id,)),
         ):
             scope = await resolve_attestation_subject_scope(mock_db, uuid4(), _build_settings())
@@ -48,7 +48,7 @@ class TestAttestationSubjectScope:
 
         with (
             patch(
-                "app.services.attestation.subject_scope.list_group_subject_ids_for_current_semester",
+                "app.services.attestation.subject_scope.list_group_subject_ids_in_period",
                 new=AsyncMock(return_value=(uuid4(), uuid4())),
             ),
             pytest.raises(ValueError, match="нужно выбрать предмет"),
@@ -61,7 +61,7 @@ class TestAttestationSubjectScope:
         mock_db = AsyncMock()
 
         with patch(
-            "app.services.attestation.subject_scope.list_group_subject_ids_for_current_semester",
+            "app.services.attestation.subject_scope.list_group_subject_ids_in_period",
             new=AsyncMock(return_value=(subject_id,)),
         ):
             scope = await resolve_attestation_subject_scope(mock_db, uuid4(), _build_settings())

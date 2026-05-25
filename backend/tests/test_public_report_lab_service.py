@@ -72,7 +72,24 @@ async def test_group_labs_stats_use_attestation_result_and_normalized_fallback(m
         )
     }
 
+    from app.services.offering_policy_validation import EffectiveOfferingPolicy
+    mock_policy = EffectiveOfferingPolicy(
+        offering_id=None,
+        source="legacy",
+        total_labs=4,
+        labs_required_first=4,
+        labs_required_second_total=4,
+        exam_admission_required_labs=4,
+        automatic_enabled=False,
+        automatic_places=None,
+        automatic_required_labs_total=4,
+    )
+
     with (
+        patch(
+            "app.services.reports.report_lab_service.resolve_offering_policy_for_group_subject",
+            new=AsyncMock(return_value=mock_policy),
+        ),
         patch(
             "app.services.reports.report_lab_service._resolve_subject_id",
             new=AsyncMock(return_value=(True, subject_id)),
@@ -119,7 +136,24 @@ async def test_group_lab_progress_counts_journal_only_completion(mock_db):
         students[2].id: {},
     }
 
+    from app.services.offering_policy_validation import EffectiveOfferingPolicy
+    mock_policy = EffectiveOfferingPolicy(
+        offering_id=None,
+        source="legacy",
+        total_labs=3,
+        labs_required_first=3,
+        labs_required_second_total=3,
+        exam_admission_required_labs=3,
+        automatic_enabled=False,
+        automatic_places=None,
+        automatic_required_labs_total=3,
+    )
+
     with (
+        patch(
+            "app.services.reports.report_lab_service.resolve_offering_policy_for_group_subject",
+            new=AsyncMock(return_value=mock_policy),
+        ),
         patch(
             "app.services.reports.report_lab_service._resolve_subject_id",
             new=AsyncMock(return_value=(True, subject_id)),
@@ -165,7 +199,24 @@ async def test_student_lab_submissions_include_journal_only_grade(mock_db):
     )
     rejected_submission.created_at = datetime.now(UTC)
 
+    from app.services.offering_policy_validation import EffectiveOfferingPolicy
+    mock_policy = EffectiveOfferingPolicy(
+        offering_id=None,
+        source="legacy",
+        total_labs=2,
+        labs_required_first=2,
+        labs_required_second_total=2,
+        exam_admission_required_labs=2,
+        automatic_enabled=False,
+        automatic_places=None,
+        automatic_required_labs_total=2,
+    )
+
     with (
+        patch(
+            "app.services.reports.report_lab_detail_service.resolve_offering_policy_for_group_subject",
+            new=AsyncMock(return_value=mock_policy),
+        ),
         patch(
             "app.services.reports.report_lab_detail_service._resolve_subject_id",
             new=AsyncMock(return_value=(True, subject_id)),

@@ -16,13 +16,15 @@ from app.services.lab_visibility.models import LabVisibilityInfo
 
 def test_visibility_deadline_context_keeps_traceable_fields():
     lab_id = uuid4()
+    uuid_1, uuid_2 = uuid4(), uuid4()
 
     context = build_deadline_context_for_visibility(
         lab_number=2,
         ordered_lessons=[
-            (2, date(2026, 3, 1), 1),
-            (None, date(2026, 3, 8), 1),
+            (uuid_1, 2, date(2026, 3, 1), 1),
+            (uuid_2, None, date(2026, 3, 8), 1),
         ],
+        past_lesson_ids={uuid_1, uuid_2},
         lab_id=lab_id,
         extensions_map={lab_id: 1},
         excused_lab_numbers={2},

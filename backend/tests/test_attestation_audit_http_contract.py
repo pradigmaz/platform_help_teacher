@@ -18,6 +18,9 @@ class TestStudentAttestationHttpContract:
         mock_user.id = uuid4()
         mock_user.group_id = uuid4()
         mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
 
         async def override_user():
             return mock_user
@@ -46,6 +49,9 @@ class TestStudentAttestationHttpContract:
         mock_user.id = uuid4()
         mock_user.group_id = uuid4()
         mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
 
         async def override_user():
             return mock_user

@@ -82,14 +82,27 @@ async def test_resolve_student_lab_progress_plan_disables_automatic_when_offerin
         automatic_declined=False,
     )
 
+    from app.services.offering_policy_validation import EffectiveOfferingPolicy
+    policy = EffectiveOfferingPolicy(
+        offering_id=uuid4(),
+        source="legacy",
+        total_labs=10,
+        labs_required_first=4,
+        labs_required_second_total=8,
+        exam_admission_required_labs=8,
+        automatic_enabled=True,
+        automatic_places=2,
+        automatic_required_labs_total=10,
+    )
+
     with (
         patch(
-            "app.api.v1.endpoints.student.attestation.AttestationSettingsManager.get_or_create_settings",
-            new=AsyncMock(return_value=settings),
+            "app.api.v1.endpoints.student.attestation.resolve_student_automatic_offering",
+            new=AsyncMock(return_value=SimpleNamespace(offering=SimpleNamespace(), reason=None)),
         ),
         patch(
-            "app.api.v1.endpoints.student.attestation.lab_settings_service.get_lab_settings",
-            new=AsyncMock(return_value=lab_settings),
+            "app.api.v1.endpoints.student.attestation.resolve_offering_policy",
+            new=AsyncMock(return_value=policy),
         ),
         patch(
             "app.api.v1.endpoints.student.attestation.resolve_student_automatic_progress",
@@ -124,14 +137,27 @@ async def test_resolve_student_lab_progress_plan_keeps_automatic_visible_for_dec
         automatic_declined=True,
     )
 
+    from app.services.offering_policy_validation import EffectiveOfferingPolicy
+    policy = EffectiveOfferingPolicy(
+        offering_id=uuid4(),
+        source="legacy",
+        total_labs=10,
+        labs_required_first=4,
+        labs_required_second_total=8,
+        exam_admission_required_labs=8,
+        automatic_enabled=True,
+        automatic_places=2,
+        automatic_required_labs_total=10,
+    )
+
     with (
         patch(
-            "app.api.v1.endpoints.student.attestation.AttestationSettingsManager.get_or_create_settings",
-            new=AsyncMock(return_value=settings),
+            "app.api.v1.endpoints.student.attestation.resolve_student_automatic_offering",
+            new=AsyncMock(return_value=SimpleNamespace(offering=SimpleNamespace(), reason=None)),
         ),
         patch(
-            "app.api.v1.endpoints.student.attestation.lab_settings_service.get_lab_settings",
-            new=AsyncMock(return_value=lab_settings),
+            "app.api.v1.endpoints.student.attestation.resolve_offering_policy",
+            new=AsyncMock(return_value=policy),
         ),
         patch(
             "app.api.v1.endpoints.student.attestation.resolve_student_automatic_progress",

@@ -92,11 +92,32 @@ async def _calculate_single_and_batch(
     attendance_records: list[MagicMock],
     settings: AttestationSettings,
 ):
+    from app.services.offering_policy_validation import EffectiveOfferingPolicy
+
     subject_scope = SimpleNamespace(subject_id=None, can_use_legacy_activity_points=False)
     student_calc = StudentScoreCalculator(AsyncMock())
     batch_calc = BatchScoreCalculator(AsyncMock())
+    dummy_policy = EffectiveOfferingPolicy(
+        offering_id=None,
+        source="legacy",
+        total_labs=1,
+        labs_required_first=1,
+        labs_required_second_total=1,
+        exam_admission_required_labs=1,
+        automatic_enabled=False,
+        automatic_places=None,
+        automatic_required_labs_total=1,
+    )
 
     with (
+        patch(
+            "app.services.attestation.student_score.resolve_offering_policy_for_group_subject",
+            new=AsyncMock(return_value=dummy_policy),
+        ),
+        patch(
+            "app.services.attestation.batch.resolve_offering_policy_for_group_subject",
+            new=AsyncMock(return_value=dummy_policy),
+        ),
         patch(
             "app.services.attestation.student_score.resolve_attestation_subject_scope",
             new=AsyncMock(return_value=subject_scope),

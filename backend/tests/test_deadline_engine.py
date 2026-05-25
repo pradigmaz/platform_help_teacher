@@ -10,13 +10,15 @@ from app.services.deadline_engine import evaluate_deadline_context
 
 def test_deadline_engine_builds_traceable_student_evaluation():
     lab_id = uuid4()
+    uuid_1, uuid_2, uuid_3 = uuid4(), uuid4(), uuid4()
     context = build_deadline_context_for_visibility(
         lab_number=2,
         ordered_lessons=[
-            (2, date(2026, 3, 1), 1),
-            (None, date(2026, 3, 8), 1),
-            (3, date(2026, 3, 15), 1),
+            (uuid_1, 2, date(2026, 3, 1), 1),
+            (uuid_2, None, date(2026, 3, 8), 1),
+            (uuid_3, 3, date(2026, 3, 15), 1),
         ],
+        past_lesson_ids={uuid_1, uuid_2},
         lab_id=lab_id,
         extensions_map={lab_id: 1},
         excused_lab_numbers=set(),

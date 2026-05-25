@@ -241,7 +241,7 @@ class TestStudentDashboardBootstrapContract:
         assert payload["overview"]["attestation_type"] == "second"
         assert payload["overview"]["current_attestation"]["error"] == "Для расчёта аттестации нужно выбрать предмет"
         assert payload["overview"]["current_attestation"]["subject_id"] is None
-        assert payload["overview"]["current_attestation"]["lab_progress_plan"]["second_total_required"] == 8
+        assert payload["overview"]["current_attestation"]["lab_progress_plan"] is None
         calculate_mock.assert_not_awaited()
 
     @pytest.mark.asyncio
