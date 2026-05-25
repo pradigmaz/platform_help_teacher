@@ -137,7 +137,11 @@ async def list_group_subject_offerings(
             .selectinload(GroupSubjectOffering.subject),
         )
         .where(GroupSubjectOffering.semester == semester)
-        .order_by(GroupSubjectOffering.semester.asc(), GroupSubjectOffering.group_id.asc(), GroupSubjectOffering.subject_id.asc())
+        .order_by(
+            GroupSubjectOffering.semester.asc(),
+            GroupSubjectOffering.group_id.asc(),
+            GroupSubjectOffering.subject_id.asc(),
+        )
     )
     return list(result.scalars().all())
 

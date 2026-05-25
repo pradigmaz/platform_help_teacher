@@ -113,5 +113,7 @@ async def get_student_exam_prep(
         subject_name=offering.subject.name if offering.subject else "Unknown",
         semester=offering.semester,
         questions_count=get_exam_questions_count_for_offering(offering),
-        questions=[StudentExamPrepQuestion.model_validate(question) for question in get_exam_questions_for_offering(offering)],
+        questions=[
+            StudentExamPrepQuestion.model_validate(question) for question in get_exam_questions_for_offering(offering)
+        ],
     )

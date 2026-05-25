@@ -50,14 +50,16 @@ def patch_current_semester_offerings(monkeypatch):
 
 
 def test_single_lab_visibility_exposes_traceable_lesson_index():
+    uuid_1, uuid_2, uuid_3 = uuid4(), uuid4(), uuid4()
     visibility = _calculate_single_lab_visibility(
         lab_number=2,
         lab_dates={2: (date(2026, 3, 1), date(2026, 3, 15))},
         ordered_lessons=[
-            (2, date(2026, 3, 1), 1),
-            (3, date(2026, 3, 8), 1),
-            (4, date(2026, 3, 15), 1),
+            (uuid_1, 2, date(2026, 3, 1), 1),
+            (uuid_2, 3, date(2026, 3, 8), 1),
+            (uuid_3, 4, date(2026, 3, 15), 1),
         ],
+        past_lesson_ids={uuid_1, uuid_2, uuid_3},
         labs_deadlines={2: (1, 2)},
         labs_ids={},
         extensions_map={},
@@ -67,6 +69,8 @@ def test_single_lab_visibility_exposes_traceable_lesson_index():
 
     assert visibility.lesson_index == 2
     assert visibility.current_max_grade == 4
+
+
 
 
 class TestStudentLabsVisibility:
@@ -111,31 +115,31 @@ class TestStudentLabsVisibility:
             return 1
 
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_visible_lab_numbers_by_subject",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_visible_lab_numbers_by_subject",
             fake_visible_numbers,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_group_subject_ids",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_group_subject_ids",
             AsyncMock(return_value={subject_id}),
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_batch_visibility_info",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_batch_visibility_info",
             fake_batch_visibility,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_published_labs",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_published_labs",
             fake_published_labs,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_submissions",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_submissions",
             fake_submissions,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_journal_grades_by_subject",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_journal_grades_by_subject",
             fake_journal_grades,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_student_position",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_student_position",
             fake_position,
         )
 
@@ -174,31 +178,31 @@ class TestStudentLabsVisibility:
             return 1
 
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_visible_lab_numbers_by_subject",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_visible_lab_numbers_by_subject",
             fake_visible_numbers,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_group_subject_ids",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_group_subject_ids",
             AsyncMock(return_value={visible_subject_id}),
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_batch_visibility_info",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_batch_visibility_info",
             fake_batch_visibility,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_published_labs",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_published_labs",
             fake_published_labs,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_submissions",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_submissions",
             fake_submissions,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_journal_grades_by_subject",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_journal_grades_by_subject",
             fake_journal_grades,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_student_position",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_student_position",
             fake_position,
         )
 
@@ -219,27 +223,27 @@ class TestStudentLabsVisibility:
             AsyncMock(return_value=(visible_subject_id,)),
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_visible_lab_numbers_by_subject",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_visible_lab_numbers_by_subject",
             AsyncMock(return_value={visible_subject_id: [1], stale_subject_id: [1]}),
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_batch_visibility_info",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_batch_visibility_info",
             AsyncMock(return_value={1: LabVisibilityInfo(lab_number=1, is_visible=True)}),
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_published_labs",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_published_labs",
             AsyncMock(return_value=labs),
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_submissions",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_submissions",
             AsyncMock(return_value={}),
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_journal_grades_by_subject",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_journal_grades_by_subject",
             AsyncMock(return_value={}),
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_student_position",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_student_position",
             AsyncMock(return_value=1),
         )
 
@@ -285,31 +289,31 @@ class TestStudentLabsVisibility:
             return 1
 
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_visible_lab_numbers_by_subject",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_visible_lab_numbers_by_subject",
             fake_visible_numbers,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_group_subject_ids",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_group_subject_ids",
             AsyncMock(return_value={first_subject_id, second_subject_id}),
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_batch_visibility_info",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_batch_visibility_info",
             fake_batch_visibility,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_published_labs",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_published_labs",
             fake_published_labs,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_submissions",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_submissions",
             fake_submissions,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_journal_grades_by_subject",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_journal_grades_by_subject",
             fake_journal_grades,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_student_position",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_student_position",
             fake_position,
         )
 
@@ -349,31 +353,31 @@ class TestStudentLabsVisibility:
             return 1
 
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_visible_lab_numbers_by_subject",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_visible_lab_numbers_by_subject",
             fake_visible_numbers,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_group_subject_ids",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_group_subject_ids",
             AsyncMock(return_value={subject_id}),
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.LabVisibilityService.get_batch_visibility_info",
+            "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_batch_visibility_info",
             fake_batch_visibility,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_published_labs",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_published_labs",
             fake_published_labs,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_submissions",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_submissions",
             fake_submissions,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_user_journal_grades_by_subject",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_journal_grades_by_subject",
             fake_journal_grades,
         )
         monkeypatch.setattr(
-            "app.api.v1.endpoints.student.labs.student_lab_service.get_student_position",
+            "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_student_position",
             fake_position,
         )
 
@@ -398,14 +402,16 @@ class TestDeadlineVisibilitySemantics:
         assert state.lessons_until_deadline_5 == 0
 
     def test_repeated_lab_slots_consume_deadline_budget(self):
+        uuid_1, uuid_2, uuid_3 = uuid4(), uuid4(), uuid4()
         info = _calculate_single_lab_visibility(
             lab_number=1,
             lab_dates={1: (date(2026, 3, 1), date(2026, 3, 15))},
             ordered_lessons=[
-                (1, date(2026, 3, 1), 1),
-                (1, date(2026, 3, 8), 1),
-                (2, date(2026, 3, 15), 1),
+                (uuid_1, 1, date(2026, 3, 1), 1),
+                (uuid_2, 1, date(2026, 3, 8), 1),
+                (uuid_3, 2, date(2026, 3, 15), 1),
             ],
+            past_lesson_ids={uuid_1, uuid_2, uuid_3},
             labs_deadlines={1: (1, None)},
             labs_ids={},
             extensions_map={},
@@ -417,14 +423,16 @@ class TestDeadlineVisibilitySemantics:
         assert info.current_max_grade == 4
 
     def test_excused_origin_disables_deadline_for_student_visibility(self):
+        uuid_1, uuid_2, uuid_3 = uuid4(), uuid4(), uuid4()
         info = _calculate_single_lab_visibility(
             lab_number=1,
             lab_dates={1: (date(2026, 3, 1), date(2026, 3, 15))},
             ordered_lessons=[
-                (1, date(2026, 3, 1), 1),
-                (2, date(2026, 3, 8), 1),
-                (3, date(2026, 3, 15), 1),
+                (uuid_1, 1, date(2026, 3, 1), 1),
+                (uuid_2, 2, date(2026, 3, 8), 1),
+                (uuid_3, 3, date(2026, 3, 15), 1),
             ],
+            past_lesson_ids={uuid_1, uuid_2, uuid_3},
             labs_deadlines={1: (1, 2)},
             labs_ids={},
             extensions_map={},
@@ -455,6 +463,7 @@ async def test_visibility_counts_unassigned_lab_practice_slots_same_as_teacher()
     )
 
     from app.services.lab_visibility import visibility_calculator as visibility_module
+    from datetime import datetime
 
     original_loader = visibility_module.load_ordered_deadline_lessons
     visibility_module.load_ordered_deadline_lessons = ordered_lessons_mock
@@ -467,6 +476,7 @@ async def test_visibility_counts_unassigned_lab_practice_slots_same_as_teacher()
             labs_deadlines={1: (0, None)},
             subject_id=uuid4(),
             today=date(2026, 3, 8),
+            now=datetime(2026, 3, 8, 12, 0),
         )
     finally:
         visibility_module.load_ordered_deadline_lessons = original_loader
@@ -536,15 +546,15 @@ async def test_student_labs_list_exposes_deadline_trace(mock_db, monkeypatch):
     labs = [_build_lab(3, subject_id, sequential=False)]
 
     monkeypatch.setattr(
-        "app.api.v1.endpoints.student.labs.LabVisibilityService.get_visible_lab_numbers_by_subject",
+        "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_visible_lab_numbers_by_subject",
         AsyncMock(return_value={subject_id: [3]}),
     )
     monkeypatch.setattr(
-        "app.api.v1.endpoints.student.labs.LabVisibilityService.get_group_subject_ids",
+        "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_group_subject_ids",
         AsyncMock(return_value={subject_id}),
     )
     monkeypatch.setattr(
-        "app.api.v1.endpoints.student.labs.LabVisibilityService.get_batch_visibility_info",
+        "app.api.v1.endpoints.student.lab_queries.LabVisibilityService.get_batch_visibility_info",
         AsyncMock(
             return_value={
                 3: LabVisibilityInfo(
@@ -559,19 +569,19 @@ async def test_student_labs_list_exposes_deadline_trace(mock_db, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        "app.api.v1.endpoints.student.labs.student_lab_service.get_published_labs",
+        "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_published_labs",
         AsyncMock(return_value=labs),
     )
     monkeypatch.setattr(
-        "app.api.v1.endpoints.student.labs.student_lab_service.get_user_submissions",
+        "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_submissions",
         AsyncMock(return_value={}),
     )
     monkeypatch.setattr(
-        "app.api.v1.endpoints.student.labs.student_lab_service.get_user_journal_grades_by_subject",
+        "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_user_journal_grades_by_subject",
         AsyncMock(return_value={}),
     )
     monkeypatch.setattr(
-        "app.api.v1.endpoints.student.labs.student_lab_service.get_student_position",
+        "app.api.v1.endpoints.student.lab_queries.student_lab_service.get_student_position",
         AsyncMock(return_value=1),
     )
 

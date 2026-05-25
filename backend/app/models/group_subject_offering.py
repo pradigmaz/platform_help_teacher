@@ -23,9 +23,7 @@ class FinalControlType(str, Enum):
 
 class GroupSubjectOffering(Base, TimestampMixin):
     __tablename__ = "group_subject_offerings"
-    __table_args__ = (
-        UniqueConstraint("group_id", "subject_id", "semester", name="uq_group_subject_offering_scope"),
-    )
+    __table_args__ = (UniqueConstraint("group_id", "subject_id", "semester", name="uq_group_subject_offering_scope"),)
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     group_id: Mapped[UUID] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)

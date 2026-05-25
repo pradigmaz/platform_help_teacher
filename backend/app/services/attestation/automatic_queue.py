@@ -73,10 +73,7 @@ def build_automatic_queue_entries(
         for student_id, work_map in completion_map.items()
         if len(work_map) >= total_labs and student_id not in declined_by_student_id
     )
-    ranking_position_by_student = {
-        student_id: index
-        for index, (_, _, student_id) in enumerate(ranking, start=1)
-    }
+    ranking_position_by_student = {student_id: index for index, (_, _, student_id) in enumerate(ranking, start=1)}
 
     entries: list[AutomaticQueueEntry] = []
     for student in students:
@@ -176,7 +173,13 @@ async def load_completion_map(
     completion_timestamp = func.coalesce(Submission.accepted_at, Submission.updated_at, Submission.created_at)
 
     lesson_grades_result = await db.execute(
-        select(LessonGrade.student_id, LessonGrade.work_number, LessonGrade.updated_at, LessonGrade.created_at, LessonGrade.grade)
+        select(
+            LessonGrade.student_id,
+            LessonGrade.work_number,
+            LessonGrade.updated_at,
+            LessonGrade.created_at,
+            LessonGrade.grade,
+        )
         .join(Lesson, LessonGrade.lesson_id == Lesson.id)
         .where(LessonGrade.student_id.in_(student_ids))
         .where(LessonGrade.work_number.is_not(None))

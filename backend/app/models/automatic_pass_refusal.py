@@ -13,9 +13,7 @@ if TYPE_CHECKING:
 
 class AutomaticPassRefusal(Base, TimestampMixin):
     __tablename__ = "automatic_pass_refusals"
-    __table_args__ = (
-        UniqueConstraint("offering_id", "student_id", name="uq_automatic_pass_refusal_scope"),
-    )
+    __table_args__ = (UniqueConstraint("offering_id", "student_id", name="uq_automatic_pass_refusal_scope"),)
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     offering_id: Mapped[UUID] = mapped_column(
