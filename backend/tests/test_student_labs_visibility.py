@@ -143,7 +143,7 @@ class TestStudentLabsVisibility:
             fake_position,
         )
 
-        result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
+        result = await get_my_labs(MagicMock(), subject_id=None, db=mock_db, current_user=student)
 
         assert [lab["number"] for lab in result] == [1, 2, 3, 4]
         assert result[-1]["is_available"] is False
@@ -206,7 +206,7 @@ class TestStudentLabsVisibility:
             fake_position,
         )
 
-        result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
+        result = await get_my_labs(MagicMock(), subject_id=None, db=mock_db, current_user=student)
 
         assert [(lab["number"], lab["title"]) for lab in result] == [(1, "Lab 1")]
 
@@ -247,7 +247,7 @@ class TestStudentLabsVisibility:
             AsyncMock(return_value=1),
         )
 
-        result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
+        result = await get_my_labs(MagicMock(), subject_id=None, db=mock_db, current_user=student)
 
         assert [lab["subject_id"] for lab in result] == [str(visible_subject_id)]
 
@@ -317,7 +317,7 @@ class TestStudentLabsVisibility:
             fake_position,
         )
 
-        result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
+        result = await get_my_labs(MagicMock(), subject_id=None, db=mock_db, current_user=student)
 
         assert [(lab["number"], lab["is_available"]) for lab in result] == [(1, True), (2, True), (1, False)]
 
@@ -381,7 +381,7 @@ class TestStudentLabsVisibility:
             fake_position,
         )
 
-        result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
+        result = await get_my_labs(MagicMock(), subject_id=None, db=mock_db, current_user=student)
 
         assert [lab["number"] for lab in result] == [1]
         assert result[0]["is_available"] is False
@@ -402,7 +402,7 @@ class TestDeadlineVisibilitySemantics:
         assert state.lessons_until_deadline_5 == 0
 
     def test_repeated_lab_slots_consume_deadline_budget(self):
-        uuid_1, uuid_2, uuid_3 = uuid4(), uuid4(), uuid4()
+        uuid_1, uuid_2, uuid_3, uuid_4 = uuid4(), uuid4(), uuid4(), uuid4()
         info = _calculate_single_lab_visibility(
             lab_number=1,
             lab_dates={1: (date(2026, 3, 1), date(2026, 3, 15))},
@@ -410,13 +410,14 @@ class TestDeadlineVisibilitySemantics:
                 (uuid_1, 1, date(2026, 3, 1), 1),
                 (uuid_2, 1, date(2026, 3, 8), 1),
                 (uuid_3, 2, date(2026, 3, 15), 1),
+                (uuid_4, 3, date(2026, 3, 22), 1),
             ],
-            past_lesson_ids={uuid_1, uuid_2, uuid_3},
+            past_lesson_ids={uuid_1, uuid_2, uuid_3, uuid_4},
             labs_deadlines={1: (1, None)},
             labs_ids={},
             extensions_map={},
             excused_lab_numbers=set(),
-            today=date(2026, 3, 15),
+            today=date(2026, 3, 22),
         )
 
         assert info.deadline_5_status == "expired"
@@ -585,7 +586,7 @@ async def test_student_labs_list_exposes_deadline_trace(mock_db, monkeypatch):
         AsyncMock(return_value=1),
     )
 
-    result = await get_my_labs(MagicMock(), db=mock_db, current_user=student)
+    result = await get_my_labs(MagicMock(), subject_id=None, db=mock_db, current_user=student)
 
     assert result[0]["deadline_trace"]["current_max_grade"] == 4
     assert result[0]["deadline_trace"]["lesson_index"] == 2

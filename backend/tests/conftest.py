@@ -1,4 +1,9 @@
 """Pytest fixtures for testing."""
+# Monkeypatch SQLAlchemy for Python 3.14 compatibility
+import typing
+import sqlalchemy.util.typing
+sqlalchemy.util.typing.make_union_type = lambda *types: typing.Union.__class_getitem__(types)
+
 import pytest
 import pytest_asyncio
 from typing import AsyncGenerator
